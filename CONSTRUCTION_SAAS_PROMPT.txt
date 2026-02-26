@@ -1,0 +1,1367 @@
+============================================================
+CONSTRUCTION PM AI — Prompt Maître pour Claude Code
+============================================================
+
+Note : Le nom du produit est à définir. Utiliser "CANTAIA" comme placeholder.
+Pour changer le nom : rechercher-remplacer global dans tout le projet.
+
+============================================================
+🎯 VISION DU PROJET
+============================================================
+
+CANTAIA est un assistant IA pour les chefs de projet construction en Suisse.
+Un logiciel installable (desktop + Outlook) qui automatise le travail administratif,
+génère des PV de séance, et offre un tableau de bord multi-chantiers intelligent.
+
+PITCH : "Gagnez 10 heures par semaine. Votre IA trie vos emails par chantier,
+rédige vos PV de séance, et vous alerte quand un projet dérape."
+
+MARCHÉ CIBLE : Chefs de projet, conducteurs de travaux, directeurs de travaux
+en Suisse romande (puis DACH et France).
+
+LANGUE : Trilingue FR / EN / DE (français par défaut)
+
+MODÈLE ÉCONOMIQUE :
+- Phase 1 : 79-149 CHF/mois par utilisateur
+- Phase 2 : 199-499 CHF/mois par utilisateur
+- Phase 3 : 500-2000 CHF/mois par entreprise
+
+============================================================
+🏗️ ARCHITECTURE TECHNIQUE
+============================================================
+
+QUATRE SURFACES, UN SEUL BACKEND :
+
+1. APP DESKTOP (Tauri) — .exe installable Windows/Mac
+   → Dashboard principal, PV de séance, suivi chantiers, chat (futur)
+   → Auto-update intégré Tauri
+   → Utilisé quotidiennement au bureau
+
+2. ADD-IN OUTLOOK — Panneau latéral dans Outlook
+   → Classement emails par chantier, extraction tâches, briefing quotidien
+   → Installé via le store Microsoft Office Add-ins
+   → Toujours visible pendant le travail email
+
+3. PWA MOBILE — Web app responsive installable
+   → Enregistrement réunions terrain, saisie avancement (Phase 2), chat (Phase 3)
+   → Utilisé sur le chantier
+
+4. ADMIN DASHBOARD — Web app accès restreint
+   → Vue sur tous les clients, logs d'erreurs, analytics usage, debug
+   → Uniquement pour l'équipe interne
+
+------------------------------------------------------------
+STACK TECHNOLOGIQUE
+------------------------------------------------------------
+
+| Couche           | Technologie                | Justification                              |
+|------------------|----------------------------|--------------------------------------------|
+| Frontend         | React + TypeScript         | Partagé entre toutes les surfaces          |
+| Desktop          | Tauri 2.0                  | App native légère, auto-update, .exe/.dmg  |
+| Outlook Add-in   | Office.js + React          | Standard Microsoft, panneau latéral        |
+| Mobile           | PWA (Next.js)              | Installable, offline-capable               |
+| Admin            | Next.js (App Router)       | SSR, déploiement Vercel                    |
+| Backend API      | Next.js API Routes         | Serverless, scalable                       |
+| Base de données  | Supabase (PostgreSQL)      | Auth, DB, Storage, Realtime, RLS           |
+| Auth             | Supabase Auth              | Email/password + Microsoft OAuth           |
+| IA Texte         | API Anthropic (Claude)     | Classement, extraction, génération PV      |
+| IA Audio         | OpenAI Whisper API         | Transcription réunions                     |
+| Paiement         | Stripe                     | Abonnements SaaS                           |
+| Email            | Resend                     | Emails transactionnels                     |
+| i18n             | next-intl (web) + i18next (Tauri) | Trilingue FR/EN/DE              |
+| Stockage         | Supabase Storage           | Audio, documents, photos                   |
+| Temps réel       | Supabase Realtime          | Notifications, chat futur                  |
+| Hébergement API  | Vercel                     | Serverless, Edge Functions                 |
+| Monitoring       | Sentry                     | Error tracking toutes surfaces             |
+| Logs             | Table Supabase custom      | Logs applicatifs pour admin dashboard      |
+
+------------------------------------------------------------
+STRUCTURE DU PROJET (MONOREPO)
+------------------------------------------------------------
+
+cantaia/
+├── apps/
+│   ├── desktop/                   # App Tauri
+│   │   ├── src/                   # Code Rust Tauri
+│   │   ├── src-tauri/
+│   │   │   ├── tauri.conf.json    # Config Tauri (nom, icône, auto-update)
+│   │   │   ├── src/
+│   │   │   │   └── main.rs
+│   │   │   └── icons/
+│   │   └── index.html
+│   ├── outlook-addin/             # Add-in Outlook
+│   │   ├── manifest.xml           # Manifest Office Add-in
+│   │   ├── src/
+│   │   │   ├── taskpane/          # Panneau principal
+│   │   │   ├── commands/          # Commandes Outlook
+│   │   │   └── helpers/
+│   │   └── assets/
+│   ├── web/                       # Next.js (PWA mobile + Admin)
+│   │   ├── src/
+│   │   │   ├── app/
+│   │   │   │   ├── [locale]/
+│   │   │   │   │   ├── (app)/     # PWA mobile
+│   │   │   │   │   │   ├── dashboard/
+│   │   │   │   │   │   ├── projects/
+│   │   │   │   │   │   ├── meetings/
+│   │   │   │   │   │   └── tasks/
+│   │   │   │   │   ├── (admin)/   # Admin dashboard
+│   │   │   │   │   │   ├── clients/
+│   │   │   │   │   │   ├── logs/
+│   │   │   │   │   │   ├── analytics/
+│   │   │   │   │   │   └── debug/
+│   │   │   │   │   ├── (auth)/
+│   │   │   │   │   │   ├── login/
+│   │   │   │   │   │   └── register/
+│   │   │   │   │   └── (marketing)/
+│   │   │   │   │       ├── page.tsx    # Landing page
+│   │   │   │   │       ├── pricing/
+│   │   │   │   │       └── about/
+│   │   │   │   └── api/
+│   │   │   │       ├── ai/
+│   │   │   │       │   ├── classify-email/
+│   │   │   │       │   ├── extract-tasks/
+│   │   │   │       │   ├── generate-pv/
+│   │   │   │       │   ├── generate-briefing/
+│   │   │   │       │   └── match-project/
+│   │   │   │       ├── outlook/
+│   │   │   │       │   ├── sync/
+│   │   │   │       │   └── webhook/
+│   │   │   │       ├── transcription/
+│   │   │   │       │   └── process/
+│   │   │   │       ├── webhooks/
+│   │   │   │       │   └── stripe/
+│   │   │   │       └── admin/
+│   │   │   │           ├── clients/
+│   │   │   │           ├── logs/
+│   │   │   │           └── debug/
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   ├── lib/
+│   │   │   └── types/
+│   │   └── public/
+├── packages/
+│   ├── ui/                        # Composants React partagés
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── layout/
+│   │   │   │   │   ├── Sidebar.tsx
+│   │   │   │   │   ├── Header.tsx
+│   │   │   │   │   └── MobileNav.tsx
+│   │   │   │   ├── projects/
+│   │   │   │   │   ├── ProjectCard.tsx
+│   │   │   │   │   ├── ProjectList.tsx
+│   │   │   │   │   └── ProjectForm.tsx
+│   │   │   │   ├── tasks/
+│   │   │   │   │   ├── TaskList.tsx
+│   │   │   │   │   ├── TaskCard.tsx
+│   │   │   │   │   └── TaskForm.tsx
+│   │   │   │   ├── meetings/
+│   │   │   │   │   ├── MeetingRecorder.tsx
+│   │   │   │   │   ├── PVPreview.tsx
+│   │   │   │   │   ├── PVEditor.tsx
+│   │   │   │   │   └── MeetingList.tsx
+│   │   │   │   ├── emails/
+│   │   │   │   │   ├── EmailSummary.tsx
+│   │   │   │   │   ├── EmailClassification.tsx
+│   │   │   │   │   └── DailyBriefing.tsx
+│   │   │   │   ├── admin/
+│   │   │   │   │   ├── ClientList.tsx
+│   │   │   │   │   ├── ClientDetail.tsx
+│   │   │   │   │   ├── LogViewer.tsx
+│   │   │   │   │   ├── ErrorTracker.tsx
+│   │   │   │   │   └── UsageAnalytics.tsx
+│   │   │   │   └── shared/
+│   │   │   │       ├── StatusBadge.tsx
+│   │   │   │       ├── PriorityIndicator.tsx
+│   │   │   │       ├── DatePicker.tsx
+│   │   │   │       ├── FileUpload.tsx
+│   │   │   │       └── LanguageSwitcher.tsx
+│   │   │   └── index.ts
+│   │   └── package.json
+│   ├── core/                      # Logique métier partagée
+│   │   ├── src/
+│   │   │   ├── ai/
+│   │   │   │   ├── email-classifier.ts
+│   │   │   │   ├── task-extractor.ts
+│   │   │   │   ├── pv-generator.ts
+│   │   │   │   ├── briefing-generator.ts
+│   │   │   │   └── prompts.ts         # Tous les prompts IA centralisés
+│   │   │   ├── outlook/
+│   │   │   │   ├── graph-client.ts     # Microsoft Graph API
+│   │   │   │   ├── email-sync.ts
+│   │   │   │   └── calendar-sync.ts
+│   │   │   ├── models/
+│   │   │   │   ├── project.ts
+│   │   │   │   ├── task.ts
+│   │   │   │   ├── meeting.ts
+│   │   │   │   ├── email-record.ts
+│   │   │   │   └── user.ts
+│   │   │   ├── services/
+│   │   │   │   ├── project-service.ts
+│   │   │   │   ├── task-service.ts
+│   │   │   │   ├── meeting-service.ts
+│   │   │   │   ├── email-service.ts
+│   │   │   │   ├── notification-service.ts
+│   │   │   │   └── admin-service.ts
+│   │   │   └── utils/
+│   │   │       ├── formatters.ts
+│   │   │       ├── validators.ts
+│   │   │       ├── date-helpers.ts
+│   │   │       └── swiss-construction.ts  # CFC codes, normes SIA, etc.
+│   │   └── package.json
+│   ├── database/                  # Schéma et migrations Supabase
+│   │   ├── migrations/
+│   │   │   ├── 001_initial_schema.sql
+│   │   │   ├── 002_rls_policies.sql
+│   │   │   └── 003_functions_triggers.sql
+│   │   ├── seed.sql
+│   │   └── types.ts               # Types générés depuis le schéma
+│   └── config/                    # Config partagée
+│       ├── tailwind.config.ts
+│       ├── tsconfig.base.json
+│       └── constants.ts
+├── .env.local.example
+├── turbo.json                     # Turborepo config
+├── package.json
+└── pnpm-workspace.yaml
+
+============================================================
+🗄️ SCHÉMA DE BASE DE DONNÉES
+============================================================
+
+-- Conçu pour supporter les 3 étages dès le départ.
+-- Les tables Phase 2/3 sont créées mais non utilisées au début.
+
+------------------------------------------------------------
+-- EXTENSIONS
+------------------------------------------------------------
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- Recherche floue texte
+
+------------------------------------------------------------
+-- ENUM TYPES
+------------------------------------------------------------
+
+CREATE TYPE user_role AS ENUM ('project_manager', 'site_manager', 'foreman', 'admin', 'superadmin');
+CREATE TYPE subscription_plan AS ENUM ('trial', 'starter', 'pro', 'enterprise');
+CREATE TYPE project_status AS ENUM ('planning', 'active', 'paused', 'completed', 'archived');
+CREATE TYPE task_status AS ENUM ('open', 'in_progress', 'waiting', 'completed', 'cancelled');
+CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent');
+CREATE TYPE task_source AS ENUM ('email', 'meeting_pv', 'manual', 'ai_suggestion');
+CREATE TYPE meeting_status AS ENUM ('scheduled', 'recording', 'transcribing', 'generating_pv', 'review', 'finalized', 'sent');
+CREATE TYPE email_classification AS ENUM ('action_required', 'info_only', 'urgent', 'waiting_response', 'archived');
+CREATE TYPE log_level AS ENUM ('info', 'warning', 'error', 'critical');
+
+------------------------------------------------------------
+-- TABLES — CORE (Phase 1+2+3)
+------------------------------------------------------------
+
+-- Organisations (entreprises clientes)
+CREATE TABLE organizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    address TEXT,
+    city TEXT DEFAULT 'Lausanne',
+    country TEXT DEFAULT 'CH',
+    industry TEXT DEFAULT 'construction',
+    subscription_plan subscription_plan DEFAULT 'trial',
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days'),
+    max_users INTEGER DEFAULT 3,
+    max_projects INTEGER DEFAULT 5,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Utilisateurs
+CREATE TABLE users (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(id),
+    email TEXT NOT NULL UNIQUE,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    role user_role DEFAULT 'project_manager',
+    avatar_url TEXT,
+    phone TEXT,
+    preferred_language TEXT DEFAULT 'fr' CHECK (preferred_language IN ('fr', 'en', 'de')),
+    microsoft_access_token TEXT,       -- Token Microsoft Graph API
+    microsoft_refresh_token TEXT,
+    microsoft_token_expires_at TIMESTAMPTZ,
+    outlook_sync_enabled BOOLEAN DEFAULT FALSE,
+    last_sync_at TIMESTAMPTZ,
+    notification_preferences JSONB DEFAULT '{"email": true, "push": true, "desktop": true}',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Projets / Chantiers
+CREATE TABLE projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
+    created_by UUID NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL,                 -- "Campus RTS Ecublens"
+    code TEXT,                          -- "RTS-2026" (code interne)
+    description TEXT,
+    client_name TEXT,                   -- Maître d'ouvrage
+    address TEXT,
+    city TEXT DEFAULT 'Lausanne',
+    status project_status DEFAULT 'active',
+
+    -- Identification emails (mots-clés pour le classement IA)
+    email_keywords TEXT[] DEFAULT '{}', -- ['campus rts', 'ecublens', 'fehlmann']
+    email_senders TEXT[] DEFAULT '{}',  -- ['architecte@bureau.ch', 'ing@struct.ch']
+
+    -- Dates
+    start_date DATE,
+    end_date DATE,
+    
+    -- Phase 2 : Données financières (préparées mais non utilisées en Phase 1)
+    budget_total DECIMAL(12,2),
+    currency TEXT DEFAULT 'CHF',
+
+    -- Métadonnées
+    color TEXT DEFAULT '#6366F1',       -- Couleur du projet dans le dashboard
+    archived_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Membres d'un projet (qui a accès)
+CREATE TABLE project_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member', -- 'owner', 'member', 'viewer'
+    added_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(project_id, user_id)
+);
+
+------------------------------------------------------------
+-- TABLES — EMAILS (Phase 1)
+------------------------------------------------------------
+
+-- Emails synchronisés et classés
+CREATE TABLE email_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id),  -- NULL si non classé
+    outlook_message_id TEXT NOT NULL,           -- ID Microsoft Graph
+    subject TEXT NOT NULL,
+    sender_email TEXT NOT NULL,
+    sender_name TEXT,
+    recipients TEXT[] DEFAULT '{}',
+    received_at TIMESTAMPTZ NOT NULL,
+    body_preview TEXT,                          -- 500 premiers caractères
+    has_attachments BOOLEAN DEFAULT FALSE,
+    classification email_classification,
+    ai_classification_confidence DECIMAL(4,2), -- 0-100
+    ai_project_match_confidence DECIMAL(4,2),
+    ai_summary TEXT,                            -- Résumé IA en 1-2 phrases
+    is_processed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_emails_user ON email_records(user_id);
+CREATE INDEX idx_emails_project ON email_records(project_id);
+CREATE INDEX idx_emails_received ON email_records(received_at DESC);
+CREATE INDEX idx_emails_outlook_id ON email_records(outlook_message_id);
+
+------------------------------------------------------------
+-- TABLES — TÂCHES (Phase 1)
+------------------------------------------------------------
+
+CREATE TABLE tasks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES users(id),
+    assigned_to UUID REFERENCES users(id),
+    assigned_to_name TEXT,              -- Pour les personnes hors système
+    assigned_to_company TEXT,           -- Entreprise sous-traitante
+    title TEXT NOT NULL,
+    description TEXT,
+    status task_status DEFAULT 'open',
+    priority task_priority DEFAULT 'medium',
+    source task_source DEFAULT 'manual',
+    source_id UUID,                     -- ID de l'email ou du PV source
+    source_reference TEXT,              -- "PV Séance #12, point 4.3"
+    due_date DATE,
+    completed_at TIMESTAMPTZ,
+    reminder_sent BOOLEAN DEFAULT FALSE,
+    
+    -- Phase 2 : Lien avec lots/CFC (préparé)
+    lot_code TEXT,                      -- Code CFC "271"
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_tasks_project ON tasks(project_id);
+CREATE INDEX idx_tasks_assigned ON tasks(assigned_to);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_due ON tasks(due_date);
+
+------------------------------------------------------------
+-- TABLES — RÉUNIONS & PV (Phase 1)
+------------------------------------------------------------
+
+CREATE TABLE meetings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    created_by UUID NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL,                -- "Séance de chantier #12"
+    meeting_number INTEGER,             -- Numéro séquentiel
+    meeting_date TIMESTAMPTZ NOT NULL,
+    location TEXT,
+    status meeting_status DEFAULT 'scheduled',
+    
+    -- Audio
+    audio_url TEXT,                     -- URL Supabase Storage
+    audio_duration_seconds INTEGER,
+    
+    -- Transcription
+    transcription_raw TEXT,             -- Transcription brute Whisper
+    transcription_language TEXT DEFAULT 'fr',
+    
+    -- PV généré
+    pv_content JSONB,                   -- PV structuré (sections, décisions, actions)
+    pv_document_url TEXT,               -- URL du Word/PDF généré
+    pv_version INTEGER DEFAULT 1,
+    
+    -- Participants
+    participants JSONB DEFAULT '[]',    -- [{name, company, role, present}]
+    
+    -- Distribution
+    sent_to TEXT[] DEFAULT '{}',        -- Emails de distribution
+    sent_at TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_meetings_project ON meetings(project_id);
+CREATE INDEX idx_meetings_date ON meetings(meeting_date DESC);
+
+------------------------------------------------------------
+-- TABLES — BRIEFINGS QUOTIDIENS (Phase 1)
+------------------------------------------------------------
+
+CREATE TABLE daily_briefings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    briefing_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    content JSONB NOT NULL,             -- Briefing structuré par projet
+    -- Exemple de content :
+    -- {
+    --   "projects": [
+    --     {
+    --       "project_id": "uuid",
+    --       "name": "Campus RTS",
+    --       "unread_emails": 3,
+    --       "overdue_tasks": 1,
+    --       "upcoming_deadlines": [...],
+    --       "ai_alerts": ["Action en retard depuis 5 jours: ..."],
+    --       "summary": "3 emails non traités. 1 tâche en retard..."
+    --     }
+    --   ],
+    --   "global_summary": "Vous avez 7 emails à traiter et 2 tâches en retard."
+    -- }
+    is_sent BOOLEAN DEFAULT FALSE,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, briefing_date)
+);
+
+------------------------------------------------------------
+-- TABLES — NOTIFICATIONS
+------------------------------------------------------------
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    -- Types: 'task_overdue', 'new_email_urgent', 'pv_ready', 'task_assigned',
+    --        'briefing_ready', 'payment_due', 'sync_error', 'ai_alert'
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    data JSONB DEFAULT '{}',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifs_user ON notifications(user_id, is_read, created_at DESC);
+
+------------------------------------------------------------
+-- TABLES — ADMIN & LOGS
+------------------------------------------------------------
+
+-- Logs applicatifs (pour le dashboard admin)
+CREATE TABLE app_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    organization_id UUID REFERENCES organizations(id),
+    level log_level DEFAULT 'info',
+    source TEXT NOT NULL,               -- 'outlook_sync', 'ai_classify', 'pv_generate', etc.
+    message TEXT NOT NULL,
+    details JSONB DEFAULT '{}',         -- Stack trace, request data, etc.
+    client_type TEXT,                   -- 'desktop', 'outlook_addin', 'pwa', 'api'
+    client_version TEXT,                -- "1.2.3"
+    ip_address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_logs_org ON app_logs(organization_id, created_at DESC);
+CREATE INDEX idx_logs_level ON app_logs(level, created_at DESC);
+CREATE INDEX idx_logs_source ON app_logs(source, created_at DESC);
+
+-- Suivi d'usage (analytics)
+CREATE TABLE usage_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    organization_id UUID REFERENCES organizations(id),
+    event_type TEXT NOT NULL,
+    -- Types: 'email_classified', 'task_created', 'pv_generated', 'briefing_viewed',
+    --        'login', 'sync_completed', 'ai_used'
+    metadata JSONB DEFAULT '{}',
+    client_type TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_usage_org ON usage_events(organization_id, created_at DESC);
+CREATE INDEX idx_usage_type ON usage_events(event_type, created_at DESC);
+
+------------------------------------------------------------
+-- TABLES — PHASE 2 (Préparées, vides au lancement)
+------------------------------------------------------------
+
+-- Lots / CFC (suivi financier)
+CREATE TABLE lots (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    cfc_code TEXT NOT NULL,             -- "271", "342", etc.
+    name TEXT NOT NULL,                 -- "Chape", "Peinture", etc.
+    contractor_name TEXT,               -- Entreprise adjudicataire
+    contractor_email TEXT,
+    budget_soumission DECIMAL(12,2),    -- Montant soumission/contrat
+    budget_avenant DECIMAL(12,2) DEFAULT 0,
+    amount_invoiced DECIMAL(12,2) DEFAULT 0,
+    advancement_percent DECIMAL(5,2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Phase 3 : Messages chat (préparé)
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id),
+    content TEXT NOT NULL,
+    reply_to UUID REFERENCES messages(id),
+    attachments JSONB DEFAULT '[]',
+    is_edited BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+------------------------------------------------------------
+-- ROW LEVEL SECURITY
+------------------------------------------------------------
+
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE meetings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_briefings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- Users voient leur organisation
+CREATE POLICY "Users see own org" ON organizations FOR SELECT
+    USING (id IN (SELECT organization_id FROM users WHERE id = auth.uid()));
+
+-- Users voient les membres de leur org
+CREATE POLICY "Users see org members" ON users FOR SELECT
+    USING (organization_id IN (SELECT organization_id FROM users WHERE id = auth.uid()));
+CREATE POLICY "Users update own profile" ON users FOR UPDATE
+    USING (id = auth.uid());
+
+-- Projets : membres du projet uniquement
+CREATE POLICY "Project members see projects" ON projects FOR SELECT
+    USING (id IN (SELECT project_id FROM project_members WHERE user_id = auth.uid()));
+CREATE POLICY "Users create projects in own org" ON projects FOR INSERT
+    WITH CHECK (organization_id IN (SELECT organization_id FROM users WHERE id = auth.uid()));
+
+-- Emails : uniquement les siens
+CREATE POLICY "Users see own emails" ON email_records FOR SELECT
+    USING (user_id = auth.uid());
+
+-- Tâches : membres du projet
+CREATE POLICY "Project members see tasks" ON tasks FOR SELECT
+    USING (project_id IN (SELECT project_id FROM project_members WHERE user_id = auth.uid()));
+CREATE POLICY "Project members create tasks" ON tasks FOR INSERT
+    WITH CHECK (project_id IN (SELECT project_id FROM project_members WHERE user_id = auth.uid()));
+
+-- Réunions : membres du projet
+CREATE POLICY "Project members see meetings" ON meetings FOR SELECT
+    USING (project_id IN (SELECT project_id FROM project_members WHERE user_id = auth.uid()));
+
+-- Notifications : les siennes
+CREATE POLICY "Users see own notifs" ON notifications FOR SELECT
+    USING (user_id = auth.uid());
+
+-- Briefings : les siens
+CREATE POLICY "Users see own briefings" ON daily_briefings FOR SELECT
+    USING (user_id = auth.uid());
+
+-- Logs et usage : superadmin uniquement
+CREATE POLICY "Superadmin sees logs" ON app_logs FOR SELECT
+    USING (auth.uid() IN (SELECT id FROM users WHERE role = 'superadmin'));
+CREATE POLICY "Superadmin sees usage" ON usage_events FOR SELECT
+    USING (auth.uid() IN (SELECT id FROM users WHERE role = 'superadmin'));
+
+------------------------------------------------------------
+-- TRIGGERS
+------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER projects_updated BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER tasks_updated BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER meetings_updated BEFORE UPDATE ON meetings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER organizations_updated BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+============================================================
+🤖 MODULES IA — PROMPTS DÉTAILLÉS
+============================================================
+
+------------------------------------------------------------
+MODULE 1 : Classement d'emails par projet
+------------------------------------------------------------
+
+Endpoint : POST /api/ai/classify-email
+
+Déclencheur : Chaque nouvel email synchronisé via Microsoft Graph.
+
+Prompt Claude :
+
+"""
+Tu es un assistant IA spécialisé dans la gestion de projets de construction en Suisse.
+
+Voici les projets actifs de l'utilisateur :
+{projects_list}
+Chaque projet a un nom, un code, des mots-clés, et des expéditeurs connus.
+
+Voici un nouvel email :
+- De : {sender_email} ({sender_name})
+- Objet : {subject}
+- Extrait : {body_preview}
+- Date : {received_at}
+
+Tâches :
+1. Détermine à quel projet cet email appartient (ou "non_classé" si aucun)
+2. Classifie l'urgence : action_required, info_only, urgent, waiting_response
+3. Génère un résumé en 1-2 phrases
+4. Détecte s'il contient une tâche implicite (deadline, demande d'action)
+
+Réponds UNIQUEMENT en JSON :
+{
+  "project_id": "<uuid ou null>",
+  "project_match_confidence": <0-100>,
+  "classification": "<action_required|info_only|urgent|waiting_response>",
+  "classification_confidence": <0-100>,
+  "summary_fr": "<résumé 1-2 phrases>",
+  "summary_en": "<résumé>",
+  "summary_de": "<résumé>",
+  "contains_task": <true|false>,
+  "task": {
+    "title": "<titre de la tâche si détectée>",
+    "due_date": "<YYYY-MM-DD si mentionné, sinon null>",
+    "assigned_to_name": "<nom si mentionné>",
+    "assigned_to_company": "<entreprise si mentionnée>",
+    "priority": "<low|medium|high|urgent>"
+  }
+}
+"""
+
+------------------------------------------------------------
+MODULE 2 : Extraction de tâches depuis les emails
+------------------------------------------------------------
+
+Endpoint : POST /api/ai/extract-tasks
+
+Prompt Claude :
+
+"""
+Tu es un assistant pour chefs de projet construction. Analyse cet email et
+extrais TOUTES les tâches/actions implicites ou explicites.
+
+Email :
+- Projet : {project_name}
+- De : {sender}
+- Objet : {subject}
+- Contenu : {body}
+
+Pour chaque tâche détectée, retourne :
+{
+  "tasks": [
+    {
+      "title": "<action claire et concise>",
+      "description": "<contexte de l'email>",
+      "assigned_to_name": "<qui doit agir>",
+      "assigned_to_company": "<entreprise>",
+      "due_date": "<YYYY-MM-DD ou null>",
+      "priority": "<low|medium|high|urgent>",
+      "source_quote": "<phrase exacte de l'email qui implique cette tâche>"
+    }
+  ]
+}
+
+Règles :
+- "Merci de nous envoyer..." = tâche pour le destinataire
+- "Nous reviendrons vers vous..." = tâche en attente
+- Une date mentionnée = deadline
+- "Urgent", "dès que possible", "rapidement" = priorité haute
+- Si aucune tâche détectée, retourne {"tasks": []}
+"""
+
+------------------------------------------------------------
+MODULE 3 : Génération de PV de séance
+------------------------------------------------------------
+
+Endpoint : POST /api/ai/generate-pv
+
+Déclencheur : Après transcription audio d'une réunion.
+
+Prompt Claude :
+
+"""
+Tu es un rédacteur professionnel de procès-verbaux de séances de chantier
+en Suisse. Tu connais les normes SIA et les pratiques suisses.
+
+Informations de la réunion :
+- Projet : {project_name} ({project_code})
+- Séance n° : {meeting_number}
+- Date : {meeting_date}
+- Lieu : {location}
+- Participants connus : {participants}
+
+Transcription de la réunion :
+{transcription}
+
+Génère un PV structuré en JSON avec le format suivant :
+{
+  "header": {
+    "project_name": "",
+    "project_code": "",
+    "meeting_number": 0,
+    "date": "",
+    "location": "",
+    "next_meeting_date": "<si mentionné>",
+    "participants": [
+      {"name": "", "company": "", "role": "", "present": true}
+    ],
+    "absent": [
+      {"name": "", "company": "", "excused": true}
+    ],
+    "distribution": ["<liste de diffusion>"]
+  },
+  "sections": [
+    {
+      "number": "1",
+      "title": "<titre du point traité>",
+      "content": "<résumé des discussions>",
+      "decisions": ["<décision prise>"],
+      "actions": [
+        {
+          "description": "<action à entreprendre>",
+          "responsible_name": "<personne>",
+          "responsible_company": "<entreprise>",
+          "deadline": "<date ou description>",
+          "priority": "<normal|urgent>"
+        }
+      ]
+    }
+  ],
+  "next_steps": ["<prochaines étapes générales>"],
+  "summary_fr": "<résumé global en 3-5 lignes>"
+}
+
+Règles :
+- Utilise un ton professionnel et neutre
+- Numérote les sections (1, 2, 3...)
+- Extrais TOUTES les actions mentionnées avec un responsable
+- Si un intervenant n'est pas identifié, note "Intervenant non identifié"
+- Les décisions doivent être clairement séparées des discussions
+- La langue du PV doit être : {language}
+"""
+
+------------------------------------------------------------
+MODULE 4 : Briefing quotidien
+------------------------------------------------------------
+
+Endpoint : POST /api/ai/generate-briefing
+Déclencheur : Cron job quotidien à 06:00.
+
+Prompt Claude :
+
+"""
+Tu es l'assistant IA d'un chef de projet construction. Génère son briefing
+matinal concis et actionnable.
+
+Utilisateur : {user_name}
+Date : {today}
+
+Données par projet :
+{per_project_data}
+(inclut : emails non traités, tâches en retard, tâches dues aujourd'hui,
+réunions du jour, dernières alertes)
+
+Génère un briefing en JSON :
+{
+  "greeting": "<Bonjour {prénom}, voici votre briefing du {date}.>",
+  "priority_alerts": [
+    "<alertes critiques, max 3>"
+  ],
+  "projects": [
+    {
+      "project_id": "",
+      "name": "",
+      "status_emoji": "<🟢|🟡|🔴>",
+      "summary": "<1-2 phrases>",
+      "action_items": ["<actions prioritaires>"]
+    }
+  ],
+  "meetings_today": [
+    {"time": "", "project": "", "title": ""}
+  ],
+  "global_summary": "<résumé en 2-3 phrases>"
+}
+
+Ton : professionnel mais humain. Pas de jargon inutile. Va droit au but.
+"""
+
+============================================================
+📧 INTÉGRATION MICROSOFT OUTLOOK
+============================================================
+
+L'intégration Outlook est au cœur du produit. Deux volets :
+
+1. SYNCHRONISATION EMAILS (Backend)
+
+Utilise Microsoft Graph API pour :
+- Lire les emails de l'utilisateur (avec son consentement OAuth)
+- Écouter les nouveaux emails (webhooks ou polling)
+- Classifier et indexer chaque email
+
+Flux :
+1. L'utilisateur connecte son compte Microsoft (OAuth 2.0)
+2. L'app obtient un access_token + refresh_token
+3. Un job récurrent (toutes les 5 min) récupère les nouveaux emails
+4. Chaque email est envoyé à l'IA pour classement
+5. Les tâches détectées sont créées automatiquement
+
+Configuration Microsoft :
+- Enregistrer une app sur Azure AD (portal.azure.com)
+- Permissions requises : Mail.Read, Mail.ReadBasic, Calendars.Read, User.Read
+- Redirect URI pour l'OAuth
+
+Code clé :
+```typescript
+// Microsoft Graph - Récupérer les derniers emails
+const response = await graphClient
+  .api('/me/messages')
+  .select('id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments')
+  .filter(`receivedDateTime ge ${lastSyncDate}`)
+  .orderby('receivedDateTime desc')
+  .top(50)
+  .get();
+```
+
+2. ADD-IN OUTLOOK (Frontend)
+
+Panneau latéral qui affiche :
+- Le projet détecté pour l'email ouvert
+- Les tâches extraites de cet email
+- Le briefing du jour
+- Les actions rapides (reclasser, créer tâche, marquer urgent)
+
+Manifest XML pour l'add-in :
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" 
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="MailApp">
+  <Id>{unique-guid}</Id>
+  <Version>1.0.0</Version>
+  <ProviderName>CANTAIA</ProviderName>
+  <DefaultLocale>fr-CH</DefaultLocale>
+  <DisplayName DefaultValue="CANTAIA" />
+  <Description DefaultValue="Assistant IA pour chef de projet construction" />
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1" />
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://your-domain/outlook/taskpane" />
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+</OfficeApp>
+```
+
+============================================================
+🖥️ APP DESKTOP TAURI
+============================================================
+
+Configuration Tauri (tauri.conf.json) :
+```json
+{
+  "build": {
+    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "pnpm dev",
+    "devPath": "http://localhost:3000",
+    "distDir": "../web/out"
+  },
+  "package": {
+    "productName": "CANTAIA",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": { "open": true },
+      "dialog": { "all": true },
+      "fs": { "all": true, "scope": ["$APPDATA/**", "$DOCUMENT/**"] },
+      "notification": { "all": true },
+      "clipboard": { "all": true }
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.cantaia.app",
+      "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
+      "targets": ["msi", "nsis"]
+    },
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "endpoints": ["https://releases.cantaia.ch/{{target}}/{{current_version}}"],
+      "pubkey": "YOUR_PUBLIC_KEY"
+    },
+    "windows": [{
+      "title": "CANTAIA",
+      "width": 1280,
+      "height": 800,
+      "minWidth": 1024,
+      "minHeight": 600,
+      "resizable": true,
+      "fullscreen": false
+    }]
+  }
+}
+```
+
+Features Tauri spécifiques :
+- Notifications desktop natives (nouvelle tâche urgente, briefing prêt)
+- Auto-update en arrière-plan avec dialogue de redémarrage
+- Accès au système de fichiers pour export Word/PDF des PV
+- Icône dans la barre système (system tray) avec badge notifications
+
+============================================================
+👑 ADMIN DASHBOARD
+============================================================
+
+Accessible à : /admin (protégé par rôle superadmin)
+
+PAGES :
+
+1. Vue d'ensemble
+   - Nombre total d'organisations, utilisateurs, projets
+   - Graphique : inscriptions par semaine
+   - Graphique : usage quotidien (emails classés, PV générés, tâches créées)
+   - Revenu MRR actuel et évolution
+
+2. Liste clients (/admin/clients)
+   - Tableau : organisation, plan, nombre users, nombre projets, dernier login, statut
+   - Filtres : plan, statut, ville
+   - Clic → détail client
+
+3. Détail client (/admin/clients/[id])
+   - Infos organisation
+   - Liste des utilisateurs avec leur dernier login
+   - Activité : nombre d'emails classés, PV générés, tâches créées (7j/30j)
+   - Erreurs récentes de ce client
+   - Bouton : "Se connecter en tant que" (impersonation pour debug)
+   - Bouton : "Envoyer un message"
+
+4. Logs (/admin/logs)
+   - Tableau en temps réel des logs applicatifs
+   - Filtres : niveau (info/warning/error/critical), source, client, date
+   - Détail de chaque log avec stack trace et contexte
+   - Alertes automatiques pour les erreurs critiques
+
+5. Analytics (/admin/analytics)
+   - Graphiques d'usage par feature
+   - Rétention par cohorte
+   - Features les plus/moins utilisées
+   - Temps moyen de génération PV
+   - Taux de précision du classement emails (basé sur les reclassements manuels)
+
+6. Debug (/admin/debug)
+   - Statut des services : Supabase, Claude API, Whisper, Microsoft Graph, Stripe
+   - Queue de jobs (sync emails, génération PV, briefings)
+   - Possibilité de relancer un job échoué
+   - Logs Stripe (paiements, erreurs)
+
+============================================================
+🎨 DESIGN SYSTEM
+============================================================
+
+PALETTE :
+- Primary : #1E3A5F (bleu foncé professionnel — construction)
+- Primary light : #2563EB (bleu actions)
+- Secondary : #F59E0B (ambre — alertes, warnings)
+- Background : #FFFFFF / #F8FAFC / #0F172A (dark mode)
+- Text : #0F172A / #64748B
+- Success : #10B981
+- Error : #EF4444
+- Project colors : palette de 8 couleurs distinctes pour les chantiers
+
+TYPOGRAPHIE :
+- Titres : Inter (bold/semibold)
+- Corps : Inter (regular/medium)
+- Mono : JetBrains Mono (codes CFC, montants CHF, timestamps)
+- Tailles : 14px base, 13px compact (tableaux)
+
+COMPOSANTS SPÉCIFIQUES :
+- ProjectBadge : pastille colorée avec code projet
+- TaskRow : ligne compacte avec priorité, statut, deadline, assigné
+- EmailRow : ligne avec indicateur projet, classification, résumé IA
+- PVTimeline : étapes visuelles (enregistrement → transcription → PV → envoi)
+- BriefingCard : carte projet avec emoji statut, résumé, actions
+- AlertBanner : bandeau pour les alertes IA critiques
+- AdminMetricCard : carte avec chiffre, tendance, graphique sparkline
+
+DARK MODE : Supporté nativement. Le chef de projet qui travaille tôt le matin
+ou tard le soir appréciera. Toggle dans les settings.
+
+============================================================
+📦 PACKAGES À INSTALLER
+============================================================
+
+# Monorepo setup
+npm install -g pnpm
+pnpm init
+# Créer pnpm-workspace.yaml et turbo.json
+
+# App web (Next.js)
+cd apps/web
+pnpx create-next-app@latest . --typescript --tailwind --app --src-dir
+pnpx shadcn@latest init
+pnpx shadcn@latest add button card input label select textarea badge dialog
+  dropdown-menu avatar tabs separator sheet toast accordion table switch
+  tooltip popover command calendar
+
+# Supabase
+pnpm add @supabase/supabase-js @supabase/ssr
+
+# Microsoft Graph (Outlook)
+pnpm add @microsoft/microsoft-graph-client @azure/msal-browser @azure/msal-node
+
+# IA
+pnpm add @anthropic-ai/sdk openai  # Claude + Whisper
+
+# Paiement
+pnpm add stripe
+
+# UI & UX
+pnpm add lucide-react framer-motion recharts date-fns zustand
+pnpm add zod react-hook-form @hookform/resolvers
+pnpm add next-intl next-themes  # i18n + dark mode
+
+# Email
+pnpm add resend
+
+# Monitoring
+pnpm add @sentry/nextjs
+
+# App desktop (Tauri)
+cd apps/desktop
+pnpm add @tauri-apps/api @tauri-apps/cli
+# Installer Rust et les prérequis Tauri : https://tauri.app/start/prerequisites/
+
+# Outlook Add-in
+cd apps/outlook-addin
+pnpm add @microsoft/office-js
+
+============================================================
+⚙️ VARIABLES D'ENVIRONNEMENT
+============================================================
+
+# .env.local
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Microsoft Azure AD (Outlook)
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=
+MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
+
+# Anthropic (Claude)
+ANTHROPIC_API_KEY=
+
+# OpenAI (Whisper)
+OPENAI_API_KEY=
+
+# Stripe
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Resend
+RESEND_API_KEY=
+
+# Sentry
+SENTRY_DSN=
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=CANTAIA
+
+# Admin
+ADMIN_SECRET_KEY=  # Pour les routes admin protégées
+
+============================================================
+🚀 ORDRE DE CONSTRUCTION POUR CLAUDE CODE
+============================================================
+
+ÉTAPE 1 — Setup Monorepo (jour 1-2)
+Initialise le monorepo avec pnpm workspaces et Turborepo.
+Crée la structure de dossiers complète (apps/ et packages/).
+Configure le package "ui" partagé avec shadcn/ui.
+Configure le package "core" avec les types de base.
+Configure le package "database" avec le schéma SQL complet.
+Configure Next.js dans apps/web avec TypeScript, Tailwind, next-intl.
+Crée .env.local.example avec toutes les variables.
+
+ÉTAPE 2 — Landing Page + Auth (jour 3-7)
+Landing page : Hero (pitch construction), features, pricing, FAQ.
+Design professionnel, sobre, inspiré construction/tech.
+Auth : Supabase Auth avec email/password + Microsoft OAuth.
+Inscription : choix du rôle, création organisation, onboarding.
+Login avec redirection selon le rôle.
+Middleware de protection des routes.
+
+ÉTAPE 3 — Modèle de données Projets + Dashboard de base (jour 8-14)
+CRUD projets/chantiers : création, édition, archivage.
+Formulaire projet : nom, code, client, adresse, dates, mots-clés emails.
+Dashboard principal : liste des projets avec statut, dernière activité.
+Navigation sidebar (partagée desktop/web).
+Composants partagés dans packages/ui.
+
+ÉTAPE 4 — Intégration Microsoft Graph + Classement emails (jour 15-25)
+OAuth Microsoft : connexion du compte Outlook.
+Synchronisation : job récurrent qui récupère les nouveaux emails.
+Classement IA : chaque email est analysé par Claude et assigné à un projet.
+Interface : vue emails par projet, indicateurs de classification, résumé IA.
+Actions : reclasser manuellement (l'IA apprend des corrections).
+Extraction de tâches depuis les emails.
+
+ÉTAPE 5 — Système de tâches (jour 26-32)
+Liste de tâches par projet : filtres par statut, priorité, assigné, source.
+Création manuelle de tâches.
+Tâches auto-générées depuis les emails (lien vers l'email source).
+Modification statut, assignation, deadline.
+Vue kanban optionnelle (open → in progress → done).
+Notifications pour tâches en retard.
+
+ÉTAPE 6 — Module PV de séance (jour 33-45)
+Interface d'enregistrement audio (MediaRecorder API dans le navigateur).
+Upload vers Supabase Storage.
+Transcription via Whisper API.
+Génération du PV structuré via Claude.
+Éditeur de PV : le chef de projet peut modifier le texte, les actions, etc.
+Export Word/PDF du PV finalisé.
+Les actions du PV deviennent des tâches dans le système.
+Historique des PV par projet.
+
+ÉTAPE 7 — Briefing quotidien (jour 46-52)
+Cron job qui agrège les données par projet par utilisateur.
+Génération du briefing IA (résumé, alertes, actions prioritaires).
+Envoi par email (Resend) + affichage dans le dashboard.
+Notification desktop (Tauri) quand le briefing est prêt.
+
+ÉTAPE 8 — Admin Dashboard (jour 53-60)
+Dashboard admin : métriques globales, graphiques d'usage.
+Liste clients avec détails, activité, erreurs.
+Viewer de logs en temps réel avec filtres.
+Page de debug : statut services, jobs, relance.
+Protection par rôle superadmin.
+
+ÉTAPE 9 — App Tauri Desktop (jour 61-70)
+Configuration Tauri avec le frontend Next.js.
+Build de l'installeur .exe (NSIS) et .msi.
+Auto-update : configuration du serveur de releases.
+Notifications desktop natives.
+Icône system tray avec badge.
+Tests sur Windows 10 et 11.
+
+ÉTAPE 10 — Outlook Add-in (jour 71-80)
+Manifest XML configuré.
+Taskpane React : affiche le projet détecté, les tâches, le briefing.
+Commandes : bouton dans le ruban Outlook pour ouvrir le panneau.
+Communication avec le backend via les mêmes API.
+Tests dans Outlook Desktop et Outlook Web.
+
+ÉTAPE 11 — Stripe + Onboarding (jour 81-88)
+Intégration Stripe : plans starter/pro/enterprise.
+Page pricing sur le site.
+Checkout Stripe.
+Webhook pour activer/désactiver les plans.
+Gestion du trial (14 jours gratuits).
+Portail client Stripe pour gérer l'abonnement.
+
+ÉTAPE 12 — Polish & Deploy (jour 89-100)
+Responsive final toutes surfaces.
+Dark mode complet.
+SEO landing page.
+Performance : lazy loading, optimisation images, code splitting.
+Error handling exhaustif avec messages user-friendly.
+Loading states (skeletons) et empty states partout.
+Tests E2E sur les flux critiques.
+Déploiement : Vercel (web), releases GitHub (Tauri), sideloading (Outlook).
+Documentation utilisateur basique.
+
+============================================================
+⚠️ RÈGLES POUR CLAUDE CODE
+============================================================
+
+1. TypeScript strict — Pas de "any". Typer tout.
+2. Monorepo discipline — Logique métier dans packages/core.
+   Composants UI dans packages/ui. Apps dans apps/.
+3. Server Components par défaut — "use client" uniquement si interactivité.
+4. Server Actions pour les mutations.
+5. Validation : zod partout (client ET serveur).
+6. Error handling : try/catch, messages user-friendly, logs dans app_logs.
+7. Chaque erreur doit être loggée dans la table app_logs avec le contexte.
+8. Loading states : skeleton loaders sur toutes les pages async.
+9. Empty states : design pour chaque liste vide.
+10. Mobile-first responsive.
+11. Dark mode : toutes les couleurs via CSS variables / Tailwind dark:.
+12. i18n : tout texte visible dans les fichiers de traduction. Jamais de string hardcodé.
+13. Accessibilité : labels, aria, focus management.
+14. Sécurité : RLS Supabase, inputs sanitisés, tokens Microsoft chiffrés.
+15. Logging admin : chaque action IA, chaque sync, chaque erreur → app_logs.
+
+============================================================
+🏁 CHECKLIST MVP (Phase 1)
+============================================================
+
+CORE :
+[ ] Monorepo setup (pnpm + Turborepo)
+[ ] Landing page trilingue
+[ ] Auth (Supabase + Microsoft OAuth)
+[ ] Inscription + onboarding
+[ ] CRUD Projets/Chantiers
+
+EMAILS :
+[ ] Connexion Microsoft Graph
+[ ] Sync emails automatique
+[ ] Classement IA par projet
+[ ] Extraction tâches depuis emails
+[ ] Interface emails par projet
+
+TÂCHES :
+[ ] Liste tâches par projet
+[ ] Création manuelle + auto (emails, PV)
+[ ] Statuts, priorités, assignation
+[ ] Notifications tâches en retard
+
+PV DE SÉANCE :
+[ ] Enregistrement audio
+[ ] Transcription Whisper
+[ ] Génération PV par Claude
+[ ] Éditeur de PV
+[ ] Export Word/PDF
+[ ] Actions PV → tâches
+
+BRIEFING :
+[ ] Cron job quotidien
+[ ] Génération briefing IA
+[ ] Envoi email + affichage dashboard
+
+ADMIN :
+[ ] Dashboard métriques
+[ ] Liste clients + détails
+[ ] Logs viewer
+[ ] Debug panel
+
+DESKTOP :
+[ ] App Tauri fonctionnelle
+[ ] Installeur .exe
+[ ] Auto-update
+[ ] Notifications desktop
+
+OUTLOOK :
+[ ] Add-in manifest
+[ ] Taskpane fonctionnel
+[ ] Affichage projet/tâches/briefing
+
+BUSINESS :
+[ ] Stripe : plans + checkout
+[ ] Trial 14 jours
+[ ] Portail client
+
+QUALITÉ :
+[ ] Responsive toutes surfaces
+[ ] Dark mode
+[ ] i18n FR/EN/DE complet
+[ ] Error handling + logging
+[ ] Loading + empty states
+
+============================================================
+📊 STRUCTURE DES DONNÉES PHASE 2 (pour référence future)
+============================================================
+
+Phase 2 ajoutera :
+- Import soumissions (Excel/PDF) → table lots
+- Saisie avancement par lot (% et montants)
+- Calcul automatique : budget vs dépensé vs avancement
+- Alertes rentabilité : "Le lot CFC 271 a consommé 80% du budget pour 60% d'avancement"
+- Graphiques : courbe en S, histogramme lots, rentabilité globale projet
+- Export rapport financier Word/PDF
+
+Phase 3 ajoutera :
+- Chat temps réel par projet (Supabase Realtime)
+- Rôles : chef de projet, conducteur, contremaître
+- Partage de documents et photos
+- Notifications push mobile
+- Fil d'activité par projet
+
+============================================================
+
+Document généré le 16 février 2026
+CANTAIA MVP v1.0 — Placeholder name
+Rechercher-remplacer "CANTAIA" par le nom final.

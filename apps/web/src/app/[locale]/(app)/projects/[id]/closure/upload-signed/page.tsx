@@ -1,0 +1,257 @@
+"use client";
+
+import { useState, useRef, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { useProject } from "@/lib/hooks/use-supabase-data";
+import {
+  ArrowLeft,
+  Upload,
+  FileText,
+  Camera,
+  Loader2,
+  CheckCircle,
+  X,
+} from "lucide-react";
+
+export default function UploadSignedPVPage() {
+  const params = useParams();
+  const router = useRouter();
+  const t = useTranslations("closure");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { project, loading: projectLoading } = useProject(params.id as string);
+
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  if (projectLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center p-6">
+        <Loader2 className="h-6 w-6 animate-spin text-brand" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex h-96 items-center justify-center p-6">
+        <p className="text-slate-500">{t("projectNotFound")}</p>
+      </div>
+    );
+  }
+
+  const acceptedTypes = ["application/pdf", "image/jpeg", "image/png"];
+  const maxSize = 20 * 1024 * 1024; // 20 MB
+  const minSize = 10 * 1024; // 10 KB (not empty)
+
+  const handleFile = useCallback((f: File) => {
+    if (!acceptedTypes.includes(f.type)) {
+      alert("Format non supporté. Utilisez PDF, JPG ou PNG.");
+      return;
+    }
+    if (f.size > maxSize) {
+      alert("Fichier trop volumineux (max 20 MB).");
+      return;
+    }
+    if (f.size < minSize) {
+      alert("Fichier trop petit (min 10 KB). Le fichier semble vide.");
+      return;
+    }
+    setFile(f);
+
+    // Preview for images
+    if (f.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => setPreview(e.target?.result as string);
+      reader.readAsDataURL(f);
+    } else {
+      setPreview(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  }, [handleFile]);
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploading(true);
+
+    try {
+      // Mock upload — in production, POST to /api/projects/[id]/closure/upload-signed-pv
+      console.log("[UploadSignedPV] Uploading:", file.name, file.size, "bytes");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      setUploaded(true);
+      setTimeout(() => {
+        router.push(`/projects/${project.id}/closure`);
+      }, 1500);
+    } catch (error) {
+      console.error("[UploadSignedPV] Error:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="p-6 lg:p-8">
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <Link
+          href={`/projects/${project.id}/closure`}
+          className="mt-1 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-800">
+            {t("uploadSignedPV")}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">{project.name}</p>
+        </div>
+      </div>
+
+      <div className="mt-8 max-w-2xl">
+        <p className="text-sm text-slate-600">
+          {t("step5Description")}
+        </p>
+
+        {/* Success state */}
+        {uploaded && (
+          <div className="mt-6 rounded-md border border-green-200 bg-green-50 p-6 text-center">
+            <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
+            <p className="mt-3 text-sm font-medium text-green-800">{t("fileUploaded")}</p>
+          </div>
+        )}
+
+        {/* Drop zone */}
+        {!uploaded && (
+          <>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`mt-6 cursor-pointer rounded-md border-2 border-dashed p-12 text-center transition-colors ${
+                dragOver
+                  ? "border-brand bg-brand/5"
+                  : file
+                  ? "border-green-300 bg-green-50/50"
+                  : "border-slate-300 bg-slate-50 hover:border-brand/50 hover:bg-brand/5"
+              }`}
+            >
+              {file ? (
+                <div className="flex flex-col items-center gap-3">
+                  <FileText className="h-12 w-12 text-green-500" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{file.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFile(null);
+                      setPreview(null);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-3 w-3" />
+                    {t("removeFile")}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Upload className="mx-auto h-10 w-10 text-slate-400" />
+                  <p className="mt-3 text-sm font-medium text-slate-600">
+                    {t("dropFileHere")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {t("orBrowseFiles")}
+                  </p>
+                  <p className="mt-2 text-[10px] text-slate-400">
+                    {t("acceptedFormats")}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+              className="hidden"
+            />
+
+            {/* Image preview */}
+            {preview && (
+              <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
+                <img src={preview} alt="Preview" className="max-h-64 w-full object-contain" />
+              </div>
+            )}
+
+            {/* Camera button (mobile) */}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.capture = "environment";
+                  input.onchange = (e) => {
+                    const f = (e.target as HTMLInputElement).files?.[0];
+                    if (f) handleFile(f);
+                  };
+                  input.click();
+                }}
+                className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                <Camera className="h-4 w-4" />
+                {t("takePhoto")}
+              </button>
+            </div>
+
+            {/* Upload button */}
+            {file && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-2 rounded-md bg-brand px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("uploadingFile")}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      {t("uploadSignedPV")}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

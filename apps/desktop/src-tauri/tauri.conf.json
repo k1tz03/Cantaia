@@ -1,0 +1,33 @@
+{
+  "build": {
+    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "../web/out"
+  },
+  "productName": "Cantaia",
+  "version": "1.0.0",
+  "identifier": "ch.cantaia.app",
+  "app": {
+    "windows": [
+      {
+        "title": "Cantaia",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "targets": ["msi", "nsis"]
+  }
+}

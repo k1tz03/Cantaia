@@ -1,0 +1,168 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { generateReply } from "@cantaia/core/ai";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import { trackApiUsage } from "@cantaia/core/tracking";
+import { parseBody, validateRequired } from "@/lib/api/parse-body";
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: body, error: parseError } = await parseBody(request);
+  if (parseError || !body) {
+    return NextResponse.json({ error: parseError || "Invalid request" }, { status: 400 });
+  }
+
+  const requiredError = validateRequired(body, ["email_id"]);
+  if (requiredError) {
+    return NextResponse.json({ error: requiredError }, { status: 400 });
+  }
+
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicApiKey) {
+    return NextResponse.json(
+      { error: "AI service not configured" },
+      { status: 503 }
+    );
+  }
+
+  const adminClient = createAdminClient();
+
+  // Get the email
+  const { data: email, error: emailError } = await adminClient
+    .from("email_records")
+    .select("*")
+    .eq("id", body.email_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (emailError || !email) {
+    return NextResponse.json({ error: "Email not found" }, { status: 404 });
+  }
+
+  // Get user profile
+  const { data: userProfile } = await adminClient
+    .from("users")
+    .select("first_name, last_name, role, organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!userProfile) {
+    return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+  }
+
+  // Get company name
+  let companyName = "Cantaia";
+  if (userProfile.organization_id) {
+    const { data: org } = await adminClient
+      .from("organizations")
+      .select("name")
+      .eq("id", userProfile.organization_id)
+      .maybeSingle();
+    if (org) companyName = org.name;
+  }
+
+  // Get project context if assigned
+  let projectContext = null;
+  if (email.project_id) {
+    const { data: project } = await adminClient
+      .from("projects")
+      .select("name, code")
+      .eq("id", email.project_id)
+      .maybeSingle();
+    if (project) {
+      projectContext = { name: project.name, code: project.code };
+    }
+  }
+
+  // Try to get full email body from Microsoft Graph for better context
+  let bodyFull: string | undefined;
+  if (email.outlook_message_id) {
+    try {
+      const tokenResult = await getValidMicrosoftToken(user.id);
+      if (tokenResult.accessToken) {
+        const graphRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${email.outlook_message_id}?$select=body`,
+          {
+            headers: { Authorization: `Bearer ${tokenResult.accessToken}` },
+          }
+        );
+        if (graphRes.ok) {
+          const graphData = await graphRes.json();
+          if (graphData.body?.content) {
+            // Strip HTML tags for plain text content to send to AI
+            bodyFull = graphData.body.content
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/&nbsp;/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .substring(0, 8000); // Limit to ~8k chars for AI context
+          }
+        }
+      }
+    } catch {
+      // Fall back to body_preview
+    }
+  }
+
+  console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
+  console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}`);
+
+  const result = await generateReply(
+    anthropicApiKey,
+    {
+      sender_name: email.sender_name || "",
+      sender_email: email.sender_email,
+      subject: email.subject,
+      body_preview: email.body_preview || "",
+      body_full: bodyFull,
+      recipients: email.recipients || [],
+      received_at: email.received_at,
+    },
+    projectContext,
+    {
+      first_name: userProfile.first_name,
+      last_name: userProfile.last_name,
+      role: userProfile.role,
+      company_name: companyName,
+    },
+    undefined,
+    (usage) => {
+      trackApiUsage({
+        supabase: adminClient,
+        userId: user.id,
+        organizationId: userProfile.organization_id ?? "",
+        actionType: "email_reply",
+        apiProvider: "anthropic",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        metadata: { email_id: body.email_id },
+      });
+    }
+  );
+
+  console.log(`[generate-reply] Result: reply=${result.reply_text.length} chars, no_reply=${result.no_reply_needed}, error=${result.error || "none"}`);
+
+  if (result.error) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    reply_text: result.reply_text,
+    no_reply_needed: result.no_reply_needed,
+  });
+}

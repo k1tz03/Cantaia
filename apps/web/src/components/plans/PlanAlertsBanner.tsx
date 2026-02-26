@@ -1,0 +1,171 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import {
+  AlertTriangle,
+  Clock,
+  Send,
+  AlertOctagon,
+  ChevronRight,
+  FileStack,
+} from "lucide-react";
+import { cn } from "@cantaia/ui";
+import type { PlanAlertType, PlanAlertSeverity } from "@cantaia/database";
+
+export interface PlanAlert {
+  id: string;
+  plan_id: string;
+  plan_number: string;
+  plan_title: string;
+  alert_type: PlanAlertType;
+  severity: PlanAlertSeverity;
+  message: string;
+  project_name: string;
+  created_at: string;
+}
+
+// Mock alerts data
+export const mockPlanAlerts: PlanAlert[] = [
+  {
+    id: "alert-001",
+    plan_id: "plan-001",
+    plan_number: "211-B2-04",
+    plan_title: "Coffrage dalle sous-sol B2",
+    alert_type: "outdated_reference",
+    severity: "critical",
+    message: "L'email de Implenia SA référence la version B, mais la version actuelle est C.",
+    project_name: "Résidence Les Cèdres",
+    created_at: "2026-02-17T14:30:00Z",
+  },
+  {
+    id: "alert-002",
+    plan_id: "plan-002",
+    plan_number: "ARC-301",
+    plan_title: "Façade sud — détail attique",
+    alert_type: "approval_pending",
+    severity: "warning",
+    message: "Version B en attente de validation depuis 4 jours.",
+    project_name: "Résidence Les Cèdres",
+    created_at: "2026-02-14T10:00:00Z",
+  },
+  {
+    id: "alert-003",
+    plan_id: "plan-001",
+    plan_number: "211-B2-04",
+    plan_title: "Coffrage dalle sous-sol B2",
+    alert_type: "missing_distribution",
+    severity: "warning",
+    message: "Version C non distribuée à Sophie Martin (Weinmann Energies) — dernière distribution en V-B.",
+    project_name: "Résidence Les Cèdres",
+    created_at: "2026-02-11T15:00:00Z",
+  },
+  {
+    id: "alert-004",
+    plan_id: "plan-006",
+    plan_number: "ARC-101",
+    plan_title: "Plan d'ensemble RDC",
+    alert_type: "version_conflict",
+    severity: "info",
+    message: "Deux versions (D et E) reçues le même jour de deux sources différentes.",
+    project_name: "Parking Morges",
+    created_at: "2026-02-16T16:00:00Z",
+  },
+];
+
+const ALERT_TYPE_CONFIG: Record<PlanAlertType, { icon: React.ElementType; labelKey: string }> = {
+  outdated_reference: { icon: AlertOctagon, labelKey: "alertOutdatedRef" },
+  missing_distribution: { icon: Send, labelKey: "alertMissingDist" },
+  approval_pending: { icon: Clock, labelKey: "alertApprovalPending" },
+  version_conflict: { icon: AlertTriangle, labelKey: "alertVersionConflict" },
+};
+
+const SEVERITY_STYLES: Record<PlanAlertSeverity, { border: string; bg: string; icon: string; text: string }> = {
+  critical: { border: "border-red-200", bg: "bg-red-50", icon: "text-red-600", text: "text-red-700" },
+  warning: { border: "border-amber-200", bg: "bg-amber-50", icon: "text-amber-600", text: "text-amber-700" },
+  info: { border: "border-blue-200", bg: "bg-blue-50", icon: "text-blue-600", text: "text-blue-700" },
+};
+
+interface PlanAlertsBannerProps {
+  alerts?: PlanAlert[];
+  maxAlerts?: number;
+  compact?: boolean;
+}
+
+export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compact = false }: PlanAlertsBannerProps) {
+  const t = useTranslations("plans");
+
+  const criticals = alerts.filter((a) => a.severity === "critical");
+  const others = alerts.filter((a) => a.severity !== "critical");
+  const sorted = [...criticals, ...others];
+  const displayed = sorted.slice(0, maxAlerts);
+  const remaining = sorted.length - displayed.length;
+
+  if (alerts.length === 0) return null;
+
+  if (compact) {
+    const hasCritical = criticals.length > 0;
+    return (
+      <Link
+        href="/plans"
+        className={cn(
+          "flex items-center gap-2 rounded-md border px-3 py-2 transition-colors hover:shadow-sm",
+          hasCritical ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+        )}
+      >
+        <FileStack className={cn("h-4 w-4 shrink-0", hasCritical ? "text-red-600" : "text-amber-600")} />
+        <span className={cn("text-xs font-medium flex-1", hasCritical ? "text-red-700" : "text-amber-700")}>
+          {t("planAlertsCompact", { count: alerts.length })}
+        </span>
+        <ChevronRight className={cn("h-3.5 w-3.5", hasCritical ? "text-red-400" : "text-amber-400")} />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {displayed.map((alert) => {
+        const typeCfg = ALERT_TYPE_CONFIG[alert.alert_type];
+        const sevStyle = SEVERITY_STYLES[alert.severity];
+        const Icon = typeCfg.icon;
+        return (
+          <Link
+            key={alert.id}
+            href={`/plans/${alert.plan_id}`}
+            className={cn(
+              "flex items-start gap-2.5 rounded-md border p-3 transition-colors hover:shadow-sm",
+              sevStyle.border, sevStyle.bg
+            )}
+          >
+            <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", sevStyle.icon)} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className={cn("text-xs font-semibold", sevStyle.text)}>
+                  {alert.plan_number}
+                </span>
+                <span className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
+                  sevStyle.bg, sevStyle.text
+                )}>
+                  {t(typeCfg.labelKey)}
+                </span>
+              </div>
+              <p className={cn("text-[11px]", sevStyle.text)}>{alert.message}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{alert.project_name}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+          </Link>
+        );
+      })}
+      {remaining > 0 && (
+        <Link
+          href="/plans"
+          className="flex items-center justify-center gap-1 py-1.5 text-xs text-slate-500 hover:text-brand transition-colors"
+        >
+          {t("moreAlertsPlan", { count: remaining })}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
+    </div>
+  );
+}

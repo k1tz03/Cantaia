@@ -1,0 +1,428 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
+import {
+  ArrowLeft,
+  Mic,
+  Loader2,
+  Rocket,
+  Save,
+  FolderKanban,
+} from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { AudioRecorder } from "@/components/visits/AudioRecorder";
+
+type Step = "info" | "recording" | "post";
+
+interface VisitForm {
+  client_name: string;
+  client_company: string;
+  client_phone: string;
+  client_email: string;
+  client_address: string;
+  client_city: string;
+  client_postal_code: string;
+  project_id: string;
+  notes: string;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+export default function NewVisitPage() {
+  const t = useTranslations("visits");
+  const router = useRouter();
+  const [step, setStep] = useState<Step>("info");
+  const [form, setForm] = useState<VisitForm>({
+    client_name: "",
+    client_company: "",
+    client_phone: "",
+    client_email: "",
+    client_address: "",
+    client_city: "",
+    client_postal_code: "",
+    project_id: "",
+    notes: "",
+  });
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [visitId, setVisitId] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [orgId, setOrgId] = useState("");
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  async function loadProjects() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: userData } = await (supabase.from("users") as any)
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userData?.organization_id) {
+      setOrgId(userData.organization_id);
+      const { data } = await (supabase.from("projects") as any)
+        .select("id, name")
+        .eq("organization_id", userData.organization_id)
+        .order("name");
+      setProjects(data || []);
+    }
+  }
+
+  function update(partial: Partial<VisitForm>) {
+    setForm((prev) => ({ ...prev, ...partial }));
+  }
+
+  async function createVisitRecord(): Promise<string> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { data, error } = await (supabase.from("client_visits") as any)
+      .insert({
+        organization_id: orgId,
+        client_name: form.client_name || "Client",
+        client_company: form.client_company || null,
+        client_phone: form.client_phone || null,
+        client_email: form.client_email || null,
+        client_address: form.client_address || null,
+        client_city: form.client_city || null,
+        client_postal_code: form.client_postal_code || null,
+        project_id: form.project_id || null,
+        is_prospect: !form.project_id,
+        status: "recording",
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return data.id;
+  }
+
+  async function handleStartRecording() {
+    setSaving(true);
+    try {
+      const id = await createVisitRecord();
+      setVisitId(id);
+      setStep("recording");
+    } catch (err) {
+      console.error("Failed to create visit:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSkipToRecording() {
+    // Create with minimal info
+    if (!form.client_name) update({ client_name: "Client" });
+    setSaving(true);
+    try {
+      const id = await createVisitRecord();
+      setVisitId(id);
+      setStep("recording");
+    } catch (err) {
+      console.error("Failed to create visit:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleRecordingComplete(blob: Blob, duration: number) {
+    setAudioBlob(blob);
+    setAudioDuration(duration);
+    setStep("post");
+  }
+
+  async function handleUploadAndTranscribe() {
+    if (!visitId || !audioBlob) return;
+    setTranscribing(true);
+
+    try {
+      const supabase = createClient();
+
+      // Upload audio to Supabase Storage
+      const filePath = `audio/${orgId}/${visitId}/recording.webm`;
+      const { error: uploadErr } = await supabase.storage
+        .from("audio")
+        .upload(filePath, audioBlob, { contentType: "audio/webm" });
+
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr);
+      }
+
+      // Update visit with audio info
+      await (supabase.from("client_visits") as any)
+        .update({
+          audio_url: filePath,
+          audio_duration_seconds: audioDuration,
+          audio_file_name: "recording.webm",
+          audio_file_size: audioBlob.size,
+          duration_minutes: Math.ceil(audioDuration / 60),
+        })
+        .eq("id", visitId);
+
+      // Trigger transcription
+      await fetch("/api/visits/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visit_id: visitId }),
+      });
+
+      // Trigger report generation
+      await fetch("/api/visits/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visit_id: visitId }),
+      });
+
+      // Navigate to visit detail
+      router.push(`/visits/${visitId}`);
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function handleSaveWithoutTranscribing() {
+    if (!visitId || !audioBlob) return;
+    setSaving(true);
+
+    try {
+      const supabase = createClient();
+
+      const filePath = `audio/${orgId}/${visitId}/recording.webm`;
+      await supabase.storage
+        .from("audio")
+        .upload(filePath, audioBlob, { contentType: "audio/webm" });
+
+      await (supabase.from("client_visits") as any)
+        .update({
+          audio_url: filePath,
+          audio_duration_seconds: audioDuration,
+          audio_file_name: "recording.webm",
+          audio_file_size: audioBlob.size,
+          duration_minutes: Math.ceil(audioDuration / 60),
+          status: "recording",
+        })
+        .eq("id", visitId);
+
+      router.push("/visits");
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ──── Step 1: Pre-visit info ────
+  if (step === "info") {
+    return (
+      <div className="p-6">
+        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          <ArrowLeft className="h-4 w-4" />
+          {t("title")}
+        </Link>
+
+        <h1 className="mb-6 text-xl font-bold text-gray-900">{t("newVisit")}</h1>
+
+        <div className="mx-auto max-w-2xl space-y-6">
+          {/* Client info */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900">
+              {t("prospect")} / {t("existingClient")}
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientName")} *</label>
+                <input
+                  value={form.client_name}
+                  onChange={(e) => update({ client_name: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientCompany")}</label>
+                <input
+                  value={form.client_company}
+                  onChange={(e) => update({ client_company: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientPhone")}</label>
+                <input
+                  type="tel"
+                  value={form.client_phone}
+                  onChange={(e) => update({ client_phone: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  placeholder="+41 79 ..."
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientEmail")}</label>
+                <input
+                  type="email"
+                  value={form.client_email}
+                  onChange={(e) => update({ client_email: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900">{t("visitAddress")}</h3>
+            <div className="space-y-3">
+              <input
+                value={form.client_address}
+                onChange={(e) => update({ client_address: e.target.value })}
+                placeholder={t("visitAddress")}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  value={form.client_city}
+                  onChange={(e) => update({ client_city: e.target.value })}
+                  placeholder={t("visitCity")}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+                <input
+                  value={form.client_postal_code}
+                  onChange={(e) => update({ client_postal_code: e.target.value })}
+                  placeholder={t("visitPostalCode")}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Linked project */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <FolderKanban className="h-4 w-4 text-gray-400" />
+              {t("linkedProject")}
+            </h3>
+            <select
+              value={form.project_id}
+              onChange={(e) => update({ project_id: e.target.value })}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">{t("noProjectProspect")}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Pre-visit notes */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900">{t("preVisitNotes")}</h3>
+            <textarea
+              value={form.notes}
+              onChange={(e) => update({ notes: e.target.value })}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleSkipToRecording}
+              disabled={saving}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              {t("skipToRecording")}
+            </button>
+            <button
+              onClick={handleStartRecording}
+              disabled={!form.client_name || saving}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+              {t("saveAndRecord")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ──── Step 2: Recording ────
+  if (step === "recording") {
+    return (
+      <div className="p-6">
+        <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-gray-900">
+          <Mic className="h-5 w-5 text-red-500" />
+          {t("clientVisit")} — {form.client_name || "Client"}
+        </h1>
+        <div className="mx-auto max-w-lg">
+          <AudioRecorder onRecordingComplete={handleRecordingComplete} />
+        </div>
+      </div>
+    );
+  }
+
+  // ──── Step 3: Post-recording ────
+  return (
+    <div className="p-6">
+      <h1 className="mb-6 text-xl font-bold text-gray-900">
+        {t("recordingFinished")} — {Math.floor(audioDuration / 60)} min {audioDuration % 60} sec
+      </h1>
+
+      <div className="mx-auto max-w-lg">
+        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
+          <p className="mb-2 text-sm font-medium text-gray-700">
+            {t("transcribeAndGenerate")} ?
+          </p>
+          <p className="mb-6 text-xs text-gray-400">
+            {t("transcriptionWarning")}
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleUploadAndTranscribe}
+              disabled={transcribing}
+              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {transcribing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("transcribing")}
+                </>
+              ) : (
+                <>
+                  <Rocket className="h-4 w-4" />
+                  {t("transcribeAndGenerate")}
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleSaveWithoutTranscribing}
+              disabled={saving}
+              className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {t("saveWithoutTranscribing")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

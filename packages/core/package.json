@@ -1,0 +1,36 @@
+{
+  "name": "@cantaia/core",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models/index.ts",
+    "./ai": "./src/ai/index.ts",
+    "./outlook": "./src/outlook/index.ts",
+    "./services": "./src/services/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./tracking": "./src/tracking/index.ts",
+    "./briefing": "./src/briefing/index.ts",
+    "./plans": "./src/plans/index.ts",
+    "./suppliers": "./src/suppliers/index.ts",
+    "./submissions": "./src/submissions/index.ts",
+    "./emails": "./src/emails/index.ts",
+    "./platform": "./src/platform/index.ts",
+    "./visits": "./src/visits/index.ts"
+  },
+  "dependencies": {
+    "@cantaia/database": "workspace:*",
+    "date-fns": "^4.1.0",
+    "imapflow": "^1.2.10",
+    "mailparser": "^3.9.3",
+    "nodemailer": "^8.0.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^7.0.11",
+    "typescript": "^5.7.0"
+  }
+}

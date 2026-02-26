@@ -1,0 +1,454 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
+import {
+  Mail,
+  Shield,
+  Plus,
+  X,
+  Settings,
+  Globe,
+  ArrowRight,
+  Check,
+  ChevronDown,
+} from "lucide-react";
+
+// ─── Types ───
+interface ClassificationSettings {
+  autoClassifyEnabled: boolean;
+  confidenceThreshold: number;
+  suggestProjectCreation: boolean;
+  autoClassifyNewsletters: boolean;
+  ignoredCategories: {
+    newsletter: boolean;
+    spam: boolean;
+    internal: boolean;
+  };
+  ignoredDomains: string[];
+  mappedDomains: { domain: string; project: string }[];
+}
+
+const DEFAULT_SETTINGS: ClassificationSettings = {
+  autoClassifyEnabled: true,
+  confidenceThreshold: 85,
+  suggestProjectCreation: true,
+  autoClassifyNewsletters: false,
+  ignoredCategories: {
+    newsletter: true,
+    spam: true,
+    internal: false,
+  },
+  ignoredDomains: ["hilti-promo.com", "sika-promotions.ch"],
+  mappedDomains: [
+    { domain: "bg-ingenieurs.ch", project: "Projet X" },
+  ],
+};
+
+const CONFIDENCE_OPTIONS = [50, 60, 70, 80, 85, 90, 95];
+
+const LS_KEY = "cantaia_classification_settings";
+
+function loadSettings(): ClassificationSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_SETTINGS;
+}
+
+function saveSettings(settings: ClassificationSettings) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_KEY, JSON.stringify(settings));
+}
+
+// ─── Checkbox ───
+function Checkbox({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 py-1">
+      <div className="pt-0.5">
+        <button
+          type="button"
+          onClick={() => onChange(!checked)}
+          className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
+            checked
+              ? "border-brand bg-brand text-white"
+              : "border-gray-300 bg-white hover:border-gray-400"
+          }`}
+        >
+          {checked && <Check className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+      <div className="flex-1" onClick={() => onChange(!checked)}>
+        <p className="text-sm font-medium text-gray-700">{label}</p>
+        {description && (
+          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+        )}
+      </div>
+    </label>
+  );
+}
+
+// ─── Main Component ───
+export function ClassificationSettingsTab() {
+  const t = useTranslations("settings");
+
+  const [settings, setSettings] = useState<ClassificationSettings>(DEFAULT_SETTINGS);
+  const [mounted, setMounted] = useState(false);
+
+  // Ignored domain input
+  const [showIgnoredDomainInput, setShowIgnoredDomainInput] = useState(false);
+  const [newIgnoredDomain, setNewIgnoredDomain] = useState("");
+
+  // Mapped domain input
+  const [showMappedDomainInput, setShowMappedDomainInput] = useState(false);
+  const [newMappedDomain, setNewMappedDomain] = useState("");
+  const [newMappedProject, setNewMappedProject] = useState("");
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    setSettings(loadSettings());
+    setMounted(true);
+  }, []);
+
+  // Auto-save on change
+  useEffect(() => {
+    if (mounted) {
+      saveSettings(settings);
+    }
+  }, [settings, mounted]);
+
+  // Update helpers
+  const update = (partial: Partial<ClassificationSettings>) =>
+    setSettings((prev) => ({ ...prev, ...partial }));
+
+  const updateIgnoredCategory = (
+    key: keyof ClassificationSettings["ignoredCategories"],
+    value: boolean
+  ) =>
+    setSettings((prev) => ({
+      ...prev,
+      ignoredCategories: { ...prev.ignoredCategories, [key]: value },
+    }));
+
+  // Add/remove ignored domains
+  const addIgnoredDomain = () => {
+    const domain = newIgnoredDomain.trim().toLowerCase();
+    if (domain && !settings.ignoredDomains.includes(domain)) {
+      update({ ignoredDomains: [...settings.ignoredDomains, domain] });
+      setNewIgnoredDomain("");
+      setShowIgnoredDomainInput(false);
+    }
+  };
+
+  const removeIgnoredDomain = (domain: string) => {
+    update({
+      ignoredDomains: settings.ignoredDomains.filter((d) => d !== domain),
+    });
+  };
+
+  // Add/remove mapped domains
+  const addMappedDomain = () => {
+    const domain = newMappedDomain.trim().toLowerCase();
+    const project = newMappedProject.trim();
+    if (
+      domain &&
+      project &&
+      !settings.mappedDomains.some((m) => m.domain === domain)
+    ) {
+      update({
+        mappedDomains: [...settings.mappedDomains, { domain, project }],
+      });
+      setNewMappedDomain("");
+      setNewMappedProject("");
+      setShowMappedDomainInput(false);
+    }
+  };
+
+  const removeMappedDomain = (domain: string) => {
+    update({
+      mappedDomains: settings.mappedDomains.filter((m) => m.domain !== domain),
+    });
+  };
+
+  if (!mounted) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* ─── Section 1: Automatic Classification ─── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Settings className="h-4 w-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t("classificationAutoTitle")}
+          </h3>
+        </div>
+
+        <div className="space-y-4">
+          {/* Auto-classify toggle + confidence threshold */}
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <Checkbox
+                checked={settings.autoClassifyEnabled}
+                onChange={(v) => update({ autoClassifyEnabled: v })}
+                label={t("classificationAutoClassify")}
+                description={t("classificationAutoClassifyDesc")}
+              />
+            </div>
+            {settings.autoClassifyEnabled && (
+              <div className="relative ml-4">
+                <select
+                  value={settings.confidenceThreshold}
+                  onChange={(e) =>
+                    update({ confidenceThreshold: Number(e.target.value) })
+                  }
+                  className="appearance-none rounded-md border border-gray-300 bg-white py-1.5 pl-3 pr-8 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {CONFIDENCE_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}%
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+            )}
+          </div>
+
+          {/* Suggest project creation */}
+          <Checkbox
+            checked={settings.suggestProjectCreation}
+            onChange={(v) => update({ suggestProjectCreation: v })}
+            label={t("classificationSuggestProject")}
+            description={t("classificationSuggestProjectDesc")}
+          />
+
+          {/* Auto-classify newsletters */}
+          <Checkbox
+            checked={settings.autoClassifyNewsletters}
+            onChange={(v) => update({ autoClassifyNewsletters: v })}
+            label={t("classificationAutoNewsletters")}
+            description={t("classificationAutoNewslettersDesc")}
+          />
+        </div>
+      </div>
+
+      {/* ─── Section 2: Ignored Categories ─── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Shield className="h-4 w-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t("classificationIgnoredCategories")}
+          </h3>
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          {t("classificationIgnoredCategoriesDesc")}
+        </p>
+
+        <div className="space-y-3">
+          <Checkbox
+            checked={settings.ignoredCategories.newsletter}
+            onChange={(v) => updateIgnoredCategory("newsletter", v)}
+            label={t("classificationCatNewsletter")}
+          />
+          <Checkbox
+            checked={settings.ignoredCategories.spam}
+            onChange={(v) => updateIgnoredCategory("spam", v)}
+            label={t("classificationCatSpam")}
+          />
+          <Checkbox
+            checked={settings.ignoredCategories.internal}
+            onChange={(v) => updateIgnoredCategory("internal", v)}
+            label={t("classificationCatInternal")}
+            description={t("classificationCatInternalDesc")}
+          />
+        </div>
+      </div>
+
+      {/* ─── Section 3: Ignored Domains ─── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Globe className="h-4 w-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t("classificationIgnoredDomains")}
+          </h3>
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          {t("classificationIgnoredDomainsDesc")}
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {settings.ignoredDomains.map((domain) => (
+            <span
+              key={domain}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700"
+            >
+              {domain}
+              <button
+                type="button"
+                onClick={() => removeIgnoredDomain(domain)}
+                className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ))}
+
+          {showIgnoredDomainInput ? (
+            <div className="inline-flex items-center gap-1.5">
+              <input
+                type="text"
+                value={newIgnoredDomain}
+                onChange={(e) => setNewIgnoredDomain(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addIgnoredDomain();
+                  if (e.key === "Escape") {
+                    setShowIgnoredDomainInput(false);
+                    setNewIgnoredDomain("");
+                  }
+                }}
+                placeholder="exemple.com"
+                className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={addIgnoredDomain}
+                className="rounded-md bg-brand px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand/90"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIgnoredDomainInput(false);
+                  setNewIgnoredDomain("");
+                }}
+                className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowIgnoredDomainInput(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("classificationAddDomain")}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Section 4: Mapped Domains (Site Contacts) ─── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Mail className="h-4 w-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t("classificationMappedDomains")}
+          </h3>
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          {t("classificationMappedDomainsDesc")}
+        </p>
+
+        <div className="space-y-2">
+          {settings.mappedDomains.map((mapping) => (
+            <div
+              key={mapping.domain}
+              className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
+            >
+              <span className="text-sm font-medium text-gray-700">
+                {mapping.domain}
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-sm text-brand font-medium">
+                {mapping.project}
+              </span>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => removeMappedDomain(mapping.domain)}
+                className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+
+          {showMappedDomainInput ? (
+            <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2">
+              <input
+                type="text"
+                value={newMappedDomain}
+                onChange={(e) => setNewMappedDomain(e.target.value)}
+                placeholder="domaine.ch"
+                className="w-40 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+              <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={newMappedProject}
+                onChange={(e) => setNewMappedProject(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addMappedDomain();
+                  if (e.key === "Escape") {
+                    setShowMappedDomainInput(false);
+                    setNewMappedDomain("");
+                    setNewMappedProject("");
+                  }
+                }}
+                placeholder={t("classificationMappedProjectPlaceholder")}
+                className="w-40 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={addMappedDomain}
+                className="rounded-md bg-brand px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand/90"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMappedDomainInput(false);
+                  setNewMappedDomain("");
+                  setNewMappedProject("");
+                }}
+                className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMappedDomainInput(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:bg-gray-50 hover:text-gray-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("classificationAddMapping")}
+            </button>
+          )}
+        </div>
+      </div>
+
+    </div>
+  );
+}

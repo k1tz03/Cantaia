@@ -1,0 +1,363 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import crypto from "crypto";
+
+/**
+ * Helper: verify the current user is a super-admin.
+ * Returns { userId, admin } or a 403 response.
+ */
+async function verifySuperAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+
+  const admin = createAdminClient();
+  const { data: userData } = await (admin.from("users") as any)
+    .select("is_superadmin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!userData?.is_superadmin) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return { userId: user.id, admin };
+}
+
+const RESERVED_SUBDOMAINS = [
+  "www", "app", "api", "admin", "super-admin", "superadmin",
+  "mail", "smtp", "ftp", "dev", "staging", "test", "demo",
+  "help", "support", "docs", "status", "blog", "cdn", "static",
+  "assets", "media", "img", "images", "ns1", "ns2",
+];
+
+/**
+ * GET /api/super-admin?action=list-organizations
+ * GET /api/super-admin?action=check-subdomain&subdomain=xxx
+ * GET /api/super-admin?action=get-organization&id=xxx
+ */
+export async function GET(request: NextRequest) {
+  const { searchParams } = request.nextUrl;
+  const action = searchParams.get("action");
+
+  const result = await verifySuperAdmin();
+  if ("error" in result) return result.error;
+  const { admin } = result;
+
+  if (action === "list-organizations") {
+    const { data, error } = await (admin.from("organizations") as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Enrich with member count and project count
+    const orgIds = (data || []).map((o: { id: string }) => o.id);
+    const [membersRes, projectsRes] = await Promise.all([
+      (admin.from("users") as any)
+        .select("organization_id")
+        .in("organization_id", orgIds),
+      (admin.from("projects") as any)
+        .select("organization_id")
+        .in("organization_id", orgIds),
+    ]);
+
+    const memberCounts: Record<string, number> = {};
+    const projectCounts: Record<string, number> = {};
+    (membersRes.data || []).forEach((m: { organization_id: string }) => {
+      memberCounts[m.organization_id] = (memberCounts[m.organization_id] || 0) + 1;
+    });
+    (projectsRes.data || []).forEach((p: { organization_id: string }) => {
+      projectCounts[p.organization_id] = (projectCounts[p.organization_id] || 0) + 1;
+    });
+
+    const enriched = (data || []).map((org: Record<string, unknown>) => ({
+      ...org,
+      member_count: memberCounts[org.id as string] || 0,
+      project_count: projectCounts[org.id as string] || 0,
+    }));
+
+    return NextResponse.json({ organizations: enriched });
+  }
+
+  if (action === "check-subdomain") {
+    const subdomain = searchParams.get("subdomain")?.toLowerCase().trim();
+    if (!subdomain) return NextResponse.json({ error: "Missing subdomain" }, { status: 400 });
+
+    // Check format
+    if (!/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(subdomain)) {
+      return NextResponse.json({ available: false, reason: "invalid_format" });
+    }
+
+    // Check reserved
+    if (RESERVED_SUBDOMAINS.includes(subdomain)) {
+      return NextResponse.json({ available: false, reason: "reserved" });
+    }
+
+    // Check DB
+    const { data } = await (admin.from("organizations") as any)
+      .select("id")
+      .eq("subdomain", subdomain)
+      .maybeSingle();
+
+    return NextResponse.json({ available: !data, reason: data ? "taken" : null });
+  }
+
+  if (action === "get-organization") {
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const { data, error } = await (admin.from("organizations") as any)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+
+    // Get members
+    const { data: members } = await (admin.from("users") as any)
+      .select("id, first_name, last_name, email, role, is_active, last_sync_at, created_at")
+      .eq("organization_id", id);
+
+    // Get invites
+    const { data: invites } = await (admin.from("organization_invites") as any)
+      .select("*")
+      .eq("organization_id", id)
+      .order("created_at", { ascending: false });
+
+    // Get project count
+    const { count: projectCount } = await (admin.from("projects") as any)
+      .select("id", { count: "exact" })
+      .eq("organization_id", id);
+
+    return NextResponse.json({
+      organization: data,
+      members: members || [],
+      invites: invites || [],
+      projectCount: projectCount || 0,
+    });
+  }
+
+  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+}
+
+/**
+ * POST /api/super-admin
+ * body.action: "create-organization" | "update-organization" | "suspend-organization" | "delete-organization" | "send-invite"
+ */
+export async function POST(request: NextRequest) {
+  const result = await verifySuperAdmin();
+  if ("error" in result) return result.error;
+  const { userId, admin } = result;
+
+  const { data: body, error: parseError } = await parseBody(request);
+  if (parseError || !body) {
+    return NextResponse.json({ error: parseError || "Invalid request" }, { status: 400 });
+  }
+
+  const validationError = validateRequired(body, ["action"]);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
+  const { action } = body;
+
+  if (action === "create-organization") {
+    const {
+      name, display_name, address, city, country, phone, website,
+      subdomain, plan, max_users, max_projects, branding, notes,
+      invite_email, invite_first_name, invite_last_name, invite_job_title, invite_message,
+    } = body;
+
+    // Validate required
+    if (!name || !subdomain) {
+      return NextResponse.json({ error: "Name and subdomain are required" }, { status: 400 });
+    }
+
+    // Validate subdomain
+    if (!/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(subdomain)) {
+      return NextResponse.json({ error: "Invalid subdomain format" }, { status: 400 });
+    }
+    if (RESERVED_SUBDOMAINS.includes(subdomain)) {
+      return NextResponse.json({ error: "Subdomain is reserved" }, { status: 400 });
+    }
+
+    // Check subdomain availability
+    const { data: existing } = await (admin.from("organizations") as any)
+      .select("id").eq("subdomain", subdomain).maybeSingle();
+    if (existing) {
+      return NextResponse.json({ error: "Subdomain already taken" }, { status: 409 });
+    }
+
+    // Determine status and subscription plan
+    const orgStatus = plan === "trial" ? "trial" : "active";
+    const subscriptionPlan = plan || "trial";
+    const trialEndsAt = plan === "trial"
+      ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    // Create organization
+    const { data: org, error: orgError } = await (admin.from("organizations") as any)
+      .insert({
+        name,
+        display_name: display_name || null,
+        address: address || null,
+        city: city || "",
+        country: country || "CH",
+        phone: phone || null,
+        website: website || null,
+        subdomain,
+        status: orgStatus,
+        plan: subscriptionPlan,
+        subscription_plan: subscriptionPlan,
+        max_users: max_users || 5,
+        max_projects: max_projects || 10,
+        trial_ends_at: trialEndsAt,
+        branding: branding || {},
+        notes: notes || null,
+        created_by: userId,
+      })
+      .select()
+      .single();
+
+    if (orgError) {
+      console.error("[super-admin] Create org error:", orgError);
+      return NextResponse.json({ error: orgError.message }, { status: 500 });
+    }
+
+    // Create invite for first admin if email provided
+    let invite = null;
+    if (invite_email) {
+      const token = crypto.randomBytes(32).toString("hex");
+      const { data: inviteData, error: inviteError } = await (admin.from("organization_invites") as any)
+        .insert({
+          organization_id: org.id,
+          email: invite_email,
+          first_name: invite_first_name || null,
+          last_name: invite_last_name || null,
+          role: "admin",
+          job_title: invite_job_title || null,
+          token,
+          message: invite_message || null,
+          invited_by: userId,
+        })
+        .select()
+        .single();
+
+      if (inviteError) {
+        console.error("[super-admin] Create invite error:", inviteError);
+      } else {
+        invite = inviteData;
+      }
+    }
+
+    return NextResponse.json({ organization: org, invite });
+  }
+
+  if (action === "update-organization") {
+    const { id, ...updates } = body;
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    // Remove action from updates
+    delete updates.action;
+
+    const { data, error } = await (admin.from("organizations") as any)
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ organization: data });
+  }
+
+  if (action === "suspend-organization") {
+    const { id } = body;
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const { data, error } = await (admin.from("organizations") as any)
+      .update({ status: "suspended" })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ organization: data });
+  }
+
+  if (action === "unsuspend-organization") {
+    const { id } = body;
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const { data, error } = await (admin.from("organizations") as any)
+      .update({ status: "active" })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ organization: data });
+  }
+
+  if (action === "delete-organization") {
+    const { id, confirm_name } = body;
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    // Verify name matches
+    const { data: org } = await (admin.from("organizations") as any)
+      .select("name").eq("id", id).maybeSingle();
+
+    if (!org || org.name !== confirm_name) {
+      return NextResponse.json({ error: "Organization name does not match" }, { status: 400 });
+    }
+
+    const { error } = await (admin.from("organizations") as any)
+      .delete()
+      .eq("id", id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ deleted: true });
+  }
+
+  if (action === "send-invite") {
+    const { organization_id, email, first_name, last_name, role, job_title, message } = body;
+    if (!organization_id || !email) {
+      return NextResponse.json({ error: "organization_id and email required" }, { status: 400 });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const { data, error } = await (admin.from("organization_invites") as any)
+      .insert({
+        organization_id,
+        email,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        role: role || "member",
+        job_title: job_title || null,
+        token,
+        message: message || null,
+        invited_by: userId,
+      })
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ invite: data });
+  }
+
+  if (action === "cancel-invite") {
+    const { invite_id } = body;
+    if (!invite_id) return NextResponse.json({ error: "Missing invite_id" }, { status: 400 });
+
+    const { error } = await (admin.from("organization_invites") as any)
+      .update({ status: "cancelled" })
+      .eq("id", invite_id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ cancelled: true });
+  }
+
+  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+}

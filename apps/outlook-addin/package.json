@@ -1,0 +1,13 @@
+{
+  "name": "@cantaia/outlook-addin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cantaia Outlook Add-in — Full setup in Step 10",
+  "scripts": {
+    "dev": "echo 'Outlook add-in dev — see Step 10'",
+    "build": "echo 'Outlook add-in build — see Step 10'"
+  },
+  "dependencies": {
+    "@cantaia/ui": "workspace:*"
+  }
+}

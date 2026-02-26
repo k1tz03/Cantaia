@@ -1,0 +1,13 @@
+{
+  "name": "@cantaia/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cantaia desktop app (Tauri) — Full setup in Step 9",
+  "scripts": {
+    "dev": "echo 'Tauri dev requires Rust toolchain — see Step 9'",
+    "build": "echo 'Tauri build requires Rust toolchain — see Step 9'"
+  },
+  "dependencies": {
+    "@cantaia/ui": "workspace:*"
+  }
+}

@@ -1,0 +1,10 @@
+export { AnimatedSection } from "./AnimatedSection";
+export { HeroSection } from "./HeroSection";
+export { ProblemSection } from "./ProblemSection";
+export { FeaturesSection } from "./FeaturesSection";
+export { SpotlightSection } from "./SpotlightSection";
+export { HowItWorksSection } from "./HowItWorksSection";
+export { ProofSection } from "./ProofSection";
+export { PricingSection } from "./PricingSection";
+export { FAQSection } from "./FAQSection";
+export { FinalCTASection } from "./FinalCTASection";
