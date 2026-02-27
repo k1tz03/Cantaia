@@ -133,6 +133,50 @@ export async function getEmails(
 }
 
 /**
+ * Delta response from Graph API for incremental sync.
+ */
+export interface GraphDeltaResponse {
+  value: GraphEmailMessage[];
+  "@odata.nextLink"?: string;
+  "@odata.deltaLink"?: string;
+}
+
+/**
+ * Fetch emails using delta query for incremental sync.
+ * First call: fetches all messages from inbox with selected fields.
+ * Subsequent calls: use the saved deltaLink to only get changes.
+ *
+ * Returns all messages collected across pages + the new deltaLink to save.
+ */
+export async function getEmailsDelta(
+  accessToken: string,
+  deltaLink?: string | null,
+  top = 50
+): Promise<{ messages: GraphEmailMessage[]; deltaLink: string | null }> {
+  const select =
+    "id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,bodyPreview,body,hasAttachments,isRead,importance";
+
+  let url = deltaLink
+    || `${GRAPH_BASE_URL}/me/mailFolders/inbox/messages/delta?$select=${encodeURIComponent(select)}&$top=${top}`;
+
+  const allMessages: GraphEmailMessage[] = [];
+  let newDeltaLink: string | null = null;
+
+  while (url) {
+    const data = await graphFetch<GraphDeltaResponse>(accessToken, url);
+    if (data.value) {
+      allMessages.push(...data.value);
+    }
+    url = data["@odata.nextLink"] || "";
+    if (data["@odata.deltaLink"]) {
+      newDeltaLink = data["@odata.deltaLink"];
+    }
+  }
+
+  return { messages: allMessages, deltaLink: newDeltaLink };
+}
+
+/**
  * Move an email to a specific folder in Outlook.
  */
 export async function moveEmail(

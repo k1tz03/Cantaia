@@ -383,6 +383,7 @@ export interface EmailConnection {
   sync_interval_minutes: number;
   sync_folder: string;
   sync_since: string | null;
+  sync_delta_link: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1333,7 +1334,7 @@ export type UserInsert = WithOptionalDefaults<
 
 export type EmailConnectionInsert = WithOptionalDefaults<
   EmailConnection,
-  "id" | "oauth_access_token" | "oauth_refresh_token" | "oauth_token_expires_at" | "oauth_scopes" | "imap_host" | "imap_port" | "imap_security" | "imap_username" | "imap_password_encrypted" | "smtp_host" | "smtp_port" | "smtp_security" | "smtp_username" | "smtp_password_encrypted" | "display_name" | "status" | "last_error" | "last_sync_at" | "total_emails_synced" | "sync_enabled" | "sync_interval_minutes" | "sync_folder" | "sync_since" | "created_at" | "updated_at"
+  "id" | "oauth_access_token" | "oauth_refresh_token" | "oauth_token_expires_at" | "oauth_scopes" | "imap_host" | "imap_port" | "imap_security" | "imap_username" | "imap_password_encrypted" | "smtp_host" | "smtp_port" | "smtp_security" | "smtp_username" | "smtp_password_encrypted" | "display_name" | "status" | "last_error" | "last_sync_at" | "total_emails_synced" | "sync_enabled" | "sync_interval_minutes" | "sync_folder" | "sync_since" | "sync_delta_link" | "created_at" | "updated_at"
 >;
 
 export type ProjectInsert = WithOptionalDefaults<

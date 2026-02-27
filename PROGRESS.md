@@ -2491,8 +2491,29 @@ Principe : les organisations sont créées par le super-admin depuis `/super-adm
   - New settings tab "Préférences Email" added to settings page (9th tab)
   - i18n: 25 keys added to FR/EN/DE (`emailPrefs_*` + `tab_email_prefs`)
   - Build OK
-- [ ] MAIL.3 — Synchronisation (delta query Graph, IMAP fetch, cron 5 min)
-- [ ] MAIL.4 — Pipeline classification IA (3 niveaux : règles → spam → Claude, toujours "unprocessed")
+- [x] MAIL.3 — Synchronisation (delta query Graph, IMAP fetch, cron 5 min)
+  - Migration `020_sync_delta_link.sql`: adds `sync_delta_link` to email_connections, indexes on triage_status + snooze_until
+  - `graph-client.ts`: added `getEmailsDelta()` for Microsoft Graph delta query (incremental sync)
+  - `MicrosoftProvider.fetchEmailsDelta()`: delta-based sync using saved deltaLink
+  - Refactored `syncViaProvider()` in sync route: uses delta query for Microsoft, stores richer email data (from_email, to_emails, cc_emails, body_text, body_html, provider, provider_message_id, organization_id, triage_status)
+  - NEW: `POST /api/email/sync/cron` — Vercel Cron route (every 5 min), protected by CRON_SECRET, syncs all active connections
+  - `vercel.json` added with cron schedule `*/5 * * * *`
+  - Snooze expiry: expired snoozes reset to `triage_status='unprocessed'` on each sync
+  - Legacy Microsoft sync preserved for backward compat
+  - Build OK
+- [x] MAIL.4 — Pipeline classification IA (3 niveaux : règles → spam → Claude, toujours "unprocessed")
+  - NEW: `detectSpamNewsletter()` in `@cantaia/core/emails/spam-detector.ts` — heuristic spam/newsletter detection (sender patterns, subject patterns, unsubscribe links)
+  - NEW: `POST /api/email/classify` — standalone route for single email classification
+  - Refactored sync route classification pipeline — 3 levels:
+    - Level 1: Local learned rules (checkLocalRules, free)
+    - Level 2: Spam/newsletter filter (detectSpamNewsletter, fast) + keyword classification
+    - Level 3: Claude AI (full prompt with email body)
+  - Key principle: `triage_status='unprocessed'` always — email stays visible until user acts
+  - Exception: spam/newsletters auto-dismissed if user preference enabled → `triage_status='processed'`, `process_action='auto_dismissed'`
+  - Low confidence (<0.50) → `triage_status='pending_classification'` for manual review
+  - Auto-learning: high-confidence (≥0.85) AI results reinforce local rules via `learnFromClassificationAction()`
+  - Uses `email_preferences` table for auto_dismiss_spam/auto_dismiss_newsletters decisions
+  - Build OK
 - [ ] MAIL.5 — Page emails repensée (to-do list par projet + catégories entreprise, onglets)
 - [ ] MAIL.6 — Actions de traitement (Lu RAS, Répondre, Tâche, Transférer, Snooze, Import, Ignorer)
 - [ ] MAIL.7 — Panneau prévisualisation (contenu, PJ, analyse IA, actions contextuelles)

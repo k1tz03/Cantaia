@@ -66,6 +66,7 @@ export interface EmailConnection {
   last_sync_at: string | null;
   total_emails_synced: number;
   sync_folder: string;
+  sync_delta_link?: string | null;
 }
 
 export interface EmailProvider {
@@ -102,4 +103,10 @@ export interface EmailProvider {
 
   /** List attachments */
   getAttachments?(connection: EmailConnection, messageId: string): Promise<EmailAttachment[]>;
+
+  /** Fetch emails using delta/incremental sync (returns new deltaLink to save) */
+  fetchEmailsDelta?(connection: EmailConnection): Promise<{
+    emails: RawEmail[];
+    deltaLink: string | null;
+  }>;
 }

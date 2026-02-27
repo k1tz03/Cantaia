@@ -1,4 +1,5 @@
 export { learnFromClassificationAction, checkLocalRules } from "./classification-learning";
+export { detectSpamNewsletter, type SpamCheckResult } from "./spam-detector";
 export { determineArchivePath, getDefaultFolderTree, buildArchiveFolderPrompt, type ArchiveEmailInput, type ArchivePathResult } from "./email-archiver";
 export {
   getEmailProvider,

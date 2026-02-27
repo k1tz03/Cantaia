@@ -5,6 +5,7 @@
 
 import {
   getEmails,
+  getEmailsDelta,
   moveEmail as graphMoveEmail,
   createFolder,
   sendReply,
@@ -179,6 +180,36 @@ export class MicrosoftProvider implements EmailProvider {
       bodyHtml: data.body?.contentType === "html" ? data.body.content : undefined,
       bodyText: data.body?.contentType === "text" ? data.body.content : undefined,
     };
+  }
+
+  async fetchEmailsDelta(connection: EmailConnection): Promise<{
+    emails: RawEmail[];
+    deltaLink: string | null;
+  }> {
+    const token = connection.oauth_access_token;
+    if (!token) throw new Error("No Microsoft access token");
+
+    const { messages, deltaLink } = await withRetry(() =>
+      getEmailsDelta(token, connection.sync_delta_link)
+    );
+
+    const emails: RawEmail[] = messages.map((em: GraphEmailMessage) => ({
+      externalId: em.id,
+      conversationId: (em as unknown as Record<string, unknown>).conversationId as string | undefined,
+      from: em.from?.emailAddress?.address || "",
+      fromName: em.from?.emailAddress?.name || undefined,
+      to: (em.toRecipients || []).map((r) => r.emailAddress.address),
+      cc: (em.ccRecipients || []).map((r) => r.emailAddress.address),
+      subject: em.subject || "(Sans objet)",
+      date: new Date(em.receivedDateTime),
+      bodyText: em.bodyPreview || undefined,
+      bodyHtml: em.body?.content || undefined,
+      attachments: [],
+      isRead: em.isRead,
+      importance: (em as unknown as Record<string, unknown>).importance as "low" | "normal" | "high" | undefined,
+    }));
+
+    return { emails, deltaLink };
   }
 
   async getAttachments(connection: EmailConnection, messageId: string): Promise<EmailAttachment[]> {
