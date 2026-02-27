@@ -65,17 +65,20 @@ export async function POST(
       }
     }
 
+    console.log(`[Finalize] Meeting ${id}: ${allActions.length} total actions found`);
+
     // Create tasks for selected actions
     const selectedIndices = new Set(body.selected_action_indices || []);
     let tasksCreated = 0;
     const errors: string[] = [];
+    const insertErrors: any[] = [];
 
     for (let i = 0; i < allActions.length; i++) {
       if (!selectedIndices.has(i)) continue;
 
       const action = allActions[i];
 
-      // Parse deadline
+      // Parse deadline (Swiss format DD.MM.YYYY → YYYY-MM-DD)
       let dueDate: string | null = null;
       if (action.deadline) {
         const dateMatch = action.deadline.match(
@@ -86,32 +89,47 @@ export async function POST(
         }
       }
 
-      const { error: insertError } = await admin
+      // Use MINIMAL insert — only base columns from migration 001
+      // Avoids failure if migration 006 columns don't exist in DB
+      const taskData = {
+        project_id: meeting.project_id,
+        created_by: user.id,
+        title: action.description,
+        description: `Source : PV Séance #${meeting.meeting_number} — ${action.sectionNumber}. ${action.sectionTitle}`,
+        status: "todo",
+        priority: action.priority === "urgent" ? "urgent" : "medium",
+        source: "meeting",
+        source_id: meeting.id,
+        source_reference: `PV #${meeting.meeting_number}, §${action.sectionNumber}`,
+        assigned_to_name: action.responsible_name || null,
+        assigned_to_company: action.responsible_company || null,
+        due_date: dueDate,
+      };
+
+      console.log(`[Finalize] === INSERTING TASK ${i} ===`);
+      console.log(`[Finalize] project_id: ${taskData.project_id}`);
+      console.log(`[Finalize] title: ${taskData.title}`);
+      console.log(`[Finalize] Full insert:`, JSON.stringify(taskData));
+
+      const { data: insertedTask, error: insertError } = await admin
         .from("tasks")
-        .insert({
-          project_id: meeting.project_id,
-          created_by: user.id,
-          title: action.description,
-          description: `Source : PV Séance #${meeting.meeting_number} — ${action.sectionNumber}. ${action.sectionTitle}`,
-          status: "todo",
-          priority: action.priority === "urgent" ? "urgent" : "medium",
-          source: "meeting",
-          source_id: meeting.id,
-          source_reference: `PV #${meeting.meeting_number}, §${action.sectionNumber}`,
-          assigned_to_name: action.responsible_name || null,
-          assigned_to_company: action.responsible_company || null,
-          due_date: dueDate,
-          reminder: "none",
-          reminder_sent: false,
-          comments: [],
-          history: [],
-          attachments: [],
-        } as any);
+        .insert(taskData as any)
+        .select()
+        .single();
 
       if (insertError) {
-        console.error("[Finalize] Failed to create task:", insertError);
+        console.error(`[Finalize] INSERT ERROR for task ${i}:`, JSON.stringify(insertError));
         errors.push(action.description);
+        insertErrors.push({
+          index: i,
+          title: action.description,
+          error: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint,
+        });
       } else {
+        console.log(`[Finalize] Task ${i} created successfully: ${insertedTask?.id}`);
         tasksCreated++;
       }
     }
@@ -122,15 +140,18 @@ export async function POST(
       .update({ status: "finalized" } as any)
       .eq("id", id);
 
+    console.log(`[Finalize] Done: ${tasksCreated} tasks created, ${errors.length} errors`);
+
     return NextResponse.json({
       success: true,
       tasks_created: tasksCreated,
       errors: errors.length > 0 ? errors : undefined,
+      insert_errors: insertErrors.length > 0 ? insertErrors : undefined,
     });
   } catch (error) {
     console.error("[Finalize] Error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: String(error) },
       { status: 500 }
     );
   }

@@ -127,15 +127,24 @@ export default function PVDetailPage({
       });
       const data = await res.json();
       if (data.success) {
-        setSaveMessage(
-          `${t("finalized")}. ${data.tasks_created} ${t("tasks_created_label")}`
-        );
+        let msg = `${t("finalized")}. ${data.tasks_created} ${t("tasks_created_label")}`;
+        if (data.insert_errors?.length > 0) {
+          msg += ` (${data.insert_errors.length} erreur(s): ${data.insert_errors[0].error})`;
+          console.error("[Finalize] Insert errors:", data.insert_errors);
+        }
+        setSaveMessage(msg);
         setMeeting({ ...meeting, status: "finalized" });
         setShowFinalizeDialog(false);
-        setTimeout(() => setSaveMessage(null), 3000);
+        setTimeout(() => setSaveMessage(null), 5000);
+      } else {
+        setSaveMessage(`Erreur: ${data.error || "Échec de la finalisation"}`);
+        console.error("[Finalize] Failed:", data);
+        setTimeout(() => setSaveMessage(null), 5000);
       }
     } catch (err) {
       console.error("Finalize failed:", err);
+      setSaveMessage("Erreur réseau lors de la finalisation");
+      setTimeout(() => setSaveMessage(null), 5000);
     } finally {
       setFinalizing(false);
     }
