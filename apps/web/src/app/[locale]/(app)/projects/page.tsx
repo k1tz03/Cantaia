@@ -76,16 +76,19 @@ export default function ProjectsPage() {
     localStorage.setItem("cantaia_projects_view", mode);
   }
 
-  // Enrich projects with computed data
+  // Enrich projects with computed data (stats come from API)
   const enrichedProjects = useMemo(() => {
-    return projects.map((p) => ({
-      ...p,
-      openTasks: 0,
-      overdueTasks: 0,
-      emailCount: 0,
-      nextMeeting: null as { title: string; meeting_date: string } | null,
-      health: getProjectHealth(p.id),
-    }));
+    return projects.map((p) => {
+      const pa = p as any;
+      return {
+        ...p,
+        openTasks: (pa.openTasks as number) ?? 0,
+        overdueTasks: (pa.overdueTasks as number) ?? 0,
+        emailCount: (pa.emailCount as number) ?? 0,
+        nextMeeting: (pa.nextMeeting as { title: string; meeting_date: string } | null) ?? null,
+        health: getProjectHealth(p.id),
+      };
+    });
   }, [projects]);
 
   // Filter
