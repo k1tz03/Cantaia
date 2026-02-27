@@ -54,7 +54,7 @@ export function Sidebar() {
       items: [
         { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", badgeLabelKey: "badge.new" },
         { href: "/mail", labelKey: "mail", icon: Mail, status: "coming_soon", badgeLabelKey: "badge.soon" },
-        { href: "/pv", labelKey: "pv", icon: FileText, status: "coming_soon", badgeLabelKey: "badge.soon" },
+        { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", badgeLabelKey: "badge.new" },
       ],
     },
     {
@@ -170,7 +170,7 @@ export function Sidebar() {
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "coming_soon" },
-    { href: "/pv", labelKey: "pv", icon: FileText, status: "coming_soon" },
+    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 

@@ -1,32 +1,81 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildPVGeneratePrompt } from "@cantaia/core/ai";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 const USE_MOCK_PV = process.env.USE_MOCK_PV === "true";
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: body, error: parseError } = await parseBody(request);
-    if (parseError || !body) {
-      return NextResponse.json({ error: parseError || "Invalid request" }, { status: 400 });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const validationError = validateRequired(body, ["meeting_id", "transcript"]);
+    const { data: body, error: parseError } = await parseBody(request);
+    if (parseError || !body) {
+      return NextResponse.json(
+        { error: parseError || "Invalid request" },
+        { status: 400 }
+      );
+    }
+
+    const validationError = validateRequired(body, ["meeting_id"]);
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const {
-      meeting_id,
-      project_name,
-      project_code,
-      meeting_number,
-      meeting_date,
-      location,
-      participants,
-      transcript,
-      language = "fr",
-    } = body;
+    const admin = createAdminClient();
+    const { meeting_id } = body;
+
+    // If transcript is passed directly, use it. Otherwise fetch from DB.
+    let transcript = body.transcript;
+    let project_name = body.project_name;
+    let project_code = body.project_code;
+    let meeting_number = body.meeting_number;
+    let meeting_date = body.meeting_date;
+    let location = body.location;
+    let participants = body.participants;
+    const language = body.language || "fr";
+
+    if (!transcript) {
+      // Fetch meeting + project from DB
+      const { data: meeting } = await admin
+        .from("meetings")
+        .select("*, projects(name, code, address, city)")
+        .eq("id", meeting_id)
+        .maybeSingle();
+
+      if (!meeting) {
+        return NextResponse.json(
+          { error: "Meeting not found" },
+          { status: 404 }
+        );
+      }
+
+      if (!meeting.transcription_raw) {
+        return NextResponse.json(
+          { error: "No transcription available for this meeting" },
+          { status: 400 }
+        );
+      }
+
+      transcript = meeting.transcription_raw;
+      const project = meeting.projects as any;
+      project_name = project?.name || "Projet";
+      project_code = project?.code || "";
+      meeting_number = meeting.meeting_number || 0;
+      meeting_date =
+        meeting.meeting_date ||
+        new Date().toLocaleDateString("fr-CH");
+      location = meeting.location || project?.address || "";
+      participants = JSON.stringify(meeting.participants || []);
+    }
 
     console.log(
       `[GeneratePV] Generating PV for meeting ${meeting_id}`,
@@ -51,14 +100,16 @@ export async function POST(request: NextRequest) {
           {
             number: "1",
             title: "Tour de table / remarques générales",
-            content: "Le responsable ouvre la séance et fait un tour de table. Aucune remarque particulière.",
+            content:
+              "Le responsable ouvre la séance et fait un tour de table. Aucune remarque particulière.",
             decisions: ["PV précédent approuvé."],
             actions: [],
           },
           {
             number: "2",
             title: "Avancement des travaux",
-            content: "Discussion sur l'avancement général des travaux.",
+            content:
+              "Discussion sur l'avancement général des travaux.",
             decisions: [],
             actions: [
               {
@@ -72,8 +123,15 @@ export async function POST(request: NextRequest) {
           },
         ],
         next_steps: ["Suivi des actions ouvertes"],
-        summary_fr: "Séance de suivi. Avancement conforme au planning. Actions de suivi attribuées.",
+        summary_fr:
+          "Séance de suivi. Avancement conforme au planning. Actions de suivi attribuées.",
       };
+
+      // Save mock PV to DB
+      await admin
+        .from("meetings")
+        .update({ pv_content: mockPV as any, status: "review" } as any)
+        .eq("id", meeting_id);
 
       return NextResponse.json({
         success: true,
@@ -125,7 +183,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log API usage (full tracking with Supabase will be added when auth context is available)
+    // Save PV to DB
+    await admin
+      .from("meetings")
+      .update({ pv_content: pvContent as any, status: "review" } as any)
+      .eq("id", meeting_id);
+
     console.log("[GeneratePV] Usage:", {
       action: "pv_generate",
       model: "claude-sonnet-4-5-20250929",
@@ -133,7 +196,9 @@ export async function POST(request: NextRequest) {
       output_tokens: response.usage.output_tokens,
     });
 
-    console.log(`[GeneratePV] Success: ${pvContent.sections?.length || 0} sections`);
+    console.log(
+      `[GeneratePV] Success: ${pvContent.sections?.length || 0} sections`
+    );
 
     return NextResponse.json({
       success: true,
