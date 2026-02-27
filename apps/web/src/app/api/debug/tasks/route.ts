@@ -30,11 +30,11 @@ export async function GET() {
     results.all_tasks_count = allTasks?.length ?? 0;
     results.all_tasks_error = allError?.message ?? null;
 
-    // 2. Get tasks with source = 'meeting'
-    const { data: meetingTasks, error: meetingError } = await admin
-      .from("tasks")
+    // 2. Get tasks with source = 'meeting_pv' (pre-migration-006) or 'meeting' (post)
+    const { data: meetingTasks, error: meetingError } = await (admin
+      .from("tasks") as any)
       .select("*")
-      .eq("source", "meeting")
+      .in("source", ["meeting", "meeting_pv"])
       .limit(20);
 
     results.meeting_tasks_count = meetingTasks?.length ?? 0;
@@ -58,11 +58,11 @@ export async function GET() {
       .maybeSingle();
     results.sample_task_columns = sampleTask ? Object.keys(sampleTask) : "no tasks in DB";
 
-    // 4. Test a minimal INSERT + DELETE to check what works
+    // 4. Test a minimal INSERT + DELETE — use pre-migration-006 enum values
     const testInsert = {
       project_id: "00000000-0000-0000-0000-000000000000",
       title: "__debug_test_task__",
-      status: "todo",
+      status: "open",
       priority: "medium",
       source: "manual",
     };
@@ -93,13 +93,13 @@ export async function GET() {
       }
     }
 
-    // 5. Test INSERT with meeting source fields
+    // 5. Test INSERT with meeting_pv source (pre-migration-006 value)
     const testMeetingInsert = {
       project_id: "00000000-0000-0000-0000-000000000000",
       title: "__debug_test_meeting_task__",
-      status: "todo",
+      status: "open",
       priority: "medium",
-      source: "meeting",
+      source: "meeting_pv",
       source_id: "00000000-0000-0000-0000-000000000001",
       source_reference: "PV #1, §1",
       assigned_to_name: "Test",
@@ -147,9 +147,9 @@ export async function GET() {
         project_id: firstProject.id,
         created_by: user.id,
         title: "__debug_real_project_task__",
-        status: "todo",
+        status: "open",
         priority: "medium",
-        source: "meeting",
+        source: "meeting_pv",
         source_id: "00000000-0000-0000-0000-000000000001",
         source_reference: "Debug test",
         assigned_to_name: "Debug",

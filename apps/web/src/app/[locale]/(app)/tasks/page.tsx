@@ -28,6 +28,15 @@ type SortDir = "asc" | "desc";
 const PRIORITY_ORDER: Record<TaskPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<TaskStatus, number> = { todo: 0, in_progress: 1, waiting: 2, done: 3, cancelled: 4 };
 
+// Normalize pre-migration-006 enum values: open→todo, completed→done, meeting_pv→meeting
+function normalizeTask(task: any): Task {
+  return {
+    ...task,
+    status: task.status === "open" ? "todo" : task.status === "completed" ? "done" : task.status,
+    source: task.source === "meeting_pv" ? "meeting" : task.source === "ai_suggestion" ? "reserve" : task.source,
+  };
+}
+
 const KANBAN_COLUMNS: TaskStatus[] = ["todo", "in_progress", "waiting", "done"];
 
 function isOverdue(task: Task): boolean {
@@ -83,7 +92,7 @@ export default function TasksPage() {
         const res = await fetch("/api/tasks");
         const data = await res.json();
         if (data.success) {
-          if (data.tasks) setTasks(data.tasks);
+          if (data.tasks) setTasks(data.tasks.map(normalizeTask));
           if (data.projects) setProjects(data.projects);
         }
       } catch (err) {
