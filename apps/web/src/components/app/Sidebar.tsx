@@ -56,7 +56,7 @@ export function Sidebar() {
       labelKey: "section.products",
       items: [
         { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", badgeLabelKey: "badge.new" },
-        { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
+        { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, badgeLabelKey: unreadEmailCount > 0 ? undefined : "badge.new" },
         { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", badgeLabelKey: "badge.new" },
       ],
     },
@@ -64,13 +64,13 @@ export function Sidebar() {
       labelKey: "section.workspace",
       items: [
         { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+        { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", badgeLabelKey: "badge.new" },
         { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "coming_soon", badgeLabelKey: "badge.soon" },
       ],
     },
     {
       labelKey: "section.coming_soon",
       items: [
-        { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "locked", badgeLabelKey: "badge.soon" },
         { href: "/plans", labelKey: "plans", icon: Map, status: "locked", badgeLabelKey: "badge.soon" },
         { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "locked", badgeLabelKey: "badge.soon" },
         { href: "/pricing-intelligence", labelKey: "pricingIntelligence", icon: TrendingUp, status: "locked", badgeLabelKey: "badge.soon" },
@@ -168,12 +168,12 @@ export function Sidebar() {
     );
   }
 
-  // Mobile: only show active items + first coming_soon product
+  // Mobile: active products + key workspace items
   const mobileItems: NavItem[] = [
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
-    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
-    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
