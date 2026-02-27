@@ -1,6 +1,6 @@
 # CANTAIA — Progression
 
-## ÉTAT ACTUEL — 2026-02-22 (Étape 23 + 5 bug fixes)
+## ÉTAT ACTUEL — 2026-02-27 (Module Mail en cours)
 
 ### Résumé
 - **Étapes 1-6 TERMINÉES** : monorepo, landing, auth, dashboard, UX pro, intégration Outlook+Claude
@@ -24,7 +24,11 @@
 - **Étape 22 TERMINÉE** : Refonte complète Landing Page — Pro, moderne, accrocheur (6 sous-étapes)
 - **Étape 23 TERMINÉE** : Multi-provider email (Microsoft, Google, IMAP) — 9 sous-étapes
 - **5 bugs critiques corrigés** : user profile auto-create, middleware session refresh, email connection safety, projects connected to Supabase, auto-generated email keywords
-- **Build OK** : 52 pages, 46 API routes, 0 erreurs TypeScript
+- **Rename BUILDWISE → Cantaia** : terminé (2026-02-26), tous fichiers source, i18n, configs, packages
+- **Pivot produits** : 3 produits séquentiels (Soumissions active, Mail greyed, PV greyed)
+- **Bug fix PV→Tâches** : enum values corrigés (migration 006 appliquée), compteurs projets connectés aux vraies données
+- **Module Mail EN COURS** : Gestion intelligente des emails de chantier (16 sous-étapes)
+- **Build OK** : 53 pages, 41 API routes, 0 erreurs TypeScript
 - **Dev server** : `pnpm dev` dans `apps/web` → localhost:3000
 
 ### Ce qui fonctionne avec données réelles
@@ -2458,3 +2462,35 @@ Principe : les organisations sont créées par le super-admin depuis `/super-adm
 - Indication visuelle "Mots-clés générés automatiquement" avec icône Sparkles
 - i18n : clé `emailKeywordsAuto` ajoutée en FR/EN/DE
 - [x] Build OK
+
+---
+
+## Module Mail — Gestion intelligente des emails de chantier — EN COURS (2026-02-27)
+
+**Philosophie** : Classer ≠ traiter. L'IA fait le tri (projet, catégorie) mais l'email reste visible et "à traiter" tant que l'utilisateur n'a pas agi. L'inbox Cantaia est une to-do list intelligente groupée par projet et catégorie.
+
+- [x] MAIL.1 — Migration SQL + Types + Rename
+  - Migration `019_mail_module.sql` : rename email_records→emails, add 25+ new columns (triage_status, process_action, category_id, provider fields, body_text/html, search_vector, etc.)
+  - New tables: email_categories, outlook_folders, email_preferences
+  - Altered: email_classification_rules (added category_id)
+  - email_connections already covers email_accounts spec (no changes needed)
+  - French full-text search trigger (tsvector with weighted fields)
+  - RLS policies on all new tables
+  - TypeScript types updated: Email interface (EmailRecord kept as alias), EmailCategoryRecord, OutlookFolder, EmailPreferences, TriageStatus, ProcessAction enums
+  - Renamed `.from("email_records")` → `.from("emails")` in 18 source files (44 occurrences)
+  - Build OK
+- [ ] MAIL.2 — Connexion email (OAuth Microsoft Graph + IMAP fallback, page settings)
+- [ ] MAIL.3 — Synchronisation (delta query Graph, IMAP fetch, cron 5 min)
+- [ ] MAIL.4 — Pipeline classification IA (3 niveaux : règles → spam → Claude, toujours "unprocessed")
+- [ ] MAIL.5 — Page emails repensée (to-do list par projet + catégories entreprise, onglets)
+- [ ] MAIL.6 — Actions de traitement (Lu RAS, Répondre, Tâche, Transférer, Snooze, Import, Ignorer)
+- [ ] MAIL.7 — Panneau prévisualisation (contenu, PJ, analyse IA, actions contextuelles)
+- [ ] MAIL.8 — Envoi/réponse (Graph sendMail + SMTP fallback, éditeur rich text)
+- [ ] MAIL.9 — Archivage auto (Supabase Storage, .eml + PJ, structure par projet)
+- [ ] MAIL.10 — Recherche full-text (tsvector français, filtres avancés, highlighting)
+- [ ] MAIL.11 — Gestion dossiers Outlook (création auto CANTAIA/*, déplacement, sync bidirectionnelle)
+- [ ] MAIL.12 — Apprentissage continu (règles locales, renforcement, objectif 80% sans IA)
+- [ ] MAIL.13 — Raccourcis clavier (j/k, E, R, T, F, S, O, P, X, Ctrl+E batch)
+- [ ] MAIL.14 — Intégrations (sidebar badge, dashboard widget, liste projets compteur, toasts)
+- [ ] MAIL.15 — Vue emails par projet (fils de conversation, groupement thread)
+- [ ] MAIL.16 — Traductions i18n FR/EN/DE

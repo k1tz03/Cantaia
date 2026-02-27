@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   // 4. Fetch the email and verify ownership
   const { data: email, error: fetchErr } = await admin
-    .from("email_records")
+    .from("emails")
     .select("id, user_id, sender_email, subject, project_id, classification_status")
     .eq("id", email_id)
     .eq("user_id", user.id)
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   if (action === "confirm") {
     // Confirm the existing AI suggestion
     const { error: updateErr } = await admin
-      .from("email_records")
+      .from("emails")
       .update({ classification_status: "confirmed" } as Record<string, unknown>)
       .eq("id", email_id);
 
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   if (action === "change_project") {
     // Change to a different project and confirm
     const { error: updateErr } = await admin
-      .from("email_records")
+      .from("emails")
       .update({
         project_id: project_id,
         classification_status: "confirmed",
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
   if (action === "reject") {
     // Reject the classification entirely
     const { error: updateErr } = await admin
-      .from("email_records")
+      .from("emails")
       .update({
         classification_status: "rejected",
         classification: null,

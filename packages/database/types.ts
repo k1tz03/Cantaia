@@ -77,12 +77,15 @@ export type EmailClassificationStatus =
   | "confirmed"
   | "rejected";
 
-export type EmailCategory =
+export type EmailCategoryType =
   | "project"
   | "personal"
   | "administrative"
   | "spam"
   | "newsletter";
+
+/** @deprecated Use EmailCategoryType */
+export type EmailCategory = EmailCategoryType;
 
 export type ClassificationRuleType = "sender_domain" | "sender_email" | "subject_keyword" | "contact_match";
 
@@ -92,6 +95,7 @@ export interface EmailClassificationRule {
   rule_type: ClassificationRuleType;
   rule_value: string;
   project_id: string | null;
+  category_id: string | null;
   classification: string | null;
   times_confirmed: number;
   times_overridden: number;
@@ -114,6 +118,25 @@ export interface SuggestedProjectData {
     role: string | null;
   }[];
 }
+
+// ---------- Mail Module Enums ----------
+
+export type TriageStatus = "unprocessed" | "processed" | "snoozed" | "pending_classification";
+
+export type ProcessAction =
+  | "read_ok"
+  | "replied"
+  | "task_created"
+  | "forwarded"
+  | "offer_imported"
+  | "plan_registered"
+  | "snoozed"
+  | "auto_dismissed"
+  | "dismissed";
+
+export type EmailProvider = "graph" | "imap";
+
+export type EmailImportance = "low" | "normal" | "high";
 
 export type LogLevel = "info" | "warning" | "error" | "critical";
 
@@ -411,6 +434,56 @@ export interface EmailArchive {
   created_at: string;
 }
 
+// ---------- Mail Module Tables ----------
+
+export interface EmailCategoryRecord {
+  id: string;
+  organization_id: string;
+  name: string;
+  name_en: string | null;
+  name_de: string | null;
+  icon: string;
+  color: string;
+  sort_order: number;
+  is_project: boolean;
+  project_id: string | null;
+  unprocessed_count: number;
+  total_count: number;
+  is_system: boolean;
+  auto_dismiss: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutlookFolder {
+  id: string;
+  category_id: string | null;
+  organization_id: string;
+  user_id: string;
+  outlook_folder_id: string;
+  folder_name: string;
+  parent_folder_id: string | null;
+  email_count: number;
+  created_at: string;
+}
+
+export interface EmailPreferences {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  auto_move_outlook: boolean;
+  auto_dismiss_spam: boolean;
+  auto_dismiss_newsletters: boolean;
+  show_dismissed: boolean;
+  outlook_root_folder_name: string;
+  outlook_root_folder_id: string | null;
+  default_snooze_hours: number;
+  archive_enabled: boolean;
+  archive_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectMember {
   id: string;
   project_id: string;
@@ -419,29 +492,90 @@ export interface ProjectMember {
   added_at: string;
 }
 
-export interface EmailRecord {
+export interface Email {
   id: string;
-  user_id: string;
+  organization_id: string | null;
   project_id: string | null;
+  user_id: string;
+
+  // Provider identifiers
+  provider_message_id: string | null;
+  provider_thread_id: string | null;
+  provider: EmailProvider;
+
+  // Legacy fields (kept for backward compat with existing data)
   outlook_message_id: string;
-  subject: string;
   sender_email: string;
   sender_name: string | null;
   recipients: string[];
-  received_at: string;
+
+  // New content fields
+  from_email: string | null;
+  from_name: string | null;
+  to_emails: { email: string; name?: string }[];
+  cc_emails: { email: string; name?: string }[];
+  bcc_emails: { email: string; name?: string }[];
+  subject: string;
+  body_text: string | null;
+  body_html: string | null;
   body_preview: string | null;
+
+  // Attachments
   has_attachments: boolean;
+  attachments: { name: string; size: number; contentType: string; storageUrl?: string }[];
+
+  // Dates
+  received_at: string;
+  sent_at: string | null;
+
+  // Provider status
+  is_read_provider: boolean;
+  importance: EmailImportance;
+
+  // Classification IA (legacy fields kept)
   classification: EmailClassification | null;
   ai_classification_confidence: number | null;
   ai_project_match_confidence: number | null;
   ai_summary: string | null;
   classification_status: EmailClassificationStatus;
-  email_category: EmailCategory | null;
+  email_category: EmailCategoryType | null;
   suggested_project_data: SuggestedProjectData | null;
   ai_reasoning: string | null;
   is_processed: boolean;
+
+  // New classification fields
+  category_id: string | null;
+  ai_confidence: number;
+  ai_suggested_project_id: string | null;
+  ai_suggested_category: string | null;
+  ai_suggested_new_project: SuggestedProjectData | null;
+  ai_detected_content: {
+    has_plan?: boolean;
+    has_offer?: boolean;
+    has_invoice?: boolean;
+    has_meeting_reference?: boolean;
+    urgency?: string;
+    suggested_actions?: string[];
+    detected_deadline?: string | null;
+  } | null;
+
+  // Triage
+  triage_status: TriageStatus;
+  process_action: ProcessAction | null;
+  processed_at: string | null;
+  processed_by: string | null;
+  snooze_until: string | null;
+
+  // Archiving
+  archived_path: string | null;
+  outlook_folder_moved: string | null;
+
   created_at: string;
+  updated_at: string | null;
 }
+
+/** @deprecated Use Email */
+export type EmailRecord = Email;
 
 export interface TaskComment {
   user_id: string;
@@ -1212,9 +1346,27 @@ export type ProjectMemberInsert = WithOptionalDefaults<
   "id" | "added_at"
 >;
 
-export type EmailRecordInsert = WithOptionalDefaults<
-  EmailRecord,
-  "id" | "project_id" | "sender_name" | "body_preview" | "has_attachments" | "classification" | "ai_classification_confidence" | "ai_project_match_confidence" | "ai_summary" | "classification_status" | "email_category" | "suggested_project_data" | "ai_reasoning" | "is_processed" | "created_at"
+export type EmailInsert = WithOptionalDefaults<
+  Email,
+  "id" | "organization_id" | "project_id" | "provider_message_id" | "provider_thread_id" | "provider" | "sender_name" | "from_email" | "from_name" | "to_emails" | "cc_emails" | "bcc_emails" | "body_text" | "body_html" | "body_preview" | "has_attachments" | "attachments" | "sent_at" | "is_read_provider" | "importance" | "classification" | "ai_classification_confidence" | "ai_project_match_confidence" | "ai_summary" | "classification_status" | "email_category" | "suggested_project_data" | "ai_reasoning" | "is_processed" | "category_id" | "ai_confidence" | "ai_suggested_project_id" | "ai_suggested_category" | "ai_suggested_new_project" | "ai_detected_content" | "triage_status" | "process_action" | "processed_at" | "processed_by" | "snooze_until" | "archived_path" | "outlook_folder_moved" | "created_at" | "updated_at"
+>;
+
+/** @deprecated Use EmailInsert */
+export type EmailRecordInsert = EmailInsert;
+
+export type EmailCategoryRecordInsert = WithOptionalDefaults<
+  EmailCategoryRecord,
+  "id" | "name_en" | "name_de" | "icon" | "color" | "sort_order" | "is_project" | "project_id" | "unprocessed_count" | "total_count" | "is_system" | "auto_dismiss" | "created_at" | "updated_at"
+>;
+
+export type OutlookFolderInsert = WithOptionalDefaults<
+  OutlookFolder,
+  "id" | "category_id" | "parent_folder_id" | "email_count" | "created_at"
+>;
+
+export type EmailPreferencesInsert = WithOptionalDefaults<
+  EmailPreferences,
+  "id" | "organization_id" | "auto_move_outlook" | "auto_dismiss_spam" | "auto_dismiss_newsletters" | "show_dismissed" | "outlook_root_folder_name" | "outlook_root_folder_id" | "default_snooze_hours" | "archive_enabled" | "archive_path" | "created_at" | "updated_at"
 >;
 
 export type TaskInsert = WithOptionalDefaults<
@@ -1364,7 +1516,7 @@ export type EmailArchiveInsert = WithOptionalDefaults<
 
 export type EmailClassificationRuleInsert = WithOptionalDefaults<
   EmailClassificationRule,
-  "id" | "classification" | "times_confirmed" | "times_overridden" | "confidence_boost" | "is_active" | "created_at" | "updated_at"
+  "id" | "category_id" | "classification" | "times_confirmed" | "times_overridden" | "confidence_boost" | "is_active" | "created_at" | "updated_at"
 >;
 
 // ---------- Client Visits ----------
@@ -1517,10 +1669,28 @@ export interface Database {
         Update: Simplify<Partial<EmailConnection>>;
         Relationships: [];
       };
-      email_records: {
-        Row: Simplify<EmailRecord>;
-        Insert: EmailRecordInsert;
-        Update: Simplify<Partial<EmailRecord>>;
+      emails: {
+        Row: Simplify<Email>;
+        Insert: EmailInsert;
+        Update: Simplify<Partial<Email>>;
+        Relationships: [];
+      };
+      email_categories: {
+        Row: Simplify<EmailCategoryRecord>;
+        Insert: EmailCategoryRecordInsert;
+        Update: Simplify<Partial<EmailCategoryRecord>>;
+        Relationships: [];
+      };
+      outlook_folders: {
+        Row: Simplify<OutlookFolder>;
+        Insert: OutlookFolderInsert;
+        Update: Simplify<Partial<OutlookFolder>>;
+        Relationships: [];
+      };
+      email_preferences: {
+        Row: Simplify<EmailPreferences>;
+        Insert: EmailPreferencesInsert;
+        Update: Simplify<Partial<EmailPreferences>>;
         Relationships: [];
       };
       tasks: {
@@ -1792,6 +1962,10 @@ export interface Database {
       transcription_status: TranscriptionStatus;
       report_status: ReportStatus;
       visit_sentiment: VisitSentiment;
+      triage_status: TriageStatus;
+      process_action: ProcessAction;
+      email_provider: EmailProvider;
+      email_importance: EmailImportance;
     };
   };
 }

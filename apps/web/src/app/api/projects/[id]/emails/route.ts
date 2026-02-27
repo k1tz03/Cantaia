@@ -46,7 +46,7 @@ export async function GET(
   }
 
   const { data: emails, error } = await admin
-    .from("email_records")
+    .from("emails")
     .select("id, subject, sender_email, sender_name, received_at, body_preview, classification, ai_summary, has_attachments, email_category")
     .eq("project_id", id)
     .eq("user_id", user.id)

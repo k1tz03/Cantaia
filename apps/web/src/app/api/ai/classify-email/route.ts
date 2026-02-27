@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   // Get the email
   const { data: email, error: emailError } = await adminClient
-    .from("email_records")
+    .from("emails")
     .select("*")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   if (result.match_type === "existing_project") {
     const isAutoClassified = result.confidence >= 0.85;
     await adminClient
-      .from("email_records")
+      .from("emails")
       .update({
         project_id: result.project_id || null,
         classification: result.classification || "info_only",
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       .eq("id", email.id);
   } else if (result.match_type === "new_project") {
     await adminClient
-      .from("email_records")
+      .from("emails")
       .update({
         project_id: null,
         classification: result.classification || "action_required",
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       .eq("id", email.id);
   } else {
     await adminClient
-      .from("email_records")
+      .from("emails")
       .update({
         project_id: null,
         classification: "info_only",

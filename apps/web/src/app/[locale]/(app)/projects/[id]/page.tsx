@@ -345,7 +345,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Emails tab — real data from email_records */}
+        {/* Emails tab */}
         {activeTab === "emails" && (
           <ProjectEmailsTab projectId={project.id} />
         )}

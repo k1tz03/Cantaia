@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   // Verify the email belongs to this user
   const { data: email, error: fetchErr } = await admin
-    .from("email_records")
+    .from("emails")
     .select("id, user_id, sender_email, project_id")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
   // Perform the update
   const { error: updateErr } = await admin
-    .from("email_records")
+    .from("emails")
     .update(updateData)
     .eq("id", body.email_id);
 

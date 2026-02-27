@@ -134,7 +134,7 @@ export async function POST() {
 
     // Get unprocessed emails
     const { data: unprocessedEmails } = await adminClient
-      .from("email_records")
+      .from("emails")
       .select("*")
       .eq("user_id", user.id)
       .eq("is_processed", false)
@@ -150,7 +150,7 @@ export async function POST() {
           if (localMatch) {
             console.log(`[sync] Local rule match for "${email.subject}": project=${localMatch.projectId}, confidence=${localMatch.confidence}`);
             await adminClient
-              .from("email_records")
+              .from("emails")
               .update({
                 project_id: localMatch.projectId,
                 classification: "info_only",
@@ -183,7 +183,7 @@ export async function POST() {
           if (keywordMatch && keywordMatch.confidence >= 0.5) {
             console.log(`[sync] Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}, reasons=[${keywordMatch.reasons.join(", ")}]`);
             await adminClient
-              .from("email_records")
+              .from("emails")
               .update({
                 project_id: keywordMatch.projectId,
                 classification: "info_only",
@@ -205,7 +205,7 @@ export async function POST() {
         if (isUnknownProjectSubject(email.subject, projects)) {
           console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
           await adminClient
-            .from("email_records")
+            .from("emails")
             .update({ is_processed: true })
             .eq("id", email.id);
           continue;
@@ -254,7 +254,7 @@ export async function POST() {
         if (result.match_type === "existing_project") {
           const isAutoClassified = result.confidence >= 0.85;
           await adminClient
-            .from("email_records")
+            .from("emails")
             .update({
               project_id: result.project_id || null,
               classification: result.classification || "info_only",
@@ -270,7 +270,7 @@ export async function POST() {
 
         } else if (result.match_type === "new_project") {
           await adminClient
-            .from("email_records")
+            .from("emails")
             .update({
               project_id: null,
               classification: result.classification || "action_required",
@@ -288,7 +288,7 @@ export async function POST() {
 
         } else {
           await adminClient
-            .from("email_records")
+            .from("emails")
             .update({
               project_id: null,
               classification: "info_only",
@@ -365,7 +365,7 @@ export async function POST() {
       } catch (err) {
         console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
         await adminClient
-          .from("email_records")
+          .from("emails")
           .update({ is_processed: true, classification_status: "unprocessed" })
           .eq("id", email.id);
       }
@@ -469,7 +469,7 @@ async function syncViaProvider(
       for (let i = 0; i < externalIds.length; i += CHUNK_SIZE) {
         const chunk = externalIds.slice(i, i + CHUNK_SIZE);
         const { data: existingRows } = await adminClient
-          .from("email_records")
+          .from("emails")
           .select("outlook_message_id")
           .eq("user_id", userId)
           .in("outlook_message_id", chunk);
@@ -510,13 +510,13 @@ async function syncViaProvider(
       for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
         const chunk = toInsert.slice(i, i + CHUNK_SIZE);
         try {
-          await adminClient.from("email_records").insert(chunk);
+          await adminClient.from("emails").insert(chunk);
           synced += chunk.length;
         } catch (err) {
           // Fallback: insert individually if batch fails (e.g. duplicate key)
           for (const record of chunk) {
             try {
-              await adminClient.from("email_records").insert(record);
+              await adminClient.from("emails").insert(record);
               synced++;
             } catch (individualErr) {
               console.warn(`[sync] Failed to sync email ${record.outlook_message_id}:`, individualErr);
@@ -559,7 +559,7 @@ async function syncLegacyMicrosoft(
   // Pre-load existing message IDs to avoid N+1 queries in emailExists
   const existingMsgIds = new Set<string>();
   const { data: existingRows } = await adminClient
-    .from("email_records")
+    .from("emails")
     .select("outlook_message_id")
     .eq("user_id", userId)
     .not("outlook_message_id", "is", null);
@@ -590,7 +590,7 @@ async function syncLegacyMicrosoft(
     },
 
     insertEmail: async (emailData) => {
-      await adminClient.from("email_records").insert(emailData);
+      await adminClient.from("emails").insert(emailData);
     },
 
     updateLastSync: async (uid, syncAt) => {

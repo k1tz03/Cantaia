@@ -19,7 +19,7 @@ export async function GET() {
   const admin = createAdminClient();
 
   const { data: emails, error } = await admin
-    .from("email_records")
+    .from("emails")
     .select("*")
     .eq("user_id", user.id)
     .order("received_at", { ascending: false })

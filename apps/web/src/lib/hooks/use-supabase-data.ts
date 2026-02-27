@@ -17,7 +17,7 @@ export function useEmails(userId: string | undefined) {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("email_records")
+        .from("emails")
         .select("*")
         .eq("user_id", userId)
         .order("received_at", { ascending: false });
