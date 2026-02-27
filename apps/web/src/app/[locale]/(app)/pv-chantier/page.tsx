@@ -15,6 +15,8 @@ import {
   Pencil,
   Send,
   Sparkles,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import type { MeetingStatus } from "@cantaia/database";
 
@@ -52,6 +54,8 @@ export default function PVChantierPage() {
   const [loading, setLoading] = useState(true);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -73,6 +77,22 @@ export default function PVChantierPage() {
     }
     load();
   }, []);
+
+  const handleDelete = async (meetingId: string) => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/pv/${meetingId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   const filteredMeetings = useMemo(() => {
     let list = [...meetings];
@@ -212,6 +232,7 @@ export default function PVChantierPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   {t("col_status")}
                 </th>
+                <th className="w-10 px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -284,11 +305,59 @@ export default function PVChantierPage() {
                         {t(statusCfg.labelKey)}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(meeting.id);
+                        }}
+                        className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
+                        title={t("delete_pv")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <h3 className="text-base font-semibold text-gray-900">
+                {t("delete_pv")}
+              </h3>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">
+              {t("delete_pv_confirm")}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                onClick={() => handleDelete(deleteTarget)}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {t("delete_pv")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

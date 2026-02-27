@@ -732,7 +732,10 @@
     "col_date": "Date",
     "col_participants": "Participants",
     "col_actions": "Actions",
-    "col_status": "Status"
+    "col_status": "Status",
+    "delete_pv": "Delete PV",
+    "delete_pv_confirm": "Delete this PV and all associated tasks? This action cannot be undone.",
+    "cancel": "Cancel"
   },
   "landing": {
     "nav": {

@@ -732,7 +732,10 @@
     "col_date": "Date",
     "col_participants": "Participants",
     "col_actions": "Actions",
-    "col_status": "Statut"
+    "col_status": "Statut",
+    "delete_pv": "Supprimer le PV",
+    "delete_pv_confirm": "Supprimer ce PV et toutes les tâches associées ? Cette action est irréversible.",
+    "cancel": "Annuler"
   },
   "landing": {
     "nav": {

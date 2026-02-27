@@ -160,6 +160,13 @@ export async function DELETE(
       await admin.storage.from("meeting-audio").remove([meeting.audio_url]);
     }
 
+    // Delete related tasks (created from PV finalization)
+    await admin
+      .from("tasks")
+      .delete()
+      .eq("source", "meeting")
+      .eq("source_id", id);
+
     // Delete the meeting
     const { error } = await admin.from("meetings").delete().eq("id", id);
 

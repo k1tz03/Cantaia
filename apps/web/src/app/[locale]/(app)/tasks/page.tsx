@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   Plus,
@@ -15,13 +15,11 @@ import {
   CheckSquare,
   Trash2,
   UserPlus,
+  Loader2,
 } from "lucide-react";
 import { TaskCreateModal } from "@/components/tasks/TaskCreateModal";
 import { TaskDetailPanel } from "@/components/tasks/TaskDetailPanel";
 import type { Task, TaskStatus, TaskPriority, TaskSource, Project } from "@cantaia/database";
-
-const tasks: Task[] = [];
-const projects: Project[] = [];
 
 type ViewMode = "list" | "kanban";
 type SortField = "title" | "due_date" | "priority" | "status" | "created_at";
@@ -74,6 +72,28 @@ const SOURCE_CONFIG: Record<TaskSource, { icon: React.ElementType; label: string
 
 export default function TasksPage() {
   const t = useTranslations("tasks");
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/tasks");
+        const data = await res.json();
+        if (data.success) {
+          if (data.tasks) setTasks(data.tasks);
+          if (data.projects) setProjects(data.projects);
+        }
+      } catch (err) {
+        console.error("Failed to load tasks:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   // View mode (persisted in localStorage)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -280,6 +300,14 @@ export default function TasksPage() {
     const ids = Array.from(selected);
     console.log("[Task] Bulk delete:", ids.length, "tasks");
     setSelected(new Set());
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
   }
 
   return (
