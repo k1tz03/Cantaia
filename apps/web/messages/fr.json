@@ -402,6 +402,8 @@
     "noEmailsYet": "Aucun email classé dans ce projet pour le moment.",
     "tasksPlaceholder": "La gestion complète des tâches arrive bientôt.",
     "meetingsPlaceholder": "Les procès-verbaux générés apparaîtront ici.",
+    "newMeeting": "Nouveau PV",
+    "noMeetingsYet": "Aucun PV pour ce projet",
     "visitsPlaceholder": "Les visites clients liées à ce projet apparaîtront ici.",
     "viewAllVisits": "Voir toutes les visites",
     "comingSoon": "Disponible prochainement",

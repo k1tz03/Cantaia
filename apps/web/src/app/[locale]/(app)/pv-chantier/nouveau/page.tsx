@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import {
   Mic,
@@ -30,10 +31,13 @@ interface Participant {
 export default function NouveauPVPage() {
   const t = useTranslations("pv");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Metadata
   const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>(
+    searchParams.get("project_id") || ""
+  );
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState(
     new Date().toISOString().split("T")[0]

@@ -60,7 +60,7 @@ export default function ProjectDetailPage() {
 
   const { project, loading: projectLoading } = useProject(params.id as string);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [meetings, setMeetings] = useState<{ id: string; title: string; meeting_number?: number; meeting_date: string; status: string }[]>([]);
+  const [meetings, setMeetings] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<{ id: string; title: string; reference: string; status: string; estimated_total?: number; deadline?: string }[]>([]);
 
   useEffect(() => {
@@ -68,23 +68,21 @@ export default function ProjectDetailPage() {
     const supabase = createClient();
     const projectId = params.id as string;
 
-    // Load tasks
-    (supabase.from("tasks") as any)
-      .select("*")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false })
-      .then(({ data }: { data: Task[] | null }) => {
-        if (data) setTasks(data);
-      });
+    // Load tasks via API (bypasses RLS)
+    fetch(`/api/tasks?project_id=${projectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.tasks) setTasks(data.tasks);
+      })
+      .catch((err) => console.error("Failed to load tasks:", err));
 
-    // Load meetings
-    (supabase.from("meetings") as any)
-      .select("id, title, meeting_number, meeting_date, status")
-      .eq("project_id", projectId)
-      .order("meeting_date", { ascending: false })
-      .then(({ data }: { data: any[] | null }) => {
-        if (data) setMeetings(data);
-      });
+    // Load meetings via API (bypasses RLS)
+    fetch(`/api/pv?project_id=${projectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.meetings) setMeetings(data.meetings);
+      })
+      .catch((err) => console.error("Failed to load meetings:", err));
 
     // Load submissions
     (supabase.from("submissions") as any)
@@ -396,6 +394,11 @@ export default function ProjectDetailPage() {
                               {formatDate(task.due_date)}
                             </span>
                           )}
+                          {task.source === "meeting" && task.source_reference && (
+                            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                              {task.source_reference}
+                            </span>
+                          )}
                           {task.lot_code && (
                             <span className="text-slate-400">{task.lot_code}</span>
                           )}
@@ -415,16 +418,90 @@ export default function ProjectDetailPage() {
         )}
 
         {activeTab === "meetings" && (
-          <div className="flex h-64 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white">
-            <div className="text-center">
-              <FileText className="mx-auto h-10 w-10 text-slate-300" />
-              <p className="mt-3 text-sm font-medium text-slate-500">
-                {t("meetingsPlaceholder")}
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">
+                {meetings.length} PV
               </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {t("comingSoon")}
-              </p>
+              <Link
+                href={`/pv-chantier/nouveau?project_id=${project.id}`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("newMeeting")}
+              </Link>
             </div>
+            {meetings.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {meetings.map((meeting) => {
+                  const actionsCount = meeting.pv_content?.sections?.reduce(
+                    (total: number, s: any) => total + (s.actions?.length || 0),
+                    0
+                  ) || 0;
+                  const statusColors: Record<string, string> = {
+                    scheduled: "bg-gray-100 text-gray-700",
+                    recording: "bg-red-100 text-red-700",
+                    transcribing: "bg-blue-100 text-blue-700",
+                    generating_pv: "bg-violet-100 text-violet-700",
+                    review: "bg-orange-100 text-orange-700",
+                    finalized: "bg-green-100 text-green-700",
+                    sent: "bg-green-100 text-green-800",
+                  };
+                  const statusLabels: Record<string, string> = {
+                    scheduled: "Brouillon",
+                    recording: "Enregistrement",
+                    transcribing: "Transcription",
+                    generating_pv: "Génération",
+                    review: "En relecture",
+                    finalized: "Finalisé",
+                    sent: "Envoyé",
+                  };
+                  return (
+                    <Link
+                      key={meeting.id}
+                      href={`/pv-chantier/${meeting.id}`}
+                      className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50"
+                    >
+                      <FileText className="h-5 w-5 flex-shrink-0 text-slate-400" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {meeting.title}
+                          {meeting.meeting_number != null && (
+                            <span className="ml-1 text-xs text-slate-400">
+                              #{meeting.meeting_number}
+                            </span>
+                          )}
+                        </p>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDate(meeting.meeting_date)}
+                          </span>
+                          {actionsCount > 0 && (
+                            <span>{actionsCount} action{actionsCount > 1 ? "s" : ""}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[meeting.status] || "bg-gray-100 text-gray-700"}`}>
+                        {statusLabels[meeting.status] || meeting.status}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-4 flex h-40 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white">
+                <FileText className="h-8 w-8 text-slate-300" />
+                <p className="mt-2 text-sm text-slate-400">{t("noMeetingsYet")}</p>
+                <Link
+                  href={`/pv-chantier/nouveau?project_id=${project.id}`}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80"
+                >
+                  <Plus className="h-3 w-3" />
+                  {t("newMeeting")}
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

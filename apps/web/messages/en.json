@@ -401,6 +401,8 @@
     "noEmailsYet": "No emails classified in this project yet.",
     "tasksPlaceholder": "Full task management coming soon.",
     "meetingsPlaceholder": "Generated meeting minutes will appear here.",
+    "newMeeting": "New PV",
+    "noMeetingsYet": "No meeting minutes for this project",
     "visitsPlaceholder": "Client visits linked to this project will appear here.",
     "viewAllVisits": "View all visits",
     "comingSoon": "Coming soon",

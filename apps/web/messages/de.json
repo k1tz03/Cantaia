@@ -401,6 +401,8 @@
     "noEmailsYet": "Noch keine E-Mails in diesem Projekt klassifiziert.",
     "tasksPlaceholder": "Vollständige Aufgabenverwaltung kommt bald.",
     "meetingsPlaceholder": "Generierte Sitzungsprotokolle erscheinen hier.",
+    "newMeeting": "Neues Protokoll",
+    "noMeetingsYet": "Keine Sitzungsprotokolle für dieses Projekt",
     "visitsPlaceholder": "Kundenbesuche zu diesem Projekt erscheinen hier.",
     "viewAllVisits": "Alle Besuche anzeigen",
     "comingSoon": "Demnächst verfügbar",
