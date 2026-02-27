@@ -36,15 +36,6 @@ import type { Task } from "@cantaia/database";
 import { ArchiveSettingsTab } from "@/components/projects/ArchiveSettingsTab";
 import { FolderArchive } from "lucide-react";
 
-// Normalize pre-migration-006 enum values: open→todo, completed→done, meeting_pv→meeting
-function normalizeTask(task: any): Task {
-  return {
-    ...task,
-    status: task.status === "open" ? "todo" : task.status === "completed" ? "done" : task.status,
-    source: task.source === "meeting_pv" ? "meeting" : task.source === "ai_suggestion" ? "reserve" : task.source,
-  };
-}
-
 const baseTabs = [
   { key: "overview", icon: LayoutDashboard },
   { key: "emails", icon: Mail },
@@ -81,7 +72,7 @@ export default function ProjectDetailPage() {
     fetch(`/api/tasks?project_id=${projectId}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.tasks) setTasks(data.tasks.map(normalizeTask));
+        if (data.success && data.tasks) setTasks(data.tasks);
       })
       .catch((err) => console.error("Failed to load tasks:", err));
 

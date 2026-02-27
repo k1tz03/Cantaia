@@ -161,11 +161,10 @@ export async function DELETE(
     }
 
     // Delete related tasks (created from PV finalization)
-    // Handle both pre-migration-006 ("meeting_pv") and post ("meeting") enum values
-    await (admin
-      .from("tasks") as any)
+    await admin
+      .from("tasks")
       .delete()
-      .in("source", ["meeting", "meeting_pv"])
+      .eq("source", "meeting" as any)
       .eq("source_id", id);
 
     // Delete the meeting

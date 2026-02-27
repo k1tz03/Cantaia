@@ -3,35 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody } from "@/lib/api/parse-body";
 
-/**
- * Detect which enum values the DB accepts for task_status and task_source.
- * Migration 006 renames: open→todo, completed→done, meeting_pv→meeting, ai_suggestion→reserve
- * This function tries the new value first, falls back to the old value.
- */
-async function detectEnumValues(admin: ReturnType<typeof createAdminClient>) {
-  // Try inserting with new enum values
-  const { error } = await admin
-    .from("tasks")
-    .insert({
-      project_id: "00000000-0000-0000-0000-000000000000",
-      title: "__enum_probe__",
-      status: "todo",
-      source: "meeting",
-    } as any)
-    .select("id")
-    .single();
-
-  if (!error) {
-    // New values work — clean up probe row
-    await admin.from("tasks").delete().eq("title", "__enum_probe__");
-    return { statusOpen: "todo", statusDone: "done", sourceMeeting: "meeting" };
-  }
-
-  // New values failed — use old enum values (migration 006 not applied)
-  console.log("[Finalize] Using pre-migration-006 enum values (open, meeting_pv)");
-  return { statusOpen: "open", statusDone: "completed", sourceMeeting: "meeting_pv" };
-}
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,10 +27,6 @@ export async function POST(
     }
 
     const admin = createAdminClient();
-
-    // Detect which enum values the DB accepts
-    const enumValues = await detectEnumValues(admin);
-    console.log("[Finalize] Enum values:", JSON.stringify(enumValues));
 
     // Get the meeting
     const { data: meeting } = await admin
@@ -127,9 +94,9 @@ export async function POST(
         created_by: user.id,
         title: action.description,
         description: `Source : PV Séance #${meeting.meeting_number} — ${action.sectionNumber}. ${action.sectionTitle}`,
-        status: enumValues.statusOpen,
+        status: "todo",
         priority: action.priority === "urgent" ? "urgent" : "medium",
-        source: enumValues.sourceMeeting,
+        source: "meeting",
         source_id: meeting.id,
         source_reference: `PV #${meeting.meeting_number}, §${action.sectionNumber}`,
         assigned_to_name: action.responsible_name || null,
