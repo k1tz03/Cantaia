@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useBranding } from "@/components/providers/BrandingProvider";
+import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import { cn } from "@cantaia/ui";
 import {
   FolderKanban,
@@ -47,13 +48,15 @@ export function Sidebar() {
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
   const { branding } = useBranding();
+  const emailCtx = useEmailContextSafe();
+  const unreadEmailCount = emailCtx?.unreadCount || 0;
 
   const sections: NavSection[] = [
     {
       labelKey: "section.products",
       items: [
         { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", badgeLabelKey: "badge.new" },
-        { href: "/mail", labelKey: "mail", icon: Mail, status: "coming_soon", badgeLabelKey: "badge.soon" },
+        { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
         { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", badgeLabelKey: "badge.new" },
       ],
     },
@@ -169,7 +172,7 @@ export function Sidebar() {
   const mobileItems: NavItem[] = [
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "coming_soon" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];

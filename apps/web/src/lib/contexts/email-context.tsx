@@ -150,3 +150,8 @@ export function useEmailContext() {
   }
   return ctx;
 }
+
+/** Safe version that returns null when outside EmailProvider */
+export function useEmailContextSafe() {
+  return useContext(EmailContext);
+}
