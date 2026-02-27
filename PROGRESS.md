@@ -2479,7 +2479,18 @@ Principe : les organisations sont créées par le super-admin depuis `/super-adm
   - TypeScript types updated: Email interface (EmailRecord kept as alias), EmailCategoryRecord, OutlookFolder, EmailPreferences, TriageStatus, ProcessAction enums
   - Renamed `.from("email_records")` → `.from("emails")` in 18 source files (44 occurrences)
   - Build OK
-- [ ] MAIL.2 — Connexion email (OAuth Microsoft Graph + IMAP fallback, page settings)
+- [x] MAIL.2 — Connexion email (OAuth Microsoft Graph + IMAP fallback, page settings)
+  - Microsoft OAuth: already built (Supabase signInWithOAuth + auth callback + IntegrationsTab)
+  - IMAP fallback: already built (save-connection, test-connection API routes + IntegrationsTab UI)
+  - NEW: `GET/POST /api/emails/preferences` route (upsert to email_preferences table)
+  - NEW: `EmailPreferencesTab` component with 4 sections:
+    - Outlook Organization (auto-move, root folder name)
+    - Automatic Filtering (auto-dismiss spam/newsletters, show dismissed)
+    - Snooze Reminders (default duration: 1/2/4/8/24h)
+    - Local Archiving (enable, path)
+  - New settings tab "Préférences Email" added to settings page (9th tab)
+  - i18n: 25 keys added to FR/EN/DE (`emailPrefs_*` + `tab_email_prefs`)
+  - Build OK
 - [ ] MAIL.3 — Synchronisation (delta query Graph, IMAP fetch, cron 5 min)
 - [ ] MAIL.4 — Pipeline classification IA (3 niveaux : règles → spam → Claude, toujours "unprocessed")
 - [ ] MAIL.5 — Page emails repensée (to-do list par projet + catégories entreprise, onglets)

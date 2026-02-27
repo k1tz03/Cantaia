@@ -19,6 +19,7 @@ import {
   Lock,
   Key,
   Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useFormSection } from "@/lib/hooks/use-form-section";
@@ -28,12 +29,14 @@ import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
 import { OrganisationTab } from "@/components/settings/OrganisationTab";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { ClassificationSettingsTab } from "@/components/settings/ClassificationSettingsTab";
+import { EmailPreferencesTab } from "@/components/settings/EmailPreferencesTab";
 
 type SettingsTab =
   | "profile"
   | "language"
   | "notifications"
   | "outlook"
+  | "email_prefs"
   | "security"
   | "classification"
   | "organisation"
@@ -44,6 +47,7 @@ const TABS: { id: SettingsTab; icon: React.ElementType }[] = [
   { id: "language", icon: Globe },
   { id: "notifications", icon: Bell },
   { id: "outlook", icon: Mail },
+  { id: "email_prefs", icon: SlidersHorizontal },
   { id: "classification", icon: Settings },
   { id: "security", icon: Shield },
   { id: "organisation", icon: Layers },
@@ -106,6 +110,7 @@ export default function SettingsPage() {
           {activeTab === "language" && <LanguageSection />}
           {activeTab === "notifications" && <NotificationsSection />}
           {activeTab === "outlook" && <IntegrationsTab />}
+          {activeTab === "email_prefs" && <EmailPreferencesTab />}
           {activeTab === "classification" && <ClassificationSettingsTab />}
           {activeTab === "security" && <SecuritySection />}
           {activeTab === "organisation" && <OrganisationTab />}
