@@ -80,6 +80,7 @@ export async function PUT(
       "pv_content",
       "pv_html",
       "status",
+      "audio_url",
     ];
 
     for (const field of allowedFields) {
