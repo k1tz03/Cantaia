@@ -23,7 +23,7 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   // 1. Verify auth
   const supabase = await createClient();
   const {
@@ -37,6 +37,16 @@ export async function POST() {
   const adminClient = createAdminClient();
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
+  // Support ?full=true to force a full resync (clears last_sync_at)
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get("full") === "true") {
+    await adminClient
+      .from("users")
+      .update({ last_sync_at: null })
+      .eq("id", user.id);
+    console.log("[outlook/sync] Full resync requested — cleared last_sync_at");
+  }
+
   // 2. Get user's organization
   const { data: userOrg } = await adminClient
     .from("users")
@@ -45,7 +55,7 @@ export async function POST() {
     .maybeSingle();
 
   // 3. Determine sync strategy: new email_connections table or legacy Microsoft tokens
-  const { data: emailConnection } = await adminClient
+  let { data: emailConnection } = await adminClient
     .from("email_connections")
     .select("*")
     .eq("user_id", user.id)
@@ -53,6 +63,40 @@ export async function POST() {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Auto-create email_connection from legacy Microsoft tokens if missing
+  if (!emailConnection && userOrg?.organization_id) {
+    const { data: legacyUser } = await adminClient
+      .from("users")
+      .select("microsoft_access_token, microsoft_refresh_token, microsoft_token_expires_at, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (legacyUser?.microsoft_access_token) {
+      console.log("[outlook/sync] Auto-creating email_connection from legacy Microsoft tokens");
+      const { data: newConn } = await adminClient
+        .from("email_connections")
+        .insert({
+          user_id: user.id,
+          organization_id: userOrg.organization_id,
+          provider: "microsoft",
+          oauth_access_token: legacyUser.microsoft_access_token,
+          oauth_refresh_token: legacyUser.microsoft_refresh_token || null,
+          oauth_token_expires_at: legacyUser.microsoft_token_expires_at || null,
+          oauth_scopes: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
+          email_address: legacyUser.email || user.email!,
+          display_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          status: "active",
+        } as any)
+        .select("*")
+        .maybeSingle();
+
+      if (newConn) {
+        emailConnection = newConn;
+        console.log("[outlook/sync] Email connection auto-created successfully");
+      }
+    }
+  }
 
   let emailsSynced = 0;
   let emailsSkipped = 0;
