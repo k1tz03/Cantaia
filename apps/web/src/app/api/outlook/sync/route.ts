@@ -130,26 +130,8 @@ export async function POST(request: Request) {
   }
 
   // 4. Reset expired snoozes → back to unprocessed
-  let snoozesReset = 0;
-  try {
-    const now = new Date().toISOString();
-    const { data: expiredSnoozes } = await (adminClient as any)
-      .from("email_records")
-      .update({
-        triage_status: "unprocessed",
-        snooze_until: null,
-      })
-      .eq("user_id", user.id)
-      .eq("triage_status", "snoozed")
-      .lte("snooze_until", now)
-      .select("id");
-    snoozesReset = expiredSnoozes?.length || 0;
-    if (snoozesReset > 0) {
-      console.log(`[sync] Reset ${snoozesReset} expired snoozes`);
-    }
-  } catch (err) {
-    console.warn("[sync] Snooze reset check failed:", err);
-  }
+  // Snooze reset disabled — triage_status/snooze_until columns not yet in DB
+  const snoozesReset = 0;
 
   // 5. Pre-load archive-enabled projects for auto-archiving
   const archiveProjectsMap = new Map<string, {
@@ -215,12 +197,12 @@ export async function POST(request: Request) {
     projects = (projectsData || []) as ProjectForClassification[];
   }
 
-  // Get unprocessed emails (using triage_status if available, falling back to is_processed)
+  // Get unprocessed emails
   const { data: unprocessedEmails } = await (adminClient as any)
     .from("email_records")
     .select("*")
     .eq("user_id", user.id)
-    .or("triage_status.eq.unprocessed,is_processed.eq.false")
+    .eq("is_processed", false)
     .order("received_at", { ascending: false })
     .limit(100);
 
@@ -228,7 +210,7 @@ export async function POST(request: Request) {
 
   for (const email of unprocessedEmails || []) {
     try {
-      const senderEmail = email.from_email || email.sender_email || "";
+      const senderEmail = email.sender_email || "";
 
       // ═══════════════════════════════════════════════════════════
       // LEVEL 1: LOCAL LEARNED RULES (free, no AI)
@@ -242,13 +224,11 @@ export async function POST(request: Request) {
             .update({
               project_id: localMatch.projectId,
               classification: "info_only",
-              ai_confidence: localMatch.confidence,
               ai_classification_confidence: Math.round(localMatch.confidence * 100),
               ai_project_match_confidence: Math.round(localMatch.confidence * 100),
               ai_reasoning: "Classified by learned local rule (no AI call)",
               classification_status: "auto_classified",
               email_category: "project",
-              triage_status: "unprocessed",
               is_processed: true,
             })
             .eq("id", email.id);
@@ -277,12 +257,9 @@ export async function POST(request: Request) {
           .from("email_records")
           .update({
             email_category: spamCheck.type === "spam" ? "spam" : "newsletter",
-            ai_confidence: spamCheck.confidence,
+            ai_classification_confidence: Math.round(spamCheck.confidence * 100),
             ai_reasoning: spamCheck.reason,
             classification_status: "auto_classified",
-            triage_status: shouldAutoDismiss ? "processed" : "unprocessed",
-            process_action: shouldAutoDismiss ? "auto_dismissed" : null,
-            processed_at: shouldAutoDismiss ? new Date().toISOString() : null,
             is_processed: true,
           })
           .eq("id", email.id);
@@ -299,7 +276,7 @@ export async function POST(request: Request) {
           {
             subject: email.subject,
             sender_email: senderEmail,
-            sender_name: email.sender_name || email.from_name || undefined,
+            sender_name: email.sender_name || undefined,
             body_preview: email.body_preview || undefined,
           },
           projects
@@ -312,13 +289,11 @@ export async function POST(request: Request) {
             .update({
               project_id: keywordMatch.projectId,
               classification: "info_only",
-              ai_confidence: keywordMatch.confidence,
               ai_classification_confidence: Math.round(keywordMatch.confidence * 100),
               ai_project_match_confidence: Math.round(keywordMatch.confidence * 100),
               classification_status: "auto_classified",
               email_category: "project",
               ai_reasoning: `Local keyword match: ${keywordMatch.reasons.join(", ")}`,
-              triage_status: "unprocessed",
               is_processed: true,
             })
             .eq("id", email.id);
@@ -332,7 +307,7 @@ export async function POST(request: Request) {
         console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
         await (adminClient as any)
           .from("email_records")
-          .update({ is_processed: true, triage_status: "unprocessed" })
+          .update({ is_processed: true })
           .eq("id", email.id);
         continue;
       }
@@ -346,7 +321,6 @@ export async function POST(request: Request) {
           .from("email_records")
           .update({
             is_processed: true,
-            triage_status: "pending_classification",
             classification_status: "unprocessed",
           })
           .eq("id", email.id);
@@ -355,7 +329,7 @@ export async function POST(request: Request) {
 
       // Fetch full body for better classification
       let bodyFull: string | undefined;
-      const messageId = email.provider_message_id || email.outlook_message_id;
+      const messageId = email.outlook_message_id;
       if (messageId) {
         try {
           bodyFull = await getFullBody(messageId);
@@ -368,7 +342,7 @@ export async function POST(request: Request) {
         anthropicApiKey,
         {
           sender_email: senderEmail,
-          sender_name: email.sender_name || email.from_name || "",
+          sender_name: email.sender_name || "",
           subject: email.subject,
           body_preview: email.body_preview || "",
           body_full: bodyFull,
@@ -402,13 +376,11 @@ export async function POST(request: Request) {
             project_id: result.project_id || null,
             classification: result.classification || "info_only",
             ai_summary: result.summary_fr,
-            ai_confidence: result.confidence,
             ai_classification_confidence: result.classification_confidence || confidencePercent,
             ai_project_match_confidence: confidencePercent,
             classification_status: isAutoClassified ? "auto_classified" : "suggested",
             email_category: "project",
             ai_reasoning: result.reasoning || null,
-            triage_status: "unprocessed", // Always unprocessed — user must act
             is_processed: true,
           })
           .eq("id", email.id);
@@ -420,14 +392,12 @@ export async function POST(request: Request) {
             project_id: null,
             classification: result.classification || "action_required",
             ai_summary: result.summary_fr,
-            ai_confidence: result.confidence,
             ai_classification_confidence: result.classification_confidence || confidencePercent,
             ai_project_match_confidence: 0,
             classification_status: "new_project_suggested",
             email_category: "project",
             suggested_project_data: result.suggested_project || null,
             ai_reasoning: result.reasoning || null,
-            triage_status: "unprocessed",
             is_processed: true,
           })
           .eq("id", email.id);
@@ -442,13 +412,11 @@ export async function POST(request: Request) {
             project_id: null,
             classification: "info_only",
             ai_summary: result.summary_fr,
-            ai_confidence: result.confidence,
             ai_classification_confidence: confidencePercent,
             ai_project_match_confidence: 0,
             classification_status: isLowConfidence ? "unprocessed" : "classified_no_project",
             email_category: result.email_category || "personal",
             ai_reasoning: result.reasoning || null,
-            triage_status: isLowConfidence ? "pending_classification" : "unprocessed",
             is_processed: true,
           })
           .eq("id", email.id);
@@ -498,7 +466,7 @@ export async function POST(request: Request) {
             emailId: email.id,
             projectName: archiveProject.name,
             senderEmail,
-            senderName: email.sender_name || email.from_name || null,
+            senderName: email.sender_name || null,
             subject: email.subject,
             receivedAt: email.received_at,
             classification: result.classification || null,
@@ -532,7 +500,7 @@ export async function POST(request: Request) {
       console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
       await (adminClient as any)
         .from("email_records")
-        .update({ is_processed: true, triage_status: "unprocessed", classification_status: "unprocessed" })
+        .update({ is_processed: true, classification_status: "unprocessed" })
         .eq("id", email.id);
     }
   }
@@ -594,7 +562,7 @@ async function syncViaProvider(
   userId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connection: any,
-  organizationId?: string
+  _organizationId?: string
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   try {
     const provider = getEmailProvider(connection.provider);
@@ -654,19 +622,19 @@ async function syncViaProvider(
       const CHUNK_SIZE = 200;
       for (let i = 0; i < externalIds.length; i += CHUNK_SIZE) {
         const chunk = externalIds.slice(i, i + CHUNK_SIZE);
-        // Check both new provider_message_id and legacy outlook_message_id
+        // Check by outlook_message_id to deduplicate
         const { data: existingRows } = await (adminClient as any)
           .from("email_records")
-          .select("provider_message_id, outlook_message_id")
+          .select("outlook_message_id")
           .eq("user_id", userId)
-          .or(`provider_message_id.in.(${chunk.join(",")}),outlook_message_id.in.(${chunk.join(",")})`);
+          .in("outlook_message_id", chunk);
         for (const row of existingRows || []) {
-          if (row.provider_message_id) existingIds.add(row.provider_message_id);
           if (row.outlook_message_id) existingIds.add(row.outlook_message_id);
         }
       }
 
-      // Prepare batch of new emails to insert with RICHER data
+      // Prepare batch of new emails to insert
+      // NOTE: Only use columns that exist in email_records (migration 019 not applied)
       const toInsert = [];
       for (const raw of rawEmails) {
         if (existingIds.has(raw.externalId)) {
@@ -679,30 +647,13 @@ async function syncViaProvider(
 
         toInsert.push({
           user_id: userId,
-          organization_id: organizationId || null,
-          // New fields from MAIL.1
-          provider: connection.provider,
-          provider_message_id: raw.externalId,
-          provider_thread_id: raw.conversationId || null,
-          from_email: raw.from || "",
-          from_name: raw.fromName || null,
-          to_emails: raw.to || [],
-          cc_emails: raw.cc || [],
-          body_text: bodyText?.substring(0, 50000) || null,
-          body_html: raw.bodyHtml?.substring(0, 100000) || null,
-          is_read_provider: raw.isRead,
-          importance: raw.importance || "normal",
-          sent_at: raw.date.toISOString(),
-          // Legacy fields (backward compat)
           outlook_message_id: raw.externalId,
           sender_email: raw.from || "",
           sender_name: raw.fromName || null,
           recipients: [...raw.to, ...(raw.cc || [])],
           received_at: raw.date.toISOString(),
           body_preview: bodyPreview,
-          has_attachments: false, // Will be updated when attachments are fetched
-          // Triage: always starts as unprocessed
-          triage_status: "unprocessed",
+          has_attachments: false,
           is_processed: false,
           subject: raw.subject || "(Sans objet)",
         });
@@ -721,7 +672,7 @@ async function syncViaProvider(
               await (adminClient as any).from("email_records").insert(record);
               synced++;
             } catch (individualErr) {
-              console.warn(`[sync] Failed to sync email ${record.provider_message_id}:`, individualErr);
+              console.warn(`[sync] Failed to sync email ${record.outlook_message_id}:`, individualErr);
             }
           }
         }
@@ -795,10 +746,7 @@ async function syncLegacyMicrosoft(
     },
 
     insertEmail: async (emailData) => {
-      await (adminClient as any).from("email_records").insert({
-        ...emailData,
-        triage_status: "unprocessed",
-      });
+      await (adminClient as any).from("email_records").insert(emailData);
     },
 
     updateLastSync: async (uid, syncAt) => {

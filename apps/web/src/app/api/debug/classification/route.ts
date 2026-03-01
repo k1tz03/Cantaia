@@ -37,18 +37,25 @@ export async function GET() {
     (p) => p.status === "active" || p.status === "planning"
   ) as ProjectForClassification[];
 
-  // Get emails
-  const { data: emails } = await admin
+  // Get emails — use select("*") since column set depends on applied migrations
+  const { data: emails, error: emailsError } = await admin
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, from_email, from_name, body_preview, project_id, classification_status, ai_reasoning, is_processed, triage_status")
+    .select("*")
     .eq("user_id", user.id)
     .order("received_at", { ascending: false })
     .limit(50);
 
+  if (emailsError) {
+    return NextResponse.json({
+      error: "Failed to fetch emails",
+      details: emailsError.message,
+    }, { status: 500 });
+  }
+
   // Test classification for each email
-  const classificationTests = (emails || []).map((email) => {
-    const senderEmail = email.from_email || email.sender_email || "";
-    const senderName = email.from_name || email.sender_name || "";
+  const classificationTests = (emails || []).map((email: any) => {
+    const senderEmail = email.sender_email || "";
+    const senderName = email.sender_name || "";
 
     const localResult = activeProjects.length > 0
       ? classifyEmailByKeywords(
@@ -71,9 +78,9 @@ export async function GET() {
       subject: email.subject,
       sender: `${senderName} <${senderEmail}>`,
       current_project_id: email.project_id,
+      current_classification: email.classification,
       current_status: email.classification_status,
       is_processed: email.is_processed,
-      triage_status: email.triage_status,
       ai_reasoning: email.ai_reasoning,
       local_match: localResult
         ? {
@@ -82,7 +89,7 @@ export async function GET() {
             confidence: localResult.confidence,
             reasons: localResult.reasons,
           }
-        : null,
+        : "no_match",
     };
   });
 
@@ -109,7 +116,6 @@ export async function GET() {
 /**
  * POST /api/debug/classification
  * Force re-classify ALL emails (reset classification first).
- * This resets project_id and classification_status, then runs the full pipeline.
  */
 export async function POST() {
   const supabase = await createClient();
@@ -120,24 +126,31 @@ export async function POST() {
 
   const admin = createAdminClient();
 
-  // Reset ALL email classifications for this user
-  const { data: resetEmails } = await admin
+  // Reset ALL email classifications for this user (only columns that exist)
+  const { data: resetEmails, error } = await (admin as any)
     .from("email_records")
     .update({
       project_id: null,
+      classification: null,
       classification_status: "unprocessed",
       is_processed: false,
-      triage_status: "unprocessed",
       ai_reasoning: null,
-      ai_confidence: null,
       ai_summary: null,
-    } as any)
+      ai_classification_confidence: null,
+      ai_project_match_confidence: null,
+      email_category: null,
+      suggested_project_data: null,
+    })
     .eq("user_id", user.id)
     .select("id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({
     success: true,
     emails_reset: (resetEmails || []).length,
-    next_step: "Now call POST /api/ai/reclassify-all to re-classify all emails with the improved algorithm",
+    next_step: "Now call POST /api/ai/reclassify-all OR POST /api/outlook/sync to re-classify",
   });
 }
