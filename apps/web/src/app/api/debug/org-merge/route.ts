@@ -7,14 +7,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Diagnostic: list ALL organizations linked to the current user via:
  * - users table (by auth ID and by email)
  * - email_connections table (connected email accounts)
+ * - additional emails passed via ?also_email=xxx query param
  * Shows data counts per org to identify where "lost" data lives.
+ *
+ * Usage: /api/debug/org-merge?also_email=julien.ray@menetrey-sa.ch
  */
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  // Additional emails to search for (comma-separated or multiple params)
+  const alsoEmails = searchParams.getAll("also_email").flatMap(e => e.split(",")).filter(Boolean);
 
   const admin = createAdminClient();
 
@@ -25,11 +32,15 @@ export async function GET() {
     .eq("id", user.id)
     .maybeSingle();
 
-  // Find ALL user rows with the current auth email
+  // All emails to search: current auth email + any additional ones
+  const allEmails = [user.email!, ...alsoEmails].filter(Boolean);
+  const uniqueEmails = [...new Set(allEmails)];
+
+  // Find ALL user rows matching any of these emails
   const { data: usersByEmail } = await admin
     .from("users")
     .select("id, email, organization_id, first_name, last_name, created_at")
-    .eq("email", user.email!);
+    .in("email", uniqueEmails);
 
   // Find ALL email_connections for this user (by user_id)
   const { data: connectionsByUserId } = await admin
@@ -37,11 +48,11 @@ export async function GET() {
     .select("id, email_address, organization_id, provider, status")
     .eq("user_id", user.id);
 
-  // Find ALL email_connections matching the auth email (even under different user_ids)
+  // Find ALL email_connections matching any of these emails
   const { data: connectionsByEmail } = await admin
     .from("email_connections")
     .select("id, user_id, email_address, organization_id, provider, status")
-    .eq("email_address", user.email!);
+    .in("email_address", uniqueEmails);
 
   // Collect all unique org IDs from all sources
   const orgIds = new Set<string>();
@@ -177,6 +188,10 @@ export async function POST(request: Request) {
   }
   log.push(`Target org: "${targetOrg.name}" (${target_org_id})`);
 
+  // Also search additional emails (for cross-email merges)
+  const alsoEmails = (body.also_emails || []) as string[];
+  const uniqueEmails = [...new Set([user.email!, ...alsoEmails].filter(Boolean))];
+
   // Collect ALL org IDs linked to this user (same logic as GET)
   const { data: currentUser } = await admin
     .from("users")
@@ -187,7 +202,7 @@ export async function POST(request: Request) {
   const { data: usersByEmail } = await admin
     .from("users")
     .select("id, email, organization_id")
-    .eq("email", user.email!);
+    .in("email", uniqueEmails);
 
   const { data: connectionsByUserId } = await admin
     .from("email_connections")
@@ -197,7 +212,7 @@ export async function POST(request: Request) {
   const { data: connectionsByEmail } = await admin
     .from("email_connections")
     .select("user_id, organization_id")
-    .eq("email_address", user.email!);
+    .in("email_address", uniqueEmails);
 
   const sourceOrgIds = new Set<string>();
   if (currentUser?.organization_id && currentUser.organization_id !== target_org_id) {
