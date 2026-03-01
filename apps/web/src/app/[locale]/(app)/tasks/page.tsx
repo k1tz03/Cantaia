@@ -182,7 +182,7 @@ export default function TasksPage() {
     }
 
     return list;
-  }, [filterProject, filterStatus, filterPriority, filterSource, filterDeadline, searchQuery]);
+  }, [tasks, filterProject, filterStatus, filterPriority, filterSource, filterDeadline, searchQuery]);
 
   // Sorted tasks (for list view)
   const sortedTasks = useMemo(() => {
