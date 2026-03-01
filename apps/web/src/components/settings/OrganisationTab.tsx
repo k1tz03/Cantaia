@@ -24,7 +24,7 @@ export function OrganisationTab() {
         </p>
         <Link
           href="/admin/branding"
-          className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto sm:justify-start"
         >
           Accéder à la personnalisation
           <ArrowRight className="h-4 w-4" />
@@ -42,7 +42,7 @@ export function OrganisationTab() {
         </p>
         <Link
           href="/admin/members"
-          className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 sm:w-auto sm:justify-start"
         >
           Gérer les membres
           <ArrowRight className="h-4 w-4" />

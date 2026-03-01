@@ -69,9 +69,37 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-64px)]">
-      {/* Left navigation */}
-      <nav className="w-[200px] shrink-0 border-r border-gray-200 bg-gray-50 p-4">
+    <div className="flex flex-col md:flex-row h-full min-h-[calc(100vh-64px)]">
+      {/* Mobile: horizontal tab bar */}
+      <nav className="md:hidden border-b border-gray-200 bg-gray-50 px-4 pt-4 pb-0">
+        <h1 className="mb-3 text-sm font-semibold text-gray-900">
+          {t("title")}
+        </h1>
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide -mb-px pb-0">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
+                  isActive
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-blue-600" : "text-gray-400"}`} />
+                {t(`tab_${tab.id}`)}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Desktop: left sidebar */}
+      <nav className="hidden md:block w-[200px] shrink-0 border-r border-gray-200 bg-gray-50 p-4">
         <h1 className="mb-4 px-2 text-sm font-semibold text-gray-900">
           {t("title")}
         </h1>
@@ -100,7 +128,7 @@ export default function SettingsPage() {
       </nav>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
           <h2 className="mb-6 text-lg font-semibold text-gray-900">
             {t(`tab_${activeTab}`)}
@@ -168,11 +196,11 @@ function ProfileSection() {
     <div className="rounded-lg border border-gray-200 bg-white p-6">
       <div className="space-y-6">
         {/* Avatar */}
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
             {initials}
           </div>
-          <div>
+          <div className="text-center sm:text-left">
             <p className="text-sm font-medium text-gray-900">{t("profilePhoto")}</p>
             <button
               type="button"
@@ -185,7 +213,7 @@ function ProfileSection() {
         </div>
 
         {/* First name / Last name */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700">{tAuth("firstName")}</label>
             <input
@@ -207,7 +235,7 @@ function ProfileSection() {
         </div>
 
         {/* Phone / Email */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700">{t("phone")}</label>
             <input

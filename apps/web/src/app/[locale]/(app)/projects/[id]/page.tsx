@@ -128,23 +128,23 @@ export default function ProjectDetailPage() {
   );
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <Link
             href="/projects"
-            className="mt-1 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="mt-1 shrink-0 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <div
-                className="h-4 w-4 rounded-full"
+                className="h-4 w-4 shrink-0 rounded-full"
                 style={{ backgroundColor: project.color }}
               />
-              <h1 className="text-xl font-semibold text-slate-800">
+              <h1 className="text-lg sm:text-xl font-semibold text-slate-800 truncate">
                 {project.name}
               </h1>
               {project.code && (
@@ -176,8 +176,8 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 border-b border-slate-200">
-        <nav className="-mb-px flex gap-1 overflow-x-auto">
+      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-slate-200">
+        <nav className="-mb-px flex gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -214,7 +214,7 @@ export default function ProjectDetailPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Stats */}
             <div className="lg:col-span-2">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-md border border-slate-200 bg-white p-4">
                   <p className="text-xs font-medium text-slate-500">{t("openTasks")}</p>
                   <p className="mt-1 text-xl font-semibold text-slate-800">

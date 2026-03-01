@@ -97,8 +97,8 @@ export function TaskCreateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
           <h2 className="text-sm font-semibold text-gray-900">
@@ -166,7 +166,7 @@ export function TaskCreateModal({
             </div>
 
             {/* Assigned + Company */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
                   {t("taskAssigned")}
@@ -215,7 +215,7 @@ export function TaskCreateModal({
             </div>
 
             {/* Deadline + Status */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
                   {t("taskDeadline")} *
@@ -246,7 +246,7 @@ export function TaskCreateModal({
             </div>
 
             {/* Reminder + Lot */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
                   {t("taskReminder")}

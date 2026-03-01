@@ -111,9 +111,9 @@ export default function PVChantierPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">{t("title")}</h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -207,8 +207,8 @@ export default function PVChantierPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full">
+        <div className="mt-6 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-gray-200 bg-white">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">

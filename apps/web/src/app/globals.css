@@ -62,3 +62,17 @@
   scrollbar-width: thin;
   scrollbar-color: #CBD5E1 transparent;
 }
+
+/* Hide scrollbar for horizontal tab bars on mobile */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

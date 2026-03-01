@@ -219,7 +219,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-5 lg:p-6">
+    <div className="px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -470,20 +470,20 @@ export default function ProjectsPage() {
         </div>
       ) : (
         /* ==================== LIST/TABLE VIEW ==================== */
-        <div className="mt-4 overflow-x-auto rounded-md border border-gray-200 bg-white">
-          <table className="w-full text-left text-xs">
+        <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-md sm:border border-gray-200 bg-white">
+          <table className="min-w-[700px] w-full text-left text-xs">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="w-8 px-3 py-2" />
                 <TableHeader col="name" label={t("colProject")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <TableHeader col="code" label={t("colCode")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="code" label={t("colCode")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden sm:table-cell" />
                 <TableHeader col="client" label={t("colClient")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <TableHeader col="city" label={t("colCity")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="city" label={t("colCity")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden md:table-cell" />
                 <th className="px-3 py-2 font-medium text-gray-500">{t("colStatus")}</th>
                 <TableHeader col="emails" label={t("colEmails")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="tasks" label={t("colTasks")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="overdue" label={t("colOverdue")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
-                <th className="px-3 py-2 font-medium text-gray-500">{t("colNextMeeting")}</th>
+                <th className="hidden lg:table-cell px-3 py-2 font-medium text-gray-500">{t("colNextMeeting")}</th>
               </tr>
             </thead>
             <tbody>
@@ -501,13 +501,13 @@ export default function ProjectsPage() {
                     </div>
                   </td>
                   {/* Project name */}
-                  <td className="px-3 py-2 font-medium text-gray-800">{project.name}</td>
+                  <td className="px-3 py-2 font-medium text-gray-800 max-w-[200px] truncate">{project.name}</td>
                   {/* Code */}
-                  <td className="px-3 py-2 text-gray-500">{project.code || "—"}</td>
+                  <td className="hidden sm:table-cell px-3 py-2 text-gray-500">{project.code || "—"}</td>
                   {/* Client */}
                   <td className="max-w-[150px] truncate px-3 py-2 text-gray-500">{project.client_name || "—"}</td>
                   {/* City */}
-                  <td className="px-3 py-2 text-gray-500">{project.city || "—"}</td>
+                  <td className="hidden md:table-cell px-3 py-2 text-gray-500">{project.city || "—"}</td>
                   {/* Status */}
                   <td className="px-3 py-2">
                     <StatusBadge
@@ -529,7 +529,7 @@ export default function ProjectsPage() {
                     {project.overdueTasks > 0 && " ⚠"}
                   </td>
                   {/* Next meeting */}
-                  <td className="px-3 py-2 text-gray-500">
+                  <td className="hidden lg:table-cell px-3 py-2 text-gray-500">
                     {project.nextMeeting ? formatMeetingDate(project.nextMeeting.meeting_date) : "—"}
                   </td>
                 </tr>

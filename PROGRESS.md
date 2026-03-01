@@ -1,6 +1,6 @@
 # CANTAIA — Progression
 
-## ÉTAT ACTUEL — 2026-02-27 (Module Mail en cours)
+## ÉTAT ACTUEL — 2026-03-01 (Responsive Mobile + Module Mail en cours)
 
 ### Résumé
 - **Étapes 1-6 TERMINÉES** : monorepo, landing, auth, dashboard, UX pro, intégration Outlook+Claude
@@ -28,6 +28,7 @@
 - **Pivot produits** : 3 produits séquentiels (Soumissions active, Mail greyed, PV greyed)
 - **Bug fix PV→Tâches** : enum values corrigés (migration 006 appliquée), compteurs projets connectés aux vraies données
 - **Module Mail EN COURS** : Gestion intelligente des emails de chantier (16 sous-étapes)
+- **Fix Responsive Mobile TERMINÉ** : 7 corrections appliquées sur toutes les pages (2026-03-01)
 - **Build OK** : 53 pages, 41 API routes, 0 erreurs TypeScript
 - **Dev server** : `pnpm dev` dans `apps/web` → localhost:3000
 
@@ -2526,3 +2527,59 @@ Principe : les organisations sont créées par le super-admin depuis `/super-adm
 - [ ] MAIL.14 — Intégrations (sidebar badge, dashboard widget, liste projets compteur, toasts)
 - [ ] MAIL.15 — Vue emails par projet (fils de conversation, groupement thread)
 - [ ] MAIL.16 — Traductions i18n FR/EN/DE
+
+## Fix Responsive Mobile — TERMINÉ (2026-03-01)
+
+Corrections globales de mise en page pour écrans mobiles (< 768px).
+
+### FIX 1 — Page Aperçu Projet (`/projects/[id]`) — TERMINÉ
+- Container padding : `p-6` → `px-4 py-6 sm:px-6 lg:px-8`
+- Header : ajout `min-w-0`, `truncate`, `flex-wrap` pour texte long
+- Onglets : `-mx-4 px-4` pour scroll bord-à-bord, `scrollbar-hide` pour masquer la scrollbar
+- Cards KPI : `grid-cols-2` → `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
+
+### FIX 2+3 — Page Liste Projets (`/projects`) — TERMINÉ
+- Container padding : `p-5 lg:p-6` → `px-4 py-5 sm:px-6 lg:px-8`
+- Table : ajout `min-w-[700px]` + `-mx-4 sm:mx-0 overflow-x-auto` (scroll horizontal mobile)
+- Colonnes cachées sur mobile : Code (`hidden sm:`), Ville (`hidden md:`), Prochaine séance (`hidden lg:`)
+- Vue cards déjà correcte (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`)
+
+### FIX 4+5 — Pages Paramètres (`/settings`) — TERMINÉ
+- Sidebar navigation → menu horizontal scrollable sur mobile (`md:hidden`, `overflow-x-auto`, `scrollbar-hide`)
+- Desktop sidebar préservée (`hidden md:block`)
+- Formulaire Profil : `grid-cols-2` → `grid-cols-1 sm:grid-cols-2` (Prénom/Nom, Téléphone/Email)
+- Avatar : `flex-col items-center sm:flex-row` (centré sur mobile)
+- SaveButton : `w-full sm:w-auto` + `justify-center`
+- OrganisationTab : boutons `w-full sm:w-auto`
+
+### FIX 6 — Navigation Bottom Bar Mobile — TERMINÉ
+- Hit targets augmentés : `min-h-[44px] min-w-[44px]` (norme Apple)
+- Labels avec `truncate max-w-[56px]` pour éviter les débordements
+- Espacement uniforme avec `justify-evenly`
+- Ajout `safe-area-bottom` pour iPhone avec encoche
+
+### FIX 7 — Corrections Globales Responsive — TERMINÉ
+- `submissions/new/page.tsx` : padding responsive, form grid `sm:grid-cols-2`, table `overflow-x-auto min-w-[500px]`, boutons `w-full sm:w-auto`
+- `pv-chantier/page.tsx` : padding responsive, header `flex-col sm:flex-row`, table `overflow-x-auto min-w-[700px]`
+- `tasks/page.tsx` : padding responsive, header `flex-col sm:flex-row`, table `overflow-x-auto min-w-[600px]`
+- `submissions/page.tsx` : padding responsive (déjà `overflow-x-auto min-w-[850px]`)
+- `TaskCreateModal` : `p-4` sur overlay, `max-h-[90vh]`, form grids `sm:grid-cols-2`
+- `globals.css` : utilitaires `scrollbar-hide` et `safe-area-bottom`
+
+### Fichiers modifiés
+- `apps/web/src/app/globals.css` — utilitaires scrollbar-hide, safe-area-bottom
+- `apps/web/src/app/[locale]/(app)/projects/[id]/page.tsx` — KPI grid, tabs, padding
+- `apps/web/src/app/[locale]/(app)/projects/page.tsx` — table responsive, padding
+- `apps/web/src/app/[locale]/(app)/settings/page.tsx` — sidebar → horizontal menu mobile
+- `apps/web/src/app/[locale]/(app)/submissions/new/page.tsx` — form grid, table, padding
+- `apps/web/src/app/[locale]/(app)/pv-chantier/page.tsx` — table, header, padding
+- `apps/web/src/app/[locale]/(app)/tasks/page.tsx` — table, header, padding
+- `apps/web/src/app/[locale]/(app)/submissions/page.tsx` — padding
+- `apps/web/src/components/app/Sidebar.tsx` — bottom bar touch targets
+- `apps/web/src/components/settings/SaveButton.tsx` — full-width mobile
+- `apps/web/src/components/settings/OrganisationTab.tsx` — buttons full-width
+- `apps/web/src/components/tasks/TaskCreateModal.tsx` — modal padding, form grids
+
+### Build final
+- 0 erreurs TypeScript
+- 53 pages, 41 API routes

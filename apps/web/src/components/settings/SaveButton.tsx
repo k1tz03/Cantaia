@@ -22,12 +22,12 @@ export function SaveButton({
   savedLabel = "Enregistré",
 }: SaveButtonProps) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
       <button
         type="button"
         onClick={onClick}
         disabled={!isDirty || saving}
-        className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
+        className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 sm:w-auto ${
           isDirty
             ? "bg-blue-600 hover:bg-blue-700"
             : "cursor-not-allowed bg-gray-300"

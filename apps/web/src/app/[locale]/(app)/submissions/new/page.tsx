@@ -88,7 +88,7 @@ export default function NewSubmissionPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto overflow-auto h-full">
+    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-4xl mx-auto overflow-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/submissions" className="p-1 hover:bg-gray-100 rounded">
@@ -101,7 +101,7 @@ export default function NewSubmissionPage() {
         <div className="space-y-6">
           {/* Project & basic info */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t("filterProject")} *</label>
                 <select
@@ -261,7 +261,8 @@ export default function NewSubmissionPage() {
                         <div className="bg-gray-50 px-4 py-2 text-xs font-medium text-gray-600 border-b border-gray-100">
                           {ch.code} — {ch.name}
                         </div>
-                        <table className="w-full">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[500px]">
                           <tbody className="divide-y divide-gray-50">
                             {ch.items.map((item, itemIdx) => (
                               <tr key={itemIdx} className="hover:bg-gray-50 text-sm">
@@ -278,6 +279,7 @@ export default function NewSubmissionPage() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -287,13 +289,13 @@ export default function NewSubmissionPage() {
           })}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setStep("upload")} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3">
+            <button onClick={() => setStep("upload")} className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 sm:w-auto">
               ← Modifier
             </button>
             <button
               onClick={handleValidate}
-              className="px-6 py-2 bg-[#1E3A5F] text-white rounded-md text-sm font-medium hover:bg-[#162d4a]"
+              className="w-full px-6 py-2 bg-[#1E3A5F] text-white rounded-md text-sm font-medium hover:bg-[#162d4a] sm:w-auto"
             >
               {t("validateAll")}
             </button>

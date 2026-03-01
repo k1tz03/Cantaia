@@ -311,9 +311,9 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{t("title")}</h1>
         <div className="flex items-center gap-2">
           {/* View toggle */}
@@ -513,8 +513,8 @@ export default function TasksPage() {
 
       {/* List View */}
       {viewMode === "list" && (
-        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full">
+        <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-gray-200 bg-white">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="w-10 px-3 py-2.5">

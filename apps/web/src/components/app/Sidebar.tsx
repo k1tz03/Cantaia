@@ -336,8 +336,8 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden">
-        <div className="flex items-center justify-around px-2 py-1.5">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom">
+        <div className="flex items-center justify-evenly px-1 py-1">
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -347,10 +347,10 @@ export function Sidebar() {
               return (
                 <div
                   key={item.href}
-                  className="relative flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-[10px] font-medium text-slate-300 cursor-not-allowed"
+                  className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium text-slate-300 cursor-not-allowed"
                 >
                   <Icon className="h-5 w-5" />
-                  <span>{t(item.labelKey)}</span>
+                  <span className="truncate max-w-[56px]">{t(item.labelKey)}</span>
                 </div>
               );
             }
@@ -360,14 +360,14 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-[10px] font-medium transition-colors",
+                  "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
                   !isBranded && active && "text-brand",
                   !active && "text-slate-400 hover:text-slate-600"
                 )}
                 style={active && isBranded ? { color: branding.primaryColor } : undefined}
               >
                 <Icon className="h-5 w-5" />
-                <span>{t(item.labelKey)}</span>
+                <span className="truncate max-w-[56px]">{t(item.labelKey)}</span>
               </Link>
             );
           })}
