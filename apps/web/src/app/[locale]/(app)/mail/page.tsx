@@ -423,7 +423,7 @@ export default function MailPage() {
                     {t("connectDesc")}
                   </p>
                   <button
-                    onClick={() => router.push("/settings?tab=integrations")}
+                    onClick={() => router.push("/settings?tab=outlook")}
                     className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-500"
                   >
                     <Settings className="h-4 w-4" />
