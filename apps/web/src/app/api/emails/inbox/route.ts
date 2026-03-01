@@ -26,8 +26,13 @@ export async function GET() {
     .limit(500);
 
   if (error) {
-    console.error("[emails/inbox] Error:", error.message);
-    return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
+    console.error("[emails/inbox] Error:", error.message, error.details, error.hint, error.code);
+    return NextResponse.json({
+      error: "Failed to fetch emails",
+      details: error.message,
+      code: error.code,
+      hint: error.hint,
+    }, { status: 500 });
   }
 
   return NextResponse.json({ emails: emails || [] });
