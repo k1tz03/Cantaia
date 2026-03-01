@@ -26,6 +26,22 @@ export function EmailProvider({ userId, children }: { userId: string | undefined
   const [hasRealData, setHasRealData] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
+  // Check if an active email connection exists (separate from email count)
+  const checkConnection = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/emails/get-connection");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.connection) {
+          setHasRealData(true);
+        }
+      }
+    } catch {
+      // Ignore — will fallback to email-count check
+    }
+  }, [userId]);
+
   const fetchEmails = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -38,8 +54,8 @@ export function EmailProvider({ userId, children }: { userId: string | undefined
       const json = await res.json();
       const data = json.emails || [];
 
+      setEmails(data as EmailRecord[]);
       if (data.length > 0) {
-        setEmails(data as EmailRecord[]);
         setHasRealData(true);
         // Mark already-read emails from DB
         const alreadyRead = new Set<string>();
@@ -60,8 +76,9 @@ export function EmailProvider({ userId, children }: { userId: string | undefined
   }, [userId]);
 
   useEffect(() => {
+    checkConnection();
     fetchEmails();
-  }, [fetchEmails]);
+  }, [checkConnection, fetchEmails]);
 
   const syncEmails = useCallback(async () => {
     setSyncing(true);

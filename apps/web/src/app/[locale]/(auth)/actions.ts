@@ -121,18 +121,25 @@ export async function forgotPasswordAction(formData: {
   return { success: true };
 }
 
-export async function signInWithMicrosoftAction(): Promise<{
+export async function signInWithMicrosoftAction(options?: {
+  linkToOrg?: string;
+}): Promise<{
   url?: string;
   error?: string;
 }> {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+  // When linking from Settings, pass org_id so the callback reuses it
+  const callbackUrl = options?.linkToOrg
+    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=/settings`
+    : `${appUrl}/api/auth/callback`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "azure",
     options: {
       scopes: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
-      redirectTo: `${appUrl}/api/auth/callback`,
+      redirectTo: callbackUrl,
     },
   });
 
@@ -143,18 +150,24 @@ export async function signInWithMicrosoftAction(): Promise<{
   return { url: data.url };
 }
 
-export async function signInWithGoogleAction(): Promise<{
+export async function signInWithGoogleAction(options?: {
+  linkToOrg?: string;
+}): Promise<{
   url?: string;
   error?: string;
 }> {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+  const callbackUrl = options?.linkToOrg
+    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=/settings`
+    : `${appUrl}/api/auth/callback`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       scopes: "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
-      redirectTo: `${appUrl}/api/auth/callback`,
+      redirectTo: callbackUrl,
       queryParams: {
         access_type: "offline",
         prompt: "consent",

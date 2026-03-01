@@ -439,6 +439,18 @@ export default function MailPage() {
                   <p className="mt-1 text-xs text-slate-400">
                     {t("noEmailsDesc")}
                   </p>
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-500 disabled:opacity-50"
+                  >
+                    {syncing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    {syncing ? t("syncing") : t("sync")}
+                  </button>
                 </>
               )}
             </div>

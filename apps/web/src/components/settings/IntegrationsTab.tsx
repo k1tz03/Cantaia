@@ -165,7 +165,9 @@ export function IntegrationsTab() {
   async function handleConnectMicrosoft() {
     setConnecting(true);
     try {
-      const result = await signInWithMicrosoftAction();
+      // Pass current org_id so the callback reuses it instead of creating a new one
+      const orgId = profile?.profile?.organization_id;
+      const result = await signInWithMicrosoftAction(orgId ? { linkToOrg: orgId } : undefined);
       if (result.url) window.location.href = result.url;
     } finally {
       setConnecting(false);
@@ -175,7 +177,8 @@ export function IntegrationsTab() {
   async function handleConnectGoogle() {
     setConnecting(true);
     try {
-      const result = await signInWithGoogleAction();
+      const orgId = profile?.profile?.organization_id;
+      const result = await signInWithGoogleAction(orgId ? { linkToOrg: orgId } : undefined);
       if (result.url) window.location.href = result.url;
     } finally {
       setConnecting(false);

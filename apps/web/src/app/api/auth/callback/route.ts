@@ -3,12 +3,36 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
 
+/**
+ * Migrate all data references from one user ID to another.
+ * Used when a user re-authenticates with a different OAuth provider,
+ * resulting in a new Supabase auth UID.
+ */
+async function migrateUserData(
+  adminClient: ReturnType<typeof createAdminClient>,
+  fromUserId: string,
+  toUserId: string
+) {
+  console.log("[auth/callback] Migrating data from", fromUserId, "to", toUserId);
+  await adminClient.from("project_members").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
+  await adminClient.from("tasks").update({ assigned_to: toUserId } as any).eq("assigned_to", fromUserId);
+  await adminClient.from("tasks").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
+  await adminClient.from("emails").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
+  await adminClient.from("meetings").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
+  await adminClient.from("email_connections").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
+  // Delete old user row
+  await adminClient.from("users").delete().eq("id", fromUserId).neq("id", toUserId);
+  console.log("[auth/callback] Data migration complete");
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
-  const next = searchParams.get("next") ?? "/submissions";
+  const next = searchParams.get("next") ?? "/mail";
+  // link_org is set when connecting email from Settings (preserves current org)
+  const linkOrgId = searchParams.get("link_org");
 
   console.log("[auth/callback] Received callback:", {
     hasCode: !!code,
@@ -16,6 +40,7 @@ export async function GET(request: Request) {
     errorDesc,
     origin,
     next,
+    linkOrgId,
   });
 
   // Default locale for redirects
@@ -56,66 +81,182 @@ export async function GET(request: Request) {
 
         console.log("[auth/callback] Auth provider:", authProvider);
 
-        // Check if user row already exists
+        // ────────────────────────────────────────────────────────────────
+        // ORGANIZATION RESOLUTION: Find the right org for this user
+        // Priority:
+        //   1. Existing user row with same auth ID → reuse org
+        //   2. link_org parameter (from Settings connection flow) → reuse specified org
+        //   3. Existing user row with same email → reuse org + migrate data
+        //   4. email_connections with same email → reuse org (user connecting with provider email)
+        //   5. Create new org (truly first-time user)
+        // ────────────────────────────────────────────────────────────────
+
+        // Check 1: User exists by auth ID
         const { data: existingUser } = await adminClient
           .from("users")
-          .select("id")
+          .select("id, organization_id")
           .eq("id", data.user.id)
           .maybeSingle();
 
-        if (!existingUser) {
-          console.log("[auth/callback] First-time user, creating org + profile...");
-          const metadata = data.user.user_metadata || {};
-          const fullName = metadata.full_name || metadata.name || data.user.email || "";
-          const nameParts = fullName.split(" ");
-          const firstName = metadata.first_name || nameParts[0] || "";
-          const lastName = metadata.last_name || nameParts.slice(1).join(" ") || "";
+        if (existingUser) {
+          // Known user, just update auth provider columns
+          console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
+          await adminClient
+            .from("users")
+            .update({ auth_provider: authProvider, auth_provider_id: identity?.id || null } as any)
+            .eq("id", data.user.id);
 
-          const trialEndsAt = new Date();
-          trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS);
-
-          const { data: org, error: orgError } = await adminClient
+        } else if (linkOrgId) {
+          // Check 2: Settings flow — user connected email from within the app
+          // Validate the org exists
+          const { data: linkedOrg } = await adminClient
             .from("organizations")
-            .insert({
-              name: `${firstName} ${lastName}`.trim() || "My Company",
-              subscription_plan: "trial",
-              trial_ends_at: trialEndsAt.toISOString(),
-              max_users: 3,
-              max_projects: 5,
-            })
-            .select()
-            .single();
+            .select("id")
+            .eq("id", linkOrgId)
+            .maybeSingle();
 
-          if (orgError) {
-            console.error("[auth/callback] Org creation error:", orgError.message);
-          }
-
-          if (org) {
+          if (linkedOrg) {
+            console.log("[auth/callback] Linking to existing org via link_org:", linkOrgId);
+            const metadata = data.user.user_metadata || {};
             const { error: userError } = await adminClient.from("users").upsert({
               id: data.user.id,
-              organization_id: org.id,
+              organization_id: linkOrgId,
               email: data.user.email!,
-              first_name: firstName,
-              last_name: lastName,
+              first_name: metadata.first_name || metadata.full_name?.split(" ")[0] || "",
+              last_name: metadata.last_name || metadata.full_name?.split(" ").slice(1).join(" ") || "",
               role: "project_manager",
               preferred_language: "fr",
             } as any, { onConflict: "id" });
             if (userError) {
-              console.error("[auth/callback] User creation error:", userError.message);
+              console.error("[auth/callback] User upsert error:", userError.message);
             }
+          } else {
+            console.warn("[auth/callback] link_org not found:", linkOrgId, "— falling through to creation");
           }
+
         } else {
-          // Try updating auth_provider columns (may not exist if migration 018 not applied)
-          const { error: updateErr } = await adminClient
-            .from("users")
-            .update({ auth_provider: authProvider, auth_provider_id: identity?.id || null } as any)
-            .eq("id", data.user.id);
-          if (updateErr) {
-            console.warn("[auth/callback] Could not update auth_provider:", updateErr.message);
+          // Check 3: User with same email under different auth ID
+          const { data: existingByEmail } = data.user.email
+            ? await adminClient
+                .from("users")
+                .select("id, organization_id")
+                .eq("email", data.user.email)
+                .maybeSingle()
+            : { data: null };
+
+          if (existingByEmail) {
+            console.log("[auth/callback] Found existing user by email, reusing org:", existingByEmail.organization_id);
+            const { data: oldUserRow } = await adminClient
+              .from("users")
+              .select("first_name, last_name, role, preferred_language")
+              .eq("id", existingByEmail.id)
+              .maybeSingle();
+
+            await adminClient.from("users").upsert({
+              id: data.user.id,
+              organization_id: existingByEmail.organization_id,
+              email: data.user.email!,
+              first_name: oldUserRow?.first_name || data.user.user_metadata?.first_name || "",
+              last_name: oldUserRow?.last_name || data.user.user_metadata?.last_name || "",
+              role: oldUserRow?.role || "project_manager",
+              preferred_language: oldUserRow?.preferred_language || "fr",
+            } as any, { onConflict: "id" });
+
+            if (existingByEmail.id !== data.user.id) {
+              await migrateUserData(adminClient, existingByEmail.id, data.user.id);
+            }
+
+          } else {
+            // Check 4: OAuth email exists as a connected email_connection
+            // This handles: user signed up with email A, connected Microsoft (email B) from settings,
+            // then later logs in directly with Microsoft (email B)
+            const { data: existingConnection } = data.user.email
+              ? await adminClient
+                  .from("email_connections")
+                  .select("user_id, organization_id")
+                  .eq("email_address", data.user.email)
+                  .eq("status", "active")
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+              : { data: null };
+
+            if (existingConnection) {
+              console.log("[auth/callback] Found existing email_connection for this email, reusing org:", existingConnection.organization_id);
+
+              // Get the original user's profile info
+              const { data: connUser } = await adminClient
+                .from("users")
+                .select("first_name, last_name, role, preferred_language, organization_id")
+                .eq("id", existingConnection.user_id)
+                .maybeSingle();
+
+              const targetOrgId = connUser?.organization_id || existingConnection.organization_id;
+
+              await adminClient.from("users").upsert({
+                id: data.user.id,
+                organization_id: targetOrgId,
+                email: data.user.email!,
+                first_name: connUser?.first_name || data.user.user_metadata?.first_name || "",
+                last_name: connUser?.last_name || data.user.user_metadata?.last_name || "",
+                role: connUser?.role || "project_manager",
+                preferred_language: connUser?.preferred_language || "fr",
+              } as any, { onConflict: "id" });
+
+              // Migrate data from old user to new auth user
+              if (existingConnection.user_id !== data.user.id) {
+                await migrateUserData(adminClient, existingConnection.user_id, data.user.id);
+              }
+
+            } else {
+              // Check 5: Truly new user — create org + profile
+              console.log("[auth/callback] First-time user, creating org + profile...");
+              const metadata = data.user.user_metadata || {};
+              const fullName = metadata.full_name || metadata.name || data.user.email || "";
+              const nameParts = fullName.split(" ");
+              const firstName = metadata.first_name || nameParts[0] || "";
+              const lastName = metadata.last_name || nameParts.slice(1).join(" ") || "";
+
+              const trialEndsAt = new Date();
+              trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS);
+
+              const { data: org, error: orgError } = await adminClient
+                .from("organizations")
+                .insert({
+                  name: `${firstName} ${lastName}`.trim() || "My Company",
+                  subscription_plan: "trial",
+                  trial_ends_at: trialEndsAt.toISOString(),
+                  max_users: 3,
+                  max_projects: 5,
+                })
+                .select()
+                .single();
+
+              if (orgError) {
+                console.error("[auth/callback] Org creation error:", orgError.message);
+              }
+
+              if (org) {
+                const { error: userError } = await adminClient.from("users").upsert({
+                  id: data.user.id,
+                  organization_id: org.id,
+                  email: data.user.email!,
+                  first_name: firstName,
+                  last_name: lastName,
+                  role: "project_manager",
+                  preferred_language: "fr",
+                } as any, { onConflict: "id" });
+                if (userError) {
+                  console.error("[auth/callback] User creation error:", userError.message);
+                }
+              }
+            }
           }
         }
 
-        // Store OAuth tokens based on provider
+        // ────────────────────────────────────────────────────────────────
+        // OAUTH TOKENS: Store provider tokens for email sync
+        // ────────────────────────────────────────────────────────────────
         const providerToken = data.session.provider_token;
         const providerRefreshToken = data.session.provider_refresh_token;
         console.log("[auth/callback] Provider tokens:", {
@@ -189,17 +330,17 @@ export async function GET(request: Request) {
           }
         }
 
-        // Use preferred language from user profile if available
+        // ────────────────────────────────────────────────────────────────
+        // REDIRECT: Use preferred language, redirect to target page
+        // ────────────────────────────────────────────────────────────────
         let userLocale = locale;
-        if (existingUser) {
-          const { data: profile } = await adminClient
-            .from("users")
-            .select("preferred_language")
-            .eq("id", data.user.id)
-            .maybeSingle();
-          if (profile?.preferred_language) {
-            userLocale = profile.preferred_language;
-          }
+        const { data: profile } = await adminClient
+          .from("users")
+          .select("preferred_language")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (profile?.preferred_language) {
+          userLocale = profile.preferred_language;
         }
 
         const redirectUrl = `${origin}/${userLocale}${next}`;
