@@ -206,7 +206,7 @@ export function classifyEmailByKeywords(
 ): LocalClassificationResult | null {
   const subjectNorm = norm(email.subject || "");
   const firstSegment = extractFirstSegment(email.subject);
-  const bodyNorm = norm((email.body_preview || "").substring(0, 2000));
+  const bodyNorm = norm((email.body_preview || "").substring(0, 5000));
   const senderLower = (email.sender_email || "").toLowerCase();
 
   let bestMatch: LocalClassificationResult | null = null;
@@ -301,18 +301,23 @@ export function classifyEmailByKeywords(
     // ── PENALTY: First segment doesn't match this project ──
     // In Swiss construction emails, the first segment (before – or :) is typically
     // the project name or code. If it's a clear identifier that doesn't match
-    // this project, penalize to prevent false positives.
-    if (firstSegment && firstSegment.length >= 2 && firstSegment.length <= 25) {
+    // this project, penalize heavily to prevent false positives.
+    if (firstSegment && firstSegment.length >= 2 && firstSegment.length <= 30) {
       const matchesProject =
         nameNorm.includes(firstSegment) ||
         firstSegment.includes(nameNorm) ||
         (codeNorm && (codeNorm.includes(firstSegment) || firstSegment.includes(codeNorm))) ||
-        (codeAlpha && (codeAlpha === firstSegment || firstSegment.includes(codeAlpha))) ||
-        nameWords.some((w) => firstSegment.includes(w) || w.includes(firstSegment)) ||
-        keywords.some((k) => firstSegment.includes(k) || k.includes(firstSegment));
+        (codeAlpha && codeAlpha.length >= 2 && (codeAlpha === firstSegment || firstSegment.includes(codeAlpha))) ||
+        nameWords.some((w) => w.length >= 3 && (firstSegment.includes(w) || w.includes(firstSegment))) ||
+        keywords.some((k) => k.length >= 3 && (firstSegment.includes(k) || k.includes(firstSegment)));
 
-      if (!matchesProject && /^[a-z\s]+$/i.test(firstSegment)) {
-        score -= 5;
+      if (matchesProject) {
+        // BONUS: first segment matches this project → strong positive signal
+        score += 5;
+        reasons.push(`BONUS: sujet commence par "${firstSegment}" = ce projet`);
+      } else if (firstSegment.length >= 2) {
+        // HEAVY PENALTY: first segment is a clear identifier NOT matching this project
+        score -= 15;
         reasons.push(`PENALITE: sujet commence par "${firstSegment}" != ce projet`);
       }
     }
@@ -321,12 +326,13 @@ export function classifyEmailByKeywords(
       console.log(`[classifyByKeywords]   "${project.name}": score=${score} [${reasons.join("; ")}]`);
     }
 
-    // STRICT THRESHOLD: score >= 6 AND must have at least one name/ref match
-    if (score >= 6 && hasNameOrRefMatch && score > (bestMatch?.score ?? 0)) {
+    // STRICT THRESHOLD: score >= 8 AND must have at least one name/ref match
+    // Raised from 6 to 8 to avoid false positives that bypass AI classification
+    if (score >= 8 && hasNameOrRefMatch && score > (bestMatch?.score ?? 0)) {
       bestMatch = {
         projectId: project.id,
         score,
-        confidence: Math.min(score / 15, 0.99),
+        confidence: Math.min(score / 18, 0.99),
         reasons,
       };
     }

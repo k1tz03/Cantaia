@@ -305,7 +305,7 @@ export async function POST(request: Request) {
           projects
         );
 
-        if (keywordMatch && keywordMatch.confidence >= 0.5) {
+        if (keywordMatch && keywordMatch.confidence >= 0.6) {
           console.log(`[sync] L2b Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}`);
           await (adminClient as any)
             .from("email_records")

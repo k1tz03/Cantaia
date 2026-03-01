@@ -47,12 +47,18 @@ CAS C — L'email est personnel/admin/spam/newsletter :
 → Retourner match_type: "no_project" avec la catégorie
 
 RÈGLES :
-1. Analyse le sujet, l'expéditeur ET le contenu complet
-2. Pour les emails transférés (FW:/TR:/Fwd:/WG:), analyse le contenu original
-3. Cherche des indices dans : noms de personnes, entreprises, adresses, codes CFC, noms de chantier
-4. Si l'expéditeur correspond à un expéditeur connu → forte probabilité projet existant
-5. Si des mots-clés d'un projet apparaissent → probablement ce projet
-6. Un email peut contenir des indices subtils : signature, référence de dossier, adresse de chantier
+1. RÈGLE PRINCIPALE — PREMIER SEGMENT DU SUJET : Dans les emails de chantier suisses, la première partie du sujet (avant « – », « — » ou « : ») est presque TOUJOURS le nom ou code du projet. Après avoir retiré les préfixes TR:/RE:/FW:, le premier segment est le signal le plus fort.
+   Exemples : "TR: RTS : Menetrey-BasSmets – Rapport" → premier segment = "RTS" → chercher le projet RTS
+   "TR: Cèdres – Déversement" → premier segment = "Cèdres" → chercher le projet Cèdres
+   "TR: CENTRAL MALLEY – Planche" → premier segment = "CENTRAL MALLEY" → chercher Central Malley
+   Si le premier segment correspond clairement à un projet existant, c'est CE projet avec haute confidence (≥0.90).
+   Si le premier segment ne correspond à AUCUN projet existant, c'est probablement un nouveau projet (CAS B).
+2. Analyse le sujet, l'expéditeur ET le contenu complet
+3. Pour les emails transférés (FW:/TR:/Fwd:/WG:), analyse le contenu original MAIS le premier segment du sujet reste prioritaire
+4. Cherche des indices dans : noms de personnes, entreprises, adresses, codes CFC, noms de chantier
+5. Si l'expéditeur correspond à un expéditeur connu → forte probabilité projet existant
+6. Si des mots-clés d'un projet apparaissent → probablement ce projet, MAIS le premier segment du sujet a priorité en cas de conflit
+7. ATTENTION AUX FAUX POSITIFS : Ne classe PAS un email dans un projet juste parce qu'un mot-clé vague correspond. Le premier segment du sujet doit être cohérent avec le projet choisi.
 
 RÉSUMÉ ACTIONNABLE (summary_fr) :
 UNE PHRASE. Format : "[Qui] [fait quoi] → [action requise ou 'aucune action requise']"
