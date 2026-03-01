@@ -20,10 +20,13 @@ import {
   Sparkles,
   MailX,
   ArrowUpDown,
+  Link2,
+  Settings,
 } from "lucide-react";
 import type { EmailRecord, Project } from "@cantaia/database";
 import { EmailDetailPanel } from "@/components/app/EmailDetailPanel";
 import { useEmailKeyboardShortcuts } from "@/hooks/useEmailKeyboardShortcuts";
+import { useRouter } from "next/navigation";
 
 type TabKey = "inbox" | "processed" | "snoozed";
 
@@ -63,7 +66,8 @@ function getClassificationBadge(email: EmailRecord) {
 
 export default function MailPage() {
   const t = useTranslations("mail");
-  const { emails, loading, syncing, syncEmails, refetch, readIds, markAsRead } = useEmailContext();
+  const router = useRouter();
+  const { emails, loading, syncing, hasRealData, syncEmails, refetch, readIds, markAsRead } = useEmailContext();
   const [activeTab, setActiveTab] = useState<TabKey>("inbox");
   const [selectedEmail, setSelectedEmail] = useState<EmailRecord | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -249,7 +253,7 @@ export default function MailPage() {
   });
 
   return (
-    <div className="flex h-[calc(100vh-56px)] lg:h-screen">
+    <div className="flex h-[calc(100vh-120px)] sm:h-[calc(100vh-56px)] lg:h-screen">
       {/* Left: Email list */}
       <div
         className={cn(
@@ -396,14 +400,47 @@ export default function MailPage() {
               <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
           ) : filteredEmails.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <MailX className="h-10 w-10 text-slate-300" />
-              <p className="mt-3 text-sm font-medium text-slate-500">
-                {searchResults ? t("noSearchResults") : t("noEmails")}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {searchResults ? t("tryDifferentSearch") : t("noEmailsDesc")}
-              </p>
+            <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+              {searchResults ? (
+                <>
+                  <MailX className="h-10 w-10 text-slate-300" />
+                  <p className="mt-3 text-sm font-medium text-slate-500">
+                    {t("noSearchResults")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {t("tryDifferentSearch")}
+                  </p>
+                </>
+              ) : !hasRealData ? (
+                <>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
+                    <Link2 className="h-8 w-8 text-brand" />
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-slate-700">
+                    {t("connectTitle")}
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs text-slate-400">
+                    {t("connectDesc")}
+                  </p>
+                  <button
+                    onClick={() => router.push("/settings?tab=integrations")}
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-500"
+                  >
+                    <Settings className="h-4 w-4" />
+                    {t("connectButton")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <MailX className="h-10 w-10 text-slate-300" />
+                  <p className="mt-3 text-sm font-medium text-slate-500">
+                    {t("noEmails")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {t("noEmailsDesc")}
+                  </p>
+                </>
+              )}
             </div>
           ) : activeTab === "inbox" && !filterProjectId ? (
             // Group by project for inbox
