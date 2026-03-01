@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
   // Get the email
   const { data: email, error: emailErr } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("id", email_id)
     .eq("user_id", user.id)
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const localMatch = await checkLocalRules(admin, orgId, senderEmail);
     if (localMatch) {
       await (admin as any)
-        .from("emails")
+        .from("email_records")
         .update({
           project_id: localMatch.projectId,
           classification: "info_only",
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       (spamCheck.type === "newsletter" && userPrefs.auto_dismiss_newsletters);
 
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({
         email_category: spamCheck.type === "spam" ? "spam" : "newsletter",
         ai_confidence: spamCheck.confidence,
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
 
     if (keywordMatch && keywordMatch.confidence >= 0.5) {
       await (admin as any)
-        .from("emails")
+        .from("email_records")
         .update({
           project_id: keywordMatch.projectId,
           classification: "info_only",
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
   // ═══════════════════════════════════════════════════════════
   if (!anthropicApiKey) {
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({
         is_processed: true,
         triage_status: "pending_classification",
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
 
   if (result.match_type === "existing_project") {
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({
         project_id: result.project_id || null,
         classification: result.classification || "info_only",
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
       .eq("id", email_id);
   } else if (result.match_type === "new_project") {
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({
         project_id: null,
         classification: result.classification || "action_required",
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
   } else {
     const isLowConfidence = result.confidence < 0.50;
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({
         project_id: null,
         classification: "info_only",

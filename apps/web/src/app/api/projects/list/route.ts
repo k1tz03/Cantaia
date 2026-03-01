@@ -56,7 +56,7 @@ export async function GET() {
 
   // Fetch email counts per project
   const { data: allEmails } = await admin
-    .from("emails")
+    .from("email_records")
     .select("id, project_id")
     .in("project_id", projectIds);
 

@@ -1670,7 +1670,7 @@ export interface Database {
         Update: Simplify<Partial<EmailConnection>>;
         Relationships: [];
       };
-      emails: {
+      email_records: {
         Row: Simplify<Email>;
         Insert: EmailInsert;
         Update: Simplify<Partial<Email>>;

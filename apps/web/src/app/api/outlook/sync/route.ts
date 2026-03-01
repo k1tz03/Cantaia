@@ -134,7 +134,7 @@ export async function POST(request: Request) {
   try {
     const now = new Date().toISOString();
     const { data: expiredSnoozes } = await (adminClient as any)
-      .from("emails")
+      .from("email_records")
       .update({
         triage_status: "unprocessed",
         snooze_until: null,
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
 
   // Get unprocessed emails (using triage_status if available, falling back to is_processed)
   const { data: unprocessedEmails } = await (adminClient as any)
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("user_id", user.id)
     .or("triage_status.eq.unprocessed,is_processed.eq.false")
@@ -238,7 +238,7 @@ export async function POST(request: Request) {
         if (localMatch) {
           console.log(`[sync] L1 Local rule match for "${email.subject}": project=${localMatch.projectId}, confidence=${localMatch.confidence}`);
           await (adminClient as any)
-            .from("emails")
+            .from("email_records")
             .update({
               project_id: localMatch.projectId,
               classification: "info_only",
@@ -274,7 +274,7 @@ export async function POST(request: Request) {
         console.log(`[sync] L2 ${spamCheck.type} detected: "${email.subject}" (dismiss=${shouldAutoDismiss})`);
 
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({
             email_category: spamCheck.type === "spam" ? "spam" : "newsletter",
             ai_confidence: spamCheck.confidence,
@@ -308,7 +308,7 @@ export async function POST(request: Request) {
         if (keywordMatch && keywordMatch.confidence >= 0.5) {
           console.log(`[sync] L2b Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}`);
           await (adminClient as any)
-            .from("emails")
+            .from("email_records")
             .update({
               project_id: keywordMatch.projectId,
               classification: "info_only",
@@ -331,7 +331,7 @@ export async function POST(request: Request) {
       if (isUnknownProjectSubject(email.subject, projects)) {
         console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({ is_processed: true, triage_status: "unprocessed" })
           .eq("id", email.id);
         continue;
@@ -343,7 +343,7 @@ export async function POST(request: Request) {
       if (!anthropicApiKey) {
         // No AI key — mark as unprocessed for manual classification
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({
             is_processed: true,
             triage_status: "pending_classification",
@@ -397,7 +397,7 @@ export async function POST(request: Request) {
       if (result.match_type === "existing_project") {
         const isAutoClassified = result.confidence >= 0.85;
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({
             project_id: result.project_id || null,
             classification: result.classification || "info_only",
@@ -415,7 +415,7 @@ export async function POST(request: Request) {
 
       } else if (result.match_type === "new_project") {
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({
             project_id: null,
             classification: result.classification || "action_required",
@@ -437,7 +437,7 @@ export async function POST(request: Request) {
         // no_project — could be personal, admin, etc.
         const isLowConfidence = result.confidence < 0.50;
         await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .update({
             project_id: null,
             classification: "info_only",
@@ -531,7 +531,7 @@ export async function POST(request: Request) {
     } catch (err) {
       console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
       await (adminClient as any)
-        .from("emails")
+        .from("email_records")
         .update({ is_processed: true, triage_status: "unprocessed", classification_status: "unprocessed" })
         .eq("id", email.id);
     }
@@ -656,7 +656,7 @@ async function syncViaProvider(
         const chunk = externalIds.slice(i, i + CHUNK_SIZE);
         // Check both new provider_message_id and legacy outlook_message_id
         const { data: existingRows } = await (adminClient as any)
-          .from("emails")
+          .from("email_records")
           .select("provider_message_id, outlook_message_id")
           .eq("user_id", userId)
           .or(`provider_message_id.in.(${chunk.join(",")}),outlook_message_id.in.(${chunk.join(",")})`);
@@ -712,13 +712,13 @@ async function syncViaProvider(
       for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
         const chunk = toInsert.slice(i, i + CHUNK_SIZE);
         try {
-          await (adminClient as any).from("emails").insert(chunk);
+          await (adminClient as any).from("email_records").insert(chunk);
           synced += chunk.length;
         } catch (err) {
           // Fallback: insert individually
           for (const record of chunk) {
             try {
-              await (adminClient as any).from("emails").insert(record);
+              await (adminClient as any).from("email_records").insert(record);
               synced++;
             } catch (individualErr) {
               console.warn(`[sync] Failed to sync email ${record.provider_message_id}:`, individualErr);
@@ -764,7 +764,7 @@ async function syncLegacyMicrosoft(
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   const existingMsgIds = new Set<string>();
   const { data: existingRows } = await adminClient
-    .from("emails")
+    .from("email_records")
     .select("outlook_message_id")
     .eq("user_id", userId)
     .not("outlook_message_id", "is", null);
@@ -795,7 +795,7 @@ async function syncLegacyMicrosoft(
     },
 
     insertEmail: async (emailData) => {
-      await (adminClient as any).from("emails").insert({
+      await (adminClient as any).from("email_records").insert({
         ...emailData,
         triage_status: "unprocessed",
       });

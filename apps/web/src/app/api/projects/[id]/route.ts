@@ -184,7 +184,7 @@ export async function DELETE(
 
   // Declassify all emails linked to this project
   await admin
-    .from("emails")
+    .from("email_records")
     .update({
       project_id: null,
       classification: null,

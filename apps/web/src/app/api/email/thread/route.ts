@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
 
   const { data: emails, error } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("id, subject, from_email, sender_email, from_name, sender_name, body_preview, received_at, has_attachments, project_id, triage_status, classification, ai_summary, provider_thread_id")
     .eq("user_id", user.id)
     .eq("provider_thread_id", threadId)

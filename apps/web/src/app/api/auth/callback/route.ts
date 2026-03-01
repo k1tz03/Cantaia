@@ -17,7 +17,7 @@ async function migrateUserData(
   await adminClient.from("project_members").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   await adminClient.from("tasks").update({ assigned_to: toUserId } as any).eq("assigned_to", fromUserId);
   await adminClient.from("tasks").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
-  await adminClient.from("emails").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
+  await adminClient.from("email_records").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   await adminClient.from("meetings").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
   await adminClient.from("email_connections").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   // Delete old user row

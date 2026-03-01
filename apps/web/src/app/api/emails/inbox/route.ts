@@ -19,20 +19,15 @@ export async function GET() {
   const admin = createAdminClient();
 
   const { data: emails, error } = await admin
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("user_id", user.id)
     .order("received_at", { ascending: false })
     .limit(500);
 
   if (error) {
-    console.error("[emails/inbox] Error:", error.message, error.details, error.hint, error.code);
-    return NextResponse.json({
-      error: "Failed to fetch emails",
-      details: error.message,
-      code: error.code,
-      hint: error.hint,
-    }, { status: 500 });
+    console.error("[emails/inbox] Error:", error.message);
+    return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
   }
 
   return NextResponse.json({ emails: emails || [] });

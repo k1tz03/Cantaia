@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
   // 4. Verify the email belongs to this user and fetch suggested data
   const { data: email, error: fetchErr } = await admin
-    .from("emails")
+    .from("email_records")
     .select("id, user_id, sender_email, suggested_project_data")
     .eq("id", email_id)
     .eq("user_id", user.id)
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
   // 8. Update the email with the new project_id and confirm classification
   const { error: emailUpdateErr } = await admin
-    .from("emails")
+    .from("email_records")
     .update({
       project_id: project.id,
       classification_status: "confirmed",

@@ -35,7 +35,7 @@ export async function PATCH(
 
   // Verify email ownership
   const { data: email } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("id, user_id, project_id, sender_email, from_email, subject")
     .eq("id", id)
     .eq("user_id", user.id)
@@ -106,7 +106,7 @@ export async function PATCH(
 
   // Apply update
   const { error: updateErr } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .update(update)
     .eq("id", id);
 

@@ -99,7 +99,7 @@ export async function GET() {
 
       // 6. Check email_records count
       const { count: emailsCount, error: emailErr } = await admin
-        .from("emails")
+        .from("email_records")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
       results.emails = emailErr
@@ -124,7 +124,7 @@ export async function GET() {
       // 8. Test RLS — try SSR client SELECT on email_records
       try {
         const { data: rlsEmails, error: rlsErr } = await supabase
-          .from("emails")
+          .from("email_records")
           .select("id, subject")
           .limit(3);
         results.rls_select_emails = rlsErr

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         if (emails.length > 0) {
           const externalIds = emails.map(e => e.externalId);
           const { data: existing } = await (admin as any)
-            .from("emails")
+            .from("email_records")
             .select("provider_message_id, outlook_message_id")
             .eq("user_id", connection.user_id)
             .or(`provider_message_id.in.(${externalIds.join(",")}),outlook_message_id.in.(${externalIds.join(",")})`);
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
           const newEmails = emails.filter(e => !existingSet.has(e.externalId));
           for (const raw of newEmails) {
             try {
-              await (admin as any).from("emails").insert({
+              await (admin as any).from("email_records").insert({
                 user_id: connection.user_id,
                 organization_id: connection.organization_id,
                 provider: connection.provider,
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
   try {
     const now = new Date().toISOString();
     const { data: expired } = await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({ triage_status: "unprocessed", snooze_until: null })
       .eq("triage_status", "snoozed")
       .lte("snooze_until", now)

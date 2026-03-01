@@ -65,7 +65,7 @@ export default function SuperAdminDashboardPage() {
           supabase.from("organizations").select("id, status", { count: "exact" }),
           supabase.from("users").select("id", { count: "exact" }),
           supabase.from("projects").select("id", { count: "exact" }),
-          supabase.from("emails").select("id", { count: "exact" }),
+          supabase.from("email_records").select("id", { count: "exact" }),
           supabase.from("api_usage_logs").select("id", { count: "exact" }),
         ]);
 

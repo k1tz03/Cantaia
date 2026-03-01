@@ -34,7 +34,7 @@ export async function POST(
 
   // Get the email's provider message ID
   const { data: email } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("id, provider_message_id, outlook_message_id, user_id")
     .eq("id", id)
     .eq("user_id", user.id)
@@ -79,7 +79,7 @@ export async function POST(
 
     // Update local record
     await (admin as any)
-      .from("emails")
+      .from("email_records")
       .update({ outlook_folder_moved: body.folder_id })
       .eq("id", id);
 

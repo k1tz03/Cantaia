@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
   // Get the email
   const { data: email } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("id, user_id, project_id, sender_email, from_email, subject")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     if (Object.keys(update).length > 0) {
       await (admin as any)
-        .from("emails")
+        .from("email_records")
         .update(update)
         .eq("id", body.email_id);
     }

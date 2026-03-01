@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   // Get emails for this project
   const { data: emails } = await admin
-    .from("emails")
+    .from("email_records")
     .select("id, subject, sender_email, sender_name, received_at, classification")
     .eq("project_id", projectId)
     .eq("is_processed", true)

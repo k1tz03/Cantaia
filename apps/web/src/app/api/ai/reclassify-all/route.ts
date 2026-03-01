@@ -131,7 +131,7 @@ export async function POST() {
 
   // Get ALL user emails for reclassification (including already-classified ones)
   const { data: emails } = await adminClient
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("user_id", user.id)
     .order("received_at", { ascending: false })
@@ -171,7 +171,7 @@ export async function POST() {
         if (changed) {
           console.log(`[reclassify-all] LOCAL match: project=${localMatch.projectId}, score=${localMatch.score}, reasons=[${localMatch.reasons.join(", ")}]`);
           await adminClient
-            .from("emails")
+            .from("email_records")
             .update({
               project_id: localMatch.projectId,
               classification: email.classification || "info_only",
@@ -205,7 +205,7 @@ export async function POST() {
         if (suggestion) {
           console.log(`[reclassify-all] New project suggestion: "${suggestion.name}" from "${email.subject}"`);
           await adminClient
-            .from("emails")
+            .from("email_records")
             .update({
               classification: "action_required",
               classification_status: "new_project_suggested",
@@ -285,7 +285,7 @@ export async function POST() {
       console.log(`[reclassify-all] AI Result: classification=${result.classification}, project_id=${result.project_id}, confidence=${result.classification_confidence}`);
 
       await adminClient
-        .from("emails")
+        .from("email_records")
         .update({
           project_id: result.project_id,
           classification: result.classification,
@@ -318,7 +318,7 @@ export async function POST() {
       // Mark as processed to avoid infinite retry loops
       try {
         await adminClient
-          .from("emails")
+          .from("email_records")
           .update({ is_processed: true })
           .eq("id", email.id);
       } catch { /* ignore */ }
@@ -331,7 +331,7 @@ export async function POST() {
     for (let i = 0; i < markProcessedIds.length; i += CHUNK) {
       const chunk = markProcessedIds.slice(i, i + CHUNK);
       await adminClient
-        .from("emails")
+        .from("email_records")
         .update({ is_processed: true })
         .in("id", chunk);
     }

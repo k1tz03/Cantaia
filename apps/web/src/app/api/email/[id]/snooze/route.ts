@@ -33,7 +33,7 @@ export async function PATCH(
   const admin = createAdminClient();
 
   const { error } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .update({
       triage_status: "snoozed",
       snooze_until: body.until,

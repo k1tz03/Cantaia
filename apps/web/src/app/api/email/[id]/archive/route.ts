@@ -23,7 +23,7 @@ export async function POST(
 
   // Get email with all data
   const { data: email } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("*, projects:project_id(name, code, organization_id)")
     .eq("id", id)
     .eq("user_id", user.id)
@@ -80,7 +80,7 @@ export async function POST(
 
   // Update email record
   await (admin as any)
-    .from("emails")
+    .from("email_records")
     .update({ archived_path: storagePath })
     .eq("id", id);
 

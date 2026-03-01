@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
 
   let q = (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("id, subject, from_email, sender_email, from_name, sender_name, body_preview, received_at, has_attachments, project_id, email_category, classification, triage_status, process_action, ai_confidence, ai_summary")
     .eq("user_id", user.id);
 

@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   // 4. Get emails to archive
   let emailQuery = admin
-    .from("emails")
+    .from("email_records")
     .select("id, subject, sender_email, sender_name, received_at, classification, has_attachments, body_preview")
     .eq("project_id", project_id)
     .eq("is_processed", true);

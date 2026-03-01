@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   // Get the email
   const { data: email, error: emailError } = await adminClient
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("id", body.email_id)
     .eq("user_id", user.id)

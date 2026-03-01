@@ -53,7 +53,7 @@ export async function POST() {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const { data: emails } = await (admin as any)
-    .from("emails")
+    .from("email_records")
     .select("*")
     .eq("user_id", user.id)
     .gte("received_at", sevenDaysAgo.toISOString());

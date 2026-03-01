@@ -279,7 +279,7 @@ export async function POST(request: Request) {
     await admin.from("project_members").update({ user_id: user.id } as any).eq("user_id", oldUserId);
     await admin.from("tasks").update({ assigned_to: user.id } as any).eq("assigned_to", oldUserId);
     await admin.from("tasks").update({ created_by: user.id } as any).eq("created_by", oldUserId);
-    await admin.from("emails").update({ user_id: user.id } as any).eq("user_id", oldUserId);
+    await admin.from("email_records").update({ user_id: user.id } as any).eq("user_id", oldUserId);
     await admin.from("meetings").update({ created_by: user.id } as any).eq("created_by", oldUserId);
     await admin.from("email_connections").update({ user_id: user.id } as any).eq("user_id", oldUserId);
     await admin.from("users").delete().eq("id", oldUserId);
