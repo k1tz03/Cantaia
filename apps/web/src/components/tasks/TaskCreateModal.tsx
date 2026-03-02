@@ -354,7 +354,15 @@ export function TaskCreateModal({
           </div>
 
           {/* Fixed footer — always visible */}
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-3.5">
+          <div className="border-t border-gray-200 px-5 py-3.5">
+            {/* Error shown near submit button so user always sees it */}
+            {error && (
+              <div className="mb-3 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -370,6 +378,7 @@ export function TaskCreateModal({
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {isEdit ? t("editTask") : t("createTask")}
             </button>
+            </div>
           </div>
         </form>
       </div>

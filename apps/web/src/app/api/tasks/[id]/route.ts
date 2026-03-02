@@ -60,7 +60,7 @@ export async function PATCH(
     if (error) {
       console.error("[Tasks PATCH] Error:", error);
       return NextResponse.json(
-        { error: "Failed to update task" },
+        { error: error.message || "Failed to update task" },
         { status: 500 }
       );
     }

@@ -40,31 +40,36 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient();
 
+    // Build insert object with only base columns first
+    const insertData: Record<string, unknown> = {
+      project_id,
+      created_by: user.id,
+      title,
+      description: description || null,
+      priority: priority || "medium",
+      source: source || "manual",
+      source_id: source_id || null,
+      source_reference: source_reference || null,
+      due_date: due_date || null,
+      assigned_to_name: assigned_to_name || null,
+      assigned_to_company: assigned_to_company || null,
+      lot_code: lot_code || null,
+    };
+
+    // Only include optional columns if values provided (avoids errors if migration 006 not applied)
+    if (status) insertData.status = status;
+    if (reminder && reminder !== "none") insertData.reminder = reminder;
+
     const { data: task, error } = await (admin as any)
       .from("tasks")
-      .insert({
-        project_id,
-        created_by: user.id,
-        title,
-        description: description || null,
-        priority: priority || "medium",
-        status: status || "todo",
-        source: source || "manual",
-        source_id: source_id || null,
-        source_reference: source_reference || null,
-        due_date: due_date || null,
-        assigned_to_name: assigned_to_name || null,
-        assigned_to_company: assigned_to_company || null,
-        lot_code: lot_code || null,
-        reminder: reminder || "none",
-      })
+      .insert(insertData)
       .select("*")
       .single();
 
     if (error) {
       console.error("[Tasks Create] Error:", error);
       return NextResponse.json(
-        { error: "Failed to create task" },
+        { error: error.message || "Failed to create task" },
         { status: 500 }
       );
     }
