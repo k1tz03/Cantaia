@@ -10,9 +10,42 @@ import {
   Trash2,
   MessageSquare,
   Loader2,
-  HardHat,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
+
+/** JM Avatar — Professional construction expert identity */
+function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const dim = size === "lg" ? "h-16 w-16" : "h-8 w-8";
+  const inner = size === "lg" ? "h-14 w-14" : "h-7 w-7";
+  return (
+    <div className={cn(dim, "relative shrink-0")}>
+      <div className={cn(
+        inner,
+        "rounded-full overflow-hidden mx-auto",
+        size === "lg" ? "ring-3 ring-cyan-200" : "ring-2 ring-cyan-100"
+      )}>
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+          {/* Background */}
+          <rect width="80" height="80" rx="40" fill="#E0F2FE" />
+          {/* Hard hat */}
+          <path d="M24 35C24 27.268 30.268 21 38 21H42C49.732 21 56 27.268 56 35V36H24V35Z" fill="#0E7490" />
+          <rect x="22" y="35" width="36" height="4" rx="2" fill="#155E75" />
+          {/* Face */}
+          <ellipse cx="40" cy="48" rx="12" ry="11" fill="#FCD9B6" />
+          {/* Eyes */}
+          <ellipse cx="35.5" cy="46" rx="1.5" ry="2" fill="#1E3A5F" />
+          <ellipse cx="44.5" cy="46" rx="1.5" ry="2" fill="#1E3A5F" />
+          {/* Smile */}
+          <path d="M36 52C37 53.5 43 53.5 44 52" stroke="#1E3A5F" strokeWidth="1.2" strokeLinecap="round" />
+          {/* Collar / shirt hint */}
+          <path d="M28 62C28 57 33 54 40 54C47 54 52 57 52 62V80H28V62Z" fill="#0E7490" />
+          {/* Tie / badge */}
+          <rect x="38" y="56" width="4" height="6" rx="1" fill="#FCD34D" />
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 interface Conversation {
   id: string;
@@ -271,7 +304,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
       {/* Left panel — Conversation list */}
-      <div className="hidden md:flex md:w-[280px] flex-col border-r border-slate-200 bg-slate-50">
+      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-slate-200 bg-slate-50 shrink-0">
         <div className="p-3 border-b border-slate-200">
           <button
             onClick={startNewConversation}
@@ -345,9 +378,9 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {messages.length === 0 && !loadingMessages ? (
             // Empty state
-            <div className="flex h-full flex-col items-center justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-100 mb-4">
-                <HardHat className="h-8 w-8 text-cyan-600" />
+            <div className="flex h-full flex-col items-center justify-center -mt-8">
+              <div className="mb-4">
+                <JMAvatar size="lg" />
               </div>
               <h2 className="text-lg font-semibold text-slate-800">
                 {t("emptyTitle")}
@@ -383,9 +416,7 @@ export default function ChatPage() {
                   )}
                 >
                   {msg.role === "assistant" && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">
-                      JM
-                    </div>
+                    <JMAvatar size="sm" />
                   )}
                   <div
                     className={cn(

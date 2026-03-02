@@ -214,11 +214,19 @@ export default function UploadPlanPage() {
 
     setUploading(false);
 
-    // If all done and only 1 file, redirect to plan detail
-    const allFiles = files.map((f) => (pending.find((p) => p.id === f.id) ? { ...f, ...pending.find((p) => p.id === f.id) } : f));
-    const doneFiles = allFiles.filter((f) => f.status === "done" || f.planId);
+    // Redirect after upload completes
+    // Check how many succeeded by reading current state
+    const currentFiles = files.map((f) => {
+      const p = pending.find((pe) => pe.id === f.id);
+      return p ? { ...f, ...p } : f;
+    });
+    const doneFiles = currentFiles.filter((f) => f.status === "done" || f.planId);
     if (doneFiles.length === 1 && doneFiles[0].planId) {
+      // Single file → go to plan detail
       router.push(`/plans/${doneFiles[0].planId}`);
+    } else if (doneFiles.length > 0) {
+      // Multiple files → go to plans list
+      router.push("/plans");
     }
   };
 
