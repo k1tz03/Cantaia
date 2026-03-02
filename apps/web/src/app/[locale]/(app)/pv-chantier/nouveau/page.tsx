@@ -251,7 +251,7 @@ export default function NouveauPVPage() {
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
         .upload(storagePath, audioBlob, {
-          contentType: audioBlob.type || "audio/webm",
+          contentType: audioBlob.type?.replace("video/", "audio/") || "audio/webm",
         });
 
       if (uploadError) {
