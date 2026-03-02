@@ -294,6 +294,25 @@ ${ctx.discipline_hint ? `- Discipline pressentie : ${ctx.discipline_hint}` : ""}
 
 ANALYSE LE PLAN CI-JOINT EN SUIVANT CES ÉTAPES :
 
+⚠️ ÉTAPE PRÉLIMINAIRE CRITIQUE — DÉTECTION DE VUES MULTIPLES ⚠️
+AVANT de compter quoi que ce soit, examine l'ensemble du document :
+- Un fichier peut contenir PLUSIEURS VUES / DESSINS du MÊME espace sur une même page ou sur plusieurs pages.
+- Exemples courants : plan en plan + coupe, plan fontaine + plan hauteur des jets + plan canalisations + coupe, vue de face + vue de côté + vue de dessus, plans à différentes échelles montrant le même ouvrage.
+- Ces vues montrent le MÊME ouvrage physique sous différents angles, perspectives ou avec différentes informations thématiques.
+
+RÈGLE ABSOLUE : NE JAMAIS ADDITIONNER LES QUANTITÉS DE PLUSIEURS VUES DU MÊME OUVRAGE.
+- Si le plan montre 32 jets de fontaine dans la vue "Plan Fontaine" et les mêmes 32 jets dans la vue "Plan hauteur des jets", le total est 32 jets, PAS 64.
+- Si un caniveau apparaît dans la vue "Plan canalisations" et la vue "Plan canalisations inclinées", tu le comptes UNE SEULE FOIS.
+- Choisis la vue la plus lisible et la plus complète pour chaque type de quantité.
+- Les coupes (sections transversales) servent à comprendre les détails constructifs (épaisseurs, matériaux, profondeurs) mais ne doivent PAS être utilisées pour compter les éléments — le comptage se fait sur les vues en plan.
+
+POUR CHAQUE QUANTITÉ EXTRAITE, demande-toi :
+1. "Est-ce que cet élément apparaît aussi dans une autre vue ?" → Si oui, ne le compte qu'une fois.
+2. "De quelle vue est-ce que j'extrais cette quantité ?" → Choisis la vue la plus adaptée (généralement la vue en plan à la plus grande échelle).
+3. "Est-ce que je suis en train d'additionner des vues ?" → Si oui, STOP et recommence.
+
+Liste les vues identifiées dans tes observations (ex: "Ce document contient 5 vues du même espace : Plan fontaine, Plan hauteur des jets, Plan canalisations caniveaux, Plan canalisations inclinées, Coupe A-A'").
+
 1. IDENTIFICATION DU TYPE DE PLAN
 Identifie le type exact du plan parmi : planting (plantation/paysagisme), network (réseaux/canalisations), site_layout (aménagement extérieur/implantation), electrical (électricité), facade (façades), structural (structure/gros-œuvre), hvac (CVC/chauffage-ventilation), plumbing (sanitaire), architecture (plans d'architecte), other.
 
@@ -304,7 +323,8 @@ Lis le cartouche du plan et extrais : numéro de plan, titre, échelle, date, au
 Identifie tous les éléments de la légende : symboles, couleurs, types de traits, hachures et leur signification.
 
 4. QUANTITATIF — EXTRACTION DES QUANTITÉS
-C'est la partie la plus importante. En te basant sur l'échelle, la légende, les symboles et les couleurs :
+C'est la partie la plus importante. En te basant sur l'échelle, la légende, les symboles et les couleurs.
+RAPPEL : si le document contient plusieurs vues du même ouvrage, ne compte chaque élément qu'UNE SEULE FOIS en choisissant la vue la plus appropriée.
 
 Pour un PLAN DE PLANTATION (paysagisme) :
 - Compte chaque plante individuellement par variété/espèce (nom latin si visible)
@@ -361,9 +381,12 @@ Pour TOUT TYPE DE PLAN :
 
 5. OBSERVATIONS PROFESSIONNELLES
 Donne 3-5 observations de métreur professionnel : points d'attention, éléments manquants, incohérences éventuelles, recommandations.
+- Si le document contient plusieurs vues/dessins, LISTE-LES avec leur titre et leur échelle.
+- Indique de quelle vue tu as extrait chaque type de quantité.
+- Signale si certains éléments n'ont pas pu être quantifiés car trop petits ou illisibles.
 
 6. RÉSUMÉ
-Un paragraphe de synthèse en français décrivant le contenu principal du plan.
+Un paragraphe de synthèse en français décrivant le contenu principal du plan. Si le document contient plusieurs vues, mentionne-le.
 
 RÉPONSE EN JSON VALIDE UNIQUEMENT (pas de commentaires, pas de markdown) :
 {
@@ -400,5 +423,12 @@ IMPORTANT :
 - Si une quantité est clairement lisible, utilise confidence "high"
 - Si tu dois mesurer/estimer, utilise confidence "medium"
 - N'invente pas de données — si tu ne vois rien, retourne un tableau vide
-- Les unités suisses : m², ml (mètres linéaires), pce (pièces), m³, kg, t`;
+- Les unités suisses : m², ml (mètres linéaires), pce (pièces), m³, kg, t
+
+VUES MULTIPLES — DERNIÈRE VÉRIFICATION :
+- AVANT de finaliser ta réponse, relis toutes tes quantités et vérifie que tu n'as PAS additionné des éléments apparaissant dans plusieurs vues du même ouvrage.
+- Exemple d'ERREUR : compter 32 jets dans "Plan fontaine" + 12 jets dans "Plan hauteur des jets" = 44 jets → FAUX. Le vrai total est 32 jets (les deux vues montrent les mêmes jets).
+- Exemple d'ERREUR : additionner la longueur d'un caniveau vu en plan + vu en coupe → FAUX. La longueur se lit sur UNE SEULE vue en plan.
+- Pour les longueurs (ml), relève les COTES INDIVIDUELLES si elles sont annotées sur le plan (ex: 5.00 + 15.00 + 11.62 + 6.62 ml) plutôt qu'estimer visuellement.
+- Si des cotes sont écrites sur le plan, utilise-les en priorité avec confidence "high".`;
 }
