@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
-  const next = searchParams.get("next") ?? "/mail";
+  const next = searchParams.get("next") ?? "/dashboard";
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
 

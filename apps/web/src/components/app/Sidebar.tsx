@@ -37,11 +37,6 @@ interface NavItem {
   badgeLabelKey?: string;
 }
 
-interface NavSection {
-  labelKey: string;
-  items: NavItem[];
-}
-
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
@@ -51,31 +46,19 @@ export function Sidebar() {
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
 
-  const sections: NavSection[] = [
-    {
-      labelKey: "section.products",
-      items: [
-        { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", badgeLabelKey: "badge.new" },
-        { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, badgeLabelKey: unreadEmailCount > 0 ? undefined : "badge.new" },
-        { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", badgeLabelKey: "badge.new" },
-      ],
-    },
-    {
-      labelKey: "section.workspace",
-      items: [
-        { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
-        { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", badgeLabelKey: "badge.new" },
-        { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "coming_soon", badgeLabelKey: "badge.soon" },
-      ],
-    },
-    {
-      labelKey: "section.coming_soon",
-      items: [
-        { href: "/plans", labelKey: "plans", icon: Map, status: "active", badgeLabelKey: "badge.new" },
-        { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "locked", badgeLabelKey: "badge.soon" },
-        { href: "/pricing-intelligence", labelKey: "pricingIntelligence", icon: TrendingUp, status: "locked", badgeLabelKey: "badge.soon" },
-      ],
-    },
+  const navItems: NavItem[] = [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
+    { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
+    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
+  ];
+
+  const lockedItems: NavItem[] = [
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "locked" },
+    { href: "/pricing-intelligence", labelKey: "pricingIntelligence", icon: TrendingUp, status: "locked" },
   ];
 
   const bottomItems: NavItem[] = [
@@ -168,9 +151,9 @@ export function Sidebar() {
     );
   }
 
-  // Mobile: active products + key workspace items
+  // Mobile: key items (max 5 for bottom nav)
   const mobileItems: NavItem[] = [
-    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
@@ -225,29 +208,23 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Navigation with sections */}
+        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {sections.map((section, sectionIndex) => (
-            <div key={section.labelKey} className={cn(sectionIndex > 0 && "mt-4")}>
-              {/* Section label */}
-              {!collapsed && (
-                <div className="px-3 py-1.5 mb-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-                    {t(section.labelKey)}
-                  </p>
-                </div>
-              )}
-              {collapsed && sectionIndex > 0 && (
-                <div className="mx-3 mb-2 border-t border-slate-200" />
-              )}
+          <ul className="space-y-0.5">
+            {navItems.map(renderNavItem)}
+          </ul>
+
+          {/* Locked items */}
+          {lockedItems.length > 0 && (
+            <div className="mt-3 border-t border-slate-200 pt-3">
               <ul className="space-y-0.5">
-                {section.items.map(renderNavItem)}
+                {lockedItems.map(renderNavItem)}
               </ul>
             </div>
-          ))}
+          )}
 
-          {/* Bottom separator + settings */}
-          <div className="mt-4 border-t border-slate-200 pt-3">
+          {/* Settings */}
+          <div className="mt-3 border-t border-slate-200 pt-3">
             <ul className="space-y-0.5">
               {bottomItems.map(renderNavItem)}
             </ul>
