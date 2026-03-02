@@ -91,6 +91,10 @@ export function TaskDetailPanel({
   const priorityStyle = PRIORITY_STYLES[task.priority];
   const SourceIcon = SOURCE_ICONS[task.source] || Hand;
 
+  const comments = task.comments ?? [];
+  const history = task.history ?? [];
+  const attachments = task.attachments ?? [];
+
   function handleAddComment() {
     if (!newComment.trim()) return;
     // Mock — in production: POST /api/tasks/[id]/comments
@@ -100,15 +104,15 @@ export function TaskDetailPanel({
       text: newComment.trim(),
       created_at: new Date().toISOString(),
     };
-    task.comments.push(comment);
+    comments.push(comment);
     setNewComment("");
   }
 
   const tabs: { key: DetailTab; icon: React.ElementType; count?: number }[] = [
     { key: "detail", icon: FileText },
-    { key: "comments", icon: MessageSquare, count: task.comments.length },
-    { key: "history", icon: History, count: task.history.length },
-    { key: "attachments", icon: Paperclip, count: task.attachments.length },
+    { key: "comments", icon: MessageSquare, count: comments.length },
+    { key: "history", icon: History, count: history.length },
+    { key: "attachments", icon: Paperclip, count: attachments.length },
   ];
 
   return (
@@ -307,8 +311,8 @@ export function TaskDetailPanel({
         {activeTab === "comments" && (
           <div className="flex h-full flex-col">
             <div className="flex-1 space-y-3 overflow-y-auto p-5">
-              {task.comments.length > 0 ? (
-                task.comments.map((comment, i) => (
+              {comments.length > 0 ? (
+                comments.map((comment, i) => (
                   <div key={i} className="rounded-md border border-gray-100 bg-gray-50 p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-700">
@@ -361,12 +365,12 @@ export function TaskDetailPanel({
         {/* History Tab */}
         {activeTab === "history" && (
           <div className="p-5">
-            {task.history.length > 0 ? (
+            {history.length > 0 ? (
               <div className="relative space-y-4 pl-4">
                 {/* Timeline line */}
                 <div className="absolute bottom-0 left-1.5 top-0 w-px bg-gray-200" />
 
-                {task.history.map((entry, i) => (
+                {history.map((entry, i) => (
                   <div key={i} className="relative flex gap-3">
                     <div className="absolute -left-2.5 top-1 h-2 w-2 rounded-full bg-gray-400" />
                     <div>
@@ -405,9 +409,9 @@ export function TaskDetailPanel({
         {/* Attachments Tab */}
         {activeTab === "attachments" && (
           <div className="p-5">
-            {task.attachments.length > 0 ? (
+            {attachments.length > 0 ? (
               <div className="space-y-2">
-                {task.attachments.map((attachment, i) => (
+                {attachments.map((attachment, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3 transition-colors hover:bg-gray-50"

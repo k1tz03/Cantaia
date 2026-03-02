@@ -326,18 +326,35 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
   }
 
   async function handleCreateTask(taskId: string, taskTitle?: string, taskResponsible?: string | null, taskDeadline?: string | null) {
-    setTaskCreatedIds((prev) => new Set(prev).add(taskId));
-    if (onCreateTask) {
-      onCreateTask({
-        title: taskTitle || email.subject,
-        project_id: email.project_id || undefined,
-        description: email.ai_summary || email.body_preview || "",
-        source: "email",
-        source_id: email.id,
-        source_reference: `Email «${email.subject}» du ${formatDate(email.received_at)}`,
-        due_date: taskDeadline || undefined,
-        assigned_to_name: taskResponsible || undefined,
+    const taskData: TaskPrefill = {
+      title: taskTitle || email.subject,
+      project_id: email.project_id || undefined,
+      description: email.ai_summary || email.body_preview || "",
+      source: "email",
+      source_id: email.id,
+      source_reference: `Email «${email.subject}» du ${formatDate(email.received_at)}`,
+      due_date: taskDeadline || undefined,
+      assigned_to_name: taskResponsible || undefined,
+    };
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
       });
+      const data = await res.json();
+      if (data.success) {
+        setTaskCreatedIds((prev) => new Set(prev).add(taskId));
+      } else {
+        console.error("[Task] Creation failed:", data.error);
+      }
+    } catch (err) {
+      console.error("[Task] Creation error:", err);
+    }
+
+    if (onCreateTask) {
+      onCreateTask(taskData);
     }
   }
 

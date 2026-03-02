@@ -5,12 +5,11 @@ import { useTranslations } from "next-intl";
 import { X, Loader2 } from "lucide-react";
 import type { TaskPriority, TaskSource, TaskStatus, Project } from "@cantaia/database";
 
-const projects: Project[] = [];
-
 interface TaskCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  projects?: Project[];
   prefill?: {
     title?: string;
     project_id?: string;
@@ -43,6 +42,7 @@ export function TaskCreateModal({
   open,
   onClose,
   onCreated,
+  projects = [],
   prefill,
   editTask,
 }: TaskCreateModalProps) {
@@ -69,8 +69,7 @@ export function TaskCreateModal({
 
     setSaving(true);
     try {
-      // Mock save — in production: POST /api/tasks/create or PUT /api/tasks/[id]
-      console.log(isEdit ? "[Task] Updating:" : "[Task] Creating:", {
+      const payload = {
         title,
         project_id: projectId,
         description,
@@ -84,11 +83,25 @@ export function TaskCreateModal({
         source: prefill?.source ?? editTask?.source ?? "manual",
         source_id: prefill?.source_id ?? null,
         source_reference: prefill?.source_reference ?? editTask?.source_reference ?? null,
-      });
+      };
 
-      await new Promise((r) => setTimeout(r, 500));
+      const url = isEdit ? `/api/tasks/${editTask!.id}` : "/api/tasks";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        console.error("[TaskCreateModal] Save error:", data.error);
+        return;
+      }
     } catch (err) {
       console.error("[TaskCreateModal] Save error:", err);
+      return;
     } finally {
       setSaving(false);
     }

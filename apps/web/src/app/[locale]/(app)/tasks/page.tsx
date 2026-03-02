@@ -755,10 +755,20 @@ export default function TasksPage() {
           setCreateModalOpen(false);
           setEditTask(null);
         }}
-        onCreated={() => {
+        onCreated={async () => {
           setCreateModalOpen(false);
           setEditTask(null);
+          // Refresh tasks list after creation
+          try {
+            const res = await fetch("/api/tasks");
+            const data = await res.json();
+            if (data.success) {
+              if (data.tasks) setTasks(data.tasks);
+              if (data.projects) setProjects(data.projects);
+            }
+          } catch {}
         }}
+        projects={projects}
         editTask={
           editTask
             ? {
