@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -131,6 +131,7 @@ export default function ChatPage() {
     setActiveConvId(null);
     setMessages([]);
     setInput("");
+    setQuestionSeed((s) => s + 1);
     textareaRef.current?.focus();
   }
 
@@ -295,11 +296,19 @@ export default function ChatPage() {
     return groups.filter((g) => g.items.length > 0);
   }
 
-  const suggestedQuestions = [
-    t("suggestQuestion1"),
-    t("suggestQuestion2"),
-    t("suggestQuestion3"),
-  ];
+  // Pool of suggested questions — pick 3 random ones, reshuffle on new conversation
+  const [questionSeed, setQuestionSeed] = useState(0);
+  const suggestedQuestions = useMemo(() => {
+    const pool = Array.from({ length: 15 }, (_, i) => t(`suggestQ${i + 1}`));
+    // Fisher-Yates shuffle with seed-based trigger
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionSeed]);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
