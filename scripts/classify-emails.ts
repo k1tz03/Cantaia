@@ -37,16 +37,20 @@ async function main() {
     const projects = (projectsData || []) as ProjectForClassification[];
     console.log(`  ${projects.length} active projects`);
 
-    // 3. Get unprocessed emails
-    const { data: emails } = await supabase
+    // 3. Get ALL emails (reclassify mode: process everything, not just unprocessed)
+    const reclassifyAll = process.argv.includes("--all");
+    const query = supabase
       .from("email_records")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_processed", false)
       .order("received_at", { ascending: false })
-      .limit(100);
+      .limit(200);
+    if (!reclassifyAll) {
+      query.eq("is_processed", false);
+    }
+    const { data: emails } = await query;
 
-    console.log(`  ${(emails || []).length} unprocessed emails to classify`);
+    console.log(`  ${(emails || []).length} emails to classify${reclassifyAll ? " (--all mode)" : ""}`);
 
     let classified = 0;
     let skipped = 0;

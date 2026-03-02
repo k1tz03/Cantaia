@@ -191,16 +191,11 @@ export async function POST() {
         continue;
       }
 
-      // ── No local match: KEEP existing classification ──
-      if (email.project_id) {
-        console.log(`[reclassify-all] KEEP: "${email.subject}" stays in project ${email.project_id} (no local match but already classified)`);
-        if (!email.is_processed) {
-          markProcessedIds.push(email.id);
-        }
-        continue;
-      }
+      // ── No local match: proceed to AI classification ──
+      // (Even for already-classified emails — the existing classification may be wrong,
+      // especially for forwarded emails where project signals are in the body, not headers)
 
-      // ── Check for potential new project suggestion ──
+      // ── Check for potential new project suggestion (only if no project yet) ──
       if (!email.project_id) {
         const suggestion = detectPotentialProject(email.subject);
         if (suggestion) {
@@ -219,8 +214,8 @@ export async function POST() {
         }
       }
 
-      // ── SECOND PASS: Claude AI for unclassified emails only ──
-      if (email.project_id || !anthropicApiKey) {
+      // ── SECOND PASS: Claude AI classification (with full email body) ──
+      if (!anthropicApiKey) {
         if (!email.is_processed) {
           markProcessedIds.push(email.id);
         }
@@ -286,6 +281,7 @@ export async function POST() {
 
       console.log(`[reclassify-all] AI Result: classification=${result.classification}, project_id=${result.project_id}, confidence=${result.classification_confidence}`);
 
+      const previousProjectId = email.project_id;
       await adminClient
         .from("email_records")
         .update({
@@ -294,11 +290,16 @@ export async function POST() {
           ai_summary: result.summary_fr,
           ai_classification_confidence: result.classification_confidence,
           ai_project_match_confidence: result.project_match_confidence,
+          classification_status: "auto_classified",
           is_processed: true,
         })
         .eq("id", email.id);
 
-      emailsClassified++;
+      if (previousProjectId && previousProjectId !== result.project_id) {
+        emailsReclassified++;
+      } else {
+        emailsClassified++;
+      }
 
       if (result.contains_task && result.task?.title && result.project_id) {
         await (adminClient as any).from("tasks").insert({
