@@ -248,11 +248,13 @@ export default function NouveauPVPage() {
         : "webm";
       const storagePath = `${user.id}/${meetingId}.${ext}`;
 
+      // Browser MediaRecorder produces "video/webm" even for audio-only — fix MIME
+      const contentType = (audioBlob.type || "audio/webm").replace("video/", "audio/");
+      const uploadBlob = new Blob([audioBlob], { type: contentType });
+
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
-        .upload(storagePath, audioBlob, {
-          contentType: audioBlob.type?.replace("video/", "audio/") || "audio/webm",
-        });
+        .upload(storagePath, uploadBlob, { contentType });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
