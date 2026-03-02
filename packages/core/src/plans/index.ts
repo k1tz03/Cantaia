@@ -22,3 +22,6 @@ export type {
   PlanReference,
   ExistingPlan,
 } from "./version-checker";
+
+export { savePlanFromAttachment } from "./plan-storage";
+export type { SavePlanInput, SavePlanResult } from "./plan-storage";

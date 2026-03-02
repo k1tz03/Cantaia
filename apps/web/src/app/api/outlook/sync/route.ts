@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { syncUserEmails, type SyncDependencies } from "@cantaia/core/outlook";
 import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, type ProjectForClassification } from "@cantaia/core/ai";
+import { isPotentialPlan, detectPlansInEmail, savePlanFromAttachment } from "@cantaia/core/plans";
+import { getAttachments as graphGetAttachments } from "@cantaia/core/outlook";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
 import { checkLocalRules, detectSpamNewsletter, determineArchivePath, getEmailProvider, isTokenExpired, type ArchiveEmailInput, type EmailConnectionConfig } from "@cantaia/core/emails";
 import type { ArchiveStructure, ArchiveFilenameFormat } from "@cantaia/database";
@@ -183,6 +185,14 @@ export async function POST(request: Request) {
   let newProjectsSuggested = 0;
   let emailsArchived = 0;
   let spamDismissed = 0;
+  let plansSaved = 0;
+
+  // Get graph token for plan attachment downloads
+  let graphTokenForPlans: string | undefined;
+  try {
+    const tokenResult = await getValidMicrosoftToken(user.id);
+    graphTokenForPlans = tokenResult.accessToken || undefined;
+  } catch { /* no token available */ }
 
   // Build a function to fetch full email body
   const getFullBody = await buildBodyFetcher(user.id, emailConnection);
@@ -498,6 +508,54 @@ export async function POST(request: Request) {
           console.warn(`[sync] Auto-archive failed for email ${email.id}:`, archiveErr);
         }
       }
+
+      // Auto-save plan attachments if email is classified under a project
+      if (classifiedProjectId && email.has_attachments && email.outlook_message_id && graphTokenForPlans) {
+        try {
+          const attachments = await graphGetAttachments(graphTokenForPlans, email.outlook_message_id);
+          const potentialPlans = attachments.filter((a) =>
+            isPotentialPlan({ id: a.id, name: a.name, contentType: a.contentType, size: a.size })
+          );
+
+          if (potentialPlans.length > 0) {
+            const detections = await detectPlansInEmail(
+              email.id,
+              potentialPlans.map((a) => ({ id: a.id, name: a.name, contentType: a.contentType, size: a.size })),
+              {
+                sender_email: senderEmail,
+                sender_name: email.sender_name || "",
+                subject: email.subject,
+                body_excerpt: email.body_preview || "",
+                project_name: projects.find((p) => p.id === classifiedProjectId)?.name || "",
+                project_code: projects.find((p) => p.id === classifiedProjectId)?.code || "",
+                lots_list: "",
+                existing_plans_summary: "",
+              }
+            );
+
+            for (let i = 0; i < detections.length; i++) {
+              const det = detections[i];
+              if (det.is_plan && det.confidence >= 0.7) {
+                const att = potentialPlans[i];
+                const saved = await savePlanFromAttachment({
+                  supabase: adminClient,
+                  graphAccessToken: graphTokenForPlans,
+                  messageId: email.outlook_message_id,
+                  attachment: { id: att.id, name: att.name, contentType: att.contentType, size: att.size },
+                  detection: det,
+                  emailId: email.id,
+                  projectId: classifiedProjectId,
+                  organizationId: userOrg?.organization_id || "",
+                  userId: user.id,
+                });
+                if (saved) plansSaved++;
+              }
+            }
+          }
+        } catch (planErr) {
+          console.warn(`[sync] Plan detection failed for email ${email.id}:`, planErr);
+        }
+      }
     } catch (err) {
       console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
       await (adminClient as any)
@@ -522,6 +580,7 @@ export async function POST(request: Request) {
       tasks_created: tasksCreated,
       new_projects_suggested: newProjectsSuggested,
       emails_archived: emailsArchived,
+      plans_saved: plansSaved,
       spam_dismissed: spamDismissed,
       snoozes_reset: snoozesReset,
     },
@@ -539,6 +598,7 @@ export async function POST(request: Request) {
       tasks_created: tasksCreated,
       new_projects_suggested: newProjectsSuggested,
       emails_archived: emailsArchived,
+      plans_saved: plansSaved,
       spam_dismissed: spamDismissed,
       snoozes_reset: snoozesReset,
     },
@@ -552,6 +612,7 @@ export async function POST(request: Request) {
     tasks_created: tasksCreated,
     new_projects_suggested: newProjectsSuggested,
     emails_archived: emailsArchived,
+    plans_saved: plansSaved,
     spam_dismissed: spamDismissed,
     snoozes_reset: snoozesReset,
   });
@@ -595,7 +656,7 @@ async function syncViaProvider(
     }
 
     // ── Use delta query if Microsoft provider supports it ──
-    let rawEmails: { externalId: string; from: string; fromName?: string; to: string[]; cc?: string[]; subject: string; date: Date; bodyText?: string; bodyHtml?: string; isRead: boolean; importance?: string; conversationId?: string }[] = [];
+    let rawEmails: { externalId: string; from: string; fromName?: string; to: string[]; cc?: string[]; subject: string; date: Date; bodyText?: string; bodyHtml?: string; isRead: boolean; importance?: string; conversationId?: string; hasAttachments?: boolean }[] = [];
     let newDeltaLink: string | null = null;
 
     if (connection.provider === "microsoft" && provider.fetchEmailsDelta) {
@@ -655,7 +716,7 @@ async function syncViaProvider(
           recipients: [...raw.to, ...(raw.cc || [])],
           received_at: raw.date.toISOString(),
           body_preview: bodyPreview,
-          has_attachments: false,
+          has_attachments: raw.hasAttachments || false,
           is_processed: false,
           subject: raw.subject || "(Sans objet)",
         });

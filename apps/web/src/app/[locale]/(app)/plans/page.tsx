@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -18,14 +18,40 @@ import {
   ArrowUp,
   ArrowDown,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanStatus } from "@cantaia/database";
-import type { MockPlan } from "@/lib/mock-data";
 
-// Data will come from Supabase — empty arrays until wired
-const mockPlans: MockPlan[] = [];
-const mockProjects: any[] = [];
+// Plan shape from API
+interface PlanFromApi {
+  id: string;
+  plan_number: string;
+  plan_title: string;
+  plan_type: string;
+  discipline: string | null;
+  lot_name: string | null;
+  cfc_code: string | null;
+  zone: string | null;
+  scale: string | null;
+  author_company: string | null;
+  status: PlanStatus;
+  created_at: string;
+  project_id: string;
+  project: { id: string; name: string; code: string | null } | null;
+  current_version: {
+    id: string;
+    version_code: string;
+    version_number: number;
+    version_date: string;
+    file_url: string;
+    file_name: string;
+    file_size: number;
+    file_type: string;
+    validation_status: string;
+  } | null;
+  version_count: number;
+}
 
 // ── Status config ──
 
@@ -78,6 +104,28 @@ const STORAGE_KEY = "cantaia_plans_view";
 export default function PlansPage() {
   const t = useTranslations("plans");
 
+  // Data from API
+  const [plans, setPlans] = useState<PlanFromApi[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlans = useCallback(async () => {
+    try {
+      const res = await fetch("/api/plans");
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data.plans || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch plans:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
   // View mode (list/grid) persisted in localStorage
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   useEffect(() => {
@@ -113,7 +161,7 @@ export default function PlansPage() {
 
   // Filtered & sorted plans
   const filteredPlans = useMemo(() => {
-    let list = [...mockPlans];
+    let list = [...plans];
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -146,10 +194,10 @@ export default function PlansPage() {
           cmp = (a.discipline || "").localeCompare(b.discipline || "");
           break;
         case "version":
-          cmp = a.current_version.localeCompare(b.current_version);
+          cmp = (a.current_version?.version_code || "").localeCompare(b.current_version?.version_code || "");
           break;
         case "version_date":
-          cmp = a.version_date.localeCompare(b.version_date);
+          cmp = (a.current_version?.version_date || "").localeCompare(b.current_version?.version_date || "");
           break;
         case "status":
           cmp = a.status.localeCompare(b.status);
@@ -158,21 +206,27 @@ export default function PlansPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [search, projectFilter, disciplineFilter, statusFilter, sortField, sortDir]);
+  }, [plans, search, projectFilter, disciplineFilter, statusFilter, sortField, sortDir]);
 
   // Stats
-  const totalPlans = mockPlans.length;
-  const totalVersions = mockPlans.reduce((sum, p) => sum + p.version_count, 0);
-  const outdatedAlerts = mockPlans.filter((p) => p.status === "superseded").length;
-  const pendingApproval = mockPlans.filter((p) => p.status === "for_approval").length;
+  const totalPlans = plans.length;
+  const totalVersions = plans.reduce((sum, p) => sum + p.version_count, 0);
+  const outdatedAlerts = plans.filter((p) => p.status === "superseded").length;
+  const pendingApproval = plans.filter((p) => p.status === "for_approval").length;
 
   // Unique disciplines for filter
-  const disciplines = [...new Set(mockPlans.map((p) => p.discipline).filter(Boolean))] as string[];
+  const disciplines = [...new Set(plans.map((p) => p.discipline).filter(Boolean))] as string[];
 
-  // Projects referenced by plans
-  const projectsInPlans = mockProjects.filter((p) =>
-    mockPlans.some((pl) => pl.project_id === p.id)
-  );
+  // Unique projects from plans
+  const projectsInPlans = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const p of plans) {
+      if (p.project && !map.has(p.project.id)) {
+        map.set(p.project.id, { id: p.project.id, name: p.project.name });
+      }
+    }
+    return Array.from(map.values());
+  }, [plans]);
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-slate-300" />;
@@ -180,6 +234,14 @@ export default function PlansPage() {
       ? <ArrowUp className="h-3 w-3 ml-1 text-brand" />
       : <ArrowDown className="h-3 w-3 ml-1 text-brand" />;
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -292,10 +354,7 @@ export default function PlansPage() {
                         projectFilter === p.id && "font-semibold text-brand"
                       )}
                     >
-                      <span
-                        className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: p.color }}
-                      />
+                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-brand" />
                       {p.name}
                     </button>
                   ))}
@@ -480,8 +539,7 @@ export default function PlansPage() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredPlans.map((plan) => {
-                  const project = mockProjects.find((p) => p.id === plan.project_id);
-                  const statusCfg = STATUS_CONFIG[plan.status];
+                  const statusCfg = STATUS_CONFIG[plan.status] || STATUS_CONFIG.active;
                   const StatusIcon = statusCfg.icon;
                   return (
                     <tr
@@ -505,13 +563,10 @@ export default function PlansPage() {
                         </Link>
                       </td>
                       <td className="px-3 py-2.5">
-                        {project && (
+                        {plan.project && (
                           <div className="flex items-center gap-1.5">
-                            <span
-                              className="h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: project.color }}
-                            />
-                            <span className="text-xs text-slate-600 truncate max-w-[120px]">{project.name}</span>
+                            <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
+                            <span className="text-xs text-slate-600 truncate max-w-[120px]">{plan.project.name}</span>
                           </div>
                         )}
                       </td>
@@ -528,7 +583,7 @@ export default function PlansPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
                           <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-slate-700">
-                            {plan.current_version}
+                            {plan.current_version?.version_code || "—"}
                           </span>
                           <span className="text-[10px] text-slate-400">
                             ({plan.version_count})
@@ -536,7 +591,7 @@ export default function PlansPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-xs text-slate-500">
-                        {formatDate(plan.version_date)}
+                        {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
                       </td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 truncate max-w-[140px]">
                         {plan.author_company || "—"}
@@ -562,8 +617,7 @@ export default function PlansPage() {
         {filteredPlans.length > 0 && viewMode === "grid" && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filteredPlans.map((plan) => {
-              const project = mockProjects.find((p) => p.id === plan.project_id);
-              const statusCfg = STATUS_CONFIG[plan.status];
+              const statusCfg = STATUS_CONFIG[plan.status] || STATUS_CONFIG.active;
               const StatusIcon = statusCfg.icon;
               return (
                 <Link
@@ -589,13 +643,10 @@ export default function PlansPage() {
                   </p>
 
                   {/* Project */}
-                  {project && (
+                  {plan.project && (
                     <div className="flex items-center gap-1.5 mb-2">
-                      <span
-                        className="h-2 w-2 rounded-full shrink-0"
-                        style={{ backgroundColor: project.color }}
-                      />
-                      <span className="text-[11px] text-slate-500 truncate">{project.name}</span>
+                      <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
+                      <span className="text-[11px] text-slate-500 truncate">{plan.project.name}</span>
                     </div>
                   )}
 
@@ -625,13 +676,15 @@ export default function PlansPage() {
                   <div className="flex items-center justify-between border-t border-slate-100 pt-2">
                     <div className="flex items-center gap-1.5">
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-slate-700">
-                        {plan.current_version}
+                        {plan.current_version?.version_code || "—"}
                       </span>
                       <span className="text-[10px] text-slate-400">
                         {plan.version_count > 1 ? `${plan.version_count} versions` : "1 version"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400">{formatDate(plan.version_date)}</span>
+                    <span className="text-[10px] text-slate-400">
+                      {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
+                    </span>
                   </div>
                   {plan.author_company && (
                     <p className="mt-1 text-[10px] text-slate-400 truncate">{plan.author_company}</p>

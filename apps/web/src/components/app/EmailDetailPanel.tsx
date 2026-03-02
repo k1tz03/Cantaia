@@ -117,6 +117,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [emailBody, setEmailBody] = useState<{ contentType: string; content: string } | null>(null);
   const [emailBodyLoading, setEmailBodyLoading] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<Map<string, { planId: string; planTitle: string }>>(new Map());
 
   const project = email.project_id ? projects.find((p) => p.id === email.project_id) : null;
   const detailedSummary = email.ai_summary || null;
@@ -169,6 +170,30 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       .catch(() => setAttachments([]))
       .finally(() => setAttachmentsLoading(false));
   }, [email.id, email.has_attachments, email.outlook_message_id]);
+
+  // Fetch saved plans for this email (to show badges on attachments)
+  useEffect(() => {
+    setSavedPlans(new Map());
+    fetch(`/api/plans?source_email_id=${encodeURIComponent(email.id)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.plans?.length > 0) {
+          const map = new Map<string, { planId: string; planTitle: string }>();
+          for (const pv of data.plans) {
+            const fileName = pv.file_name;
+            const reg = pv.plan_registry;
+            if (fileName) {
+              map.set(fileName, {
+                planId: reg?.id || pv.plan_id,
+                planTitle: reg?.plan_title || fileName,
+              });
+            }
+          }
+          setSavedPlans(map);
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }, [email.id]);
 
   // Fetch email body from Microsoft Graph (inline images resolved server-side)
   useEffect(() => {
@@ -584,24 +609,32 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   {attachments.map((att) => {
                     const attStyle = getAttachmentIcon(att.contentType, att.name);
                     const AttIcon = attStyle.icon;
+                    const savedPlan = savedPlans.get(att.name);
                     return (
-                      <button
-                        key={att.id}
-                        onClick={() => handleAttachmentClick(att)}
-                        className="flex w-full items-center gap-2.5 rounded-md border border-slate-200 bg-white p-2.5 text-left transition-colors hover:bg-slate-50"
-                      >
-                        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", attStyle.color)}>
-                          <AttIcon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-700">
-                            {att.name}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            {formatFileSize(att.size)}
-                          </p>
-                        </div>
-                      </button>
+                      <div key={att.id}>
+                        <button
+                          onClick={() => handleAttachmentClick(att)}
+                          className="flex w-full items-center gap-2.5 rounded-md border border-slate-200 bg-white p-2.5 text-left transition-colors hover:bg-slate-50"
+                        >
+                          <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", attStyle.color)}>
+                            <AttIcon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-700">
+                              {att.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              {formatFileSize(att.size)}
+                            </p>
+                          </div>
+                        </button>
+                        {savedPlan && (
+                          <div className="ml-10 mt-0.5 flex items-center gap-1 text-[11px] text-green-600">
+                            <CheckCircle className="h-3 w-3" />
+                            <span>{t("planSaved")}</span>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                   {attachments.length > 1 && (

@@ -42,6 +42,7 @@ export class MicrosoftProvider implements EmailProvider {
       bodyText: em.bodyPreview || undefined,
       bodyHtml: em.body?.content || undefined,
       attachments: [],
+      hasAttachments: em.hasAttachments || false,
       isRead: em.isRead,
     }));
   }
@@ -205,6 +206,7 @@ export class MicrosoftProvider implements EmailProvider {
       bodyText: em.bodyPreview || undefined,
       bodyHtml: em.body?.content || undefined,
       attachments: [],
+      hasAttachments: em.hasAttachments || false,
       isRead: em.isRead,
       importance: (em as unknown as Record<string, unknown>).importance as "low" | "normal" | "high" | undefined,
     }));

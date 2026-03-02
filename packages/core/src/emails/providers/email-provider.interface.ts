@@ -16,6 +16,7 @@ export interface RawEmail {
   bodyText?: string;
   bodyHtml?: string;
   attachments: EmailAttachment[];
+  hasAttachments?: boolean;
   isRead: boolean;
   importance?: "low" | "normal" | "high";
 }

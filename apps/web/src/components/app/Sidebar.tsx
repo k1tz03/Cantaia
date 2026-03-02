@@ -71,7 +71,7 @@ export function Sidebar() {
     {
       labelKey: "section.coming_soon",
       items: [
-        { href: "/plans", labelKey: "plans", icon: Map, status: "locked", badgeLabelKey: "badge.soon" },
+        { href: "/plans", labelKey: "plans", icon: Map, status: "active", badgeLabelKey: "badge.new" },
         { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "locked", badgeLabelKey: "badge.soon" },
         { href: "/pricing-intelligence", labelKey: "pricingIntelligence", icon: TrendingUp, status: "locked", badgeLabelKey: "badge.soon" },
       ],
