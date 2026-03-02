@@ -59,11 +59,11 @@ export const classifyEmailResultSchema = z.object({
   contains_task: z.boolean(),
   task: z
     .object({
-      title: z.string(),
+      title: z.string().nullable(),
       due_date: z.string().nullable(),
       assigned_to_name: z.string().nullable(),
       assigned_to_company: z.string().nullable(),
-      priority: z.enum(["low", "medium", "high", "urgent"]),
+      priority: z.enum(["low", "medium", "high", "urgent"]).nullable(),
     })
     .nullable()
     .optional(),

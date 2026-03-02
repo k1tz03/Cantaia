@@ -57,32 +57,15 @@ export async function PATCH(
 
   switch (action) {
     case "read_ok":
-      update.triage_status = "processed";
-      break;
-
     case "replied":
-      update.triage_status = "processed";
-      break;
-
     case "task_created":
-      update.triage_status = "processed";
-      break;
-
     case "forwarded":
-      update.triage_status = "processed";
-      break;
-
     case "auto_dismissed":
     case "dismissed":
-      update.triage_status = "processed";
-      break;
-
     case "offer_imported":
-      update.triage_status = "processed";
-      break;
-
     case "plan_registered":
       update.triage_status = "processed";
+      update.is_processed = true;
       break;
 
     case "reclassify":
@@ -94,9 +77,6 @@ export async function PATCH(
         update.project_id = body.data.project_id;
         update.classification_status = "confirmed";
         update.email_category = "project";
-      }
-      if (body.data?.category_id) {
-        update.category_id = body.data.category_id;
       }
       break;
 
