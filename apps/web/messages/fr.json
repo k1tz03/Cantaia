@@ -404,6 +404,8 @@
     "filter_closing": "En clôture",
     "emailsPlaceholder": "Les emails classifiés par l'IA apparaîtront ici.",
     "noEmailsYet": "Aucun email classé dans ce projet pour le moment.",
+    "searchEmails": "Rechercher dans les emails...",
+    "selectEmailToRead": "Sélectionnez un email pour le consulter",
     "tasksPlaceholder": "La gestion complète des tâches arrive bientôt.",
     "meetingsPlaceholder": "Les procès-verbaux générés apparaîtront ici.",
     "newMeeting": "Nouveau PV",

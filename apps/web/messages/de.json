@@ -403,6 +403,8 @@
     "filter_closing": "Im Abschluss",
     "emailsPlaceholder": "KI-klassifizierte E-Mails erscheinen hier.",
     "noEmailsYet": "Noch keine E-Mails in diesem Projekt klassifiziert.",
+    "searchEmails": "E-Mails durchsuchen...",
+    "selectEmailToRead": "Wählen Sie eine E-Mail zum Lesen",
     "tasksPlaceholder": "Vollständige Aufgabenverwaltung kommt bald.",
     "meetingsPlaceholder": "Generierte Sitzungsprotokolle erscheinen hier.",
     "newMeeting": "Neues Protokoll",
