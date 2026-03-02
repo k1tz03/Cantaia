@@ -62,10 +62,9 @@ export async function GET(
   return NextResponse.json({
     plan: {
       ...plan,
-      plan_versions: undefined,
       projects: undefined,
+      plan_versions: versions,
       project: plan.projects || null,
-      versions,
     },
   });
 }

@@ -318,9 +318,20 @@ Identifie le type exact du plan parmi : planting (plantation/paysagisme), networ
 
 2. CARTOUCHE (TITLE BLOCK)
 Lis le cartouche du plan et extrais : numéro de plan, titre, échelle, date, auteur/dessinateur, bureau/entreprise, indice de révision.
+IMPORTANT pour l'ÉCHELLE : l'échelle peut se trouver :
+- Dans le cartouche classique (coin inférieur droit)
+- Dans le texte du plan (ex: "Echelle 1:100" écrit dans la zone d'informations du plan)
+- Dans un bloc de texte séparé (ex: "Ech. 1:200", "Scale 1:500")
+- À côté d'une barre d'échelle graphique
+Cherche PARTOUT dans le document, pas seulement dans le cartouche principal. L'échelle est CRUCIALE pour estimer les surfaces et distances.
 
 3. LÉGENDE
-Identifie tous les éléments de la légende : symboles, couleurs, types de traits, hachures et leur signification.
+Identifie TOUS les éléments de la légende sans exception : symboles, couleurs, types de traits, hachures, zones colorées et leur signification.
+ATTENTION PARTICULIÈRE AUX ZONES DE SURFACE :
+- Les zones colorées (vert = gazon/végétation, beige/hachuré = surface stabilisée, gris = enrobé, etc.) représentent des SURFACES qui doivent être QUANTIFIÉES en m².
+- Chaque type de surface identifié dans la légende DOIT apparaître dans le quantitatif avec une estimation de sa surface en m².
+- Utilise l'échelle du plan pour convertir les surfaces visuelles en m² réels.
+- Les hachures, aplats de couleur et motifs de remplissage indiquent souvent des types de revêtements ou de sols — ils sont aussi importants que les éléments ponctuels.
 
 4. QUANTITATIF — EXTRACTION DES QUANTITÉS
 C'est la partie la plus importante. En te basant sur l'échelle, la légende, les symboles et les couleurs.
@@ -328,9 +339,16 @@ RAPPEL : si le document contient plusieurs vues du même ouvrage, ne compte chaq
 
 Pour un PLAN DE PLANTATION (paysagisme) :
 - Compte chaque plante individuellement par variété/espèce (nom latin si visible)
-- Mesure les surfaces de gazon, prairie, couvre-sol en m²
+- SURFACES OBLIGATOIRES : mesure TOUTES les surfaces visibles en m² grâce à l'échelle :
+  → Gazon / prairie (souvent en vert sur le plan)
+  → Surfaces végétalisées / couvre-sol
+  → Surfaces stabilisées / revêtements (souvent en beige ou hachuré)
+  → Massifs de plantation
+  → Toute zone colorée ou hachurée identifiée dans la légende
+- Pour estimer les m² : utilise l'échelle (ex: à 1:100, 1cm sur le plan = 1m réel, donc 1cm² = 1m²)
 - Note les tailles (hauteur, contenance, force)
 - Compte les arbres, arbustes, vivaces séparément
+- Identifie les éléments d'aménagement liés : bordures, pavés, dallages, mobilier
 
 Pour un PLAN DE RÉSEAUX (canalisations) :
 - Mesure les mètres linéaires (ml) de chaque type de canalisation par diamètre
@@ -378,6 +396,9 @@ Pour TOUT TYPE DE PLAN :
 - Note les dimensions et cotes principales
 - Identifie les matériaux spécifiés
 - Relève les annotations textuelles importantes
+- SURFACES : toute zone colorée, hachurée ou délimitée par un contour dans la légende DOIT être quantifiée en m² — utilise l'échelle pour convertir
+- COTES ÉCRITES : si des dimensions sont annotées sur le plan (longueurs, largeurs), utilise-les en priorité pour calculer les surfaces et longueurs
+- ÉCHELLE : si l'échelle est indiquée (ex: 1:100), rappelle-la dans le cartouche ET utilise-la systématiquement pour toutes les estimations de surface et de longueur
 
 5. OBSERVATIONS PROFESSIONNELLES
 Donne 3-5 observations de métreur professionnel : points d'attention, éléments manquants, incohérences éventuelles, recommandations.
