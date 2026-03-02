@@ -505,6 +505,7 @@
     "deleteTask": "Supprimer",
     "deleteConfirm": "Supprimer cette tâche ? Cette action est irréversible.",
     "markDone": "Marquer comme terminée",
+    "reopen": "Rouvrir",
 
     "taskTitle": "Titre",
     "taskDescription": "Description",

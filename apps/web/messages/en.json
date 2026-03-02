@@ -505,6 +505,7 @@
     "deleteTask": "Delete",
     "deleteConfirm": "Delete this task? This action cannot be undone.",
     "markDone": "Mark as done",
+    "reopen": "Reopen",
 
     "taskTitle": "Title",
     "taskDescription": "Description",

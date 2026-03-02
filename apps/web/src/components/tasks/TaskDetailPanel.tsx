@@ -118,48 +118,58 @@ export function TaskDetailPanel({
   return (
     <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-gray-200 bg-white shadow-xl">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
-        <div className="flex items-center gap-2">
+      <div className="border-b border-gray-200 px-5 py-3.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900 line-clamp-1 flex-1 mr-2">
+            {task.title}
+          </h2>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onEdit(task)}
+              className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title={t("editTask")}
+            >
+              <Edit3 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(task.id)}
+              className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+              title={t("deleteTask")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        {/* Mark done / Reopen button */}
+        <div className="mt-2">
           {task.status !== "done" ? (
             <button
               type="button"
               onClick={() => onStatusChange(task.id, "done")}
-              title={t("markDone")}
-              className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600"
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-200 transition-colors hover:bg-green-100"
             >
-              <CheckCircle2 className="h-5 w-5" />
+              <CheckCircle2 className="h-4 w-4" />
+              {t("markDone")}
             </button>
           ) : (
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
+            <button
+              type="button"
+              onClick={() => onStatusChange(task.id, "todo")}
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-300 transition-colors hover:bg-amber-50 hover:text-amber-700 hover:ring-amber-200"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {t("statusDone")} — {t("reopen")}
+            </button>
           )}
-          <h2 className="text-sm font-semibold text-gray-900 line-clamp-1">
-            {task.title}
-          </h2>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onEdit(task)}
-            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            title={t("editTask")}
-          >
-            <Edit3 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(task.id)}
-            className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-            title={t("deleteTask")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
       </div>
 

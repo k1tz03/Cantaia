@@ -13,6 +13,7 @@ import {
   Shield,
   ArrowUpDown,
   CheckSquare,
+  CheckCircle2,
   Trash2,
   UserPlus,
   Loader2,
@@ -77,20 +78,23 @@ export default function TasksPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
+  async function refreshTasks() {
+    try {
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      if (data.success) {
+        if (data.tasks) setTasks(data.tasks);
+        if (data.projects) setProjects(data.projects);
+      }
+    } catch (err) {
+      console.error("Failed to load tasks:", err);
+    }
+  }
+
   useEffect(() => {
     async function load() {
-      try {
-        const res = await fetch("/api/tasks");
-        const data = await res.json();
-        if (data.success) {
-          if (data.tasks) setTasks(data.tasks);
-          if (data.projects) setProjects(data.projects);
-        }
-      } catch (err) {
-        console.error("Failed to load tasks:", err);
-      } finally {
-        setLoading(false);
-      }
+      await refreshTasks();
+      setLoading(false);
     }
     load();
   }, []);
@@ -263,15 +267,34 @@ export default function TasksPage() {
     setSelectedTask(null);
   }
 
-  function handleDeleteTask(taskId: string) {
+  async function handleDeleteTask(taskId: string) {
     if (!confirm(t("deleteConfirm"))) return;
-    console.log("[Task] Deleting:", taskId);
+    try {
+      await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch (err) {
+      console.error("[Task] Delete error:", err);
+    }
     setSelectedTask(null);
   }
 
-  function handleStatusChange(taskId: string, status: TaskStatus) {
-    console.log("[Task] Status change:", taskId, "→", status);
-    setSelectedTask(null);
+  async function handleStatusChange(taskId: string, status: TaskStatus) {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? data.task : t)));
+        if (selectedTask?.id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (err) {
+      console.error("[Task] Status change error:", err);
+    }
   }
 
   function handleBulkStatusChange(status: TaskStatus) {
@@ -591,18 +614,37 @@ export default function TasksPage() {
                       />
                     </td>
                     <td className="max-w-[300px] px-3 py-2.5">
-                      <p
-                        className={`text-sm font-medium ${
-                          isDone
-                            ? "text-gray-400 line-through"
-                            : "text-gray-900"
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      {task.lot_code && (
-                        <span className="text-[10px] text-gray-400">{task.lot_code}</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(task.id, isDone ? "todo" : "done");
+                          }}
+                          title={isDone ? t("statusTodo") : t("markDone")}
+                          className={`shrink-0 rounded-full transition-colors ${
+                            isDone
+                              ? "text-green-500 hover:text-green-600"
+                              : "text-gray-300 hover:text-green-500"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-5 w-5" />
+                        </button>
+                        <div>
+                          <p
+                            className={`text-sm font-medium ${
+                              isDone
+                                ? "text-gray-400 line-through"
+                                : "text-gray-900"
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          {task.lot_code && (
+                            <span className="text-[10px] text-gray-400">{task.lot_code}</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2.5">
                       {project && (
