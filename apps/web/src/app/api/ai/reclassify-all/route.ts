@@ -298,12 +298,12 @@ export async function POST() {
 
       emailsClassified++;
 
-      if (result.contains_task && result.task && result.project_id) {
-        await adminClient.from("tasks").insert({
+      if (result.contains_task && result.task?.title && result.project_id) {
+        await (adminClient as any).from("tasks").insert({
           project_id: result.project_id,
           created_by: user.id,
           title: result.task.title,
-          priority: result.task.priority,
+          priority: result.task.priority || "medium",
           source: "email" as const,
           source_id: email.id,
           source_reference: `Email: ${email.subject}`,
