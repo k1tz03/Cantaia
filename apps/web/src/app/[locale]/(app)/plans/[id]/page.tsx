@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -19,35 +19,41 @@ import {
   Shield,
   Sparkles,
   Copy,
+  Loader2,
+  ClipboardCopy,
+  RefreshCw,
+  Info,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
-
-// Data will come from Supabase — empty arrays until wired
-const mockProjects: any[] = [];
 import type { PlanStatus, PlanDiscipline, PlanValidationStatus } from "@cantaia/database";
 
-// ── Mock plan detail data (replaced in 12.10) ──
+// ── Types ──
 
-interface MockPlanVersion {
+interface PlanVersion {
   id: string;
   version_code: string;
   version_number: number;
   version_date: string;
+  file_url: string;
   file_name: string;
   file_size: number;
-  source: "auto_detected" | "manual_upload" | "email_attachment";
-  source_email_subject?: string;
+  file_type: string;
+  source: string;
+  source_email_id: string | null;
+  received_at: string | null;
   ai_detected: boolean;
   ai_confidence: number | null;
   ai_changes_detected: string | null;
   validation_status: PlanValidationStatus;
   validated_by: string | null;
   validated_at: string | null;
+  distributed_to: any | null;
+  distribution_date: string | null;
   is_current: boolean;
-  distributed_to: { name: string; company: string; sent_at: string | null }[];
+  created_at: string;
 }
 
-interface MockPlanDetail {
+interface PlanDetail {
   id: string;
   project_id: string;
   plan_number: string;
@@ -61,12 +67,44 @@ interface MockPlanDetail {
   author_company: string | null;
   author_name: string | null;
   notes: string | null;
-  tags: string[];
+  tags: string[] | null;
   created_at: string;
-  versions: MockPlanVersion[];
+  projects: { id: string; name: string; code: string | null } | null;
+  plan_versions: PlanVersion[];
 }
 
-const MOCK_PLAN_DETAILS: Record<string, MockPlanDetail> = {};
+interface AnalysisData {
+  id?: string;
+  plan_type_detected: string;
+  discipline_detected: string;
+  summary: string;
+  analysis_duration_ms: number;
+  analyzed_at: string;
+  analysis_result: {
+    plan_type: string;
+    discipline: string;
+    title_block: {
+      plan_number: string | null;
+      plan_title: string | null;
+      scale: string | null;
+      date: string | null;
+      author: string | null;
+      company: string | null;
+      revision: string | null;
+    } | null;
+    legend_items: { symbol: string; description: string; color?: string | null }[];
+    quantities: {
+      category: string;
+      item: string;
+      quantity: number | null;
+      unit: string;
+      specification?: string | null;
+      confidence: "high" | "medium" | "low";
+    }[];
+    observations: string[];
+    summary: string;
+  };
+}
 
 // ── Configs ──
 
@@ -106,30 +144,35 @@ const DISCIPLINE_COLORS: Record<string, string> = {
   amenagement: "bg-green-100 text-green-700",
 };
 
-const SOURCE_KEYS: Record<string, string> = {
-  auto_detected: "sourceAutoDetected",
-  manual_upload: "sourceManualUpload",
-  email_attachment: "sourceEmail",
+const PLAN_TYPE_KEYS: Record<string, string> = {
+  planting: "planTypePlanting",
+  network: "planTypeNetwork",
+  site_layout: "planTypeSiteLayout",
+  electrical: "planTypeElectrical",
+  facade: "planTypeFacade",
+  structural: "planTypeStructural",
+  hvac: "planTypeHvac",
+  plumbing: "planTypePlumbing",
+  architecture: "planTypeArchitecture",
+  other: "planTypeOther",
+};
+
+const CONFIDENCE_CONFIG = {
+  high: { labelKey: "confidenceHigh", color: "bg-green-500" },
+  medium: { labelKey: "confidenceMedium", color: "bg-amber-400" },
+  low: { labelKey: "confidenceLow", color: "bg-red-400" },
 };
 
 // ── Helpers ──
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear()).slice(2);
-  return `${day}.${month}.${year}`;
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getFullYear()).slice(2)}`;
 }
 
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear()).slice(2);
-  const hours = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
-  return `${day}.${month}.${year} ${hours}:${mins}`;
+  return `${formatDate(dateStr)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function formatFileSize(bytes: number): string {
@@ -145,10 +188,85 @@ export default function PlanDetailPage() {
   const planId = params.id as string;
   const t = useTranslations("plans");
 
-  const [activeTab, setActiveTab] = useState<"versions" | "info">("versions");
+  const [plan, setPlan] = useState<PlanDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"versions" | "info" | "analysis">("versions");
 
-  const plan = MOCK_PLAN_DETAILS[planId];
-  const project = plan ? mockProjects.find((p) => p.id === plan.project_id) : null;
+  // Analysis state
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [, setAnalysisCached] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+
+  const fetchPlan = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/plans/${planId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPlan(data.plan || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch plan:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [planId]);
+
+  useEffect(() => {
+    fetchPlan();
+  }, [fetchPlan]);
+
+  // Trigger AI analysis
+  const handleAnalyze = async (force = false) => {
+    if (!plan) return;
+    setAnalyzing(true);
+    setAnalysisError("");
+    try {
+      const res = await fetch("/api/ai/analyze-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id, force }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnalysis(data.analysis);
+        setAnalysisCached(!!data.cached);
+      } else {
+        setAnalysisError(data.error || "Erreur lors de l'analyse");
+      }
+    } catch (err) {
+      console.error("[analyze] Error:", err);
+      setAnalysisError("Erreur réseau");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Copy quantities table
+  const handleCopyTable = () => {
+    if (!analysis?.analysis_result?.quantities) return;
+    const rows = analysis.analysis_result.quantities.map(
+      (q) => `${q.category}\t${q.item}\t${q.quantity ?? ""}\t${q.unit}\t${q.specification || ""}`
+    );
+    const header = "Catégorie\tPoste\tQuantité\tUnité\tSpécification";
+    navigator.clipboard.writeText([header, ...rows].join("\n"));
+  };
+
+  // Check for cached analysis when switching to analysis tab
+  useEffect(() => {
+    if (activeTab === "analysis" && plan && !analysis && !analyzing) {
+      handleAnalyze(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, plan]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      </div>
+    );
+  }
 
   if (!plan) {
     return (
@@ -169,7 +287,19 @@ export default function PlanDetailPage() {
 
   const statusCfg = STATUS_CONFIG[plan.status];
   const StatusIcon = statusCfg.icon;
-  const currentVersion = plan.versions.find((v) => v.is_current);
+  const project = plan.projects;
+  const versions = plan.plan_versions || [];
+  const currentVersion = versions.find((v) => v.is_current) || versions[0];
+  const result = analysis?.analysis_result;
+
+  // Group quantities by category
+  const quantityGroups: Record<string, NonNullable<typeof result>["quantities"]> = {};
+  if (result?.quantities) {
+    for (const q of result.quantities) {
+      if (!quantityGroups[q.category]) quantityGroups[q.category] = [];
+      quantityGroups[q.category].push(q);
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -210,48 +340,24 @@ export default function PlanDetailPage() {
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {project && (
-              <Link
-                href={`/projects/${project.id}`}
-                className="flex items-center gap-1.5 hover:text-brand transition-colors"
-              >
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+              <Link href={`/projects/${project.id}`} className="flex items-center gap-1.5 hover:text-brand transition-colors">
+                <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
                 {project.name}
               </Link>
             )}
-            <span className="text-slate-300">·</span>
             {plan.discipline && (
               <>
-                <span className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  DISCIPLINE_COLORS[plan.discipline]
-                )}>
+                <span className="text-slate-300">·</span>
+                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium", DISCIPLINE_COLORS[plan.discipline])}>
                   {t(DISCIPLINE_KEYS[plan.discipline])}
                 </span>
-                <span className="text-slate-300">·</span>
               </>
             )}
-            {plan.lot_name && <span>{plan.lot_name}</span>}
-            {plan.zone && (
-              <>
-                <span className="text-slate-300">·</span>
-                <span>{plan.zone}</span>
-              </>
-            )}
-            {plan.scale && (
-              <>
-                <span className="text-slate-300">·</span>
-                <span>{plan.scale}</span>
-              </>
-            )}
-            {plan.format && (
-              <>
-                <span className="text-slate-300">·</span>
-                <span>{plan.format}</span>
-              </>
-            )}
+            {plan.lot_name && <><span className="text-slate-300">·</span><span>{plan.lot_name}</span></>}
+            {plan.zone && <><span className="text-slate-300">·</span><span>{plan.zone}</span></>}
+            {plan.scale && <><span className="text-slate-300">·</span><span>{plan.scale}</span></>}
           </div>
 
-          {/* Author */}
           {plan.author_company && (
             <p className="mt-2 text-xs text-slate-500">
               {t("author")}: <span className="font-medium text-slate-700">{plan.author_name || plan.author_company}</span>
@@ -273,10 +379,17 @@ export default function PlanDetailPage() {
                   {formatDate(currentVersion.version_date)} · {formatFileSize(currentVersion.file_size)}
                 </p>
               </div>
-              <button className="flex items-center gap-1 rounded-md bg-white border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">
-                <Download className="h-3.5 w-3.5" />
-                {t("download")}
-              </button>
+              {currentVersion.file_url && (
+                <a
+                  href={currentVersion.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 rounded-md bg-white border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t("download")}
+                </a>
+              )}
             </div>
           )}
         </div>
@@ -287,33 +400,42 @@ export default function PlanDetailPage() {
             onClick={() => setActiveTab("versions")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-              activeTab === "versions"
-                ? "border-brand text-brand"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+              activeTab === "versions" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
             )}
           >
             <History className="h-4 w-4" />
-            {t("tabVersions")} ({plan.versions.length})
+            {t("tabVersions")} ({versions.length})
           </button>
           <button
             onClick={() => setActiveTab("info")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-              activeTab === "info"
-                ? "border-brand text-brand"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+              activeTab === "info" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
             )}
           >
-            <FileText className="h-4 w-4" />
+            <Info className="h-4 w-4" />
             {t("tabInfo")}
+          </button>
+          <button
+            onClick={() => setActiveTab("analysis")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+              activeTab === "analysis" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            {t("tabAnalysis")}
           </button>
         </div>
 
-        {/* Versions tab */}
+        {/* ════════════════════════════ VERSIONS TAB ════════════════════════════ */}
         {activeTab === "versions" && (
           <div className="space-y-3">
-            {[...plan.versions].reverse().map((version) => {
-              const validCfg = VALIDATION_CONFIG[version.validation_status];
+            {versions.length === 0 && (
+              <div className="text-center py-10 text-sm text-slate-400">Aucune version</div>
+            )}
+            {[...versions].sort((a, b) => b.version_number - a.version_number).map((version) => {
+              const validCfg = VALIDATION_CONFIG[version.validation_status] || VALIDATION_CONFIG.pending;
               const ValidIcon = validCfg.icon;
               return (
                 <div
@@ -323,7 +445,6 @@ export default function PlanDetailPage() {
                     version.is_current ? "border-brand/30 ring-1 ring-brand/10" : "border-slate-200"
                   )}
                 >
-                  {/* Version header */}
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                       <div className={cn(
@@ -334,13 +455,9 @@ export default function PlanDetailPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-800">
-                            Version {version.version_code}
-                          </span>
+                          <span className="text-sm font-semibold text-slate-800">Version {version.version_code}</span>
                           {version.is_current && (
-                            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">
-                              {t("versionCurrent")}
-                            </span>
+                            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">{t("versionCurrent")}</span>
                           )}
                         </div>
                         <p className="text-[11px] text-slate-500">
@@ -349,9 +466,11 @@ export default function PlanDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title={t("download")}>
-                        <Download className="h-4 w-4" />
-                      </button>
+                      {version.file_url && (
+                        <a href={version.file_url} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title={t("download")}>
+                          <Download className="h-4 w-4" />
+                        </a>
+                      )}
                       <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title={t("copyLink")}>
                         <Copy className="h-4 w-4" />
                       </button>
@@ -364,22 +483,12 @@ export default function PlanDetailPage() {
                       <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-purple-600">
                         <Sparkles className="h-3 w-3" />
                         {t("sourceAutoDetected")}
-                        {version.ai_confidence && ` (${Math.round(version.ai_confidence * 100)}%)`}
-                      </span>
-                    )}
-                    {!version.ai_detected && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-                        {t(SOURCE_KEYS[version.source] || version.source)}
-                      </span>
-                    )}
-                    {version.source_email_subject && (
-                      <span className="text-slate-400 truncate max-w-[300px]">
-                        {t("fromEmail")}: &quot;{version.source_email_subject}&quot;
+                        {version.ai_confidence != null && ` (${Math.round(version.ai_confidence * 100)}%)`}
                       </span>
                     )}
                   </div>
 
-                  {/* AI changes detected */}
+                  {/* AI changes */}
                   {version.ai_changes_detected && (
                     <div className="mb-2 rounded-md bg-amber-50 border border-amber-100 px-3 py-2">
                       <p className="text-[11px] font-medium text-amber-700 mb-0.5">{t("changesDetected")}:</p>
@@ -387,66 +496,23 @@ export default function PlanDetailPage() {
                     </div>
                   )}
 
-                  {/* Validation + Distribution */}
+                  {/* Validation */}
                   <div className="flex items-center gap-4 text-[11px]">
-                    {/* Validation status */}
                     <div className="flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5 text-slate-400" />
                       <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", validCfg.bg, validCfg.color)}>
                         <ValidIcon className="h-3 w-3" />
                         {t(validCfg.labelKey)}
                       </span>
-                      {version.validated_by && (
-                        <span className="text-slate-400">
-                          {version.validated_by} · {version.validated_at ? formatDateTime(version.validated_at) : ""}
-                        </span>
-                      )}
                     </div>
-
-                    {/* Distribution */}
-                    {version.distributed_to.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Send className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-slate-500">
-                          {t("distributedTo", { count: version.distributed_to.length })}
-                        </span>
-                      </div>
-                    )}
                   </div>
-
-                  {/* Distribution list (expanded for current version) */}
-                  {version.is_current && version.distributed_to.length > 0 && (
-                    <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 p-2">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                        {t("distributionList")}
-                      </p>
-                      <div className="space-y-1">
-                        {version.distributed_to.map((r, i) => (
-                          <div key={i} className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-700">{r.name} <span className="text-slate-400">— {r.company}</span></span>
-                            {r.sent_at ? (
-                              <span className="text-green-600 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                {formatDateTime(r.sent_at)}
-                              </span>
-                            ) : (
-                              <span className="text-amber-500 flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {t("notSent")}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Info tab */}
+        {/* ════════════════════════════ INFO TAB ════════════════════════════ */}
         {activeTab === "info" && (
           <div className="rounded-lg border border-slate-200 bg-white p-5">
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -462,7 +528,7 @@ export default function PlanDetailPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colProject")}</p>
                 {project ? (
                   <Link href={`/projects/${project.id}`} className="flex items-center gap-1.5 text-slate-800 hover:text-brand">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                    <span className="h-2 w-2 rounded-full bg-brand" />
                     {project.name}
                   </Link>
                 ) : (
@@ -472,31 +538,14 @@ export default function PlanDetailPage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colDiscipline")}</p>
                 {plan.discipline ? (
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                    DISCIPLINE_COLORS[plan.discipline]
-                  )}>
+                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", DISCIPLINE_COLORS[plan.discipline])}>
                     {t(DISCIPLINE_KEYS[plan.discipline])}
                   </span>
-                ) : (
-                  <p className="text-slate-400">—</p>
-                )}
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colLot")}</p>
-                <p className="text-slate-800">{plan.lot_name || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colZone")}</p>
-                <p className="text-slate-800">{plan.zone || "—"}</p>
+                ) : <p className="text-slate-400">—</p>}
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colScale")}</p>
                 <p className="text-slate-800">{plan.scale || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("format")}</p>
-                <p className="text-slate-800">{plan.format || "—"}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colAuthor")}</p>
@@ -506,31 +555,207 @@ export default function PlanDetailPage() {
                 </p>
               </div>
               <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("colZone")}</p>
+                <p className="text-slate-800">{plan.zone || "—"}</p>
+              </div>
+              <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("createdAt")}</p>
                 <p className="text-slate-800">{formatDateTime(plan.created_at)}</p>
               </div>
             </div>
-
-            {/* Notes */}
             {plan.notes && (
               <div className="mt-4 border-t border-slate-100 pt-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{t("notes")}</p>
                 <p className="text-sm text-slate-700">{plan.notes}</p>
               </div>
             )}
+          </div>
+        )}
 
-            {/* Tags */}
-            {plan.tags.length > 0 && (
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">{t("tags")}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {plan.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+        {/* ════════════════════════════ ANALYSIS TAB ════════════════════════════ */}
+        {activeTab === "analysis" && (
+          <div className="space-y-4">
+            {/* Loading state */}
+            {analyzing && (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
+                <Loader2 className="h-10 w-10 animate-spin text-brand mb-4" />
+                <p className="text-sm font-medium text-slate-600">{t("analyzing")}</p>
+                <p className="mt-1 text-xs text-slate-400">L&apos;IA analyse le plan comme un métreur professionnel...</p>
               </div>
+            )}
+
+            {/* Error state */}
+            {analysisError && !analyzing && (
+              <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {analysisError}
+              </div>
+            )}
+
+            {/* Empty state — no analysis yet */}
+            {!analysis && !analyzing && !analysisError && (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
+                <Sparkles className="h-12 w-12 text-slate-300 mb-3" />
+                <p className="text-sm font-medium text-slate-600">{t("noAnalysisYet")}</p>
+                <p className="mt-1 text-xs text-slate-400 max-w-sm text-center">{t("noAnalysisDesc")}</p>
+                <button
+                  onClick={() => handleAnalyze(false)}
+                  className="mt-4 flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {t("analyzeWithAI")}
+                </button>
+              </div>
+            )}
+
+            {/* Analysis result */}
+            {result && !analyzing && (
+              <>
+                {/* Header bar */}
+                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="h-5 w-5 text-brand" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {t(PLAN_TYPE_KEYS[result.plan_type] || "planTypeOther")}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {result.discipline}
+                        {analysis.analysis_duration_ms && ` · ${t("analysisTime", { seconds: (analysis.analysis_duration_ms / 1000).toFixed(1) })}`}
+                        {analysis.analyzed_at && ` · ${t("analysisCached", { date: formatDateTime(analysis.analyzed_at) })}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleAnalyze(true)}
+                    disabled={analyzing}
+                    className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("reAnalyze")}
+                  </button>
+                </div>
+
+                {/* Title block */}
+                {result.title_block && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{t("titleBlock")}</h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                      {result.title_block.plan_number && (
+                        <div><p className="text-[10px] text-slate-400">N°</p><p className="font-mono font-medium text-slate-800">{result.title_block.plan_number}</p></div>
+                      )}
+                      {result.title_block.plan_title && (
+                        <div className="col-span-2 sm:col-span-3"><p className="text-[10px] text-slate-400">Titre</p><p className="text-slate-800">{result.title_block.plan_title}</p></div>
+                      )}
+                      {result.title_block.scale && (
+                        <div><p className="text-[10px] text-slate-400">Échelle</p><p className="text-slate-800">{result.title_block.scale}</p></div>
+                      )}
+                      {result.title_block.date && (
+                        <div><p className="text-[10px] text-slate-400">Date</p><p className="text-slate-800">{result.title_block.date}</p></div>
+                      )}
+                      {result.title_block.company && (
+                        <div><p className="text-[10px] text-slate-400">Bureau</p><p className="text-slate-800">{result.title_block.company}</p></div>
+                      )}
+                      {result.title_block.revision && (
+                        <div><p className="text-[10px] text-slate-400">Indice</p><p className="font-mono font-bold text-slate-800">{result.title_block.revision}</p></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legend */}
+                {result.legend_items.length > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{t("legendLabel")}</h3>
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                      {result.legend_items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          {item.color && (
+                            <span className="h-3 w-3 rounded-full shrink-0 border border-slate-200" style={{ backgroundColor: item.color }} />
+                          )}
+                          <span className="text-xs font-medium text-slate-700">{item.symbol}</span>
+                          <span className="text-xs text-slate-500">— {item.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quantities table */}
+                {result.quantities.length > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("quantitiesLabel")}</h3>
+                      <button
+                        onClick={handleCopyTable}
+                        className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700"
+                      >
+                        <ClipboardCopy className="h-3.5 w-3.5" />
+                        {t("copyTable")}
+                      </button>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                          <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("colItem")}</th>
+                          <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("colQuantity")}</th>
+                          <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("colUnit")}</th>
+                          <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 hidden sm:table-cell">{t("colSpecification")}</th>
+                          <th className="px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("colConfidence")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(quantityGroups).map(([category, items]) => (
+                          <>{/* Category header row */}
+                            <tr key={`cat-${category}`} className="bg-slate-50">
+                              <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-slate-700">{category}</td>
+                            </tr>
+                            {items.map((q, i) => (
+                              <tr key={`${category}-${i}`} className="border-b border-slate-50 hover:bg-slate-50/30">
+                                <td className="px-4 py-2 text-xs text-slate-700">{q.item}</td>
+                                <td className="px-4 py-2 text-right text-xs font-semibold text-slate-900 tabular-nums">
+                                  {q.quantity != null ? q.quantity.toLocaleString("fr-CH") : "—"}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-slate-500">{q.unit}</td>
+                                <td className="px-4 py-2 text-xs text-slate-500 hidden sm:table-cell">{q.specification || "—"}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span
+                                    className={cn("inline-block h-2.5 w-2.5 rounded-full", CONFIDENCE_CONFIG[q.confidence].color)}
+                                    title={t(CONFIDENCE_CONFIG[q.confidence].labelKey)}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Observations */}
+                {result.observations.length > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{t("observationsLabel")}</h3>
+                    <ul className="space-y-2">
+                      {result.observations.map((obs, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                          <Eye className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
+                          {obs}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Summary */}
+                {result.summary && (
+                  <div className="rounded-lg border border-slate-200 bg-blue-50 p-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("summaryLabel")}</h3>
+                    <p className="text-sm text-slate-700 leading-relaxed">{result.summary}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

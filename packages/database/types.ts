@@ -150,6 +150,7 @@ export type ApiActionType =
   | "reclassify"
   | "plan_detect"
   | "plan_version_check"
+  | "plan_analyze"
   | "submission_parse"
   | "offer_parse"
   | "supplier_match"
