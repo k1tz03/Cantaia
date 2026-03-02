@@ -37,6 +37,7 @@
     "direction": "Management",
     "mail": "Mail",
     "pv": "Site Minutes",
+    "chat": "JM",
     "section": {
       "products": "Products",
       "workspace": "Workspace",
@@ -252,6 +253,8 @@
     "cardSubmissionsDesc": "Bid comparisons and price analysis by lot.",
     "cardPvTitle": "Site Reports",
     "cardPvDesc": "AI-generated meeting minutes from audio recording.",
+    "cardChatTitle": "JM — AI Assistant",
+    "cardChatDesc": "Your AI expert in Swiss construction. SIA standards, CFC codes, all trades.",
     "activeProjects": "Active projects",
     "pendingTasks": "Pending tasks",
     "overdueTasks": "Overdue tasks",
@@ -758,6 +761,25 @@
     "delete_pv": "Delete PV",
     "delete_pv_confirm": "Delete this PV and all associated tasks? This action cannot be undone.",
     "cancel": "Cancel"
+  },
+  "chat": {
+    "title": "JM — AI Construction Assistant",
+    "newConversation": "New conversation",
+    "placeholder": "Ask JM your question...",
+    "sending": "JM is thinking...",
+    "emptyTitle": "Welcome, I'm JM",
+    "emptyDesc": "Your AI expert in Swiss construction. SIA standards, CFC codes, all trades — ask me your professional questions.",
+    "suggestQuestion1": "What are the client's obligations according to SIA 118?",
+    "suggestQuestion2": "How is the CFC code structured for a residential building?",
+    "suggestQuestion3": "What are the warranty periods under SIA 118 art. 172?",
+    "deleteConversation": "Delete conversation",
+    "deleteConfirm": "Delete this conversation?",
+    "noConversations": "No conversations",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "older": "Older",
+    "errorStream": "Error generating response.",
+    "errorNetwork": "Network error. Check your connection."
   },
   "landing": {
     "nav": {

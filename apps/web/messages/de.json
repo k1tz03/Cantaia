@@ -37,6 +37,7 @@
     "direction": "Geschäftsleitung",
     "mail": "Mail",
     "pv": "Bauprotokoll",
+    "chat": "JM",
     "section": {
       "products": "Produkte",
       "workspace": "Arbeitsbereich",
@@ -252,6 +253,8 @@
     "cardSubmissionsDesc": "Angebotsvergleiche und Preisanalyse nach Los.",
     "cardPvTitle": "Sitzungsprotokolle",
     "cardPvDesc": "KI-generierte Sitzungsprotokolle aus Audioaufnahmen.",
+    "cardChatTitle": "JM — KI-Assistent",
+    "cardChatDesc": "Ihr KI-Experte für Schweizer Bauwesen. SIA-Normen, BKP-Codes, alle Gewerke.",
     "activeProjects": "Aktive Projekte",
     "pendingTasks": "Offene Aufgaben",
     "overdueTasks": "Überfällige Aufgaben",
@@ -758,6 +761,25 @@
     "delete_pv": "PV löschen",
     "delete_pv_confirm": "Dieses PV und alle zugehörigen Aufgaben löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
     "cancel": "Abbrechen"
+  },
+  "chat": {
+    "title": "JM — KI-Bauassistent",
+    "newConversation": "Neues Gespräch",
+    "placeholder": "Stellen Sie JM Ihre Frage...",
+    "sending": "JM denkt nach...",
+    "emptyTitle": "Willkommen, ich bin JM",
+    "emptyDesc": "Ihr KI-Experte für Schweizer Bauwesen. SIA-Normen, BKP-Codes, alle Gewerke — stellen Sie mir Ihre fachlichen Fragen.",
+    "suggestQuestion1": "Welche Pflichten hat der Bauherr gemäss SIA 118?",
+    "suggestQuestion2": "Wie ist der BKP-Code für ein Wohngebäude strukturiert?",
+    "suggestQuestion3": "Welche Garantiefristen gelten gemäss SIA 118 Art. 172?",
+    "deleteConversation": "Gespräch löschen",
+    "deleteConfirm": "Dieses Gespräch löschen?",
+    "noConversations": "Keine Gespräche",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "older": "Älter",
+    "errorStream": "Fehler bei der Antwortgenerierung.",
+    "errorNetwork": "Netzwerkfehler. Überprüfen Sie Ihre Verbindung."
   },
   "landing": {
     "nav": {

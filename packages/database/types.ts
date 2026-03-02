@@ -154,7 +154,8 @@ export type ApiActionType =
   | "submission_parse"
   | "offer_parse"
   | "supplier_match"
-  | "negotiation_email";
+  | "negotiation_email"
+  | "chat_message";
 
 export type PlanType =
   | "execution"

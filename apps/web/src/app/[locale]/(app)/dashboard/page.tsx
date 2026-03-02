@@ -11,6 +11,7 @@ import {
   Map,
   FileSpreadsheet,
   FileText,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,6 +75,13 @@ export default function DashboardPage() {
       titleKey: "cardPvTitle",
       descKey: "cardPvDesc",
       color: "bg-rose-500",
+    },
+    {
+      href: "/chat",
+      icon: MessageSquare,
+      titleKey: "cardChatTitle",
+      descKey: "cardChatDesc",
+      color: "bg-cyan-500",
     },
   ];
 

@@ -1,0 +1,252 @@
+import { NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  buildChatSystemPrompt,
+  streamChatResponse,
+  type ChatMessage,
+} from "@cantaia/core/ai";
+import { trackApiUsage } from "@cantaia/core/tracking";
+
+export const maxDuration = 60;
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
+  }
+
+  const admin = createAdminClient();
+
+  const { data: userOrg } = await (admin as any)
+    .from("users")
+    .select("organization_id, first_name, last_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!userOrg?.organization_id) {
+    return new Response(JSON.stringify({ error: "No organization" }), {
+      status: 403,
+    });
+  }
+
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicApiKey) {
+    return new Response(JSON.stringify({ error: "AI not configured" }), {
+      status: 500,
+    });
+  }
+
+  let body: {
+    conversation_id?: string;
+    message: string;
+    project_id?: string;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+    });
+  }
+
+  if (!body.message?.trim()) {
+    return new Response(JSON.stringify({ error: "Message required" }), {
+      status: 400,
+    });
+  }
+
+  // Get or create conversation
+  let conversationId = body.conversation_id;
+
+  if (!conversationId) {
+    const title = body.message.slice(0, 100).trim();
+    const { data: conv, error: convErr } = await (admin as any)
+      .from("chat_conversations")
+      .insert({
+        user_id: user.id,
+        organization_id: userOrg.organization_id,
+        project_id: body.project_id || null,
+        title,
+      })
+      .select("id")
+      .single();
+
+    if (convErr || !conv) {
+      return new Response(
+        JSON.stringify({ error: "Failed to create conversation" }),
+        { status: 500 },
+      );
+    }
+    conversationId = conv.id;
+  }
+
+  // Save user message
+  await (admin as any).from("chat_messages").insert({
+    conversation_id: conversationId,
+    role: "user",
+    content: body.message,
+  });
+
+  // Load last 50 messages for context
+  const { data: history } = await (admin as any)
+    .from("chat_messages")
+    .select("role, content")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(50);
+
+  const messages: ChatMessage[] = (history || []).map(
+    (m: { role: "user" | "assistant"; content: string }) => ({
+      role: m.role,
+      content: m.content,
+    }),
+  );
+
+  // Build context for system prompt
+  let projectName: string | undefined;
+  let projectCode: string | undefined;
+
+  if (body.project_id) {
+    const { data: proj } = await (admin as any)
+      .from("projects")
+      .select("name, code")
+      .eq("id", body.project_id)
+      .maybeSingle();
+    if (proj) {
+      projectName = proj.name;
+      projectCode = proj.code;
+    }
+  } else {
+    // Check if conversation has a linked project
+    const { data: conv } = await (admin as any)
+      .from("chat_conversations")
+      .select("project_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (conv?.project_id) {
+      const { data: proj } = await (admin as any)
+        .from("projects")
+        .select("name, code")
+        .eq("id", conv.project_id)
+        .maybeSingle();
+      if (proj) {
+        projectName = proj.name;
+        projectCode = proj.code;
+      }
+    }
+  }
+
+  // Get org name
+  const { data: org } = await (admin as any)
+    .from("organizations")
+    .select("name")
+    .eq("id", userOrg.organization_id)
+    .maybeSingle();
+
+  const systemPrompt = buildChatSystemPrompt({
+    userName: `${userOrg.first_name || ""} ${userOrg.last_name || ""}`.trim(),
+    organizationName: org?.name,
+    projectName,
+    projectCode,
+  });
+
+  // Stream response via SSE
+  let fullResponse = "";
+  let finalUsage = { input_tokens: 0, output_tokens: 0 };
+
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        // Send conversation_id as first event
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "conversation_id", data: conversationId })}\n\n`,
+          ),
+        );
+
+        for await (const chunk of streamChatResponse(
+          anthropicApiKey,
+          systemPrompt,
+          messages,
+        )) {
+          if (chunk.type === "text") {
+            fullResponse += chunk.data;
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "text", data: chunk.data })}\n\n`,
+              ),
+            );
+          } else if (chunk.type === "done") {
+            finalUsage = chunk.data as {
+              input_tokens: number;
+              output_tokens: number;
+            };
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "done", data: finalUsage })}\n\n`,
+              ),
+            );
+          }
+        }
+      } catch (err) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", data: "Erreur lors de la génération de la réponse." })}\n\n`,
+          ),
+        );
+      } finally {
+        controller.close();
+
+        // Save assistant message + track usage (fire and forget)
+        if (fullResponse) {
+          (admin as any)
+            .from("chat_messages")
+            .insert({
+              conversation_id: conversationId,
+              role: "assistant",
+              content: fullResponse,
+              model: "claude-sonnet-4-5-20250929",
+              input_tokens: finalUsage.input_tokens,
+              output_tokens: finalUsage.output_tokens,
+            })
+            .then(() => {});
+
+          trackApiUsage({
+            supabase: admin,
+            userId: user.id,
+            organizationId: userOrg.organization_id,
+            actionType: "chat_message",
+            apiProvider: "anthropic",
+            model: "claude-sonnet-4-5-20250929",
+            inputTokens: finalUsage.input_tokens,
+            outputTokens: finalUsage.output_tokens,
+            metadata: { conversation_id: conversationId },
+          });
+        }
+
+        // Update conversation timestamp
+        (admin as any)
+          .from("chat_conversations")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("id", conversationId)
+          .then(() => {});
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}

@@ -24,6 +24,7 @@ import {
   Mail,
   FileText,
   Truck,
+  MessageSquare,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -54,6 +55,7 @@ export function Sidebar() {
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
+    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
   ];
 
   const lockedItems: NavItem[] = [

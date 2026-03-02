@@ -37,6 +37,7 @@
     "direction": "Direction",
     "mail": "Mail",
     "pv": "PV de chantier",
+    "chat": "JM",
     "section": {
       "products": "Produits",
       "workspace": "Espace de travail",
@@ -252,6 +253,8 @@
     "cardSubmissionsDesc": "Comparatifs d'offres et analyse des prix par lot.",
     "cardPvTitle": "PV de chantier",
     "cardPvDesc": "Procès-verbaux de séance générés par IA depuis l'enregistrement audio.",
+    "cardChatTitle": "JM — Assistant IA",
+    "cardChatDesc": "Votre expert IA en construction suisse. Normes SIA, codes CFC, tous corps de métiers.",
     "activeProjects": "Projets actifs",
     "pendingTasks": "Tâches en cours",
     "overdueTasks": "Tâches en retard",
@@ -758,6 +761,25 @@
     "delete_pv": "Supprimer le PV",
     "delete_pv_confirm": "Supprimer ce PV et toutes les tâches associées ? Cette action est irréversible.",
     "cancel": "Annuler"
+  },
+  "chat": {
+    "title": "JM — Assistant IA Construction",
+    "newConversation": "Nouvelle conversation",
+    "placeholder": "Posez votre question à JM...",
+    "sending": "JM réfléchit...",
+    "emptyTitle": "Bienvenue, je suis JM",
+    "emptyDesc": "Votre expert IA en construction suisse. Normes SIA, codes CFC, tous corps de métiers — posez-moi vos questions professionnelles.",
+    "suggestQuestion1": "Quelles sont les obligations du maître d'ouvrage selon la SIA 118 ?",
+    "suggestQuestion2": "Comment est structuré le code CFC pour un bâtiment résidentiel ?",
+    "suggestQuestion3": "Quels sont les délais de garantie selon la SIA 118 art. 172 ?",
+    "deleteConversation": "Supprimer la conversation",
+    "deleteConfirm": "Supprimer cette conversation ?",
+    "noConversations": "Aucune conversation",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "older": "Plus ancien",
+    "errorStream": "Erreur lors de la génération de la réponse.",
+    "errorNetwork": "Erreur réseau. Vérifiez votre connexion."
   },
   "landing": {
     "nav": {
