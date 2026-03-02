@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -8,11 +8,13 @@ import {
   Upload,
   FileText,
   X,
-  Sparkles,
   Loader2,
   AlertTriangle,
+  CheckCircle,
+  Plus,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
+import { createClient } from "@/lib/supabase/client";
 import type { PlanType, PlanDiscipline } from "@cantaia/database";
 
 const PLAN_TYPES: PlanType[] = ["execution", "detail", "principle", "as_built", "shop_drawing", "schema"];
@@ -43,141 +45,186 @@ interface ProjectItem {
   code: string | null;
 }
 
+interface FileEntry {
+  id: string;
+  file: File;
+  planNumber: string;
+  planTitle: string;
+  status: "pending" | "uploading" | "done" | "error";
+  error?: string;
+  planId?: string;
+}
+
+function extractPlanInfo(fileName: string): { number: string; title: string } {
+  const name = fileName.replace(/\.[^.]+$/, ""); // remove extension
+  const numMatch = name.match(/(\d{3,4}[-_][A-Z0-9]+[-_]\d{2,6})/i) || name.match(/([A-Z]{2,4}[-_]\d{2,4})/i);
+  const planNumber = numMatch ? numMatch[1].replace(/_/g, "-") : "";
+  // Use filename (cleaned) as default title
+  const planTitle = name.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  return { number: planNumber, title: planTitle };
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function UploadPlanPage() {
   const t = useTranslations("plans");
   const tc = useTranslations("common");
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Projects from API
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
-  // Form state
+  // Shared settings for all files
   const [projectId, setProjectId] = useState("");
-  const [planNumber, setPlanNumber] = useState("");
-  const [planTitle, setPlanTitle] = useState("");
   const [planType, setPlanType] = useState<PlanType>("execution");
   const [discipline, setDiscipline] = useState<PlanDiscipline | "">("");
-  const [lotName, setLotName] = useState("");
-  const [zone, setZone] = useState("");
-  const [scale, setScale] = useState("");
-  const [format, setFormat] = useState("");
-  const [authorCompany, setAuthorCompany] = useState("");
-  const [authorName, setAuthorName] = useState("");
   const [versionCode, setVersionCode] = useState("A");
-  const [notes, setNotes] = useState("");
 
-  // File upload state
-  const [file, setFile] = useState<File | null>(null);
+  // Files queue
+  const [files, setFiles] = useState<FileEntry[]>([]);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [aiAnalyzing, setAiAnalyzing] = useState(false);
-  const [uploadError, setUploadError] = useState("");
+  const [globalError, setGlobalError] = useState("");
 
-  // Load projects on mount
+  // Load projects
   useEffect(() => {
     fetch("/api/projects/list")
       .then((res) => res.json())
       .then((data) => {
         if (data.projects) {
-          setProjects(
-            data.projects.map((p: any) => ({ id: p.id, name: p.name, code: p.code }))
-          );
+          setProjects(data.projects.map((p: any) => ({ id: p.id, name: p.name, code: p.code })));
         }
       })
       .catch(() => {})
       .finally(() => setProjectsLoading(false));
   }, []);
 
+  const addFiles = (newFiles: FileList | File[]) => {
+    const entries: FileEntry[] = Array.from(newFiles)
+      .filter((f) => !files.some((e) => e.file.name === f.name && e.file.size === f.size))
+      .map((f) => {
+        const info = extractPlanInfo(f.name);
+        return {
+          id: crypto.randomUUID(),
+          file: f,
+          planNumber: info.number,
+          planTitle: info.title,
+          status: "pending" as const,
+        };
+      });
+    setFiles((prev) => [...prev, ...entries]);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) {
-      setFile(f);
-      simulateAiAnalysis(f);
-    }
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) {
-      setFile(f);
-      simulateAiAnalysis(f);
+    if (e.target.files && e.target.files.length > 0) {
+      addFiles(e.target.files);
+      e.target.value = ""; // reset so same file can be re-selected
     }
   };
 
-  const simulateAiAnalysis = (f: File) => {
-    setAiAnalyzing(true);
-    setTimeout(() => {
-      const name = f.name;
-      const numMatch = name.match(/(\d{3}[-_][A-Z0-9]+[-_]\d{2})/i) || name.match(/([A-Z]{2,4}[-_]\d{2,4})/i);
-      if (numMatch && !planNumber) {
-        setPlanNumber(numMatch[1].replace(/_/g, "-"));
-      }
-      const verMatch = name.match(/[Vv][-_.]?([A-Z])/i) || name.match(/[Rr]ev[-_.]?([A-Z])/i) || name.match(/[Ii]nd[-_.]?([A-Z])/i);
-      if (verMatch) {
-        setVersionCode(verMatch[1].toUpperCase());
-      }
-      setAiAnalyzing(false);
-    }, 1200);
+  const removeFile = (id: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const removeFile = () => {
-    setFile(null);
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const updateFile = (id: string, patch: Partial<FileEntry>) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !projectId || !planNumber || !planTitle) return;
+    const pending = files.filter((f) => f.status === "pending" || f.status === "error");
+    if (!projectId || pending.length === 0) return;
 
     setUploading(true);
-    setUploadError("");
+    setGlobalError("");
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("project_id", projectId);
-      formData.append("plan_number", planNumber);
-      formData.append("plan_title", planTitle);
-      formData.append("plan_type", planType);
-      if (discipline) formData.append("discipline", discipline);
-      if (versionCode) formData.append("version_code", versionCode);
-      if (lotName) formData.append("lot_name", lotName);
-      if (zone) formData.append("zone", zone);
-      if (scale) formData.append("scale", scale);
-      if (format) formData.append("format", format);
-      if (authorCompany) formData.append("author_company", authorCompany);
-      if (authorName) formData.append("author_name", authorName);
-      if (notes) formData.append("notes", notes);
-
-      const res = await fetch("/api/plans/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success && data.plan_id) {
-        router.push(`/plans/${data.plan_id}`);
-      } else {
-        setUploadError(data.error || "Erreur lors de l'upload");
-        setUploading(false);
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      setUploadError("Erreur réseau");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setGlobalError("Non authentifié");
       setUploading(false);
+      return;
+    }
+
+    for (const entry of pending) {
+      updateFile(entry.id, { status: "uploading", error: undefined });
+
+      try {
+        // 1. Upload file directly to Supabase Storage (bypasses Vercel payload limit)
+        const timestamp = Date.now();
+        const safeName = entry.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${user.id}/${projectId}/${timestamp}_${safeName}`;
+
+        const { error: storageError } = await supabase.storage
+          .from("plans")
+          .upload(storagePath, entry.file, {
+            contentType: entry.file.type || "application/pdf",
+            upsert: false,
+          });
+
+        if (storageError) {
+          updateFile(entry.id, { status: "error", error: storageError.message });
+          continue;
+        }
+
+        // 2. Get public URL
+        const { data: urlData } = supabase.storage.from("plans").getPublicUrl(storagePath);
+        const fileUrl = urlData?.publicUrl || "";
+
+        // 3. Create DB records via API (metadata only, no file in body)
+        const res = await fetch("/api/plans/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: projectId,
+            plan_number: entry.planNumber || entry.file.name.replace(/\.[^.]+$/, ""),
+            plan_title: entry.planTitle || entry.file.name,
+            file_url: fileUrl,
+            file_name: entry.file.name,
+            file_size: entry.file.size,
+            file_type: entry.file.type || "application/pdf",
+            plan_type: planType,
+            discipline: discipline || null,
+            version_code: versionCode,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          updateFile(entry.id, { status: "done", planId: data.plan_id });
+        } else {
+          updateFile(entry.id, { status: "error", error: data.error || "Erreur DB" });
+        }
+      } catch (err: any) {
+        updateFile(entry.id, { status: "error", error: err?.message || "Erreur" });
+      }
+    }
+
+    setUploading(false);
+
+    // If all done and only 1 file, redirect to plan detail
+    const allFiles = files.map((f) => (pending.find((p) => p.id === f.id) ? { ...f, ...pending.find((p) => p.id === f.id) } : f));
+    const doneFiles = allFiles.filter((f) => f.status === "done" || f.planId);
+    if (doneFiles.length === 1 && doneFiles[0].planId) {
+      router.push(`/plans/${doneFiles[0].planId}`);
     }
   };
 
-  const isValid = file && projectId && planNumber && planTitle;
+  const pendingCount = files.filter((f) => f.status === "pending" || f.status === "error").length;
+  const doneCount = files.filter((f) => f.status === "done").length;
+  const isValid = projectId && pendingCount > 0;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -193,245 +240,209 @@ export default function UploadPlanPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Error banner */}
-          {uploadError && (
+          {globalError && (
             <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              {uploadError}
+              {globalError}
             </div>
           )}
 
-          {/* File upload zone */}
+          {/* File drop zone */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 block">
               {t("planFile")} *
             </label>
-            {!file ? (
-              <div
-                className={cn(
-                  "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
-                  dragging ? "border-brand bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-slate-400"
+            <div
+              className={cn(
+                "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
+                dragging ? "border-brand bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-slate-400"
+              )}
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+            >
+              <Upload className="h-8 w-8 text-slate-400 mb-2" />
+              <p className="text-sm font-medium text-slate-600">{t("dropPlanHere")}</p>
+              <p className="text-xs text-slate-400 mt-1">{t("acceptedPlanFormats")} — {t("multipleFilesAllowed")}</p>
+              <label className="mt-3 cursor-pointer rounded-md bg-white border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                {t("browsePlanFiles")}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg"
+                  multiple
+                  onChange={handleFileSelect}
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Files list */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  {t("planFiles")} ({files.length})
+                </p>
+                {doneCount > 0 && (
+                  <span className="text-xs text-green-600 font-medium">{doneCount} {t("uploaded")}</span>
                 )}
-                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-              >
-                <Upload className="h-10 w-10 text-slate-400 mb-3" />
-                <p className="text-sm font-medium text-slate-600">{t("dropPlanHere")}</p>
-                <p className="text-xs text-slate-400 mt-1">{t("acceptedPlanFormats")}</p>
-                <label className="mt-3 cursor-pointer rounded-md bg-white border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                  {t("browsePlanFiles")}
-                  <input type="file" className="hidden" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg" onChange={handleFileSelect} />
-                </label>
               </div>
-            ) : (
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50">
-                  <FileText className="h-5 w-5 text-blue-600" />
+              {files.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={cn(
+                    "rounded-lg border bg-white p-3",
+                    entry.status === "done" ? "border-green-200 bg-green-50/30" :
+                    entry.status === "error" ? "border-red-200 bg-red-50/30" :
+                    entry.status === "uploading" ? "border-blue-200 bg-blue-50/30" :
+                    "border-slate-200"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                      entry.status === "done" ? "bg-green-100" :
+                      entry.status === "error" ? "bg-red-100" :
+                      entry.status === "uploading" ? "bg-blue-100" : "bg-blue-50"
+                    )}>
+                      {entry.status === "uploading" ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      ) : entry.status === "done" ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : entry.status === "error" ? (
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{entry.file.name}</p>
+                      <p className="text-[11px] text-slate-400">{formatFileSize(entry.file.size)}</p>
+                      {entry.error && <p className="text-[11px] text-red-500 mt-0.5">{entry.error}</p>}
+                    </div>
+                    {/* Editable plan number + title for pending files */}
+                    {(entry.status === "pending" || entry.status === "error") && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={entry.planNumber}
+                          onChange={(e) => updateFile(entry.id, { planNumber: e.target.value })}
+                          placeholder="N° plan"
+                          className="w-24 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-brand focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={entry.planTitle}
+                          onChange={(e) => updateFile(entry.id, { planTitle: e.target.value })}
+                          placeholder="Titre"
+                          className="w-48 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-brand focus:outline-none"
+                        />
+                      </div>
+                    )}
+                    {entry.status === "done" && entry.planId && (
+                      <Link
+                        href={`/plans/${entry.planId}`}
+                        className="text-xs font-medium text-brand hover:underline"
+                      >
+                        {t("viewPlan")}
+                      </Link>
+                    )}
+                    {entry.status !== "uploading" && entry.status !== "done" && (
+                      <button
+                        type="button"
+                        onClick={() => removeFile(entry.id)}
+                        className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{file.name}</p>
-                  <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+              ))}
+              {/* Add more files */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-slate-400 hover:text-slate-600"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("addMoreFiles")}
+              </button>
+            </div>
+          )}
+
+          {/* Project + settings */}
+          {files.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                    {t("filterProject")} *
+                  </label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    disabled={projectsLoading}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
+                  >
+                    <option value="">{projectsLoading ? tc("loading") : t("selectProject")}</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code ? `${p.code} — ${p.name}` : p.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                {aiAnalyzing && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-medium text-purple-600">
-                    <Sparkles className="h-3 w-3 animate-pulse" />
-                    {t("aiAnalyzing")}
-                  </span>
-                )}
-                <button type="button" onClick={removeFile} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                  <X className="h-4 w-4" />
-                </button>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                    {t("colVersion")}
+                  </label>
+                  <input
+                    type="text"
+                    value={versionCode}
+                    onChange={(e) => setVersionCode(e.target.value.toUpperCase())}
+                    placeholder="A"
+                    maxLength={2}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                  />
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Project + Plan number row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("filterProject")} *
-              </label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                disabled={projectsLoading}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
-              >
-                <option value="">{projectsLoading ? tc("loading") : t("selectProject")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code ? `${p.code} — ${p.name}` : p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colNumber")} *
-              </label>
-              <input
-                type="text"
-                value={planNumber}
-                onChange={(e) => setPlanNumber(e.target.value)}
-                placeholder="211-B2-04"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-          </div>
-
-          {/* Title */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-              {t("colTitle")} *
-            </label>
-            <input
-              type="text"
-              value={planTitle}
-              onChange={(e) => setPlanTitle(e.target.value)}
-              placeholder={t("planTitlePlaceholder")}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-            />
-          </div>
-
-          {/* Type + Discipline + Version */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("planType")}
-              </label>
-              <select
-                value={planType}
-                onChange={(e) => setPlanType(e.target.value as PlanType)}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                {PLAN_TYPES.map((pt) => (
-                  <option key={pt} value={pt}>{t(TYPE_KEYS[pt])}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colDiscipline")}
-              </label>
-              <select
-                value={discipline}
-                onChange={(e) => setDiscipline(e.target.value as PlanDiscipline | "")}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              >
-                <option value="">—</option>
-                {DISCIPLINES.map((d) => (
-                  <option key={d} value={d}>{t(DISCIPLINE_KEYS[d])}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colVersion")}
-              </label>
-              <input
-                type="text"
-                value={versionCode}
-                onChange={(e) => setVersionCode(e.target.value.toUpperCase())}
-                placeholder="A"
-                maxLength={2}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-          </div>
-
-          {/* Lot + Zone + Scale + Format */}
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colLot")}
-              </label>
-              <input
-                type="text"
-                value={lotName}
-                onChange={(e) => setLotName(e.target.value)}
-                placeholder="Gros-œuvre"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colZone")}
-              </label>
-              <input
-                type="text"
-                value={zone}
-                onChange={(e) => setZone(e.target.value)}
-                placeholder="Sous-sol B2"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("colScale")}
-              </label>
-              <input
-                type="text"
-                value={scale}
-                onChange={(e) => setScale(e.target.value)}
-                placeholder="1:50"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("format")}
-              </label>
-              <input
-                type="text"
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                placeholder="A1"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-          </div>
-
-          {/* Author */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("authorCompany")}
-              </label>
-              <input
-                type="text"
-                value={authorCompany}
-                onChange={(e) => setAuthorCompany(e.target.value)}
-                placeholder="BG Ingénieurs"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-                {t("authorName")}
-              </label>
-              <input
-                type="text"
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Marc Dupont"
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
-              {t("notes")}
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder={t("notesPlaceholder")}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                    {t("planType")}
+                  </label>
+                  <select
+                    value={planType}
+                    onChange={(e) => setPlanType(e.target.value as PlanType)}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                  >
+                    {PLAN_TYPES.map((pt) => (
+                      <option key={pt} value={pt}>{t(TYPE_KEYS[pt])}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                    {t("colDiscipline")}
+                  </label>
+                  <select
+                    value={discipline}
+                    onChange={(e) => setDiscipline(e.target.value as PlanDiscipline | "")}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                  >
+                    <option value="">—</option>
+                    {DISCIPLINES.map((d) => (
+                      <option key={d} value={d}>{t(DISCIPLINE_KEYS[d])}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Submit */}
           <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
@@ -459,7 +470,7 @@ export default function UploadPlanPage() {
               ) : (
                 <>
                   <Upload className="h-4 w-4" />
-                  {t("uploadPlan")}
+                  {t("uploadPlan")} {pendingCount > 1 && `(${pendingCount})`}
                 </>
               )}
             </button>

@@ -318,12 +318,15 @@ Identifie le type exact du plan parmi : planting (plantation/paysagisme), networ
 
 2. CARTOUCHE (TITLE BLOCK)
 Lis le cartouche du plan et extrais : numéro de plan, titre, échelle, date, auteur/dessinateur, bureau/entreprise, indice de révision.
-IMPORTANT pour l'ÉCHELLE : l'échelle peut se trouver :
+IMPORTANT pour l'ÉCHELLE :
+L'échelle est CRUCIALE pour toutes les estimations de surfaces et distances. Elle peut se trouver :
 - Dans le cartouche classique (coin inférieur droit)
-- Dans le texte du plan (ex: "Echelle 1:100" écrit dans la zone d'informations du plan)
-- Dans un bloc de texte séparé (ex: "Ech. 1:200", "Scale 1:500")
+- Dans le texte du plan (ex: "Echelle 1:100" écrit dans la zone d'informations)
+- Dans un bloc de texte séparé (ex: "Ech. 1:200", "Scale 1:500", "1/100")
 - À côté d'une barre d'échelle graphique
-Cherche PARTOUT dans le document, pas seulement dans le cartouche principal. L'échelle est CRUCIALE pour estimer les surfaces et distances.
+- Dans les métadonnées du document (en-tête, pied de page, zone de titre)
+Cherche PARTOUT dans le document, pas seulement dans le cartouche principal.
+⚠️ QUAND L'ÉCHELLE EST ÉCRITE EXPLICITEMENT (ex: "Echelle 1:100", "1:200"), elle est DÉFINITIVE et EXACTE — ne la qualifie JAMAIS de "non visible", "approximative" ou "non clairement visible". Si tu lis "1:100" quelque part dans le plan, l'échelle EST 1:100, point final. Retourne-la telle quelle dans title_block.scale.
 
 3. LÉGENDE
 Identifie TOUS les éléments de la légende sans exception : symboles, couleurs, types de traits, hachures, zones colorées et leur signification.

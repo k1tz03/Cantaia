@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -23,6 +23,9 @@ import {
   ClipboardCopy,
   RefreshCw,
   Info,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanStatus, PlanDiscipline, PlanValidationStatus } from "@cantaia/database";
@@ -231,6 +234,10 @@ export default function PlanDetailPage() {
       if (data.success) {
         setAnalysis(data.analysis);
         setAnalysisCached(!!data.cached);
+        // Auto-fill plan info from AI analysis (if not cached — first analysis only)
+        if (!data.cached && data.analysis?.analysis_result?.title_block) {
+          autoFillPlanInfo(data.analysis.analysis_result);
+        }
       } else {
         setAnalysisError(data.error || "Erreur lors de l'analyse");
       }
@@ -250,6 +257,49 @@ export default function PlanDetailPage() {
     );
     const header = "Catégorie\tPoste\tQuantité\tUnité\tSpécification";
     navigator.clipboard.writeText([header, ...rows].join("\n"));
+  };
+
+  // Auto-fill plan info from AI analysis results
+  const autoFillPlanInfo = async (result: any) => {
+    if (!plan) return;
+    const tb = result.title_block;
+    const updates: Record<string, any> = {};
+
+    // Only fill fields that are currently empty
+    if (!plan.scale && tb?.scale) updates.scale = tb.scale;
+    if (!plan.author_name && tb?.author) updates.author_name = tb.author;
+    if (!plan.author_company && tb?.company) updates.author_company = tb.company;
+    if (!plan.discipline && result.discipline) {
+      // Map AI discipline to our enum
+      const disc = result.discipline?.toLowerCase() || "";
+      const disciplineMap: Record<string, string> = {
+        architecture: "architecture", structure: "structure",
+        "gros-œuvre": "structure", "gros-oeuvre": "structure",
+        cvcs: "cvcs", cvc: "cvcs", chauffage: "cvcs", ventilation: "cvcs",
+        "électricité": "electricite", electricite: "electricite", electrical: "electricite",
+        sanitaire: "sanitaire", plumbing: "sanitaire",
+        "façades": "facades", facades: "facades",
+        "aménagement": "amenagement", amenagement: "amenagement", paysagisme: "amenagement",
+        plantation: "amenagement",
+      };
+      for (const [key, val] of Object.entries(disciplineMap)) {
+        if (disc.includes(key)) { updates.discipline = val; break; }
+      }
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    try {
+      await fetch(`/api/plans/${plan.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      // Refresh plan data to reflect changes
+      fetchPlan();
+    } catch {
+      // Silent — not critical
+    }
   };
 
   // Check for cached analysis when switching to analysis tab
@@ -440,55 +490,7 @@ export default function PlanDetailPage() {
 
         {/* ════════════════════════════ VIEWER TAB ════════════════════════════ */}
         {activeTab === "viewer" && (
-          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-            {currentVersion?.file_url ? (
-              <>
-                {/* Toolbar */}
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 bg-slate-50">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <FileText className="h-4 w-4 text-slate-400" />
-                    <span className="font-medium truncate max-w-xs">{currentVersion.file_name}</span>
-                    <span className="text-slate-400">·</span>
-                    <span className="text-xs text-slate-400">{formatFileSize(currentVersion.file_size)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={currentVersion.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t("download")}
-                    </a>
-                  </div>
-                </div>
-                {/* Viewer */}
-                {currentVersion.file_type?.startsWith("image/") ? (
-                  <div className="flex items-center justify-center bg-slate-100 p-4" style={{ minHeight: "70vh" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={currentVersion.file_url}
-                      alt={currentVersion.file_name}
-                      className="max-w-full max-h-[80vh] object-contain rounded shadow-sm"
-                    />
-                  </div>
-                ) : (
-                  <iframe
-                    src={currentVersion.file_url}
-                    title={currentVersion.file_name}
-                    className="w-full border-0"
-                    style={{ height: "80vh" }}
-                  />
-                )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20">
-                <FileText className="h-12 w-12 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-500">{t("noFileAvailable")}</p>
-              </div>
-            )}
-          </div>
+          <PlanViewer version={currentVersion} t={t} />
         )}
 
         {/* ════════════════════════════ VERSIONS TAB ════════════════════════════ */}
@@ -821,6 +823,126 @@ export default function PlanDetailPage() {
               </>
             )}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Plan Viewer Component ──
+
+function PlanViewer({ version, t }: { version: PlanVersion | undefined; t: any }) {
+  const [viewerLoading, setViewerLoading] = useState(true);
+  const [zoom, setZoom] = useState(100);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  if (!version?.file_url) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-20">
+          <FileText className="h-12 w-12 text-slate-300 mb-3" />
+          <p className="text-sm text-slate-500">{t("noFileAvailable")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isImage = version.file_type?.startsWith("image/");
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 bg-slate-50">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <FileText className="h-4 w-4 text-slate-400" />
+          <span className="font-medium truncate max-w-[200px]">{version.file_name}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-xs text-slate-400">{formatFileSize(version.file_size)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isImage && (
+            <>
+              <button
+                onClick={() => setZoom((z) => Math.max(25, z - 25))}
+                className="rounded p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                title="Zoom -"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <span className="text-xs text-slate-500 min-w-[3rem] text-center">{zoom}%</span>
+              <button
+                onClick={() => setZoom((z) => Math.min(400, z + 25))}
+                className="rounded p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                title="Zoom +"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+              <div className="w-px h-4 bg-slate-200 mx-1" />
+            </>
+          )}
+          <a
+            href={version.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t("openNewTab")}
+          </a>
+          <a
+            href={version.file_url}
+            download={version.file_name}
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {t("download")}
+          </a>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div ref={containerRef} className="relative bg-slate-100" style={{ height: "80vh" }}>
+        {/* Loading overlay */}
+        {viewerLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 z-10">
+            <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
+            <p className="text-sm text-slate-500">{t("loadingViewer")}</p>
+          </div>
+        )}
+
+        {isImage ? (
+          <div className="h-full overflow-auto flex items-center justify-center p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={version.file_url}
+              alt={version.file_name}
+              onLoad={() => setViewerLoading(false)}
+              style={{ width: `${zoom}%`, maxWidth: "none" }}
+              className="object-contain rounded shadow-sm"
+            />
+          </div>
+        ) : (
+          <object
+            data={`${version.file_url}#toolbar=1&navpanes=0&view=FitH`}
+            type="application/pdf"
+            className="w-full h-full"
+            onLoad={() => setViewerLoading(false)}
+          >
+            {/* Fallback if browser can't render PDF inline */}
+            <div className="flex flex-col items-center justify-center h-full">
+              <FileText className="h-12 w-12 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-600 mb-3">{t("pdfCannotDisplay")}</p>
+              <a
+                href={version.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {t("openNewTab")}
+              </a>
+            </div>
+          </object>
         )}
       </div>
     </div>

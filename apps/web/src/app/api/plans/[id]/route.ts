@@ -68,3 +68,65 @@ export async function GET(
     },
   });
 }
+
+/**
+ * PATCH /api/plans/:id
+ * Update plan metadata (auto-fill from AI analysis or manual edit).
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const adminClient = createAdminClient();
+
+  const { data: userOrg } = await adminClient
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!userOrg?.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
+  }
+
+  const body = await request.json();
+
+  // Only allow specific fields to be updated
+  const allowedFields = [
+    "scale", "author_name", "author_company", "discipline",
+    "plan_title", "plan_number", "zone", "lot_name", "format",
+    "notes", "author_email",
+  ];
+  const updates: Record<string, any> = {};
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) updates[key] = body[key];
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  const { error } = await (adminClient as any)
+    .from("plan_registry")
+    .update(updates)
+    .eq("id", id)
+    .eq("organization_id", userOrg.organization_id);
+
+  if (error) {
+    console.error("[plans/patch] Update error:", error);
+    return NextResponse.json({ error: "Failed to update plan" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

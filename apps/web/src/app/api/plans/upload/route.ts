@@ -4,8 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/plans/upload
- * Upload a plan file to Supabase Storage and create plan_registry + plan_versions records.
- * Expects FormData with: file, project_id, plan_number, plan_title, and optional fields.
+ * Create plan_registry + plan_versions records from metadata.
+ * The file must already be uploaded to Supabase Storage by the client.
+ * Body JSON: { project_id, plan_number, plan_title, file_url, file_name, file_size, file_type, ...optional }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -31,83 +32,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const projectId = formData.get("project_id") as string;
-    const planNumber = formData.get("plan_number") as string;
-    const planTitle = formData.get("plan_title") as string;
-    const planType = (formData.get("plan_type") as string) || "execution";
-    const discipline = (formData.get("discipline") as string) || null;
-    const versionCode = (formData.get("version_code") as string) || "A";
-    const lotName = (formData.get("lot_name") as string) || null;
-    const zone = (formData.get("zone") as string) || null;
-    const scale = (formData.get("scale") as string) || null;
-    const format = (formData.get("format") as string) || null;
-    const authorCompany = (formData.get("author_company") as string) || null;
-    const authorName = (formData.get("author_name") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
+    const body = await request.json();
+    const {
+      project_id,
+      plan_number,
+      plan_title,
+      file_url,
+      file_name,
+      file_size,
+      file_type,
+      plan_type = "execution",
+      discipline = null,
+      version_code = "A",
+      lot_name = null,
+      zone = null,
+      scale = null,
+      format = null,
+      author_company = null,
+      author_name = null,
+      notes = null,
+    } = body;
 
-    if (!file || !projectId || !planNumber || !planTitle) {
+    if (!project_id || !plan_number || !plan_title || !file_url || !file_name) {
       return NextResponse.json(
-        { error: "file, project_id, plan_number, and plan_title are required" },
+        { error: "project_id, plan_number, plan_title, file_url, and file_name are required" },
         { status: 400 }
       );
     }
 
-    // Validate file size (50MB max)
-    const MAX_SIZE = 50 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: "File too large (max 50MB)" },
-        { status: 413 }
-      );
-    }
-
-    // Upload file to Supabase Storage
     const orgId = userOrg.organization_id;
-    const timestamp = Date.now();
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `${orgId}/${projectId}/${timestamp}_${safeName}`;
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await (adminClient as any).storage
-      .from("plans")
-      .upload(storagePath, buffer, {
-        contentType: file.type || "application/pdf",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("[plans/upload] Storage upload error:", uploadError);
-      return NextResponse.json(
-        { error: "Failed to upload file" },
-        { status: 500 }
-      );
-    }
-
-    // Get public URL
-    const { data: urlData } = (adminClient as any).storage
-      .from("plans")
-      .getPublicUrl(storagePath);
-
-    const fileUrl = urlData?.publicUrl || "";
 
     // Create plan_registry record
     const { data: plan, error: planError } = await (adminClient as any)
       .from("plan_registry")
       .insert({
-        project_id: projectId,
+        project_id,
         organization_id: orgId,
-        plan_number: planNumber,
-        plan_title: planTitle,
-        plan_type: planType,
+        plan_number: plan_number,
+        plan_title: plan_title,
+        plan_type: plan_type,
         discipline: discipline || null,
-        lot_name: lotName,
+        lot_name,
         zone,
         scale,
         format,
-        author_company: authorCompany,
-        author_name: authorName,
+        author_company: author_company,
+        author_name: author_name,
         notes,
         status: "active",
       })
@@ -128,14 +98,14 @@ export async function POST(request: NextRequest) {
       .insert({
         plan_id: plan.id,
         organization_id: orgId,
-        project_id: projectId,
-        version_code: versionCode,
+        project_id,
+        version_code: version_code,
         version_number: 1,
         version_date: new Date().toISOString(),
-        file_url: fileUrl,
-        file_name: file.name,
-        file_size: file.size,
-        file_type: file.type || "application/pdf",
+        file_url,
+        file_name,
+        file_size: file_size || 0,
+        file_type: file_type || "application/pdf",
         source: "manual_upload",
         is_current: true,
         validation_status: "pending",
@@ -143,7 +113,6 @@ export async function POST(request: NextRequest) {
 
     if (versionError) {
       console.error("[plans/upload] plan_versions insert error:", versionError);
-      // Plan was created, version failed — still return the plan
       return NextResponse.json({
         success: true,
         plan_id: plan.id,
