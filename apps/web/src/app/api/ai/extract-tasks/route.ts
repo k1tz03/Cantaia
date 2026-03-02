@@ -4,6 +4,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { extractTasks } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+
+/** Strip HTML tags for AI task extraction */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -67,13 +83,35 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
+  // Fetch full email body from Microsoft Graph for better task extraction
+  let bodyContent = email.body_preview || "";
+  if (email.outlook_message_id) {
+    try {
+      const tokenResult = await getValidMicrosoftToken(user.id);
+      if (tokenResult.accessToken) {
+        const graphRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${email.outlook_message_id}?$select=body`,
+          { headers: { Authorization: `Bearer ${tokenResult.accessToken}` } }
+        );
+        if (graphRes.ok) {
+          const graphData = await graphRes.json();
+          if (graphData.body?.content) {
+            bodyContent = stripHtml(graphData.body.content).substring(0, 10000);
+          }
+        }
+      }
+    } catch {
+      // Fallback to body_preview
+    }
+  }
+
   const result = await extractTasks(
     anthropicApiKey,
     {
       sender_email: email.sender_email,
       sender_name: email.sender_name || "",
       subject: email.subject,
-      body: email.body_preview || "",
+      body: bodyContent,
     },
     projectContext,
     undefined,

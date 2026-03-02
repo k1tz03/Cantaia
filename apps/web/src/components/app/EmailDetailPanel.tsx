@@ -223,8 +223,8 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       if (data.tasks?.length > 0) {
         setExtractedTasks((prev) => [
           ...prev,
-          ...data.tasks.map((t: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
-            id: t.id,
+          ...data.tasks.map((t: { title: string; assigned_to_name?: string | null; due_date?: string | null }, idx: number) => ({
+            id: `ai-${Date.now()}-${idx}`,
             title: t.title,
             responsible: t.assigned_to_name,
             deadline: t.due_date,

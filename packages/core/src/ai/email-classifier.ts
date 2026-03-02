@@ -313,18 +313,35 @@ export function classifyEmailByKeywords(
       }
     }
 
+    // ── RULE 9: Recipient email contains project name ──
+    // e.g., cedres@edifea.ch → "cedres" matches project "Les cèdres"
+    if (email.recipients?.length && nameWords.length > 0) {
+      for (const recipient of email.recipients) {
+        const recipientNorm = norm(recipient);
+        for (const word of nameWords.filter((w) => w.length >= 4)) {
+          if (recipientNorm.includes(word)) {
+            score += 8;
+            hasNameOrRefMatch = true;
+            reasons.push(`Destinataire "${recipient}" contient "${word}" (nom projet)`);
+            break; // one match per recipient is enough
+          }
+        }
+      }
+    }
+
     // ── PENALTY: First segment doesn't match this project ──
     // In Swiss construction emails, the first segment (before – or :) is typically
     // the project name or code. If it's a clear identifier that doesn't match
     // this project, penalize heavily to prevent false positives.
+    // NOTE: Only name/code/nameWords count — NOT keywords (which are generic terms
+    // like "AMEX" that can appear across multiple projects).
     if (firstSegment && firstSegment.length >= 2 && firstSegment.length <= 30) {
       const matchesProject =
         nameNorm.includes(firstSegment) ||
         firstSegment.includes(nameNorm) ||
         (codeNorm && (codeNorm.includes(firstSegment) || firstSegment.includes(codeNorm))) ||
         (codeAlpha && codeAlpha.length >= 2 && (codeAlpha === firstSegment || firstSegment.includes(codeAlpha))) ||
-        nameWords.some((w) => w.length >= 3 && (firstSegment.includes(w) || w.includes(firstSegment))) ||
-        keywords.some((k) => k.length >= 3 && (firstSegment.includes(k) || k.includes(firstSegment)));
+        nameWords.some((w) => w.length >= 3 && (firstSegment.includes(w) || w.includes(firstSegment)));
 
       if (matchesProject) {
         // BONUS: first segment matches this project → strong positive signal
