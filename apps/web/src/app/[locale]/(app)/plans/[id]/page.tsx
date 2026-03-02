@@ -190,7 +190,7 @@ export default function PlanDetailPage() {
 
   const [plan, setPlan] = useState<PlanDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"versions" | "info" | "analysis">("versions");
+  const [activeTab, setActiveTab] = useState<"viewer" | "versions" | "info" | "analysis">("viewer");
 
   // Analysis state
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
@@ -397,6 +397,16 @@ export default function PlanDetailPage() {
         {/* Tabs */}
         <div className="mb-4 flex items-center gap-1 border-b border-slate-200">
           <button
+            onClick={() => setActiveTab("viewer")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+              activeTab === "viewer" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <Eye className="h-4 w-4" />
+            {t("tabViewer")}
+          </button>
+          <button
             onClick={() => setActiveTab("versions")}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
@@ -427,6 +437,59 @@ export default function PlanDetailPage() {
             {t("tabAnalysis")}
           </button>
         </div>
+
+        {/* ════════════════════════════ VIEWER TAB ════════════════════════════ */}
+        {activeTab === "viewer" && (
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            {currentVersion?.file_url ? (
+              <>
+                {/* Toolbar */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 bg-slate-50">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <FileText className="h-4 w-4 text-slate-400" />
+                    <span className="font-medium truncate max-w-xs">{currentVersion.file_name}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-xs text-slate-400">{formatFileSize(currentVersion.file_size)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={currentVersion.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {t("download")}
+                    </a>
+                  </div>
+                </div>
+                {/* Viewer */}
+                {currentVersion.file_type?.startsWith("image/") ? (
+                  <div className="flex items-center justify-center bg-slate-100 p-4" style={{ minHeight: "70vh" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={currentVersion.file_url}
+                      alt={currentVersion.file_name}
+                      className="max-w-full max-h-[80vh] object-contain rounded shadow-sm"
+                    />
+                  </div>
+                ) : (
+                  <iframe
+                    src={currentVersion.file_url}
+                    title={currentVersion.file_name}
+                    className="w-full border-0"
+                    style={{ height: "80vh" }}
+                  />
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20">
+                <FileText className="h-12 w-12 text-slate-300 mb-3" />
+                <p className="text-sm text-slate-500">{t("noFileAvailable")}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ════════════════════════════ VERSIONS TAB ════════════════════════════ */}
         {activeTab === "versions" && (

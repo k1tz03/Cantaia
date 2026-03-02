@@ -1673,6 +1673,8 @@
     "distribute": "Verteilen",
     "download": "Herunterladen",
     "copyLink": "Link kopieren",
+    "tabViewer": "Anzeige",
+    "noFileAvailable": "Keine Datei für diesen Plan verfügbar",
     "tabVersions": "Versionen",
     "tabInfo": "Informationen",
     "author": "Autor",

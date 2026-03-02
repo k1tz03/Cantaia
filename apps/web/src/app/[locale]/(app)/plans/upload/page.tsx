@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -9,11 +9,10 @@ import {
   FileText,
   X,
   Sparkles,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
-
-// Data will come from Supabase — empty arrays until wired
-const mockProjects: any[] = [];
 import type { PlanType, PlanDiscipline } from "@cantaia/database";
 
 const PLAN_TYPES: PlanType[] = ["execution", "detail", "principle", "as_built", "shop_drawing", "schema"];
@@ -38,10 +37,20 @@ const TYPE_KEYS: Record<string, string> = {
   schema: "typeSchema",
 };
 
+interface ProjectItem {
+  id: string;
+  name: string;
+  code: string | null;
+}
+
 export default function UploadPlanPage() {
   const t = useTranslations("plans");
   const tc = useTranslations("common");
   const router = useRouter();
+
+  // Projects from API
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
 
   // Form state
   const [projectId, setProjectId] = useState("");
@@ -63,6 +72,22 @@ export default function UploadPlanPage() {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  // Load projects on mount
+  useEffect(() => {
+    fetch("/api/projects/list")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.projects) {
+          setProjects(
+            data.projects.map((p: any) => ({ id: p.id, name: p.name, code: p.code }))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => setProjectsLoading(false));
+  }, []);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -83,16 +108,13 @@ export default function UploadPlanPage() {
   };
 
   const simulateAiAnalysis = (f: File) => {
-    // Simulate AI analysis of the file name
     setAiAnalyzing(true);
     setTimeout(() => {
-      // Try to extract plan number from filename
       const name = f.name;
       const numMatch = name.match(/(\d{3}[-_][A-Z0-9]+[-_]\d{2})/i) || name.match(/([A-Z]{2,4}[-_]\d{2,4})/i);
       if (numMatch && !planNumber) {
         setPlanNumber(numMatch[1].replace(/_/g, "-"));
       }
-      // Try to extract version
       const verMatch = name.match(/[Vv][-_.]?([A-Z])/i) || name.match(/[Rr]ev[-_.]?([A-Z])/i) || name.match(/[Ii]nd[-_.]?([A-Z])/i);
       if (verMatch) {
         setVersionCode(verMatch[1].toUpperCase());
@@ -111,16 +133,48 @@ export default function UploadPlanPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !projectId || !planNumber || !planTitle) return;
 
     setUploading(true);
-    // Mock upload — in production: upload to Supabase Storage + insert in plan_registry + plan_versions
-    setTimeout(() => {
+    setUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("project_id", projectId);
+      formData.append("plan_number", planNumber);
+      formData.append("plan_title", planTitle);
+      formData.append("plan_type", planType);
+      if (discipline) formData.append("discipline", discipline);
+      if (versionCode) formData.append("version_code", versionCode);
+      if (lotName) formData.append("lot_name", lotName);
+      if (zone) formData.append("zone", zone);
+      if (scale) formData.append("scale", scale);
+      if (format) formData.append("format", format);
+      if (authorCompany) formData.append("author_company", authorCompany);
+      if (authorName) formData.append("author_name", authorName);
+      if (notes) formData.append("notes", notes);
+
+      const res = await fetch("/api/plans/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.plan_id) {
+        router.push(`/plans/${data.plan_id}`);
+      } else {
+        setUploadError(data.error || "Erreur lors de l'upload");
+        setUploading(false);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError("Erreur réseau");
       setUploading(false);
-      router.push("/plans");
-    }, 1500);
+    }
   };
 
   const isValid = file && projectId && planNumber && planTitle;
@@ -138,6 +192,14 @@ export default function UploadPlanPage() {
         <p className="text-sm text-slate-500 mb-6">{t("uploadDescription")}</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Error banner */}
+          {uploadError && (
+            <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {uploadError}
+            </div>
+          )}
+
           {/* File upload zone */}
           <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 block">
@@ -192,11 +254,14 @@ export default function UploadPlanPage() {
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                disabled={projectsLoading}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
               >
-                <option value="">{t("selectProject")}</option>
-                {mockProjects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                <option value="">{projectsLoading ? tc("loading") : t("selectProject")}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code ? `${p.code} — ${p.name}` : p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -388,7 +453,7 @@ export default function UploadPlanPage() {
             >
               {uploading ? (
                 <>
-                  <Upload className="h-4 w-4 animate-pulse" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   {t("uploading")}
                 </>
               ) : (
