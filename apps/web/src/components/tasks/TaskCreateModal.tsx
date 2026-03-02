@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, AlertCircle } from "lucide-react";
 import type { TaskPriority, TaskSource, TaskStatus, Project } from "@cantaia/database";
 
 interface TaskCreateModalProps {
@@ -49,23 +49,51 @@ export function TaskCreateModal({
   const t = useTranslations("tasks");
   const isEdit = !!editTask;
 
-  const [title, setTitle] = useState(editTask?.title ?? prefill?.title ?? "");
-  const [projectId, setProjectId] = useState(editTask?.project_id ?? prefill?.project_id ?? "");
-  const [description, setDescription] = useState(editTask?.description ?? prefill?.description ?? "");
-  const [assignedName, setAssignedName] = useState(editTask?.assigned_to_name ?? prefill?.assigned_to_name ?? "");
-  const [assignedCompany, setAssignedCompany] = useState(editTask?.assigned_to_company ?? prefill?.assigned_to_company ?? "");
-  const [priority, setPriority] = useState<TaskPriority>(editTask?.priority ?? "medium");
-  const [status, setStatus] = useState<TaskStatus>(editTask?.status ?? "todo");
-  const [dueDate, setDueDate] = useState(editTask?.due_date ?? prefill?.due_date ?? "");
-  const [reminder, setReminder] = useState(editTask?.reminder ?? "none");
-  const [lotCode, setLotCode] = useState(editTask?.lot_code ?? "");
+  const [title, setTitle] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [description, setDescription] = useState("");
+  const [assignedName, setAssignedName] = useState("");
+  const [assignedCompany, setAssignedCompany] = useState("");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [status, setStatus] = useState<TaskStatus>("todo");
+  const [dueDate, setDueDate] = useState("");
+  const [reminder, setReminder] = useState("none");
+  const [lotCode, setLotCode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  // Reset form when modal opens/closes or prefill/editTask changes
+  useEffect(() => {
+    if (open) {
+      setTitle(editTask?.title ?? prefill?.title ?? "");
+      setProjectId(editTask?.project_id ?? prefill?.project_id ?? "");
+      setDescription(editTask?.description ?? prefill?.description ?? "");
+      setAssignedName(editTask?.assigned_to_name ?? prefill?.assigned_to_name ?? "");
+      setAssignedCompany(editTask?.assigned_to_company ?? prefill?.assigned_to_company ?? "");
+      setPriority(editTask?.priority ?? "medium");
+      setStatus(editTask?.status ?? "todo");
+      setDueDate(editTask?.due_date ?? prefill?.due_date ?? "");
+      setReminder(editTask?.reminder ?? "none");
+      setLotCode(editTask?.lot_code ?? "");
+      setSaving(false);
+      setError("");
+      setSubmitted(false);
+    }
+  }, [open, editTask, prefill]);
 
   if (!open) return null;
 
+  const missingTitle = !title.trim();
+  const missingProject = !projectId;
+  const missingDeadline = !dueDate;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !projectId || !dueDate) return;
+    setSubmitted(true);
+    setError("");
+
+    if (missingTitle || missingProject || missingDeadline) return;
 
     setSaving(true);
     try {
@@ -96,11 +124,12 @@ export function TaskCreateModal({
       const data = await res.json();
 
       if (!data.success) {
-        console.error("[TaskCreateModal] Save error:", data.error);
+        setError(data.error || "Erreur lors de la sauvegarde");
         return;
       }
     } catch (err) {
       console.error("[TaskCreateModal] Save error:", err);
+      setError("Erreur réseau, veuillez réessayer");
       return;
     } finally {
       setSaving(false);
@@ -108,6 +137,8 @@ export function TaskCreateModal({
     onCreated();
     onClose();
   }
+
+  const fieldErrorClass = "border-red-400 ring-1 ring-red-400";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -126,182 +157,204 @@ export function TaskCreateModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto p-5">
-          <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                {t("taskTitle")} *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="Ex: Valider plans béton sous-sol B2"
-              />
-            </div>
+        {/* Scrollable form body */}
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="space-y-4">
+              {/* Error banner */}
+              {error && (
+                <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
 
-            {/* Project */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                {t("taskProject")} *
-              </label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                required
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">—</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                {t("taskDescription")}
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="Détails optionnels..."
-              />
-            </div>
-
-            {/* Assigned + Company */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Title */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("taskAssigned")}
+                  {t("taskTitle")} *
                 </label>
                 <input
                   type="text"
-                  value={assignedName}
-                  onChange={(e) => setAssignedName(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-                  placeholder="Nom"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    submitted && missingTitle ? fieldErrorClass : "border-gray-300"
+                  }`}
+                  placeholder="Ex: Valider plans béton sous-sol B2"
                 />
+                {submitted && missingTitle && (
+                  <p className="mt-1 text-xs text-red-600">Champ obligatoire</p>
+                )}
               </div>
+
+              {/* Project */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("taskCompany")}
+                  {t("taskProject")} *
                 </label>
-                <input
-                  type="text"
-                  value={assignedCompany}
-                  onChange={(e) => setAssignedCompany(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-                  placeholder="Entreprise"
+                <select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none ${
+                    submitted && missingProject ? fieldErrorClass : "border-gray-300"
+                  }`}
+                >
+                  <option value="">— Sélectionner un projet —</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                {submitted && missingProject && (
+                  <p className="mt-1 text-xs text-red-600">Veuillez sélectionner un projet</p>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">
+                  {t("taskDescription")}
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Détails optionnels..."
                 />
               </div>
-            </div>
 
-            {/* Priority */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">
-                {t("priority")}
-              </label>
-              <div className="flex gap-3">
-                {(["low", "medium", "high", "urgent"] as TaskPriority[]).map((p) => (
-                  <label key={p} className="flex items-center gap-1.5 text-sm">
-                    <input
-                      type="radio"
-                      name="priority"
-                      checked={priority === p}
-                      onChange={() => setPriority(p)}
-                      className="h-3.5 w-3.5 border-gray-300 text-blue-600"
-                    />
-                    {t(`priority${p.charAt(0).toUpperCase() + p.slice(1)}` as "priorityLow")}
+              {/* Assigned + Company */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("taskAssigned")}
                   </label>
-                ))}
+                  <input
+                    type="text"
+                    value={assignedName}
+                    onChange={(e) => setAssignedName(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    placeholder="Nom"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("taskCompany")}
+                  </label>
+                  <input
+                    type="text"
+                    value={assignedCompany}
+                    onChange={(e) => setAssignedCompany(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    placeholder="Entreprise"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Deadline + Status */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Priority */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("taskDeadline")} *
+                  {t("priority")}
                 </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  required
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                />
+                <div className="flex gap-3">
+                  {(["low", "medium", "high", "urgent"] as TaskPriority[]).map((p) => (
+                    <label key={p} className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="radio"
+                        name="priority"
+                        checked={priority === p}
+                        onChange={() => setPriority(p)}
+                        className="h-3.5 w-3.5 border-gray-300 text-blue-600"
+                      />
+                      {t(`priority${p.charAt(0).toUpperCase() + p.slice(1)}` as "priorityLow")}
+                    </label>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("status")}
-                </label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="todo">{t("statusTodo")}</option>
-                  <option value="in_progress">{t("statusInProgress")}</option>
-                  <option value="waiting">{t("statusWaiting")}</option>
-                  <option value="done">{t("statusDone")}</option>
-                </select>
-              </div>
-            </div>
 
-            {/* Reminder + Lot */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("taskReminder")}
-                </label>
-                <select
-                  value={reminder}
-                  onChange={(e) => setReminder(e.target.value as "none")}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="none">{t("reminderNone")}</option>
-                  <option value="1_day">{t("reminder1Day")}</option>
-                  <option value="3_days">{t("reminder3Days")}</option>
-                  <option value="1_week">{t("reminder1Week")}</option>
-                </select>
+              {/* Deadline + Status */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("taskDeadline")} *
+                  </label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none ${
+                      submitted && missingDeadline ? fieldErrorClass : "border-gray-300"
+                    }`}
+                  />
+                  {submitted && missingDeadline && (
+                    <p className="mt-1 text-xs text-red-600">Champ obligatoire</p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("status")}
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="todo">{t("statusTodo")}</option>
+                    <option value="in_progress">{t("statusInProgress")}</option>
+                    <option value="waiting">{t("statusWaiting")}</option>
+                    <option value="done">{t("statusDone")}</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
-                  {t("taskLot")}
-                </label>
-                <input
-                  type="text"
-                  value={lotCode}
-                  onChange={(e) => setLotCode(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-                  placeholder="Ex: CFC 211"
-                />
-              </div>
-            </div>
 
-            {/* Source info (read-only) */}
-            {(prefill?.source || editTask?.source_reference) && (
-              <div className="rounded-md bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-medium uppercase text-gray-500">{t("sourceLabel")}</p>
-                <p className="text-xs text-gray-600">
-                  {prefill?.source_reference || editTask?.source_reference || "—"}
-                </p>
+              {/* Reminder + Lot */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("taskReminder")}
+                  </label>
+                  <select
+                    value={reminder}
+                    onChange={(e) => setReminder(e.target.value as "none")}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="none">{t("reminderNone")}</option>
+                    <option value="1_day">{t("reminder1Day")}</option>
+                    <option value="3_days">{t("reminder3Days")}</option>
+                    <option value="1_week">{t("reminder1Week")}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t("taskLot")}
+                  </label>
+                  <input
+                    type="text"
+                    value={lotCode}
+                    onChange={(e) => setLotCode(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    placeholder="Ex: CFC 211"
+                  />
+                </div>
               </div>
-            )}
+
+              {/* Source info (read-only) */}
+              {(prefill?.source || editTask?.source_reference) && (
+                <div className="rounded-md bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-medium uppercase text-gray-500">{t("sourceLabel")}</p>
+                  <p className="text-xs text-gray-600">
+                    {prefill?.source_reference || editTask?.source_reference || "—"}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-5 flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+          {/* Fixed footer — always visible */}
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-3.5">
             <button
               type="button"
               onClick={onClose}
@@ -311,8 +364,8 @@ export function TaskCreateModal({
             </button>
             <button
               type="submit"
-              disabled={saving || !title.trim() || !projectId || !dueDate}
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {isEdit ? t("editTask") : t("createTask")}
