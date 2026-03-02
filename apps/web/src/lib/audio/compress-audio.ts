@@ -6,8 +6,9 @@
  * A 38 MB WebM (~45 min) compresses to ~10-15 MB MP3.
  */
 
+// Use pre-bundled lamejs with proper module.exports (webpack-compatible)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const lamejs = require("lamejs");
+const lame = require("./lame.min.js");
 
 const TARGET_SAMPLE_RATE = 16000;
 const TARGET_BITRATE = 48; // kbps
@@ -53,7 +54,7 @@ export async function compressAudioToMp3(
   onProgress?.(50);
 
   // 4. Encode to MP3 with lamejs
-  const encoder = new lamejs.Mp3Encoder(1, TARGET_SAMPLE_RATE, TARGET_BITRATE);
+  const encoder = new lame.Mp3Encoder(1, TARGET_SAMPLE_RATE, TARGET_BITRATE);
   const mp3Chunks: Uint8Array[] = [];
   const total = int16.length;
 
