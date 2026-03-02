@@ -13,36 +13,18 @@ import {
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 
-/** JM Avatar — Professional construction expert identity */
+/** JM Avatar — Professional monogram badge */
 function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
-  const dim = size === "lg" ? "h-16 w-16" : "h-8 w-8";
-  const inner = size === "lg" ? "h-14 w-14" : "h-7 w-7";
-  return (
-    <div className={cn(dim, "relative shrink-0")}>
-      <div className={cn(
-        inner,
-        "rounded-full overflow-hidden mx-auto",
-        size === "lg" ? "ring-3 ring-cyan-200" : "ring-2 ring-cyan-100"
-      )}>
-        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-          {/* Background */}
-          <rect width="80" height="80" rx="40" fill="#E0F2FE" />
-          {/* Hard hat */}
-          <path d="M24 35C24 27.268 30.268 21 38 21H42C49.732 21 56 27.268 56 35V36H24V35Z" fill="#0E7490" />
-          <rect x="22" y="35" width="36" height="4" rx="2" fill="#155E75" />
-          {/* Face */}
-          <ellipse cx="40" cy="48" rx="12" ry="11" fill="#FCD9B6" />
-          {/* Eyes */}
-          <ellipse cx="35.5" cy="46" rx="1.5" ry="2" fill="#1E3A5F" />
-          <ellipse cx="44.5" cy="46" rx="1.5" ry="2" fill="#1E3A5F" />
-          {/* Smile */}
-          <path d="M36 52C37 53.5 43 53.5 44 52" stroke="#1E3A5F" strokeWidth="1.2" strokeLinecap="round" />
-          {/* Collar / shirt hint */}
-          <path d="M28 62C28 57 33 54 40 54C47 54 52 57 52 62V80H28V62Z" fill="#0E7490" />
-          {/* Tie / badge */}
-          <rect x="38" y="56" width="4" height="6" rx="1" fill="#FCD34D" />
-        </svg>
+  if (size === "lg") {
+    return (
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg ring-2 ring-slate-200">
+        <span className="text-xl font-bold tracking-tight text-white">JM</span>
       </div>
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 shadow-sm">
+      <span className="text-[11px] font-bold tracking-tight text-white">JM</span>
     </div>
   );
 }
@@ -76,6 +58,36 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Smooth streaming: buffer incoming tokens and flush via rAF
+  const streamBufferRef = useRef("");
+  const rafRef = useRef<number | null>(null);
+
+  const flushStreamBuffer = useCallback(() => {
+    if (streamBufferRef.current) {
+      const chunk = streamBufferRef.current;
+      streamBufferRef.current = "";
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last && last.role === "assistant") {
+          updated[updated.length - 1] = {
+            ...last,
+            content: last.content + chunk,
+          };
+        }
+        return updated;
+      });
+    }
+    rafRef.current = requestAnimationFrame(flushStreamBuffer);
+  }, []);
+
+  // Clean up rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -188,17 +200,21 @@ export default function ChatPage() {
         throw new Error("Stream failed");
       }
 
+      // Start rAF loop for smooth rendering
+      streamBufferRef.current = "";
+      rafRef.current = requestAnimationFrame(flushStreamBuffer);
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let sseBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() || "";
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n\n");
+        sseBuffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -207,20 +223,10 @@ export default function ChatPage() {
 
             if (event.type === "conversation_id" && !activeConvId) {
               setActiveConvId(event.data);
-              // Refresh conversation list
               loadConversations();
             } else if (event.type === "text") {
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last && last.role === "assistant") {
-                  updated[updated.length - 1] = {
-                    ...last,
-                    content: last.content + event.data,
-                  };
-                }
-                return updated;
-              });
+              // Buffer text for smooth rAF-based rendering
+              streamBufferRef.current += event.data;
             } else if (event.type === "error") {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -239,7 +245,29 @@ export default function ChatPage() {
           }
         }
       }
+
+      // Final flush — ensure all buffered text is rendered
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      if (streamBufferRef.current) {
+        const remaining = streamBufferRef.current;
+        streamBufferRef.current = "";
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === "assistant") {
+            updated[updated.length - 1] = {
+              ...last,
+              content: last.content + remaining,
+            };
+          }
+          return updated;
+        });
+      }
     } catch (err: unknown) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      streamBufferRef.current = "";
       if (err instanceof Error && err.name === "AbortError") return;
       setMessages((prev) => {
         const updated = [...prev];
