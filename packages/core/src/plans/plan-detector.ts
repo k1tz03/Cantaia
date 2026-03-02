@@ -45,7 +45,7 @@ export interface PlanDetectionResult {
 
 // File extensions considered as potential plans
 const PLAN_EXTENSIONS = [".pdf", ".dwg", ".dxf", ".png", ".jpg", ".jpeg"];
-const MIN_PLAN_SIZE = 500 * 1024; // 500KB minimum for a plan
+const MIN_PLAN_SIZE = 100 * 1024; // 100KB minimum for a plan
 
 // Filename patterns that suggest a plan
 const PLAN_FILENAME_PATTERNS = [
@@ -226,9 +226,18 @@ function mockDetectPlan(
     return { is_plan: false, confidence: 0.85, reason: "No plan pattern detected in filename" };
   }
 
-  // Extract plan number from filename
-  const numberMatch = name.match(/(\d{3}[-_][A-Z0-9]+[-_]\d{2})/i) || name.match(/([A-Z]{2,4}[-_]\d{2,4})/i);
-  const planNumber = numberMatch ? numberMatch[1].replace(/_/g, "-") : null;
+  // Extract plan number from filename (multiple strategies)
+  const numberMatch =
+    name.match(/(\d{3,4}[-_][A-Z0-9]+[-_]\d{2,6})/i) ||  // 211-B2-04, 6107-AdP-260216
+    name.match(/([A-Z]{2,4}[-_]\d{2,6})/i) ||             // ARC-301, EL-201
+    name.match(/(\d{4,6}[-_][A-Z][A-Za-z]+)/i);           // 6107_AdP
+
+  // If no structured number found but filename matches plan patterns, use first number group or filename stem
+  let planNumber = numberMatch ? numberMatch[1].replace(/_/g, "-") : null;
+  if (!planNumber && matchesPattern) {
+    const firstNum = name.match(/(\d{4,})/);
+    planNumber = firstNum ? firstNum[1] : name.replace(/\.[^.]+$/, "");
+  }
 
   // Extract version from filename
   const versionMatch = name.match(/[Vv][-_.]?([A-D])/i) || name.match(/[Rr]ev[-_.]?([A-D])/i) || name.match(/[Ii]nd[-_.]?([A-D])/i);

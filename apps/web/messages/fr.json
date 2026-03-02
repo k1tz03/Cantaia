@@ -1642,6 +1642,8 @@
     "colScale": "Échelle",
     "noPlans": "Aucun plan trouvé",
     "noPlansDescription": "Les plans seront détectés automatiquement dans vos emails ou ajoutés manuellement.",
+    "rescanEmails": "Rescanner les emails",
+    "rescanning": "Analyse en cours...",
     "statusActive": "Actif",
     "statusSuperseded": "Remplacé",
     "statusWithdrawn": "Retiré",

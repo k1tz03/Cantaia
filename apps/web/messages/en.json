@@ -1642,6 +1642,8 @@
     "colScale": "Scale",
     "noPlans": "No plans found",
     "noPlansDescription": "Plans will be automatically detected from your emails or added manually.",
+    "rescanEmails": "Rescan emails",
+    "rescanning": "Scanning...",
     "statusActive": "Active",
     "statusSuperseded": "Superseded",
     "statusWithdrawn": "Withdrawn",

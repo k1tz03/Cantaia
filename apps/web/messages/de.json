@@ -1642,6 +1642,8 @@
     "colScale": "Massstab",
     "noPlans": "Keine Pläne gefunden",
     "noPlansDescription": "Pläne werden automatisch in Ihren E-Mails erkannt oder manuell hinzugefügt.",
+    "rescanEmails": "E-Mails erneut scannen",
+    "rescanning": "Analyse läuft...",
     "statusActive": "Aktiv",
     "statusSuperseded": "Ersetzt",
     "statusWithdrawn": "Zurückgezogen",

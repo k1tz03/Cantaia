@@ -60,11 +60,35 @@ export async function POST(request: NextRequest) {
     if (status) insertData.status = status;
     if (reminder && reminder !== "none") insertData.reminder = reminder;
 
-    const { data: task, error } = await (admin as any)
+    let { data: task, error } = await (admin as any)
       .from("tasks")
       .insert(insertData)
       .select("*")
       .single();
+
+    // If insert failed (likely due to enum mismatch), retry with fallback values
+    if (error && error.message?.includes("invalid input value")) {
+      console.warn("[Tasks Create] Enum error, retrying with legacy values:", error.message);
+      // Map new enum values to old ones (migration 006 might not be applied)
+      const statusMap: Record<string, string> = { todo: "open", done: "completed" };
+      const sourceMap: Record<string, string> = { meeting: "meeting_pv", reserve: "ai_suggestion" };
+      if (insertData.status && statusMap[insertData.status as string]) {
+        insertData.status = statusMap[insertData.status as string];
+      }
+      if (insertData.source && sourceMap[insertData.source as string]) {
+        insertData.source = sourceMap[insertData.source as string];
+      }
+      // Remove reminder column (doesn't exist without migration 006)
+      delete insertData.reminder;
+
+      const retry = await (admin as any)
+        .from("tasks")
+        .insert(insertData)
+        .select("*")
+        .single();
+      task = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("[Tasks Create] Error:", error);

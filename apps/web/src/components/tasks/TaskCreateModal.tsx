@@ -121,19 +121,33 @@ export function TaskCreateModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = `Erreur serveur (${res.status})`;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed.error) msg = parsed.error;
+        } catch { /* non-JSON response */ }
+        setError(msg);
+        setSaving(false);
+        return;
+      }
+
       const data = await res.json();
 
       if (!data.success) {
         setError(data.error || "Erreur lors de la sauvegarde");
+        setSaving(false);
         return;
       }
     } catch (err) {
       console.error("[TaskCreateModal] Save error:", err);
       setError("Erreur réseau, veuillez réessayer");
-      return;
-    } finally {
       setSaving(false);
+      return;
     }
+    setSaving(false);
     onCreated();
     onClose();
   }

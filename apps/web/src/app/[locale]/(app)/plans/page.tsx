@@ -19,6 +19,7 @@ import {
   ArrowDown,
   FileText,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanStatus } from "@cantaia/database";
@@ -107,6 +108,8 @@ export default function PlansPage() {
   // Data from API
   const [plans, setPlans] = useState<PlanFromApi[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rescanning, setRescanning] = useState(false);
+  const [rescanResult, setRescanResult] = useState<{ scanned: number; plans_saved: number } | null>(null);
 
   const fetchPlans = useCallback(async () => {
     try {
@@ -125,6 +128,26 @@ export default function PlansPage() {
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
+
+  const handleRescan = async () => {
+    setRescanning(true);
+    setRescanResult(null);
+    try {
+      const res = await fetch("/api/plans/rescan", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setRescanResult({ scanned: data.scanned, plans_saved: data.plans_saved });
+        // Refresh plans list
+        await fetchPlans();
+      } else {
+        console.error("[rescan] Error:", data.error);
+      }
+    } catch (err) {
+      console.error("[rescan] Error:", err);
+    } finally {
+      setRescanning(false);
+    }
+  };
 
   // View mode (list/grid) persisted in localStorage
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -252,13 +275,23 @@ export default function PlansPage() {
             <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
             <p className="mt-0.5 text-sm text-slate-500">{t("subtitle")}</p>
           </div>
-          <Link
-            href="/plans/upload"
-            className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t("uploadPlan")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRescan}
+              disabled={rescanning}
+              className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={cn("h-4 w-4", rescanning && "animate-spin")} />
+              {rescanning ? t("rescanning") : t("rescanEmails")}
+            </button>
+            <Link
+              href="/plans/upload"
+              className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {t("uploadPlan")}
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
@@ -460,12 +493,31 @@ export default function PlansPage() {
           </div>
         </div>
 
+        {/* Rescan result banner */}
+        {rescanResult && (
+          <div className="mb-4 flex items-center gap-2 rounded-md bg-blue-50 px-4 py-2.5 text-sm text-blue-700 ring-1 ring-inset ring-blue-200">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            {rescanResult.plans_saved > 0
+              ? `${rescanResult.scanned} emails analysés, ${rescanResult.plans_saved} plan(s) détecté(s) et sauvegardé(s)`
+              : `${rescanResult.scanned} emails analysés, aucun nouveau plan détecté`}
+          </div>
+        )}
+
         {/* Empty state */}
         {filteredPlans.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
             <FileStack className="h-12 w-12 text-slate-300 mb-3" />
             <p className="text-sm font-medium text-slate-600">{t("noPlans")}</p>
             <p className="mt-1 text-xs text-slate-400 max-w-sm text-center">{t("noPlansDescription")}</p>
+            {!rescanning && !rescanResult && (
+              <button
+                onClick={handleRescan}
+                className="mt-4 flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t("rescanEmails")}
+              </button>
+            )}
           </div>
         )}
 

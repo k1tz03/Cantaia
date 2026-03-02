@@ -50,12 +50,30 @@ export async function PATCH(
 
     update.updated_at = new Date().toISOString();
 
-    const { data: task, error } = await (admin as any)
+    let { data: task, error } = await (admin as any)
       .from("tasks")
       .update(update)
       .eq("id", id)
       .select("*")
       .single();
+
+    // If update failed due to enum mismatch, retry with legacy values
+    if (error && error.message?.includes("invalid input value")) {
+      console.warn("[Tasks PATCH] Enum error, retrying with legacy values:", error.message);
+      const statusMap: Record<string, string> = { todo: "open", done: "completed" };
+      if (update.status && statusMap[update.status as string]) {
+        update.status = statusMap[update.status as string];
+      }
+      delete update.reminder;
+      const retry = await (admin as any)
+        .from("tasks")
+        .update(update)
+        .eq("id", id)
+        .select("*")
+        .single();
+      task = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("[Tasks PATCH] Error:", error);
