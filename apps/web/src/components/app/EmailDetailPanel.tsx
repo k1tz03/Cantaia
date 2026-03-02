@@ -188,13 +188,16 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       .finally(() => setEmailBodyLoading(false));
   }, [email.id, email.outlook_message_id]);
 
-  // Fetch existing tasks linked to this email
+  // Fetch existing tasks linked to this email, then auto-extract if none found
   useEffect(() => {
+    let cancelled = false;
     setTasksLoading(true);
     setExtractedTasks([]);
+
     fetch(`/api/tasks/by-email?email_id=${encodeURIComponent(email.id)}`)
       .then((res) => res.json())
-      .then((data) => {
+      .then(async (data) => {
+        if (cancelled) return;
         if (data.tasks?.length > 0) {
           setExtractedTasks(
             data.tasks.map((t: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
@@ -204,13 +207,44 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               deadline: t.due_date,
             }))
           );
+          setTasksLoading(false);
+          return;
+        }
+
+        // No tasks in DB — auto-extract via AI
+        setExtractingTasks(true);
+        setTasksLoading(false);
+        try {
+          const aiRes = await fetch("/api/ai/extract-tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email_id: email.id }),
+          });
+          const aiData = await aiRes.json();
+          if (!cancelled && aiData.tasks?.length > 0) {
+            setExtractedTasks(
+              aiData.tasks.map((t: { title: string; assigned_to_name?: string | null; due_date?: string | null }, idx: number) => ({
+                id: `ai-${Date.now()}-${idx}`,
+                title: t.title,
+                responsible: t.assigned_to_name,
+                deadline: t.due_date,
+              }))
+            );
+          }
+        } catch {
+          // ignore
+        } finally {
+          if (!cancelled) setExtractingTasks(false);
         }
       })
-      .catch(() => {})
-      .finally(() => setTasksLoading(false));
+      .catch(() => {
+        if (!cancelled) setTasksLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [email.id]);
 
-  // Extract tasks from email using AI
+  // Manual re-extract tasks from email using AI
   async function handleExtractTasks() {
     setExtractingTasks(true);
     try {
@@ -592,10 +626,10 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <CheckCircle className="h-3 w-3" />
               {t("extractedTasks")}
             </h4>
-            {tasksLoading ? (
+            {tasksLoading || extractingTasks ? (
               <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {t("loadingTasks") || "Chargement..."}
+                {extractingTasks ? (t("extractingTasks") || "Analyse en cours...") : (t("loadingTasks") || "Chargement...")}
               </div>
             ) : extractedTasks.length > 0 ? (
               <div className="mt-2 space-y-2">
@@ -642,14 +676,17 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 {t("noExtractedTasks")}
               </p>
             )}
-            <button
-              onClick={handleExtractTasks}
-              disabled={extractingTasks}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80 disabled:opacity-50"
-            >
-              {extractingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {extractingTasks ? (t("extractingTasks") || "Analyse en cours...") : (t("extractMoreTasks") || "Détecter les tâches")}
-            </button>
+            {!extractingTasks && !tasksLoading && (
+              <button
+                onClick={handleExtractTasks}
+                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80"
+              >
+                <Sparkles className="h-3 w-3" />
+                {extractedTasks.length > 0
+                  ? (t("redetectTasks") || "Relancer la détection")
+                  : (t("extractMoreTasks") || "Détecter les tâches")}
+              </button>
+            )}
           </div>
 
           {/* Section 4 — AI Reply Proposal */}
