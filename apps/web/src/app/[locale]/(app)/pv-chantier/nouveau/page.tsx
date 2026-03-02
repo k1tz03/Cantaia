@@ -234,7 +234,27 @@ export default function NouveauPVPage() {
       if (!createData.success) throw new Error(createData.error);
       const meetingId = createData.meeting.id;
 
-      // 2. Upload audio to Supabase Storage via client
+      // 2. Compress large audio files client-side (Whisper API limit: 25 MB)
+      let finalBlob = audioBlob;
+      let finalExt = uploadedFile
+        ? uploadedFile.name.split(".").pop() || "webm"
+        : "webm";
+
+      if (audioBlob.size > 24 * 1024 * 1024) {
+        setProcessingStep("Compression de l'audio...");
+        const { compressAudioToMp3 } = await import(
+          "@/lib/audio/compress-audio"
+        );
+        finalBlob = await compressAudioToMp3(audioBlob, (pct) => {
+          setProcessingStep(`Compression de l'audio... ${pct}%`);
+        });
+        finalExt = "mp3";
+        console.log(
+          `Audio compressed: ${(audioBlob.size / 1048576).toFixed(1)} MB → ${(finalBlob.size / 1048576).toFixed(1)} MB`
+        );
+      }
+
+      // 3. Upload audio to Supabase Storage
       setProcessingStep(t("uploading_audio"));
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
@@ -243,18 +263,15 @@ export default function NouveauPVPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const ext = uploadedFile
-        ? uploadedFile.name.split(".").pop() || "webm"
-        : "webm";
-      const storagePath = `${user.id}/${meetingId}.${ext}`;
-
-      // Browser MediaRecorder produces "video/webm" even for audio-only — fix MIME
-      const contentType = (audioBlob.type || "audio/webm").replace("video/", "audio/");
-      const uploadBlob = new Blob([audioBlob], { type: contentType });
+      const storagePath = `${user.id}/${meetingId}.${finalExt}`;
+      const contentType =
+        finalExt === "mp3"
+          ? "audio/mpeg"
+          : (finalBlob.type || "audio/webm").replace("video/", "audio/");
 
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
-        .upload(storagePath, uploadBlob, { contentType });
+        .upload(storagePath, finalBlob, { contentType });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
