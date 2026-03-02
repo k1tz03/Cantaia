@@ -256,7 +256,7 @@ export default function NouveauPVPage() {
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        throw new Error("Failed to upload audio");
+        throw new Error(`Échec upload audio: ${uploadError.message}`);
       }
 
       // 3. Update meeting with audio_url
