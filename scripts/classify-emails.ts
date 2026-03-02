@@ -96,7 +96,7 @@ async function main() {
         // ── LEVEL 2b: Local keyword match ──
         if (projects.length > 0) {
           const keywordMatch = classifyEmailByKeywords(
-            { subject, sender_email: senderEmail, sender_name: email.sender_name || undefined, body_preview: email.body_preview || undefined },
+            { subject, sender_email: senderEmail, sender_name: email.sender_name || undefined, body_preview: email.body_preview || undefined, recipients: email.recipients || [] },
             projects
           );
           if (keywordMatch && keywordMatch.confidence >= 0.6) {
@@ -134,6 +134,7 @@ async function main() {
             subject,
             body_preview: email.body_preview || "",
             received_at: email.received_at,
+            recipients: email.recipients || [],
           },
           projects
         );

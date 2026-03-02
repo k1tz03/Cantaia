@@ -9,6 +9,7 @@ export interface EmailClassifyContext {
   subject: string;
   body_content: string;
   received_at: string;
+  recipients?: string;
 }
 
 export function buildEmailClassifyPrompt(ctx: EmailClassifyContext): string {
@@ -20,6 +21,7 @@ Chaque projet a un nom, un code, des mots-clés, des expéditeurs connus, une vi
 
 EMAIL À CLASSIFIER :
 - Expéditeur : ${ctx.sender_name} <${ctx.sender_email}>
+- Destinataires (TO/CC) : ${ctx.recipients || "non disponibles"}
 - Objet : ${ctx.subject}
 - Date : ${ctx.received_at}
 - Contenu COMPLET :
@@ -59,6 +61,7 @@ RÈGLES :
 5. Si l'expéditeur correspond à un expéditeur connu → forte probabilité projet existant
 6. Si des mots-clés d'un projet apparaissent → probablement ce projet, MAIS le premier segment du sujet a priorité en cas de conflit
 7. ATTENTION AUX FAUX POSITIFS : Ne classe PAS un email dans un projet juste parce qu'un mot-clé vague correspond. Le premier segment du sujet doit être cohérent avec le projet choisi.
+8. DESTINATAIRES (TO/CC) : Les destinataires en copie sont un signal important. Si des personnes connues d'un projet (listées dans "expéditeurs connus") apparaissent en TO ou CC, c'est un indice fort que l'email concerne ce projet. Analyse les noms et domaines des destinataires.
 
 RÉSUMÉ ACTIONNABLE (summary_fr) :
 UNE PHRASE. Format : "[Qui] [fait quoi] → [action requise ou 'aucune action requise']"

@@ -20,6 +20,7 @@ export interface EmailForClassification {
   body_preview: string;
   body_full?: string;
   received_at: string;
+  recipients?: string[];
 }
 
 export interface ProjectForClassification {
@@ -83,6 +84,7 @@ export async function classifyEmail(
     subject: email.subject,
     body_content: bodyContent.substring(0, 10000),
     received_at: email.received_at,
+    recipients: email.recipients?.length ? email.recipients.join(", ") : undefined,
   };
 
   const prompt = buildEmailClassifyPrompt(ctx);
@@ -201,7 +203,7 @@ export interface LocalClassificationResult {
  * - Minimum threshold of 6 + name/ref match required prevents false positives
  */
 export function classifyEmailByKeywords(
-  email: { subject: string; sender_email: string; sender_name?: string; body_preview?: string },
+  email: { subject: string; sender_email: string; sender_name?: string; body_preview?: string; recipients?: string[] },
   projects: ProjectForClassification[]
 ): LocalClassificationResult | null {
   const subjectNorm = norm(email.subject || "");
@@ -285,6 +287,19 @@ export function classifyEmailByKeywords(
         if (senderLower.includes(knownSender.toLowerCase())) {
           score += 7;
           reasons.push(`Expediteur "${knownSender}"`);
+        }
+      }
+    }
+
+    // ── RULE 7b: Known sender in recipients (TO/CC) ──
+    if (project.email_senders && project.email_senders.length > 0 && email.recipients?.length) {
+      for (const knownSender of project.email_senders) {
+        const knownLower = knownSender.toLowerCase();
+        for (const recipient of email.recipients) {
+          if (recipient.toLowerCase().includes(knownLower)) {
+            score += 5;
+            reasons.push(`Destinataire "${recipient}" = expediteur connu "${knownSender}"`);
+          }
         }
       }
     }

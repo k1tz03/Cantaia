@@ -278,6 +278,7 @@ export async function POST(request: Request) {
             sender_email: senderEmail,
             sender_name: email.sender_name || undefined,
             body_preview: email.body_preview || undefined,
+            recipients: email.recipients || [],
           },
           projects
         );
@@ -347,6 +348,7 @@ export async function POST(request: Request) {
           body_preview: email.body_preview || "",
           body_full: bodyFull,
           received_at: email.received_at,
+          recipients: email.recipients || [],
         },
         projects,
         undefined,

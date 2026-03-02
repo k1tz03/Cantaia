@@ -110,12 +110,13 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
   const [markingProcessed, setMarkingProcessed] = useState(false);
   const [markingUrgent, setMarkingUrgent] = useState(false);
   const [taskCreatedIds, setTaskCreatedIds] = useState<Set<string>>(new Set());
-  const [extractedTasks] = useState<{ id: string; title: string; responsible?: string | null; deadline?: string | null }[]>([]);
+  const [extractedTasks, setExtractedTasks] = useState<{ id: string; title: string; responsible?: string | null; deadline?: string | null }[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [extractingTasks, setExtractingTasks] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [emailBody, setEmailBody] = useState<{ contentType: string; content: string } | null>(null);
   const [emailBodyLoading, setEmailBodyLoading] = useState(false);
-  const [emailBodyExpanded, setEmailBodyExpanded] = useState(false);
 
   const project = email.project_id ? projects.find((p) => p.id === email.project_id) : null;
   const detailedSummary = email.ai_summary || null;
@@ -176,7 +177,6 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       return;
     }
     setEmailBodyLoading(true);
-    setEmailBodyExpanded(false);
     fetch(`/api/outlook/email-body?messageId=${encodeURIComponent(email.outlook_message_id)}`)
       .then((res) => res.json())
       .then((data) => {
@@ -187,6 +187,56 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
       .catch(() => setEmailBody(null))
       .finally(() => setEmailBodyLoading(false));
   }, [email.id, email.outlook_message_id]);
+
+  // Fetch existing tasks linked to this email
+  useEffect(() => {
+    setTasksLoading(true);
+    setExtractedTasks([]);
+    fetch(`/api/tasks/by-email?email_id=${encodeURIComponent(email.id)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.tasks?.length > 0) {
+          setExtractedTasks(
+            data.tasks.map((t: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
+              id: t.id,
+              title: t.title,
+              responsible: t.assigned_to_name,
+              deadline: t.due_date,
+            }))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTasksLoading(false));
+  }, [email.id]);
+
+  // Extract tasks from email using AI
+  async function handleExtractTasks() {
+    setExtractingTasks(true);
+    try {
+      const res = await fetch("/api/ai/extract-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_id: email.id }),
+      });
+      const data = await res.json();
+      if (data.tasks?.length > 0) {
+        setExtractedTasks((prev) => [
+          ...prev,
+          ...data.tasks.map((t: { id: string; title: string; assigned_to_name?: string | null; due_date?: string | null }) => ({
+            id: t.id,
+            title: t.title,
+            responsible: t.assigned_to_name,
+            deadline: t.due_date,
+          })),
+        ]);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setExtractingTasks(false);
+    }
+  }
 
   function handleAttachmentClick(att: AttachmentInfo) {
     if (!email.outlook_message_id) return;
@@ -458,38 +508,23 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 {t("loadingBody")}
               </div>
             ) : emailBody ? (
-              <div className="mt-2">
-                <div
-                  className={cn(
-                    "relative overflow-hidden rounded-md border border-slate-200 bg-white p-3",
-                    !emailBodyExpanded && "max-h-[300px]"
-                  )}
-                >
-                  {emailBody.contentType === "html" ? (
-                    <div
-                      className="prose prose-sm max-w-none text-slate-700 [&_a]:text-brand [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
-                      dangerouslySetInnerHTML={{
-                        __html: DOMPurify.sanitize(emailBody.content, {
-                          ALLOWED_TAGS: ["p", "br", "b", "i", "u", "strong", "em", "a", "ul", "ol", "li", "table", "tr", "td", "th", "thead", "tbody", "span", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img"],
-                          ALLOWED_ATTR: ["href", "target", "style", "class", "src", "alt", "width", "height"],
-                          ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
-                        }),
-                      }}
-                    />
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{emailBody.content}</pre>
-                  )}
-                  {!emailBodyExpanded && (
-                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
-                  )}
-                </div>
-                <button
-                  onClick={() => setEmailBodyExpanded(!emailBodyExpanded)}
-                  className="mt-1.5 flex items-center gap-1 text-xs font-medium text-brand hover:text-brand/80"
-                >
-                  <ChevronDown className={cn("h-3 w-3 transition-transform", emailBodyExpanded && "rotate-180")} />
-                  {emailBodyExpanded ? t("showLess") : t("showMore")}
-                </button>
+              <div
+                className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-slate-200 bg-white p-3"
+              >
+                {emailBody.contentType === "html" ? (
+                  <div
+                    className="prose prose-sm max-w-none text-slate-700 [&_a]:text-brand [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(emailBody.content, {
+                        ALLOWED_TAGS: ["p", "br", "b", "i", "u", "strong", "em", "a", "ul", "ol", "li", "table", "tr", "td", "th", "thead", "tbody", "span", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img"],
+                        ALLOWED_ATTR: ["href", "target", "style", "class", "src", "alt", "width", "height"],
+                        ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+                      }),
+                    }}
+                  />
+                ) : (
+                  <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{emailBody.content}</pre>
+                )}
               </div>
             ) : email.body_preview ? (
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
@@ -557,7 +592,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <CheckCircle className="h-3 w-3" />
               {t("extractedTasks")}
             </h4>
-            {extractedTasks.length > 0 ? (
+            {tasksLoading ? (
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t("loadingTasks") || "Chargement..."}
+              </div>
+            ) : extractedTasks.length > 0 ? (
               <div className="mt-2 space-y-2">
                 {extractedTasks.map((task) => (
                   <div
@@ -602,6 +642,14 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 {t("noExtractedTasks")}
               </p>
             )}
+            <button
+              onClick={handleExtractTasks}
+              disabled={extractingTasks}
+              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80 disabled:opacity-50"
+            >
+              {extractingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              {extractingTasks ? (t("extractingTasks") || "Analyse en cours...") : (t("extractMoreTasks") || "Détecter les tâches")}
+            </button>
           </div>
 
           {/* Section 4 — AI Reply Proposal */}

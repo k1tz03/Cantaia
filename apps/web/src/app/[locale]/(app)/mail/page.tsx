@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useEmailContext } from "@/lib/contexts/email-context";
 import { cn } from "@cantaia/ui";
@@ -78,6 +78,43 @@ export default function MailPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [listWidth, setListWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("cantaia_mail_list_width");
+      return saved ? parseInt(saved, 10) : 420;
+    }
+    return 420;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Drag handle for resizing list/detail panel
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - rect.left;
+      const maxWidth = rect.width * 0.65;
+      const clamped = Math.max(300, Math.min(maxWidth, newWidth));
+      setListWidth(clamped);
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      localStorage.setItem("cantaia_mail_list_width", String(Math.round(listWidth)));
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, listWidth]);
 
   // Fetch projects
   useEffect(() => {
@@ -253,13 +290,14 @@ export default function MailPage() {
   });
 
   return (
-    <div className="flex h-[calc(100vh-120px)] sm:h-[calc(100vh-56px)] lg:h-screen">
+    <div ref={containerRef} className={cn("flex h-[calc(100vh-120px)] sm:h-[calc(100vh-56px)] lg:h-screen", isDragging && "select-none")}>
       {/* Left: Email list */}
       <div
         className={cn(
-          "flex flex-col border-r border-slate-200 bg-white",
-          selectedEmail ? "hidden lg:flex lg:w-[420px]" : "w-full"
+          "flex shrink-0 flex-col border-r border-slate-200 bg-white",
+          selectedEmail ? "hidden lg:flex" : "w-full"
         )}
+        style={selectedEmail ? { width: `${listWidth}px` } : undefined}
       >
         {/* Header */}
         <div className="border-b border-slate-200 px-4 py-3">
@@ -467,21 +505,21 @@ export default function MailPage() {
                     {/* Project header */}
                     <button
                       onClick={() => toggleProjectCollapse(groupKey)}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-slate-50"
+                      className="sticky top-0 z-10 flex w-full items-center gap-2.5 border-b border-slate-200 bg-slate-50/95 px-4 py-2.5 text-left backdrop-blur-sm hover:bg-slate-100/95"
                     >
                       {isCollapsed ? (
-                        <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                        <ChevronRight className="h-4 w-4 text-slate-500" />
                       ) : (
-                        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                        <ChevronDown className="h-4 w-4 text-slate-500" />
                       )}
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-3 w-3 rounded-full ring-2 ring-white"
                         style={{ backgroundColor: projectColor }}
                       />
-                      <span className="text-xs font-semibold text-slate-700">
+                      <span className="text-sm font-bold text-slate-800">
                         {projectName}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                      <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                         {group.emails.length}
                       </span>
                     </button>
@@ -541,9 +579,17 @@ export default function MailPage() {
         </div>
       </div>
 
+      {/* Drag handle */}
+      {selectedEmail && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="hidden w-1 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-brand/40 active:bg-brand/60 lg:block"
+        />
+      )}
+
       {/* Right: Detail panel */}
       {selectedEmail ? (
-        <div className="flex-1 bg-white">
+        <div className="min-w-0 flex-1 bg-white">
           <EmailDetailPanel
             email={selectedEmail}
             projects={projects}
