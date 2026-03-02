@@ -76,5 +76,5 @@ export async function compressAudioToMp3(
 
   onProgress?.(100);
 
-  return new Blob(mp3Chunks, { type: "audio/mpeg" });
+  return new Blob(mp3Chunks as unknown as BlobPart[], { type: "audio/mpeg" });
 }
