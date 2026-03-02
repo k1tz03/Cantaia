@@ -84,10 +84,13 @@ export async function transcribeVisitAudio(
 
   console.log(`[Visit Transcription] Calling Whisper API... (${(audioBlob.size / (1024 * 1024)).toFixed(1)} MB)`);
 
-  // Check file size — Whisper limit is 25 MB
-  if (audioBlob.size > 25 * 1024 * 1024) {
-    console.log("[Visit Transcription] File > 25 MB — chunking not yet implemented, using direct upload");
-    // TODO: implement chunking for files > 25 MB
+  // For large files (> 24 MB), use chunked transcription via the API route.
+  // The /api/pv/transcribe and /api/visits/transcribe routes handle chunking
+  // with ffmpeg. Direct calls here are for files within the Whisper 25 MB limit.
+  if (audioBlob.size > 24 * 1024 * 1024) {
+    console.warn(
+      "[Visit Transcription] File > 24 MB — use the API route with chunked transcription instead"
+    );
   }
 
   const formData = new FormData();

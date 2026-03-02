@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { transcribeAudioChunked } from "@/lib/audio/chunked-transcription";
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,49 +65,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check file size (Whisper limit: 25 MB)
-    if (audioData.size > 25 * 1024 * 1024) {
-      return NextResponse.json(
-        {
-          error:
-            "Audio file too large for transcription (max 25 MB). Try a shorter recording.",
-        },
-        { status: 400 }
-      );
-    }
-
     // Update status to transcribing
     await admin
       .from("meetings")
       .update({ status: "transcribing" } as any)
       .eq("id", meeting_id);
 
-    // Transcribe with Whisper
+    // Transcribe with Whisper (auto-chunks if > 24 MB)
     try {
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("OPENAI_API_KEY not configured");
+      }
 
-      const audioFile = new File([audioData], "audio.webm", {
-        type: "audio/webm",
-      });
+      console.log(
+        `[Transcribe] Starting transcription for meeting ${meeting_id} (${(audioData.size / 1048576).toFixed(1)} MB)`
+      );
 
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-        language: "fr",
-        response_format: "verbose_json",
-        timestamp_granularities: ["segment"],
-      });
+      const result = await transcribeAudioChunked(audioData, apiKey, "fr");
 
       // Save transcription
       const { error: updateError } = await admin
         .from("meetings")
         .update({
-          transcription_raw: transcription.text,
-          transcription_language: (transcription as any).language || "fr",
-          audio_duration_seconds: Math.round(
-            (transcription as any).duration || 0
-          ),
+          transcription_raw: result.text,
+          transcription_language: result.language,
+          audio_duration_seconds: result.duration,
           status: "generating_pv",
         } as any)
         .eq("id", meeting_id);
@@ -120,14 +104,15 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `[Transcribe] Success: ${transcription.text.length} chars, lang=${(transcription as any).language}`
+        `[Transcribe] Success: ${result.text.length} chars, lang=${result.language}, ${result.chunks} chunk(s)`
       );
 
       return NextResponse.json({
         success: true,
-        transcription: transcription.text,
-        language: (transcription as any).language,
-        duration: (transcription as any).duration,
+        transcription: result.text,
+        language: result.language,
+        duration: result.duration,
+        chunks: result.chunks,
       });
     } catch (err: any) {
       console.error("[Transcribe] Whisper failed:", err);
