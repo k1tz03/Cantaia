@@ -40,15 +40,19 @@ interface PricingConfig {
 }
 
 interface EstimateLineItem {
-  poste: string;
-  quantity: number;
+  category: string;
+  item: string;
+  quantity: number | null;
   unit: string;
   unit_price: number;
-  total: number;
+  total_price: number;
   confidence: "high" | "medium" | "low";
   source: "db_historical" | "ai_knowledge";
   cfc_code?: string;
-  notes?: string;
+  source_detail?: string;
+  db_matches?: number;
+  margin_applied?: number;
+  price_range?: { min: number; max: number; median: number };
 }
 
 interface EstimateResult {
@@ -95,7 +99,7 @@ function exportCSV(items: EstimateLineItem[], totals: { subtotal: number; margin
   const rows = items
     .map(
       (item) =>
-        `"${item.poste}";${item.quantity};"${item.unit}";${item.unit_price.toFixed(2)};${item.total.toFixed(2)};${item.confidence};${item.source === "db_historical" ? "BD" : "IA"}`
+        `"${item.item}";${item.quantity ?? 0};"${item.unit}";${item.unit_price.toFixed(2)};${item.total_price.toFixed(2)};${item.confidence};${item.source === "db_historical" ? "BD" : "IA"}`
     )
     .join("\n");
   const summary = `\n\nSous-total;;;;;;${totals.subtotal.toFixed(2)}\nMarge;;;;;;${totals.margin.toFixed(2)}\nTransport;;;;;;${totals.transport.toFixed(2)}\nTotal estimé;;;;;;${totals.grand.toFixed(2)}`;
@@ -159,8 +163,8 @@ export default function CantaiaPrixPage() {
   const [estimateError, setEstimateError] = useState<string | null>(null);
 
   // History
-  const [history] = useState<any[]>([]);
-  const [_historyLoading] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // ── Load config from API ──
   useEffect(() => {
@@ -222,6 +226,22 @@ export default function CantaiaPrixPage() {
       })
       .finally(() => setAnalysisLoading(false));
   }, [urlAnalysisId]);
+
+  // ── Load estimation history ──
+  const loadHistory = useCallback(() => {
+    setHistoryLoading(true);
+    fetch("/api/pricing/estimates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.estimates) setHistory(d.estimates);
+      })
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   // ── Run estimation ──
   const handleEstimate = useCallback(async () => {
@@ -297,13 +317,14 @@ export default function CantaiaPrixPage() {
         setEstimateError(data.error || "Erreur lors de l'estimation.");
       } else {
         setEstimateResult(data.estimate);
+        loadHistory(); // refresh history after successful estimation
       }
     } catch (err: any) {
       setEstimateError(err.message || "Erreur réseau.");
     } finally {
       setEstimating(false);
     }
-  }, [config, exclusionsText, scope, context, selectedPlanId, urlAnalysisId, analysisData]);
+  }, [config, exclusionsText, scope, context, selectedPlanId, urlAnalysisId, analysisData, loadHistory]);
 
   // ── Selected plan display ──
   const selectedPlan = useMemo(
@@ -862,7 +883,7 @@ export default function CantaiaPrixPage() {
                         >
                           <td className="px-3 py-2.5">
                             <p className="font-medium text-slate-800">
-                              {item.poste}
+                              {item.item}
                             </p>
                             {item.cfc_code && (
                               <span className="mt-0.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
@@ -880,7 +901,7 @@ export default function CantaiaPrixPage() {
                             {formatCHF(item.unit_price)}
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono font-medium text-slate-900">
-                            {formatCHF(item.total)}
+                            {formatCHF(item.total_price)}
                           </td>
                           <td className="px-3 py-2.5 text-center">
                             <span className="inline-flex items-center gap-1.5">
@@ -973,7 +994,12 @@ export default function CantaiaPrixPage() {
         {/* ═══════════════════════════════════════════ */}
         {activeTab === "history" && (
           <div>
-            {history.length === 0 ? (
+            {historyLoading ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+                <p className="mt-3 text-sm text-slate-400">Chargement de l'historique…</p>
+              </div>
+            ) : history.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
                 <Clock className="h-12 w-12 text-slate-300" />
                 <h3 className="mt-3 text-sm font-medium text-slate-600">
