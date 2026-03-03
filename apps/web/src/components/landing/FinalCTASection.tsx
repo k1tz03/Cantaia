@@ -45,17 +45,17 @@ export function FinalCTASection() {
     <section
       className="relative overflow-hidden px-6 py-24"
       style={{
-        background: "linear-gradient(to bottom, #0F172A, #1E293B)",
+        background: "linear-gradient(to bottom, #0A1F30, #1A3A52)",
       }}
     >
       {/* Background glow accents */}
-      <div className="absolute left-1/4 top-0 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
+      <div className="absolute left-1/4 top-0 h-48 w-48 rounded-full bg-gold/5 blur-3xl" />
+      <div className="absolute bottom-0 right-1/4 h-48 w-48 rounded-full bg-gold/5 blur-3xl" />
 
       <div className="relative mx-auto max-w-3xl text-center">
         {/* Title */}
         <AnimatedSection>
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
             {t("title")}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
@@ -70,7 +70,7 @@ export function FinalCTASection() {
               <button
                 type="button"
                 onClick={() => setShowForm(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-400/25 transition-all hover:bg-amber-500 hover:shadow-xl"
+                className="inline-flex items-center gap-2 rounded-lg bg-gold px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-gold/25 transition-all hover:bg-gold-dark hover:shadow-xl"
               >
                 <CalendarDays className="h-4 w-4" />
                 {t("ctaPrimary")}
@@ -108,7 +108,7 @@ export function FinalCTASection() {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
                 />
               </div>
 
@@ -127,7 +127,7 @@ export function FinalCTASection() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
                 />
               </div>
 
@@ -146,7 +146,7 @@ export function FinalCTASection() {
                   required
                   value={formData.company}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
                 />
               </div>
 
@@ -164,7 +164,7 @@ export function FinalCTASection() {
                   required
                   value={formData.sites}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
                 >
                   <option value="" disabled className="bg-slate-800">
                     --
@@ -195,14 +195,14 @@ export function FinalCTASection() {
                   rows={3}
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full resize-none rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full resize-none rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20"
                 />
               </div>
 
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full rounded-lg bg-amber-400 px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-400/25 transition-colors hover:bg-amber-500"
+                className="w-full rounded-lg bg-gold px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-gold/25 transition-colors hover:bg-gold-dark"
               >
                 {t("formSubmit")}
               </button>
@@ -213,8 +213,8 @@ export function FinalCTASection() {
         {/* Success message */}
         {submitted && (
           <AnimatedSection delay={0}>
-            <div className="mx-auto mt-10 max-w-lg rounded-2xl border border-amber-400/30 bg-amber-400/10 p-8 backdrop-blur-sm">
-              <p className="text-lg font-semibold text-amber-400">
+            <div className="mx-auto mt-10 max-w-lg rounded-2xl border border-gold/30 bg-gold/10 p-8 backdrop-blur-sm">
+              <p className="text-lg font-semibold text-gold">
                 {t("formSuccess")}
               </p>
             </div>

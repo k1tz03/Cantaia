@@ -10,13 +10,13 @@ export function HeroSection() {
   const t = useTranslations("landing");
 
   return (
-    <section className="relative overflow-hidden bg-[#0F172A] px-6 pb-16 pt-24 sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-40">
+    <section className="relative overflow-hidden bg-[#0A1F30] px-6 pb-16 pt-24 sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-40">
       {/* Gradient overlays */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A] via-[#0F172A] to-[#131C31]" />
-        <div className="absolute -top-40 right-1/4 h-[500px] w-[500px] rounded-full bg-amber-500/5 blur-[120px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0A1F30] via-[#0A1F30] to-[#0D2840]" />
+        <div className="absolute -top-40 right-1/4 h-[500px] w-[500px] rounded-full bg-gold/5 blur-[120px]" />
         <div className="absolute -bottom-20 left-1/3 h-[400px] w-[400px] rounded-full bg-blue-500/5 blur-[100px]" />
-        <div className="absolute right-0 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-amber-400/3 blur-[80px]" />
+        <div className="absolute right-0 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-gold/3 blur-[80px]" />
       </div>
 
       {/* Subtle grid */}
@@ -39,12 +39,12 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-amber-400/20 bg-amber-400/5 px-4 py-2 backdrop-blur-sm"
+            className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-gold/20 bg-gold/5 px-4 py-2 backdrop-blur-sm"
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20">
-              <Sparkles className="h-3 w-3 text-amber-400" />
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gold/20">
+              <Sparkles className="h-3 w-3 text-gold" />
             </span>
-            <span className="text-sm font-medium text-amber-300/90">
+            <span className="text-sm font-medium text-gold-light/90">
               {t("hero.badge")}
             </span>
           </motion.div>
@@ -54,7 +54,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl"
+            className="font-heading text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl"
           >
             <span className="bg-gradient-to-b from-white to-blue-200/80 bg-clip-text text-transparent">
               {t("hero.title")}
@@ -80,7 +80,7 @@ export function HeroSection() {
           >
             <Link
               href="/register"
-              className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-7 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/25 transition-all hover:from-amber-300 hover:to-amber-400 hover:shadow-xl hover:shadow-amber-500/30"
+              className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-gold-light to-gold px-7 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-gold/25 transition-all hover:from-gold hover:to-gold-light hover:shadow-xl hover:shadow-gold/30"
             >
               {t("hero.cta")}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

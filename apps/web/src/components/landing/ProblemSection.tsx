@@ -6,9 +6,9 @@ import { Mail, Clock, BarChart3 } from "lucide-react";
 import { AnimatedSection } from "./AnimatedSection";
 
 const painPoints = [
-  { key: "1", icon: Mail, accent: "border-l-amber-500" },
+  { key: "1", icon: Mail, accent: "border-l-gold" },
   { key: "2", icon: Clock, accent: "border-l-red-500" },
-  { key: "3", icon: BarChart3, accent: "border-l-orange-500" },
+  { key: "3", icon: BarChart3, accent: "border-l-gold-dark" },
 ] as const;
 
 function useCountUp(target: number, duration = 2000) {
@@ -61,10 +61,10 @@ export function ProblemSection() {
   const { count, ref: counterRef } = useCountUp(15, 2000);
 
   return (
-    <section className="bg-[#F8FAFC] px-6 py-24">
+    <section className="bg-parchment px-6 py-24">
       <div className="mx-auto max-w-6xl">
         <AnimatedSection className="text-center">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
             {t("title")}
           </h2>
         </AnimatedSection>
@@ -73,13 +73,13 @@ export function ProblemSection() {
         <AnimatedSection delay={0.1} className="mt-12 flex justify-center">
           <div
             ref={counterRef}
-            className="inline-flex flex-col items-center rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-12 py-8 shadow-lg shadow-amber-100/50"
+            className="inline-flex flex-col items-center rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-50 to-parchment px-12 py-8 shadow-lg shadow-gold/10"
           >
             <div className="flex items-baseline gap-2">
-              <span className="font-['Plus_Jakarta_Sans'] text-6xl font-extrabold text-amber-600 sm:text-7xl">
+              <span className="font-heading text-6xl font-extrabold text-gold-dark sm:text-7xl">
                 {count}
               </span>
-              <span className="text-2xl font-semibold text-amber-500 sm:text-3xl">
+              <span className="text-2xl font-semibold text-gold sm:text-3xl">
                 {t("statUnit")}
               </span>
             </div>
@@ -101,10 +101,10 @@ export function ProblemSection() {
                 <div
                   className={`group h-full rounded-xl border border-slate-200 border-l-4 ${point.accent} bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 transition-colors group-hover:bg-amber-50">
-                    <Icon className="h-6 w-6 text-slate-600 transition-colors group-hover:text-amber-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 transition-colors group-hover:bg-gold-50">
+                    <Icon className="h-6 w-6 text-slate-600 transition-colors group-hover:text-gold-dark" />
                   </div>
-                  <h3 className="mt-5 font-['Plus_Jakarta_Sans'] text-lg font-bold text-slate-900">
+                  <h3 className="mt-5 font-heading text-lg font-bold text-slate-900">
                     {t(`painPoint${point.key}Title`)}
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-slate-500">

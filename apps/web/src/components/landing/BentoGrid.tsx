@@ -256,7 +256,7 @@ function TasksCell({ active }: { active: boolean }) {
     {
       label: t("tasksProgress"),
       count: counts[1],
-      color: "border-amber-400/30 bg-amber-400/5 text-amber-300",
+      color: "border-gold/30 bg-gold/5 text-gold-light",
     },
     {
       label: t("tasksDone"),
@@ -324,15 +324,15 @@ function PriceCell({ active }: { active: boolean }) {
       <CellHeader
         icon={AlertTriangle}
         title={t("priceTitle")}
-        color="bg-amber-500/20 text-amber-400"
-        accent="#F59E0B"
+        color="bg-gold/20 text-gold"
+        accent="#C4A661"
       />
       <p className="text-[11px] font-semibold text-white/60">
         {t("priceItem")}
       </p>
       <p
         className={`mt-1 text-lg font-bold transition-all duration-500 ${
-          pulse ? "scale-110 text-red-400" : "scale-100 text-amber-400"
+          pulse ? "scale-110 text-red-400" : "scale-100 text-gold"
         }`}
       >
         {t("priceChange")}
@@ -530,22 +530,22 @@ function BriefingCell({ active }: { active: boolean }) {
       <CellHeader
         icon={Sun}
         title={t("briefingTitle")}
-        color="bg-amber-500/20 text-amber-400"
-        accent="#F59E0B"
+        color="bg-gold/20 text-gold"
+        accent="#C4A661"
       />
       <div className="min-h-[60px] rounded-lg bg-white/[0.03] p-3">
         <p className="text-[11px] leading-relaxed text-white/50">
           &ldquo;{displayText}
-          <span className="animate-pulse text-amber-400">|</span>&rdquo;
+          <span className="animate-pulse text-gold">|</span>&rdquo;
         </p>
       </div>
       {showPriority && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-2 flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-1.5"
+          className="mt-2 flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/5 px-3 py-1.5"
         >
-          <span className="text-[9px] font-semibold text-amber-400/70">
+          <span className="text-[9px] font-semibold text-gold/70">
             {t("briefingPriority")}
           </span>
           <span className="text-[10px] text-white/50">
@@ -578,7 +578,7 @@ function PlansCell({ active }: { active: boolean }) {
     review: {
       icon: "🔄",
       label: t("planReview"),
-      color: "text-amber-400",
+      color: "text-gold",
     },
     pending: {
       icon: "⏳",

@@ -63,7 +63,7 @@ function StatCounter({
 
   return (
     <div className="text-center">
-      <div className="text-3xl font-bold text-amber-400 sm:text-4xl">
+      <div className="text-3xl font-bold text-gold sm:text-4xl">
         {displayValue}
       </div>
       <div className="mt-2 text-sm text-slate-400">{label}</div>
@@ -100,14 +100,14 @@ export function ProofSection() {
   }, [handleIntersect]);
 
   return (
-    <section className="relative overflow-hidden px-6 py-24" style={{ backgroundColor: "#0F172A" }}>
+    <section className="relative overflow-hidden px-6 py-24" style={{ backgroundColor: "#0A1F30" }}>
       {/* Subtle glow */}
-      <div className="absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-amber-400/5 blur-3xl" />
+      <div className="absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-gold/5 blur-3xl" />
 
       <div className="relative mx-auto max-w-6xl">
         {/* Title */}
         <AnimatedSection className="text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
             {t("title")}
           </h2>
         </AnimatedSection>

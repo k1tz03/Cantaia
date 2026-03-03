@@ -45,12 +45,12 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       className="relative overflow-hidden px-6 py-24"
-      style={{ backgroundColor: "#F8FAFC" }}
+      style={{ backgroundColor: "#F5F2EB" }}
     >
       <div className="mx-auto max-w-5xl">
         {/* Header */}
         <AnimatedSection className="text-center">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
             {t("title")}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-slate-600">
@@ -61,10 +61,10 @@ export function HowItWorksSection() {
         {/* Timeline */}
         <div className="relative mt-20">
           {/* Connecting line — desktop horizontal */}
-          <div className="absolute left-[calc(16.667%+20px)] right-[calc(16.667%+20px)] top-6 hidden h-0.5 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300 sm:block" />
+          <div className="absolute left-[calc(16.667%+20px)] right-[calc(16.667%+20px)] top-6 hidden h-0.5 bg-gradient-to-r from-gold-light via-gold to-gold-light sm:block" />
 
           {/* Connecting line — mobile vertical */}
-          <div className="absolute bottom-6 left-6 top-6 w-0.5 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-300 sm:hidden" />
+          <div className="absolute bottom-6 left-6 top-6 w-0.5 bg-gradient-to-b from-gold-light via-gold to-gold-light sm:hidden" />
 
           <div className="grid grid-cols-1 gap-12 sm:grid-cols-3 sm:gap-8">
             {steps.map((step, index) => (
@@ -74,7 +74,7 @@ export function HowItWorksSection() {
                 className="relative flex gap-6 sm:flex-col sm:items-center sm:gap-0 sm:text-center"
               >
                 {/* Numbered circle */}
-                <div className="relative z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-400 text-lg font-bold text-slate-900 shadow-lg shadow-amber-400/30">
+                <div className="relative z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gold text-lg font-bold text-white shadow-lg shadow-gold/30">
                   {step}
                 </div>
 

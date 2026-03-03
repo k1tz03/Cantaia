@@ -35,7 +35,7 @@ const rowKeys = ["row1", "row2", "row3", "row4"] as const;
 const emojiBgColors: Record<number, string> = {
   1: "bg-blue-500/10",
   2: "bg-emerald-500/10",
-  3: "bg-amber-500/10",
+  3: "bg-gold/10",
   4: "bg-violet-500/10",
 };
 
@@ -48,10 +48,10 @@ export function FeaturesSection() {
   });
 
   return (
-    <section className="bg-[#0F172A] px-6 py-24">
+    <section className="bg-[#0A1F30] px-6 py-24">
       <div className="mx-auto max-w-7xl">
         <AnimatedSection className="text-center">
-          <h2 className="font-['Plus_Jakarta_Sans'] text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
+          <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
             {t("title")}
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
@@ -65,7 +65,7 @@ export function FeaturesSection() {
             <AnimatedSection delay={0.05}>
               <div className="mb-6 flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-700/50" />
-                <span className="font-['Plus_Jakarta_Sans'] text-xs font-semibold uppercase tracking-widest text-slate-500">
+                <span className="font-heading text-xs font-semibold uppercase tracking-widest text-slate-500">
                   {t(rowKeys[rowIdx])}
                 </span>
                 <div className="h-px flex-1 bg-slate-700/50" />
@@ -89,7 +89,7 @@ export function FeaturesSection() {
                     <div className="group relative h-full rounded-xl border border-slate-700/50 bg-slate-800/50 p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-600 hover:shadow-xl hover:shadow-black/20">
                       {/* Badge for f11 */}
                       {feature.hasBadge && (
-                        <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg shadow-amber-500/25">
+                        <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-gold to-gold-dark px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg shadow-gold/25">
                           {t("f11Badge")}
                         </span>
                       )}
@@ -104,7 +104,7 @@ export function FeaturesSection() {
                       </div>
 
                       {/* Title */}
-                      <h3 className="mt-4 font-['Plus_Jakarta_Sans'] text-base font-semibold text-white">
+                      <h3 className="mt-4 font-heading text-base font-semibold text-white">
                         {t(`${feature.key}Title`)}
                       </h3>
 

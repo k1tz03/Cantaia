@@ -2,22 +2,24 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Building2 } from "lucide-react";
 
 export function MarketingFooter() {
   const t = useTranslations("landing");
 
   return (
-    <footer className="border-t border-white/5 bg-[#0A0F1A]">
+    <footer className="border-t border-white/5 bg-[#061018]">
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand column */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/20">
-                <Building2 className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-lg font-bold tracking-tight text-white">
+              <svg viewBox="0 0 40 40" className="h-8 w-8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(0 20 20)" opacity="0.9"/>
+                <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(60 20 20)" opacity="0.7"/>
+                <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(-60 20 20)" opacity="0.5"/>
+                <circle cx="20" cy="20" r="2.5" fill="#C4A661"/>
+              </svg>
+              <span className="font-heading text-lg font-bold tracking-tight text-white">
                 Cantaia
               </span>
             </div>
@@ -38,7 +40,7 @@ export function MarketingFooter() {
               <li>
                 <a
                   href="/#features"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.features")}
                 </a>
@@ -46,7 +48,7 @@ export function MarketingFooter() {
               <li>
                 <a
                   href="/#spotlight"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.intelligence")}
                 </a>
@@ -54,7 +56,7 @@ export function MarketingFooter() {
               <li>
                 <a
                   href="/#pricing"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.pricing")}
                 </a>
@@ -79,7 +81,7 @@ export function MarketingFooter() {
               <li>
                 <Link
                   href="/about"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.about")}
                 </Link>
@@ -103,7 +105,7 @@ export function MarketingFooter() {
               <li>
                 <a
                   href="/#faq"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.faq")}
                 </a>
@@ -120,7 +122,7 @@ export function MarketingFooter() {
               <li>
                 <Link
                   href="/legal/cgv"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.cgv")}
                 </Link>
@@ -128,7 +130,7 @@ export function MarketingFooter() {
               <li>
                 <Link
                   href="/legal/privacy"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.privacy")}
                 </Link>
@@ -136,7 +138,7 @@ export function MarketingFooter() {
               <li>
                 <Link
                   href="/legal/mentions"
-                  className="text-sm text-slate-500 transition-colors hover:text-amber-400"
+                  className="text-sm text-slate-500 transition-colors hover:text-gold"
                 >
                   {t("footer.mentions")}
                 </Link>

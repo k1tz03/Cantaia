@@ -24,11 +24,11 @@ export function FAQSection() {
   const t = useTranslations("landing.faq");
 
   return (
-    <section className="px-6 py-24" style={{ backgroundColor: "#F8FAFC" }}>
+    <section className="px-6 py-24" style={{ backgroundColor: "#F5F2EB" }}>
       <div className="mx-auto max-w-3xl">
         {/* Title */}
         <AnimatedSection className="text-center">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
             {t("title")}
           </h2>
         </AnimatedSection>
@@ -43,7 +43,7 @@ export function FAQSection() {
                 className="rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
               >
                 <Accordion.Header>
-                  <Accordion.Trigger className="group flex w-full items-center justify-between px-6 py-5 text-left text-sm font-semibold text-slate-900 transition-colors hover:text-amber-600">
+                  <Accordion.Trigger className="group flex w-full items-center justify-between px-6 py-5 text-left text-sm font-semibold text-slate-900 transition-colors hover:text-gold-dark">
                     {t(`q${key}`)}
                     <ChevronDown className="h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180" />
                   </Accordion.Trigger>

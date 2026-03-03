@@ -58,12 +58,12 @@ export function PricingSection() {
     <section
       id="pricing"
       className="relative overflow-hidden px-6 py-24"
-      style={{ backgroundColor: "#F8FAFC" }}
+      style={{ backgroundColor: "#F5F2EB" }}
     >
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <AnimatedSection className="text-center">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
             {t("title")}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-slate-600">
@@ -83,13 +83,13 @@ export function PricingSection() {
                   className={cn(
                     "relative flex h-full flex-col rounded-2xl border p-8 transition-shadow",
                     plan.featured
-                      ? "border-amber-400 bg-white shadow-xl shadow-amber-400/20 ring-2 ring-amber-400/50"
+                      ? "border-gold bg-white shadow-xl shadow-gold/20 ring-2 ring-gold/50"
                       : "border-slate-200 bg-white shadow-sm hover:shadow-md"
                   )}
                 >
                   {/* Popular badge */}
                   {plan.featured && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-4 py-1 text-xs font-semibold text-slate-900 shadow-md">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-gold-light to-gold px-4 py-1 text-xs font-semibold text-slate-900 shadow-md">
                       {t("popular")}
                     </div>
                   )}
@@ -138,7 +138,7 @@ export function PricingSection() {
                           className={cn(
                             "mt-0.5 h-4 w-4 flex-shrink-0",
                             plan.featured
-                              ? "text-amber-500"
+                              ? "text-gold"
                               : "text-slate-700"
                           )}
                         />
@@ -164,8 +164,8 @@ export function PricingSection() {
                         className={cn(
                           "block w-full rounded-lg px-6 py-3 text-center text-sm font-semibold transition-colors",
                           plan.featured
-                            ? "bg-amber-400 text-slate-900 shadow-lg shadow-amber-400/25 hover:bg-amber-500"
-                            : "bg-[#0F172A] text-white hover:bg-slate-800"
+                            ? "bg-gold text-slate-900 shadow-lg shadow-gold/25 hover:bg-gold-dark"
+                            : "bg-[#0A1F30] text-white hover:bg-slate-800"
                         )}
                       >
                         {t("choosePlan")}

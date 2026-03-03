@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { Building2, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { LanguageSwitcher } from "@cantaia/ui";
 import { useRouter } from "@/i18n/navigation";
@@ -34,7 +34,7 @@ export function MarketingHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-50 bg-[#0F172A]/95 backdrop-blur-xl transition-all duration-300 ${
+      className={`sticky top-0 z-50 bg-[#0A1F30]/95 backdrop-blur-xl transition-all duration-300 ${
         scrolled
           ? "border-b border-white/10 shadow-lg shadow-black/10"
           : ""
@@ -43,10 +43,13 @@ export function MarketingHeader() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/20 transition-shadow group-hover:shadow-amber-500/40">
-            <Building2 className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white">
+          <svg viewBox="0 0 40 40" className="h-8 w-8" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(0 20 20)" opacity="0.9"/>
+            <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(60 20 20)" opacity="0.7"/>
+            <ellipse cx="20" cy="20" rx="14" ry="6" stroke="#C4A661" strokeWidth="1.5" transform="rotate(-60 20 20)" opacity="0.5"/>
+            <circle cx="20" cy="20" r="2.5" fill="#C4A661"/>
+          </svg>
+          <span className="font-heading text-xl font-bold tracking-tight text-white">
             Cantaia
           </span>
         </Link>
@@ -80,7 +83,7 @@ export function MarketingHeader() {
           </Link>
           <Link
             href="/register"
-            className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/25 transition-all hover:from-amber-300 hover:to-amber-400 hover:shadow-amber-500/40"
+            className="rounded-xl bg-gradient-to-r from-gold-light to-gold px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-gold/25 transition-all hover:from-gold hover:to-gold-light hover:shadow-gold/40"
           >
             {t("landing.nav.demo")}
           </Link>
@@ -108,7 +111,7 @@ export function MarketingHeader() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-white/10 bg-[#0F172A]/98 backdrop-blur-xl lg:hidden"
+            className="overflow-hidden border-t border-white/10 bg-[#0A1F30]/98 backdrop-blur-xl lg:hidden"
           >
             <div className="flex flex-col gap-1 px-6 py-4">
               {navLinks.map((link, index) => (
@@ -133,7 +136,7 @@ export function MarketingHeader() {
               </Link>
               <Link
                 href="/register"
-                className="mt-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-3 text-center text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/25"
+                className="mt-1 rounded-xl bg-gradient-to-r from-gold-light to-gold px-5 py-3 text-center text-sm font-semibold text-slate-900 shadow-lg shadow-gold/25"
               >
                 {t("landing.nav.demo")}
               </Link>
