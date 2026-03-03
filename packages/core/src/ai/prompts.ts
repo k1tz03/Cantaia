@@ -830,3 +830,106 @@ RÈGLES :
 4. Monnaie par défaut : CHF
 5. TVA par défaut en Suisse : 8.1%`;
 }
+
+// ============================================================
+// Free-Form Price Extraction — Extract prices from emails without submission matching
+// ============================================================
+
+export interface FreeFormPriceExtractionContext {
+  content: string;
+  sender_email: string;
+  sender_name: string | null;
+  subject: string;
+  project_name: string | null;
+  content_type: "email_body" | "pdf_document";
+}
+
+export function buildFreeFormPriceExtractionPrompt(ctx: FreeFormPriceExtractionContext): string {
+  return `Tu es un expert en analyse d'offres de prix pour la construction en Suisse. Analyse ce contenu et extrais TOUTES les informations de prix, le fournisseur et les conditions.
+
+CONTEXTE :
+- Type : ${ctx.content_type === "email_body" ? "Corps d'email" : "Document PDF"}
+- Expéditeur : ${ctx.sender_name || "Inconnu"} <${ctx.sender_email}>
+- Objet : ${ctx.subject}
+${ctx.project_name ? `- Projet : ${ctx.project_name}` : ""}
+
+CONTENU À ANALYSER :
+${ctx.content}
+
+ÉTAPE 1 — Ce contenu contient-il des prix ou une offre de prix ?
+Indices positifs : montants en CHF/EUR, prix unitaires, devis, offre, Angebot, total HT/TTC, remise, conditions de paiement.
+Indices négatifs : newsletter, publicité générique, email interne, relance sans prix.
+
+ÉTAPE 2 — Si oui, extrais :
+
+A) FOURNISSEUR (depuis signature, en-tête, pied de page) :
+- Raison sociale, nom du contact, email, téléphone
+- Adresse complète (rue, NPA, ville)
+- Site web si visible
+- Spécialités (gros_oeuvre, electricite, cvc, sanitaire, peinture, menuiserie, metallerie, toiture, facade, amenagement_exterieur, autre)
+
+B) POSTES DE PRIX — pour CHAQUE ligne/position mentionnée :
+- Description du poste (texte complet, pas de troncation)
+- Quantité (si indiquée)
+- Unité (m², ml, pce, m³, kg, h, fft, gl, etc.)
+- Prix unitaire (CHF)
+- Prix total de la ligne (si calculable)
+- Code CFC si mentionné (3 chiffres, ex: 211, 271, 281)
+
+C) CONDITIONS GÉNÉRALES :
+- Montant total de l'offre
+- TVA incluse ou non, taux
+- Conditions de paiement
+- Délai de validité
+- Livraison incluse
+- Remise éventuelle
+- Conditions spéciales
+
+Réponds UNIQUEMENT en JSON :
+{
+  "has_prices": true,
+  "supplier_info": {
+    "company_name": "Baumag SA",
+    "contact_name": "Jean Dupont",
+    "email": "j.dupont@baumag.ch",
+    "phone": "+41 21 123 45 67",
+    "address": "Rue de l'Industrie 12",
+    "postal_code": "1003",
+    "city": "Lausanne",
+    "website": "www.baumag.ch",
+    "specialties": ["gros_oeuvre", "facade"]
+  },
+  "line_items": [
+    {
+      "description": "Fenêtre PVC double vitrage 120x140",
+      "quantity": 32,
+      "unit": "pce",
+      "unit_price": 450.00,
+      "total_price": 14400.00,
+      "cfc_code": "271"
+    }
+  ],
+  "offer_summary": {
+    "total_amount": 45000.00,
+    "currency": "CHF",
+    "vat_included": false,
+    "vat_rate": 8.1,
+    "payment_terms": "30 jours net",
+    "validity_days": 60,
+    "delivery_included": true,
+    "discount_percent": null,
+    "conditions_text": null
+  },
+  "project_reference": "Résidence Les Tilleuls",
+  "confidence": 0.85
+}
+
+RÈGLES :
+1. Si le contenu ne contient PAS de prix → { "has_prices": false, "confidence": 0.9 }
+2. Extrais le fournisseur même si les prix sont absents (signature email)
+3. Ne pas inventer de prix — uniquement ce qui est explicitement mentionné
+4. Pour les devis par email (texte libre), accepte les formats variés : "250.-/m²", "CHF 250.00", "Fr. 250.–"
+5. Si plusieurs offres dans le même email (variantes), créer une ligne par variante
+6. Monnaie par défaut : CHF
+7. Confiance : 0.9+ = devis formel structuré, 0.7-0.9 = prix dans le texte, 0.5-0.7 = montants ambigus`;
+}

@@ -13,13 +13,16 @@ import {
   MapPin,
   Truck,
   Percent,
-  CircleDot,
   Database,
   Sparkles,
   CheckCircle,
   AlertTriangle,
   ArrowLeft,
   Eye,
+  Mail,
+  ChevronRight,
+  Upload,
+  Package,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 
@@ -170,6 +173,21 @@ export default function CantaiaPrixPage() {
   const [historyDetail, setHistoryDetail] = useState<any | null>(null);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
 
+  // Benchmark / extraction
+  const [extractionJobId, setExtractionJobId] = useState<string | null>(null);
+  const [extractionStatus, setExtractionStatus] = useState<string | null>(null);
+  const [extractionProgress, setExtractionProgress] = useState({ total: 0, scanned: 0, withPrices: 0, items: 0 });
+  const [extractionResults, setExtractionResults] = useState<any[]>([]);
+  const [extractionRunning, setExtractionRunning] = useState(false);
+  const [importResult, setImportResult] = useState<any | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [selectedExtractions, setSelectedExtractions] = useState<Set<string>>(new Set());
+  const [expandedExtraction, setExpandedExtraction] = useState<string | null>(null);
+  const [benchmarkProjectFilter, setBenchmarkProjectFilter] = useState<string>("");
+
+  // Projects list for filter
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+
   // ── Load config from API ──
   useEffect(() => {
     fetch("/api/pricing/config")
@@ -246,6 +264,117 @@ export default function CantaiaPrixPage() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  // ── Load projects for filter ──
+  useEffect(() => {
+    fetch("/api/projects/list")
+      .then((r) => r.json())
+      .then((d) => {
+        const list = (d.projects || d || []).map((p: any) => ({ id: p.id, name: p.name }));
+        setProjects(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Start extraction job ──
+  const startExtraction = useCallback(async () => {
+    setExtractionRunning(true);
+    setExtractionStatus(null);
+    setExtractionResults([]);
+    setImportResult(null);
+    setSelectedExtractions(new Set());
+
+    try {
+      const res = await fetch("/api/pricing/extract-from-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: benchmarkProjectFilter || null }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setExtractionStatus(`error: ${data.error || "Erreur"}`);
+        setExtractionRunning(false);
+        return;
+      }
+      setExtractionJobId(data.job_id);
+      setExtractionProgress({ total: data.total_emails, scanned: 0, withPrices: 0, items: 0 });
+      setExtractionStatus("extracting");
+
+      // Start processing loop
+      await processLoop(data.job_id);
+    } catch (err: any) {
+      setExtractionStatus(`error: ${err.message}`);
+      setExtractionRunning(false);
+    }
+  }, [benchmarkProjectFilter]);
+
+  const processLoop = useCallback(async (jobId: string) => {
+    let done = false;
+    while (!done) {
+      try {
+        const res = await fetch("/api/pricing/extract-from-emails/process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: jobId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setExtractionStatus(`error: ${data.error || "Erreur"}`);
+          break;
+        }
+        done = data.done;
+
+        // Poll status for accurate progress
+        const statusRes = await fetch(`/api/pricing/extract-from-emails/status?job_id=${jobId}`);
+        const statusData = await statusRes.json();
+        if (statusData.job) {
+          setExtractionProgress({
+            total: statusData.job.total_emails,
+            scanned: statusData.job.scanned_emails,
+            withPrices: statusData.job.emails_with_prices,
+            items: statusData.job.extracted_items,
+          });
+          if (statusData.job.extraction_results) {
+            const results = statusData.job.extraction_results.filter((r: any) => r.has_prices);
+            setExtractionResults(results);
+            setSelectedExtractions(new Set(results.map((r: any) => r.emailId)));
+          }
+        }
+      } catch (err: any) {
+        setExtractionStatus(`error: ${err.message}`);
+        break;
+      }
+    }
+    setExtractionStatus("preview_ready");
+    setExtractionRunning(false);
+  }, []);
+
+  // ── Import confirmed results ──
+  const handleImport = useCallback(async () => {
+    if (!extractionJobId) return;
+    setImporting(true);
+    try {
+      const res = await fetch("/api/pricing/extract-from-emails/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: extractionJobId,
+          confirmed_email_ids: Array.from(selectedExtractions),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setImportResult(data);
+        setExtractionStatus("completed");
+      } else {
+        setExtractionStatus(`error: ${data.error || "Import failed"}`);
+      }
+    } catch (err: any) {
+      setExtractionStatus(`error: ${err.message}`);
+    } finally {
+      setImporting(false);
+    }
+  }, [extractionJobId, selectedExtractions]);
 
   // ── Load single estimate detail ──
   const openHistoryDetail = useCallback((estimateId: string) => {
@@ -1313,51 +1442,320 @@ export default function CantaiaPrixPage() {
         {/* TAB 3: Benchmark                           */}
         {/* ═══════════════════════════════════════════ */}
         {activeTab === "benchmark" && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
-            <BarChart3 className="h-12 w-12 text-slate-300" />
-            <h3 className="mt-3 text-sm font-medium text-slate-600">
-              Benchmark en construction
-            </h3>
-            <p className="mt-1 max-w-md text-center text-xs text-slate-400">
-              Le benchmark se construit automatiquement à mesure que vous recevez
-              des offres fournisseurs. Les prix unitaires sont analysés et comparés
-              pour vous donner une vision du marché.
-            </p>
-            <div className="mt-6 grid grid-cols-3 gap-6 text-center">
-              <div>
-                <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-full bg-blue-50">
-                  <Database className="h-5 w-5 text-blue-500" />
+          <div className="space-y-4">
+            {/* ── Import completed ── */}
+            {importResult && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <h3 className="text-sm font-semibold text-green-800">Import terminé</h3>
                 </div>
-                <p className="mt-2 text-xs font-medium text-slate-600">
-                  Prix historiques
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">
-                  Issus de vos soumissions
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-md bg-white p-2.5 text-center">
+                    <p className="text-lg font-bold text-slate-900">{importResult.suppliersCreated}</p>
+                    <p className="text-[10px] text-slate-500">Fournisseurs créés</p>
+                  </div>
+                  <div className="rounded-md bg-white p-2.5 text-center">
+                    <p className="text-lg font-bold text-slate-900">{importResult.suppliersMatched}</p>
+                    <p className="text-[10px] text-slate-500">Fournisseurs existants</p>
+                  </div>
+                  <div className="rounded-md bg-white p-2.5 text-center">
+                    <p className="text-lg font-bold text-slate-900">{importResult.offersCreated}</p>
+                    <p className="text-[10px] text-slate-500">Offres importées</p>
+                  </div>
+                  <div className="rounded-md bg-white p-2.5 text-center">
+                    <p className="text-lg font-bold text-brand">{importResult.lineItemsCreated}</p>
+                    <p className="text-[10px] text-slate-500">Postes de prix ajoutés</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Launch extraction ── */}
+            {!extractionRunning && extractionStatus !== "preview_ready" && (
+              <div className="rounded-lg border border-slate-200 bg-white p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
+                    <Mail className="h-5 w-5 text-brand" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Extraire les prix depuis vos emails
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      L'IA analyse vos emails fournisseurs (texte + PDF joints) pour extraire
+                      automatiquement les prix, descriptions et informations fournisseurs.
+                      Les données alimentent la base de benchmark pour vos futures estimations.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Filtrer par projet (optionnel)
+                        </label>
+                        <select
+                          value={benchmarkProjectFilter}
+                          onChange={(e) => setBenchmarkProjectFilter(e.target.value)}
+                          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                        >
+                          <option value="">Tous les projets</option>
+                          {projects.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startExtraction}
+                        className="inline-flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Lancer l'extraction
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {extractionStatus?.startsWith("error:") && (
+                  <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <AlertTriangle className="inline h-3.5 w-3.5 mr-1" />
+                    {extractionStatus.replace("error: ", "")}
+                  </div>
+                )}
+
+                {/* Info cards */}
+                <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="rounded-md border border-slate-100 p-3 text-center">
+                    <Mail className="mx-auto h-6 w-6 text-blue-500" />
+                    <p className="mt-1.5 text-xs font-medium text-slate-600">Emails analysés</p>
+                    <p className="text-[10px] text-slate-400">Corps de texte + signatures</p>
+                  </div>
+                  <div className="rounded-md border border-slate-100 p-3 text-center">
+                    <FileText className="mx-auto h-6 w-6 text-purple-500" />
+                    <p className="mt-1.5 text-xs font-medium text-slate-600">PDF extraits</p>
+                    <p className="text-[10px] text-slate-400">Devis et offres en PJ</p>
+                  </div>
+                  <div className="rounded-md border border-slate-100 p-3 text-center">
+                    <Database className="mx-auto h-6 w-6 text-green-500" />
+                    <p className="mt-1.5 text-xs font-medium text-slate-600">Base enrichie</p>
+                    <p className="text-[10px] text-slate-400">Prix + fournisseurs</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Progress bar ── */}
+            {extractionRunning && (
+              <div className="rounded-lg border border-slate-200 bg-white p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-brand" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">Extraction en cours…</h3>
+                    <p className="text-xs text-slate-400">
+                      {extractionProgress.scanned} / {extractionProgress.total} emails analysés
+                    </p>
+                  </div>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-brand transition-all duration-500"
+                    style={{
+                      width: `${extractionProgress.total > 0 ? Math.round((extractionProgress.scanned / extractionProgress.total) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5" />
+                    {extractionProgress.withPrices} emails avec prix
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Package className="h-3.5 w-3.5" />
+                    {extractionProgress.items} postes extraits
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ── Review results ── */}
+            {extractionStatus === "preview_ready" && extractionResults.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      {extractionResults.length} offre{extractionResults.length > 1 ? "s" : ""} trouvée{extractionResults.length > 1 ? "s" : ""}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Sélectionnez les offres à importer dans la base de prix
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedExtractions.size === extractionResults.length) {
+                          setSelectedExtractions(new Set());
+                        } else {
+                          setSelectedExtractions(new Set(extractionResults.map((r: any) => r.emailId)));
+                        }
+                      }}
+                      className="text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      {selectedExtractions.size === extractionResults.length ? "Tout désélectionner" : "Tout sélectionner"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleImport}
+                      disabled={importing || selectedExtractions.size === 0}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
+                    >
+                      {importing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      Importer {selectedExtractions.size} offre{selectedExtractions.size > 1 ? "s" : ""}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Results list */}
+                <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                  {extractionResults.map((result: any) => (
+                    <div key={`${result.emailId}-${result.source_type}`} className="transition-colors hover:bg-slate-50/50">
+                      {/* Row header */}
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedExtractions.has(result.emailId)}
+                          onChange={(e) => {
+                            const next = new Set(selectedExtractions);
+                            if (e.target.checked) next.add(result.emailId);
+                            else next.delete(result.emailId);
+                            setSelectedExtractions(next);
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-brand"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setExpandedExtraction(expandedExtraction === result.emailId ? null : result.emailId)}
+                          className="flex flex-1 items-center gap-3 text-left"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-slate-800 truncate">
+                                {result.supplier_info?.company_name || "Fournisseur inconnu"}
+                              </p>
+                              <span className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                result.source_type === "pdf_attachment"
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "bg-blue-50 text-blue-700"
+                              )}>
+                                {result.source_type === "pdf_attachment" ? (
+                                  <><FileText className="h-3 w-3" />PDF</>
+                                ) : (
+                                  <><Mail className="h-3 w-3" />Email</>
+                                )}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 truncate">
+                              {result.supplier_info?.email || ""}{result.supplier_info?.city ? ` — ${result.supplier_info.city}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-mono text-sm font-semibold text-slate-900">
+                              {result.line_items?.length || 0} poste{(result.line_items?.length || 0) > 1 ? "s" : ""}
+                            </p>
+                            {result.offer_summary?.total_amount && (
+                              <p className="font-mono text-xs text-slate-500">
+                                {formatCHF(result.offer_summary.total_amount)} CHF
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight className={cn(
+                            "h-4 w-4 text-slate-400 transition-transform shrink-0",
+                            expandedExtraction === result.emailId && "rotate-90"
+                          )} />
+                        </button>
+                      </div>
+
+                      {/* Expanded detail */}
+                      {expandedExtraction === result.emailId && result.line_items && (
+                        <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+                          {/* Supplier info */}
+                          <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                            {result.supplier_info?.phone && (
+                              <span>{result.supplier_info.phone}</span>
+                            )}
+                            {result.supplier_info?.address && (
+                              <span>{result.supplier_info.address}, {result.supplier_info.postal_code} {result.supplier_info.city}</span>
+                            )}
+                            {result.supplier_info?.website && (
+                              <span>{result.supplier_info.website}</span>
+                            )}
+                          </div>
+                          {/* Line items table */}
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-[10px] uppercase text-slate-400">
+                                <th className="pb-1.5 text-left font-semibold">Description</th>
+                                <th className="pb-1.5 text-right font-semibold">Qté</th>
+                                <th className="pb-1.5 text-center font-semibold">Unité</th>
+                                <th className="pb-1.5 text-right font-semibold">PU (CHF)</th>
+                                <th className="pb-1.5 text-right font-semibold">Total (CHF)</th>
+                                <th className="pb-1.5 text-center font-semibold">CFC</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {result.line_items.map((li: any, idx: number) => (
+                                <tr key={idx}>
+                                  <td className="py-1.5 pr-2 text-slate-700">{li.description}</td>
+                                  <td className="py-1.5 text-right font-mono text-slate-600">{li.quantity ?? "—"}</td>
+                                  <td className="py-1.5 text-center text-slate-500">{li.unit}</td>
+                                  <td className="py-1.5 text-right font-mono text-slate-700">{formatCHF(li.unit_price)}</td>
+                                  <td className="py-1.5 text-right font-mono font-medium text-slate-900">
+                                    {li.total_price ? formatCHF(li.total_price) : "—"}
+                                  </td>
+                                  <td className="py-1.5 text-center">
+                                    {li.cfc_code ? (
+                                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">{li.cfc_code}</span>
+                                    ) : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {/* Conditions */}
+                          {result.offer_summary && (
+                            <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-slate-400">
+                              {result.offer_summary.payment_terms && <span>Paiement: {result.offer_summary.payment_terms}</span>}
+                              {result.offer_summary.validity_days && <span>Validité: {result.offer_summary.validity_days}j</span>}
+                              {result.offer_summary.vat_rate && <span>TVA: {result.offer_summary.vat_rate}%</span>}
+                              {result.offer_summary.delivery_included != null && (
+                                <span>Livraison: {result.offer_summary.delivery_included ? "incluse" : "non incluse"}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── No results found ── */}
+            {extractionStatus === "preview_ready" && extractionResults.length === 0 && !importResult && (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-12">
+                <Mail className="h-10 w-10 text-slate-300" />
+                <h3 className="mt-3 text-sm font-medium text-slate-600">Aucune offre de prix trouvée</h3>
+                <p className="mt-1 max-w-sm text-center text-xs text-slate-400">
+                  Les emails analysés ne contenaient pas d'informations de prix exploitables.
+                  Essayez avec un autre filtre de projet.
                 </p>
               </div>
-              <div>
-                <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-full bg-purple-50">
-                  <Sparkles className="h-5 w-5 text-purple-500" />
-                </div>
-                <p className="mt-2 text-xs font-medium text-slate-600">
-                  Analyse IA
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">
-                  Tendances et anomalies
-                </p>
-              </div>
-              <div>
-                <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-full bg-green-50">
-                  <CircleDot className="h-5 w-5 text-green-500" />
-                </div>
-                <p className="mt-2 text-xs font-medium text-slate-600">
-                  Références marché
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">
-                  Indices CRB / BFS
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>

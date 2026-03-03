@@ -1122,6 +1122,30 @@ export interface PlanEstimate {
   created_at: string;
 }
 
+// ---------- Price Extraction Jobs ----------
+
+export type PriceExtractionJobStatus = "pending" | "scanning" | "extracting" | "preview_ready" | "importing" | "completed" | "failed" | "cancelled";
+
+export interface PriceExtractionJob {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  project_id: string | null;
+  email_filter: Record<string, unknown>;
+  status: PriceExtractionJobStatus;
+  total_emails: number;
+  scanned_emails: number;
+  emails_with_prices: number;
+  extracted_items: number;
+  imported_items: number;
+  extraction_results: unknown[];
+  errors: unknown[];
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---------- Submissions & Pricing Intelligence ----------
 
 export interface Supplier {
