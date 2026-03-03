@@ -26,3 +26,9 @@ export {
   type ImportPriceDataInput,
   type ImportResult,
 } from "./price-import-service";
+
+export {
+  extractPricesFromFile,
+  type FileExtractionInput,
+  type FileExtractionResult,
+} from "./file-price-extractor";

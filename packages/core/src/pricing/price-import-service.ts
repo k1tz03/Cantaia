@@ -12,7 +12,7 @@ export interface ImportPriceDataInput {
   supabase: any; // admin client
   organizationId: string;
   userId: string;
-  jobId: string;
+  jobId?: string | null;
   confirmedResults: EmailPriceExtractionResult[];
 }
 
@@ -133,14 +133,16 @@ export async function importExtractedPrices(
       if (supplier.isNew) suppliersCreated++;
       else suppliersMatched++;
 
-      // Determine project_id from the source email
-      const { data: emailRecord } = await supabase
-        .from("email_records")
-        .select("project_id")
-        .eq("id", result.emailId)
-        .maybeSingle();
-
-      const projectId = emailRecord?.project_id || null;
+      // Determine project_id from the source email (skip for file-based imports)
+      let projectId: string | null = null;
+      if (result.emailId && !result.emailId.startsWith("file:")) {
+        const { data: emailRecord } = await supabase
+          .from("email_records")
+          .select("project_id")
+          .eq("id", result.emailId)
+          .maybeSingle();
+        projectId = emailRecord?.project_id || null;
+      }
 
       // Create supplier_offer
       const { data: offer, error: offerError } = await supabase
@@ -210,16 +212,18 @@ export async function importExtractedPrices(
     }
   }
 
-  // Update job
-  await supabase
-    .from("price_extraction_jobs")
-    .update({
-      status: "completed",
-      imported_items: lineItemsCreated,
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", jobId);
+  // Update job (only for job-based imports)
+  if (jobId) {
+    await supabase
+      .from("price_extraction_jobs")
+      .update({
+        status: "completed",
+        imported_items: lineItemsCreated,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", jobId);
+  }
 
   return { suppliersCreated, suppliersMatched, offersCreated, lineItemsCreated };
 }
