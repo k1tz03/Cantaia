@@ -292,6 +292,7 @@ function parseAIResponse(response: any): Omit<EmailPriceExtractionResult, "email
     };
   }
 
+  try {
   let jsonStr = textBlock.text.trim();
   const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim();
@@ -333,6 +334,18 @@ function parseAIResponse(response: any): Omit<EmailPriceExtractionResult, "email
     ai_confidence: parsed.confidence ?? 0,
     project_reference: parsed.project_reference || null,
   };
+  } catch (parseError: any) {
+    console.error("[email-price-extractor] JSON parse error:", parseError?.message);
+    console.error("[email-price-extractor] Raw text (first 500 chars):", textBlock.text.substring(0, 500));
+    return {
+      has_prices: false,
+      supplier_info: { company_name: "", contact_name: null, email: null, phone: null, address: null, postal_code: null, city: null, website: null, specialties: [] },
+      line_items: [],
+      offer_summary: buildEmptyOfferSummary(),
+      ai_confidence: 0,
+      project_reference: null,
+    };
+  }
 }
 
 function buildEmptySupplier(email: string, name: string | null): ExtractedSupplierInfo {

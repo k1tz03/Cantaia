@@ -104,7 +104,7 @@ export async function comparePrices(
   const { data: lineItems, error: lineError } = await (supabase as any)
     .from("offer_line_items")
     .select(
-      "id, offer_id, item_description, unit, quantity, unit_price, total_price"
+      "id, offer_id, supplier_description, supplier_unit, supplier_quantity, unit_price, total_price"
     )
     .in("offer_id", offerIds);
 
@@ -129,14 +129,14 @@ export async function comparePrices(
   > = {};
 
   for (const item of lineItems || []) {
-    const key = normalizeDescription(item.item_description || "");
+    const key = normalizeDescription(item.supplier_description || "");
     if (!key) continue;
 
     if (!groups[key]) {
       groups[key] = {
-        original_description: item.item_description,
-        unit: item.unit || "",
-        quantity: item.quantity,
+        original_description: item.supplier_description,
+        unit: item.supplier_unit || "",
+        quantity: item.supplier_quantity,
         entries: [],
       };
     }
@@ -146,7 +146,7 @@ export async function comparePrices(
       groups[key].entries.push({
         supplier_id: offerInfo.supplier_id,
         supplier_name: offerInfo.supplier_name,
-        unit_price: Number(item.unit_price) || 0,
+        unit_price: Number(item.supplier_unit_price) || 0,
         total_price: Number(item.total_price) || 0,
       });
     }

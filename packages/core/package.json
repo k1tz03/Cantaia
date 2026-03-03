@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@cantaia/database": "workspace:*",
+    "@kenjiuno/msgreader": "^1.28.0",
     "date-fns": "^4.1.0",
     "imapflow": "^1.2.10",
     "mailparser": "^3.9.3",

@@ -80,6 +80,10 @@ export default function SuppliersPage() {
   const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState<string | null>(null);
 
+  // Supplier prices
+  const [supplierPrices, setSupplierPrices] = useState<any[] | null>(null);
+  const [pricesLoading, setPricesLoading] = useState(false);
+
   // Fetch suppliers from API
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -103,6 +107,20 @@ export default function SuppliersPage() {
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
+
+  // Load supplier prices when selected
+  useEffect(() => {
+    if (!selectedSupplier) {
+      setSupplierPrices(null);
+      return;
+    }
+    setPricesLoading(true);
+    fetch(`/api/suppliers/${selectedSupplier}/prices`)
+      .then((r) => r.json())
+      .then((d) => setSupplierPrices(d.offers || []))
+      .catch(() => setSupplierPrices([]))
+      .finally(() => setPricesLoading(false));
+  }, [selectedSupplier]);
 
   // Client-side filtering
   const filtered = useMemo(() => {
@@ -611,6 +629,68 @@ export default function SuppliersPage() {
                     <div className="text-xs text-gray-500">{t("totalProjects")}</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Prix & Offres */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Prix & Offres</h3>
+                {pricesLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  </div>
+                ) : supplierPrices && supplierPrices.length > 0 ? (
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {supplierPrices.map((offer: any) => (
+                      <div key={offer.id} className="rounded-md border border-gray-100 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-700">
+                            {offer.project_name || "Sans projet"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                              offer.source_type === "pdf" ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"
+                            }`}>
+                              {offer.source_type === "pdf" ? "PDF" : "Email"}
+                            </span>
+                            {offer.received_at && (
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(offer.received_at).toLocaleDateString("fr-CH")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {offer.total_amount != null && (
+                          <p className="text-sm font-semibold text-gray-900 mb-1">
+                            {new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2 }).format(offer.total_amount)} {offer.currency || "CHF"}
+                          </p>
+                        )}
+                        {offer.line_items?.length > 0 && (
+                          <div className="space-y-0.5">
+                            {offer.line_items.slice(0, 5).map((li: any) => (
+                              <div key={li.id} className="flex justify-between text-xs text-gray-500">
+                                <span className="truncate mr-2 flex-1">{li.supplier_description}</span>
+                                <span className="font-mono shrink-0">
+                                  {li.unit_price != null
+                                    ? `${new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2 }).format(li.unit_price)} /${li.supplier_unit || ""}`
+                                    : "—"}
+                                </span>
+                              </div>
+                            ))}
+                            {offer.line_items.length > 5 && (
+                              <p className="text-[10px] text-gray-400 mt-1">
+                                +{offer.line_items.length - 5} autres postes
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 text-center py-3">
+                    Aucune offre de prix enregistrée
+                  </p>
+                )}
               </div>
 
               {/* Notes */}

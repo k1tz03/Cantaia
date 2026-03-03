@@ -133,7 +133,7 @@ async function processEmlFile(
   return { fileName, results };
 }
 
-// ---------- .msg processing (basic) ----------
+// ---------- .msg processing ----------
 
 async function processMsgFile(
   fileName: string,
@@ -141,66 +141,86 @@ async function processMsgFile(
   anthropicApiKey: string,
   onUsage?: FileExtractionInput["onUsage"]
 ): Promise<FileExtractionResult> {
-  // .msg files are Outlook proprietary format.
-  // We do a basic extraction of text content from the binary.
-  // This won't work for all .msg files but covers simple cases.
-  const textContent = extractTextFromMsgBuffer(buffer);
-  const emailId = `file:${fileName}:${Date.now()}`;
+  try {
+    const { default: MsgReader } = await import("@kenjiuno/msgreader");
+    const msgReader = new MsgReader(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer);
+    const msgData = msgReader.getFileData();
 
-  if (textContent.length < 50) {
-    return { fileName, results: [], error: "Impossible de lire le fichier .msg. Exportez en .eml depuis Outlook." };
-  }
+    const emailId = `file:${fileName}:${Date.now()}`;
+    const results: EmailPriceExtractionResult[] = [];
 
-  const bodyResult = await extractPricesFromEmailBody(
-    {
-      emailId,
-      senderEmail: "unknown@msg-file.local",
-      senderName: null,
-      subject: fileName.replace(/\.msg$/i, ""),
-      projectName: null,
-      bodyText: textContent,
-    },
-    anthropicApiKey,
-    onUsage
-  );
+    // Extract metadata
+    const senderEmail = (msgData as any).senderEmail || (msgData as any).senderSmtpAddress || "unknown@msg-file.local";
+    const senderName = (msgData as any).senderName || null;
+    const subject = (msgData as any).subject || fileName.replace(/\.msg$/i, "");
 
-  return {
-    fileName,
-    results: bodyResult.has_prices ? [bodyResult] : [],
-  };
-}
-
-/**
- * Naive text extraction from .msg binary.
- * Extracts readable UTF-16LE and ASCII strings.
- */
-function extractTextFromMsgBuffer(buffer: Buffer): string {
-  // Try UTF-16LE (common in .msg files)
-  const chunks: string[] = [];
-  let currentChunk = "";
-
-  for (let i = 0; i < buffer.length - 1; i += 2) {
-    const charCode = buffer.readUInt16LE(i);
-    if (charCode >= 32 && charCode < 65536 && charCode !== 65534 && charCode !== 65535) {
-      const char = String.fromCharCode(charCode);
-      if (/[\x20-\x7E\u00C0-\u024F\u2000-\u206F]/.test(char)) {
-        currentChunk += char;
-      } else if (currentChunk.length > 20) {
-        chunks.push(currentChunk);
-        currentChunk = "";
-      } else {
-        currentChunk = "";
-      }
-    } else if (currentChunk.length > 20) {
-      chunks.push(currentChunk);
-      currentChunk = "";
-    } else {
-      currentChunk = "";
+    // Extract body text
+    let bodyText = (msgData as any).body || "";
+    if (!bodyText && (msgData as any).bodyHTML) {
+      bodyText = stripHtml((msgData as any).bodyHTML);
     }
-  }
-  if (currentChunk.length > 20) chunks.push(currentChunk);
 
-  return chunks.join("\n").substring(0, 15000);
+    // Process body if it has content
+    if (bodyText.trim().length > 50) {
+      const bodyResult = await extractPricesFromEmailBody(
+        {
+          emailId,
+          senderEmail,
+          senderName,
+          subject,
+          projectName: null,
+          bodyText,
+        },
+        anthropicApiKey,
+        onUsage
+      );
+      if (bodyResult.has_prices) {
+        results.push(bodyResult);
+      }
+    }
+
+    // Process PDF attachments
+    const attachments = (msgData as any).attachments || [];
+    for (const attInfo of attachments) {
+      const attFileName: string = attInfo.fileName || attInfo.name || "";
+      if (attFileName.toLowerCase().endsWith(".pdf")) {
+        try {
+          const attData = msgReader.getAttachment(attInfo);
+          if (attData && attData.content) {
+            const pdfBuffer = Buffer.from(attData.content);
+            const pdfResult = await extractPricesFromPdf(
+              {
+                emailId,
+                senderEmail,
+                senderName,
+                subject,
+                projectName: null,
+                attachmentName: attFileName,
+                contentBase64: pdfBuffer.toString("base64"),
+                contentType: "application/pdf",
+              },
+              anthropicApiKey,
+              onUsage
+            );
+            if (pdfResult.has_prices) {
+              results.push(pdfResult);
+            }
+          }
+        } catch (attErr: any) {
+          console.error(`[file-price-extractor] Error extracting attachment ${attFileName}:`, attErr?.message);
+        }
+      }
+    }
+
+    if (results.length === 0 && bodyText.trim().length < 50) {
+      return { fileName, results: [], error: "Impossible de lire le contenu du fichier .msg." };
+    }
+
+    return { fileName, results };
+  } catch (err: any) {
+    console.error(`[file-price-extractor] .msg parsing error for ${fileName}:`, err?.message);
+    return { fileName, results: [], error: `Erreur de lecture .msg: ${err?.message || "format non reconnu"}` };
+  }
 }
 
 // ---------- .pdf processing ----------
