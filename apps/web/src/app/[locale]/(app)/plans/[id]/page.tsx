@@ -26,6 +26,10 @@ import {
   ExternalLink,
   ZoomIn,
   ZoomOut,
+  Calculator,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanStatus, PlanDiscipline, PlanValidationStatus } from "@cantaia/database";
@@ -201,6 +205,11 @@ export default function PlanDetailPage() {
   const [, setAnalysisCached] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
 
+  // Editable quantities state
+  const [editMode, setEditMode] = useState(false);
+  const [editedQuantities, setEditedQuantities] = useState<Record<string, any>>({});
+  const [savingEdits, setSavingEdits] = useState(false);
+
   const fetchPlan = useCallback(async () => {
     try {
       const res = await fetch(`/api/plans/${planId}`);
@@ -257,6 +266,73 @@ export default function PlanDetailPage() {
     );
     const header = "Catégorie\tPoste\tQuantité\tUnité\tSpécification";
     navigator.clipboard.writeText([header, ...rows].join("\n"));
+  };
+
+  // Edit quantity helpers
+  const getEditKey = (category: string, index: number) => `${category}::${index}`;
+
+  const getEditedValue = (category: string, index: number, field: string, original: any) => {
+    const key = getEditKey(category, index);
+    if (editedQuantities[key] && field in editedQuantities[key]) {
+      return editedQuantities[key][field];
+    }
+    return original;
+  };
+
+  const setEditedValue = (category: string, index: number, field: string, value: any) => {
+    const key = getEditKey(category, index);
+    setEditedQuantities((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value },
+    }));
+  };
+
+  const handleSaveQuantityEdits = async () => {
+    if (!analysis?.id || !analysis.analysis_result?.quantities) return;
+    setSavingEdits(true);
+    try {
+      // Apply edits to quantities array
+      const updated = analysis.analysis_result.quantities.map((q, globalIdx) => {
+        // Find the per-category index
+        let catIdx = 0;
+        for (let i = 0; i <= globalIdx; i++) {
+          if (analysis.analysis_result.quantities[i].category === q.category) {
+            if (i < globalIdx) catIdx++;
+          }
+        }
+        const key = getEditKey(q.category, catIdx);
+        const edits = editedQuantities[key];
+        if (!edits) return q;
+        return {
+          ...q,
+          item: edits.item ?? q.item,
+          quantity: edits.quantity !== undefined ? (edits.quantity === "" ? null : Number(edits.quantity)) : q.quantity,
+          unit: edits.unit ?? q.unit,
+          specification: edits.specification ?? q.specification,
+          manually_edited: true,
+        };
+      });
+
+      const res = await fetch(`/api/ai/analyze-plan/${analysis.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantities: updated }),
+      });
+
+      if (res.ok) {
+        // Update local state
+        setAnalysis({
+          ...analysis,
+          analysis_result: { ...analysis.analysis_result, quantities: updated },
+        });
+        setEditMode(false);
+        setEditedQuantities({});
+      }
+    } catch (err) {
+      console.error("Failed to save quantity edits:", err);
+    } finally {
+      setSavingEdits(false);
+    }
   };
 
   // Auto-fill plan info from AI analysis results
@@ -751,13 +827,44 @@ export default function PlanDetailPage() {
                   <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("quantitiesLabel")}</h3>
-                      <button
-                        onClick={handleCopyTable}
-                        className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700"
-                      >
-                        <ClipboardCopy className="h-3.5 w-3.5" />
-                        {t("copyTable")}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {editMode ? (
+                          <>
+                            <button
+                              onClick={() => { setEditMode(false); setEditedQuantities({}); }}
+                              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              Annuler
+                            </button>
+                            <button
+                              onClick={handleSaveQuantityEdits}
+                              disabled={savingEdits}
+                              className="flex items-center gap-1 rounded-md bg-brand px-2.5 py-1 text-[11px] font-medium text-white hover:bg-brand/90"
+                            >
+                              {savingEdits ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                              Enregistrer
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditMode(true)}
+                              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Corriger
+                            </button>
+                            <button
+                              onClick={handleCopyTable}
+                              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700"
+                            >
+                              <ClipboardCopy className="h-3.5 w-3.5" />
+                              {t("copyTable")}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <table className="w-full text-sm">
                       <thead>
@@ -776,13 +883,47 @@ export default function PlanDetailPage() {
                               <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-slate-700">{category}</td>
                             </tr>
                             {items.map((q, i) => (
-                              <tr key={`${category}-${i}`} className="border-b border-slate-50 hover:bg-slate-50/30">
-                                <td className="px-4 py-2 text-xs text-slate-700">{q.item}</td>
-                                <td className="px-4 py-2 text-right text-xs font-semibold text-slate-900 tabular-nums">
-                                  {q.quantity != null ? q.quantity.toLocaleString("fr-CH") : "—"}
+                              <tr key={`${category}-${i}`} className={cn("border-b border-slate-50", editMode ? "bg-blue-50/20" : "hover:bg-slate-50/30")}>
+                                <td className="px-4 py-2 text-xs text-slate-700">
+                                  {editMode ? (
+                                    <input
+                                      type="text"
+                                      value={getEditedValue(category, i, "item", q.item)}
+                                      onChange={(e) => setEditedValue(category, i, "item", e.target.value)}
+                                      className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                    />
+                                  ) : q.item}
                                 </td>
-                                <td className="px-4 py-2 text-xs text-slate-500">{q.unit}</td>
-                                <td className="px-4 py-2 text-xs text-slate-500 hidden sm:table-cell">{q.specification || "—"}</td>
+                                <td className="px-4 py-2 text-right text-xs font-semibold text-slate-900 tabular-nums">
+                                  {editMode ? (
+                                    <input
+                                      type="number"
+                                      value={getEditedValue(category, i, "quantity", q.quantity ?? "")}
+                                      onChange={(e) => setEditedValue(category, i, "quantity", e.target.value)}
+                                      className="w-20 rounded border border-slate-200 px-2 py-1 text-xs text-right focus:border-brand focus:outline-none"
+                                    />
+                                  ) : q.quantity != null ? q.quantity.toLocaleString("fr-CH") : "—"}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-slate-500">
+                                  {editMode ? (
+                                    <input
+                                      type="text"
+                                      value={getEditedValue(category, i, "unit", q.unit)}
+                                      onChange={(e) => setEditedValue(category, i, "unit", e.target.value)}
+                                      className="w-16 rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                    />
+                                  ) : q.unit}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-slate-500 hidden sm:table-cell">
+                                  {editMode ? (
+                                    <input
+                                      type="text"
+                                      value={getEditedValue(category, i, "specification", q.specification || "")}
+                                      onChange={(e) => setEditedValue(category, i, "specification", e.target.value)}
+                                      className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                    />
+                                  ) : q.specification || "—"}
+                                </td>
                                 <td className="px-4 py-2 text-center">
                                   <span
                                     className={cn("inline-block h-2.5 w-2.5 rounded-full", CONFIDENCE_CONFIG[q.confidence].color)}
@@ -818,6 +959,24 @@ export default function PlanDetailPage() {
                   <div className="rounded-lg border border-slate-200 bg-blue-50 p-4">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("summaryLabel")}</h3>
                     <p className="text-sm text-slate-700 leading-relaxed">{result.summary}</p>
+                  </div>
+                )}
+
+                {/* CTA — Chiffrage automatique */}
+                {result.quantities.length > 0 && (
+                  <div className="rounded-lg border-2 border-dashed border-brand/30 bg-brand/5 p-6 text-center">
+                    <Calculator className="h-8 w-8 text-brand mx-auto mb-2" />
+                    <h3 className="text-sm font-semibold text-slate-800">Chiffrage automatique</h3>
+                    <p className="text-xs text-slate-500 mt-1 mb-4 max-w-md mx-auto">
+                      Estimez automatiquement les coûts à partir des {result.quantities.length} postes extraits ci-dessus
+                    </p>
+                    <Link
+                      href={`/cantaia-prix?plan_id=${plan.id}&analysis_id=${analysis?.id || ""}`}
+                      className="inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+                    >
+                      <Calculator className="h-4 w-4" />
+                      Estimer les coûts
+                    </Link>
                   </div>
                 )}
               </>

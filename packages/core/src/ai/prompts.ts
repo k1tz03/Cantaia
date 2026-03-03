@@ -629,3 +629,204 @@ FORMATAGE DES RÉPONSES :
 - Pour les calculs, montre les étapes
 - Utilise les unités suisses : CHF, m², m³, ml, kg, t`;
 }
+
+// ============================================================
+// Price Estimation Prompt — Automatic cost estimation
+// ============================================================
+
+export interface PriceEstimateContext {
+  items: { item: string; unit: string; quantity: number | null; specification?: string | null; category?: string }[];
+  location: string;
+  hourly_rate: number;
+  year: number;
+  scope: "general" | "line_by_line";
+  precision_context?: string;
+}
+
+export function buildPriceEstimatePrompt(ctx: PriceEstimateContext): string {
+  return `Tu es un économiste de la construction suisse avec 20 ans d'expérience dans l'estimation des coûts de construction en Suisse romande. Tu connais les prix du marché ${ctx.year} pour la région de ${ctx.location}.
+
+Taux horaire ouvrier de référence : ${ctx.hourly_rate} CHF/h
+${ctx.precision_context ? `\nCONTEXTE DE LA DEMANDE :\n${ctx.precision_context}\n` : ""}
+${ctx.scope === "general" ? "MODE : Estimation globale — donne un prix au m² ou forfaitaire par catégorie." : "MODE : Chiffrage poste par poste — donne un prix unitaire pour chaque ligne."}
+
+Pour chaque poste ci-dessous, estime le PRIX UNITAIRE en CHF (hors marge, hors TVA) basé sur les prix courants du marché suisse.
+
+POSTES À ESTIMER :
+${ctx.items.map((it, i) => `${i + 1}. ${it.item} — Unité: ${it.unit}${it.quantity !== null ? ` — Quantité: ${it.quantity}` : ""}${it.specification ? ` — Spécification: ${it.specification}` : ""}${it.category ? ` — Catégorie: ${it.category}` : ""}`).join("\n")}
+
+Réponds UNIQUEMENT en JSON :
+{
+  "estimates": [
+    {
+      "index": 0,
+      "unit_price": 45.00,
+      "confidence": "high",
+      "reasoning": "Prix moyen marché VD 2026 pour ce type de poste",
+      "cfc_code": "211",
+      "price_range": { "min": 35.00, "max": 55.00 }
+    }
+  ]
+}
+
+RÈGLES :
+1. Prix en CHF, hors TVA, hors marge
+2. Confiance "high" si prix standard bien connu, "medium" si estimation raisonnable, "low" si très variable
+3. Inclure le code CFC pertinent si identifiable (format: 3 chiffres, ex: 211, 271, 421)
+4. Adapter au marché suisse romande ${ctx.year}
+5. price_range: fourchette min/max basée sur ton expérience du marché
+6. Pour les surfaces (m²) et linéaires (ml), inclure la fourniture ET la pose
+7. Pour les terrassements, inclure l'évacuation si applicable`;
+}
+
+// ============================================================
+// Supplier Search Prompt — Find Swiss construction suppliers
+// ============================================================
+
+export interface SupplierSearchContext {
+  cfc_codes: string[];
+  specialty: string;
+  geo_zone: string;
+  project_description?: string;
+  existing_suppliers: string[];
+  language: "fr" | "en" | "de";
+}
+
+export function buildSupplierSearchPrompt(ctx: SupplierSearchContext): string {
+  return `Tu es un expert en approvisionnement pour la construction en Suisse. Tu connais les principaux fournisseurs et sous-traitants du marché suisse de la construction.
+
+RECHERCHE DE FOURNISSEURS :
+- Codes CFC : ${ctx.cfc_codes.join(", ")}
+- Spécialité : ${ctx.specialty}
+- Zone géographique : ${ctx.geo_zone} (Suisse)
+${ctx.project_description ? `- Contexte projet : ${ctx.project_description}` : ""}
+
+FOURNISSEURS DÉJÀ CONNUS (à ne pas proposer) :
+${ctx.existing_suppliers.length > 0 ? ctx.existing_suppliers.join(", ") : "Aucun"}
+
+Propose 5-10 fournisseurs/sous-traitants suisses RÉELS et VÉRIFIABLES correspondant aux critères. Privilégie les entreprises de la zone géographique indiquée.
+
+Réponds UNIQUEMENT en JSON :
+{
+  "suggestions": [
+    {
+      "company_name": "Nom réel de l'entreprise",
+      "contact_info": {
+        "website": "https://...",
+        "city": "Ville",
+        "postal_code": "1000",
+        "phone": "+41 XX XXX XX XX"
+      },
+      "specialties": ["gros_oeuvre", "beton"],
+      "cfc_codes": ["211", "212"],
+      "certifications": ["ISO 9001"],
+      "reasoning": "Pourquoi cette entreprise est pertinente",
+      "confidence": 0.85
+    }
+  ]
+}
+
+RÈGLES :
+1. Ne propose QUE des entreprises suisses réelles que tu connais de tes données d'entraînement
+2. Confidence ≥ 0.7 uniquement — si tu n'es pas sûr qu'une entreprise existe, ne la propose pas
+3. Les spécialités doivent correspondre au catalogue : gros_oeuvre, electricite, cvc, sanitaire, peinture, menuiserie, etancheite, facades, serrurerie, carrelage, platrerie, charpente, couverture, ascenseur, amenagement_exterieur, demolition, terrassement, echafaudage
+4. Inclure le site web si tu le connais, sinon omettre le champ
+5. Privilégier les entreprises de la zone ${ctx.geo_zone}`;
+}
+
+// ============================================================
+// Supplier Enrichment Prompt — Enrich existing supplier data
+// ============================================================
+
+export interface SupplierEnrichContext {
+  company_name: string;
+  city?: string;
+  specialties: string[];
+  existing_data: { email?: string; phone?: string; website?: string };
+}
+
+export function buildSupplierEnrichPrompt(ctx: SupplierEnrichContext): string {
+  return `Tu es un expert en recherche d'entreprises suisses de construction. Enrichis la fiche de ce fournisseur avec des informations complémentaires.
+
+FOURNISSEUR À ENRICHIR :
+- Entreprise : ${ctx.company_name}
+${ctx.city ? `- Ville : ${ctx.city}` : ""}
+- Spécialités connues : ${ctx.specialties.join(", ")}
+- Données existantes : ${JSON.stringify(ctx.existing_data)}
+
+Recherche et propose des informations complémentaires sur cette entreprise suisse.
+
+Réponds UNIQUEMENT en JSON :
+{
+  "website_found": true,
+  "website_url": "https://...",
+  "additional_contacts": [
+    { "name": "Nom Prénom", "role": "Directeur", "email": "email@...", "phone": "+41..." }
+  ],
+  "certifications_found": ["ISO 9001", "Minergie"],
+  "specialties_suggested": ["beton", "coffrage"],
+  "company_description": "Description courte de l'entreprise",
+  "employee_count_estimate": "50-100",
+  "founded_year": 1985
+}
+
+RÈGLES :
+1. Ne propose QUE des informations dont tu es raisonnablement sûr
+2. Si tu ne connais pas une information, omets le champ ou retourne null
+3. Ne pas inventer d'emails ou numéros de téléphone`;
+}
+
+// ============================================================
+// Price Extraction Prompt — Extract prices from supplier emails
+// ============================================================
+
+export interface PriceExtractionContext {
+  email_body: string;
+  attachment_text?: string;
+  submission_items: { id: string; code: string; description: string; unit: string; quantity: number | null }[];
+}
+
+export function buildPriceExtractionPrompt(ctx: PriceExtractionContext): string {
+  return `Tu es un expert en analyse d'offres de prix pour la construction en Suisse. Extrais les prix de cette réponse de fournisseur et associe-les aux postes de la soumission.
+
+CONTENU DE L'EMAIL DU FOURNISSEUR :
+${ctx.email_body}
+${ctx.attachment_text ? `\nCONTENU DE LA PIÈCE JOINTE :\n${ctx.attachment_text}` : ""}
+
+POSTES DE LA SOUMISSION (à matcher) :
+${ctx.submission_items.map((it, i) => `${i + 1}. [${it.code}] ${it.description} — ${it.unit}${it.quantity !== null ? ` × ${it.quantity}` : ""}`).join("\n")}
+
+Extrais les informations de prix et associe chaque ligne aux postes de soumission correspondants.
+
+Réponds UNIQUEMENT en JSON :
+{
+  "total_amount": 125000.00,
+  "currency": "CHF",
+  "vat_included": false,
+  "vat_rate": 8.1,
+  "validity_days": 30,
+  "payment_terms": "30 jours net",
+  "discount_percent": null,
+  "delivery_included": true,
+  "conditions_text": "Conditions spéciales mentionnées",
+  "line_items": [
+    {
+      "supplier_description": "Description donnée par le fournisseur",
+      "unit": "m²",
+      "quantity": 100,
+      "unit_price": 45.00,
+      "total_price": 4500.00,
+      "matched_submission_item_id": "<id du poste de soumission le plus proche>",
+      "match_confidence": 0.92
+    }
+  ],
+  "confidence": 0.85
+}
+
+RÈGLES :
+1. Matcher chaque ligne du fournisseur au poste de soumission le plus proche (par description et unité)
+2. match_confidence : 1.0 = correspondance exacte, 0.5 = partielle, < 0.5 = douteuse
+3. Si un prix n'a pas de correspondance dans la soumission, matched_submission_item_id = null
+4. Monnaie par défaut : CHF
+5. TVA par défaut en Suisse : 8.1%`;
+}

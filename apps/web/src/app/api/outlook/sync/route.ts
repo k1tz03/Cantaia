@@ -223,6 +223,63 @@ export async function POST(request: Request) {
       const senderEmail = email.sender_email || "";
 
       // ═══════════════════════════════════════════════════════════
+      // LEVEL 0: PRICE REQUEST TRACKING CODE DETECTION
+      // ═══════════════════════════════════════════════════════════
+      if (userOrg?.organization_id) {
+        try {
+          const { detectPriceResponse } = await import("@cantaia/core/submissions");
+          const priceMatch = await detectPriceResponse(
+            adminClient,
+            userOrg.organization_id,
+            {
+              body: email.body_preview || "",
+              sender_email: senderEmail,
+              subject: email.subject || "",
+            }
+          );
+
+          if (priceMatch) {
+            // Get the project_id from the submission
+            const { data: submission } = await (adminClient as any)
+              .from("submissions")
+              .select("project_id")
+              .eq("id", priceMatch.submissionId)
+              .maybeSingle();
+
+            // Update the email record: link to price request and classify
+            await (adminClient as any)
+              .from("email_records")
+              .update({
+                linked_price_request_id: priceMatch.priceRequestId,
+                classification: "action_required",
+                project_id: submission?.project_id || null,
+                classification_status: "auto_classified",
+                email_category: "project",
+                ai_reasoning: `Level 0: Linked to price request via ${priceMatch.matchMethod}${priceMatch.trackingCode ? ` (${priceMatch.trackingCode})` : ""}`,
+                is_processed: true,
+              })
+              .eq("id", email.id);
+
+            // Update the price_request status to responded
+            await (adminClient as any)
+              .from("price_requests")
+              .update({
+                status: "responded",
+                responded_at: new Date().toISOString(),
+              })
+              .eq("id", priceMatch.priceRequestId);
+
+            console.log(`[sync] Level 0: Linked email "${email.subject}" to price request ${priceMatch.priceRequestId} (${priceMatch.matchMethod})`);
+            emailsClassified++;
+            continue;
+          }
+        } catch (l0Err) {
+          console.warn("[sync] Level 0 detection error:", l0Err);
+          // Level 0 failure must never block the rest of the pipeline
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
       // LEVEL 1: LOCAL LEARNED RULES (free, no AI)
       // ═══════════════════════════════════════════════════════════
       if (userOrg?.organization_id) {

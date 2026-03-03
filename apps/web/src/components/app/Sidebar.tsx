@@ -54,13 +54,13 @@ export function Sidebar() {
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", badgeLabelKey: "new" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", badgeLabelKey: "new" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
     { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
   ];
 
   const lockedItems: NavItem[] = [
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "locked" },
-    { href: "/pricing-intelligence", labelKey: "pricingIntelligence", icon: TrendingUp, status: "locked" },
   ];
 
   const bottomItems: NavItem[] = [

@@ -155,7 +155,11 @@ export type ApiActionType =
   | "offer_parse"
   | "supplier_match"
   | "negotiation_email"
-  | "chat_message";
+  | "chat_message"
+  | "price_estimate"
+  | "price_extract"
+  | "supplier_enrichment"
+  | "supplier_search";
 
 export type PlanType =
   | "execution"
@@ -572,6 +576,9 @@ export interface Email {
   // Archiving
   archived_path: string | null;
   outlook_folder_moved: string | null;
+
+  // Price request linking
+  linked_price_request_id: string | null;
 
   created_at: string;
   updated_at: string | null;
@@ -1047,6 +1054,74 @@ export interface PlanVersionAlert {
   created_at: string;
 }
 
+// ---------- Plan Estimates (Chiffrage) ----------
+
+export type MarginLevel = "tight" | "standard" | "comfortable";
+export type EstimateScope = "general" | "line_by_line";
+export type EstimateSource = "db_historical" | "ai_knowledge" | "manual";
+
+export interface EstimateConfig {
+  hourly_rate: number;
+  site_location: string;
+  departure_location: string;
+  margin_level: MarginLevel;
+  scope: EstimateScope;
+  exclusions: string[];
+  precision_context?: string;
+}
+
+export interface EstimatedLineItem {
+  category: string;
+  item: string;
+  quantity: number | null;
+  unit: string;
+  unit_price: number;
+  total_price: number;
+  confidence: "high" | "medium" | "low";
+  source: EstimateSource;
+  source_detail: string;
+  db_matches: number;
+  price_range?: { min: number; max: number; median: number };
+  cfc_code?: string;
+  margin_applied: number;
+}
+
+export interface EstimateResult {
+  line_items: EstimatedLineItem[];
+  subtotal: number;
+  margin_total: number;
+  transport_cost: number;
+  installation_cost: number;
+  grand_total: number;
+  currency: "CHF";
+  confidence_summary: { high: number; medium: number; low: number };
+  db_coverage_percent: number;
+  generated_at: string;
+  config_used: EstimateConfig;
+}
+
+export interface PlanEstimate {
+  id: string;
+  plan_id: string;
+  plan_analysis_id: string;
+  project_id: string;
+  organization_id: string;
+  config: EstimateConfig;
+  estimate_result: EstimateResult;
+  subtotal: number | null;
+  margin_total: number | null;
+  transport_cost: number | null;
+  grand_total: number | null;
+  currency: string;
+  db_coverage_percent: number | null;
+  confidence_summary: { high: number; medium: number; low: number } | null;
+  items_count: number;
+  status: "completed" | "draft" | "error";
+  estimated_by: string | null;
+  estimated_at: string;
+  created_at: string;
+}
+
 // ---------- Submissions & Pricing Intelligence ----------
 
 export interface Supplier {
@@ -1185,6 +1260,7 @@ export interface PriceRequest {
   deadline: string | null;
   portal_token: string | null;
   portal_token_expires_at: string | null;
+  tracking_code: string | null;
   created_at: string;
   created_by: string | null;
 }
@@ -1457,6 +1533,11 @@ export type PlanVersionAlertInsert = WithOptionalDefaults<
   "id" | "plan_version_id" | "current_version_id" | "severity" | "detected_in" | "detected_in_id" | "detected_context" | "who_used_outdated" | "status" | "resolved_at" | "resolved_by" | "resolution_notes" | "created_at"
 >;
 
+export type PlanEstimateInsert = WithOptionalDefaults<
+  PlanEstimate,
+  "id" | "subtotal" | "margin_total" | "transport_cost" | "grand_total" | "currency" | "db_coverage_percent" | "confidence_summary" | "items_count" | "status" | "estimated_by" | "estimated_at" | "created_at"
+>;
+
 export type SupplierInsert = WithOptionalDefaults<
   Supplier,
   "id" | "contact_name" | "email" | "phone" | "address" | "city" | "postal_code" | "country" | "website" | "specialties" | "cfc_codes" | "geo_zone" | "languages" | "certifications" | "response_rate" | "avg_response_days" | "price_competitiveness" | "reliability_score" | "manual_rating" | "overall_score" | "status" | "tags" | "notes" | "total_requests_sent" | "total_offers_received" | "total_projects_involved" | "created_at" | "updated_at" | "created_by"
@@ -1484,7 +1565,7 @@ export type SubmissionItemInsert = WithOptionalDefaults<
 
 export type PriceRequestInsert = WithOptionalDefaults<
   PriceRequest,
-  "id" | "lot_ids" | "email_subject" | "email_body" | "email_language" | "template_used" | "attachment_url" | "sent_at" | "sent_via" | "outlook_message_id" | "opened_at" | "status" | "reminder_count" | "last_reminder_at" | "next_reminder_at" | "reminder_enabled" | "deadline" | "portal_token" | "portal_token_expires_at" | "created_at" | "created_by"
+  "id" | "lot_ids" | "email_subject" | "email_body" | "email_language" | "template_used" | "attachment_url" | "sent_at" | "sent_via" | "outlook_message_id" | "opened_at" | "status" | "reminder_count" | "last_reminder_at" | "next_reminder_at" | "reminder_enabled" | "deadline" | "portal_token" | "portal_token_expires_at" | "tracking_code" | "created_at" | "created_by"
 >;
 
 export type SupplierOfferInsert = WithOptionalDefaults<

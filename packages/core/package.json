@@ -18,7 +18,8 @@
     "./submissions": "./src/submissions/index.ts",
     "./emails": "./src/emails/index.ts",
     "./platform": "./src/platform/index.ts",
-    "./visits": "./src/visits/index.ts"
+    "./visits": "./src/visits/index.ts",
+    "./pricing": "./src/pricing/index.ts"
   },
   "dependencies": {
     "@cantaia/database": "workspace:*",

@@ -21,3 +21,34 @@ export {
   type PriceRequestContext,
   type GeneratedPriceRequest,
 } from "./price-request-generator";
+
+export {
+  generateTrackingCode,
+  extractTrackingCode,
+  validateAndResolvePriceRequest,
+  type TrackingCodeParts,
+} from "./tracking-code";
+
+export {
+  detectPriceResponse,
+  type PriceResponseMatch,
+} from "./price-response-detector";
+
+export {
+  extractPricesFromEmail,
+  type ExtractedPrice,
+  type PriceExtractionResult,
+} from "./price-extractor";
+
+export {
+  comparePrices,
+  type PriceComparisonItem,
+  type PriceComparisonResult,
+} from "./price-comparator";
+
+export {
+  generatePricingAlerts,
+  type PricingAlert,
+  type AlertType,
+  type AlertSeverity,
+} from "./alert-generator";
