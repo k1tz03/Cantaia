@@ -462,7 +462,7 @@ export default function MailPage() {
                   </p>
                   <button
                     onClick={() => router.push("/settings?tab=outlook")}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-500"
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-gold-dark"
                   >
                     <Settings className="h-4 w-4" />
                     {t("connectButton")}
@@ -480,7 +480,7 @@ export default function MailPage() {
                   <button
                     onClick={handleSync}
                     disabled={syncing}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-500 disabled:opacity-50"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-gold-dark disabled:opacity-50"
                   >
                     {syncing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

@@ -5,24 +5,24 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 205 65% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 205 65% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 213 53% 24%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 205 65% 11%;
+    --primary: 40 40% 57%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 37 30% 94%;
+    --secondary-foreground: 205 65% 11%;
+    --muted: 37 30% 94%;
+    --muted-foreground: 203 13% 60%;
+    --accent: 37 30% 94%;
+    --accent-foreground: 205 65% 11%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 213 53% 24%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 203 13% 60% / 0.2;
+    --input: 203 13% 60% / 0.2;
+    --ring: 40 40% 57%;
     --radius: 0.5rem;
   }
 }
@@ -35,6 +35,9 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     color-scheme: light;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-heading), 'Playfair Display', serif;
   }
   input, select, textarea {
     color-scheme: light;
@@ -50,17 +53,17 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #8A9CA8;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #6B7F8D;
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #CBD5E1 transparent;
+  scrollbar-color: #8A9CA8 transparent;
 }
 
 /* Hide scrollbar for horizontal tab bars on mobile */

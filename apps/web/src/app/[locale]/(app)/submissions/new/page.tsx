@@ -189,7 +189,7 @@ export default function NewSubmissionPage() {
             <button
               onClick={handleParse}
               disabled={!projectId || (!fileName && !pasteText)}
-              className="px-6 py-2 bg-[#1E3A5F] text-white rounded-md text-sm font-medium hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-gold text-white rounded-md text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("parsing").replace("...", "")} IA
             </button>
@@ -199,11 +199,11 @@ export default function NewSubmissionPage() {
 
       {step === "parsing" && (
         <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="h-10 w-10 text-[#1E3A5F] animate-spin mb-4" />
+          <Loader2 className="h-10 w-10 text-gold animate-spin mb-4" />
           <h2 className="text-lg font-medium text-gray-900">{t("parsing")}</h2>
           <p className="text-sm text-gray-500 mt-1">{t("parsingDesc")}</p>
           <div className="w-64 h-1.5 bg-gray-200 rounded-full mt-6 overflow-hidden">
-            <div className="h-full bg-[#1E3A5F] rounded-full animate-pulse" style={{ width: "60%" }} />
+            <div className="h-full bg-gold rounded-full animate-pulse" style={{ width: "60%" }} />
           </div>
         </div>
       )}
@@ -295,7 +295,7 @@ export default function NewSubmissionPage() {
             </button>
             <button
               onClick={handleValidate}
-              className="w-full px-6 py-2 bg-[#1E3A5F] text-white rounded-md text-sm font-medium hover:bg-[#162d4a] sm:w-auto"
+              className="w-full px-6 py-2 bg-gold text-white rounded-md text-sm font-medium hover:bg-gold-dark sm:w-auto"
             >
               {t("validateAll")}
             </button>

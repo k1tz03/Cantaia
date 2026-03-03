@@ -7,19 +7,27 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#1E3A5F",
-          light: "#2563EB",
-          50: "#EFF6FF",
-          100: "#DBEAFE",
-          200: "#BFDBFE",
-          300: "#93C5FD",
-          400: "#60A5FA",
-          500: "#2563EB",
-          600: "#1E3A5F",
-          700: "#1A3356",
-          800: "#152B4A",
-          900: "#0F1F36",
+          DEFAULT: "#0A1F30",
+          light: "#1A3A52",
+          50: "#E8EEF3",
+          100: "#D1DDE7",
+          200: "#A3BBCF",
+          300: "#7599B7",
+          400: "#47779F",
+          500: "#1A5587",
+          600: "#0A1F30",
+          700: "#081A28",
+          800: "#061420",
+          900: "#040E17",
         },
+        gold: {
+          DEFAULT: "#C4A661",
+          light: "#D4BC82",
+          dark: "#A8893D",
+          50: "#FBF8F0",
+        },
+        parchment: "#F5F2EB",
+        steel: "#8A9CA8",
         amber: {
           DEFAULT: "#F59E0B",
           50: "#FFFBEB",
@@ -49,6 +57,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        heading: ["Playfair Display", "serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       fontSize: {

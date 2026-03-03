@@ -23,7 +23,7 @@ export interface BrandingConfig {
 const DEFAULT_BRANDING: BrandingConfig = {
   logoUrl: null,
   logoDarkUrl: null,
-  primaryColor: "#1E3A5F",
+  primaryColor: "#0A1F30",
   secondaryColor: "#3B82F6",
   sidebarColor: "#F8FAFC",
   accentColor: "#F59E0B",

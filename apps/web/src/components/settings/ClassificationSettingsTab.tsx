@@ -327,7 +327,7 @@ export function ClassificationSettingsTab() {
               <button
                 type="button"
                 onClick={addIgnoredDomain}
-                className="rounded-md bg-brand px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand/90"
+                className="rounded-md bg-gold px-2.5 py-1.5 text-sm font-medium text-white hover:bg-gold/90"
               >
                 <Check className="h-4 w-4" />
               </button>
@@ -420,7 +420,7 @@ export function ClassificationSettingsTab() {
               <button
                 type="button"
                 onClick={addMappedDomain}
-                className="rounded-md bg-brand px-2.5 py-1.5 text-sm font-medium text-white hover:bg-brand/90"
+                className="rounded-md bg-gold px-2.5 py-1.5 text-sm font-medium text-white hover:bg-gold/90"
               >
                 <Check className="h-4 w-4" />
               </button>

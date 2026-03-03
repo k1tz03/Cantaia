@@ -134,7 +134,7 @@ export default function PricingIntelligencePage() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <button className="text-xs px-3 py-1.5 bg-[#1E3A5F] text-white rounded-md hover:bg-[#162d4a]">
+                    <button className="text-xs px-3 py-1.5 bg-gold text-white rounded-md hover:bg-gold-dark">
                       {tSub("renegotiate")}
                     </button>
                     <button className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700">

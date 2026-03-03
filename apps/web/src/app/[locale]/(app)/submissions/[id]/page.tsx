@@ -257,7 +257,7 @@ export default function SubmissionDetailPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${
                   activeTab === tab.key
-                    ? "text-[#1E3A5F] border-[#1E3A5F] bg-white"
+                    ? "text-[#0A1F30] border-[#0A1F30] bg-white"
                     : "text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -541,7 +541,7 @@ export default function SubmissionDetailPage() {
                 {selectedSuppliers.size > 0 && (
                   <button
                     onClick={() => setShowSendModal(true)}
-                    className="text-xs px-4 py-1.5 bg-[#1E3A5F] text-white rounded-md hover:bg-[#162d4a] font-medium"
+                    className="text-xs px-4 py-1.5 bg-gold text-white rounded-md hover:bg-gold-dark font-medium"
                   >
                     <Send className="h-3 w-3 inline mr-1" />
                     {t("sendRequests")} ({selectedSuppliers.size})
@@ -588,7 +588,7 @@ export default function SubmissionDetailPage() {
                               checked={isSelected || alreadyRequested}
                               disabled={alreadyRequested}
                               onChange={() => toggleSupplierSelection(selKey)}
-                              className="h-4 w-4 rounded border-gray-300 text-[#1E3A5F] focus:ring-[#1E3A5F]"
+                              className="h-4 w-4 rounded border-gray-300 text-[#0A1F30] focus:ring-[#0A1F30]"
                             />
                             {/* Relevance score bar */}
                             <div className="w-14 flex-shrink-0">
@@ -876,7 +876,7 @@ export default function SubmissionDetailPage() {
                         )}
                         {!isAwarded && offer.status !== "rejected" && (
                           <div className="flex gap-2 mt-4">
-                            <button className="text-xs px-3 py-1.5 bg-[#1E3A5F] text-white rounded-md hover:bg-[#162d4a]">
+                            <button className="text-xs px-3 py-1.5 bg-gold text-white rounded-md hover:bg-gold-dark">
                               {t("generateEmail")}
                             </button>
                             <button className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700">
@@ -978,7 +978,7 @@ export default function SubmissionDetailPage() {
               <button
                 onClick={handleSendRequests}
                 disabled={sendingStatus !== "idle"}
-                className="px-6 py-2 bg-[#1E3A5F] text-white rounded-md text-sm font-medium hover:bg-[#162d4a] disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2 bg-gold text-white rounded-md text-sm font-medium hover:bg-gold-dark disabled:opacity-50 flex items-center gap-2"
               >
                 {sendingStatus === "sending" && <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 {sendingStatus === "sent" && <CheckCircle className="h-3.5 w-3.5" />}

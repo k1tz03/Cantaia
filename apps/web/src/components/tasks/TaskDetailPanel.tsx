@@ -363,7 +363,7 @@ export function TaskDetailPanel({
                   type="button"
                   onClick={handleAddComment}
                   disabled={!newComment.trim()}
-                  className="rounded-md bg-brand p-2 text-white hover:bg-brand-500 disabled:opacity-50"
+                  className="rounded-md bg-gold p-2 text-white hover:bg-gold-dark disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                 </button>

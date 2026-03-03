@@ -82,14 +82,6 @@ export function Sidebar() {
     ? { backgroundColor: branding.sidebarColor }
     : undefined;
 
-  const logoIconStyle = isBranded
-    ? { backgroundColor: branding.primaryColor }
-    : undefined;
-
-  const logoTextStyle = isBranded
-    ? { color: branding.primaryColor }
-    : undefined;
-
   function renderNavItem(item: NavItem) {
     const Icon = item.icon;
     const active = isActive(item.href);
@@ -167,9 +159,9 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col border-r border-slate-200 transition-all duration-300 h-screen sticky top-0",
+          "hidden lg:flex flex-col border-r border-steel/20 transition-all duration-300 h-screen sticky top-0",
           collapsed ? "w-[72px]" : "w-[220px]",
-          !isBranded && "bg-slate-50"
+          !isBranded && "bg-parchment"
         )}
         style={sidebarStyle}
       >
@@ -186,25 +178,23 @@ export function Sidebar() {
             />
           ) : (
             <>
-              <div
-                className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white",
-                  !isBranded && "bg-brand"
-                )}
-                style={logoIconStyle}
-              >
-                {displayName[0]}
-              </div>
-              {!collapsed && (
-                <span
-                  className={cn(
-                    "text-base font-bold",
-                    !isBranded && "text-slate-800"
-                  )}
-                  style={logoTextStyle}
-                >
-                  {displayName}
-                </span>
+              {collapsed ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="h-8 w-8">
+                  <g strokeWidth="5" fill="none" strokeLinecap="round">
+                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(30 50 50)" stroke="#0A1F30" />
+                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(150 50 50)" stroke="#0A1F30" />
+                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(90 50 50)" stroke="#C4A661" />
+                  </g>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 210" className="h-8 w-auto">
+                  <g strokeWidth="5" fill="none" strokeLinecap="round">
+                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(30 125 90)" stroke="#0A1F30" />
+                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(150 125 90)" stroke="#0A1F30" />
+                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(90 125 90)" stroke="#C4A661" />
+                  </g>
+                  <text x="125" y="185" fontFamily="'Inter', sans-serif" fontWeight="800" fontSize="26" fill="#0A1F30" textAnchor="middle" letterSpacing="4">CANTAIA</text>
+                </svg>
               )}
             </>
           )}

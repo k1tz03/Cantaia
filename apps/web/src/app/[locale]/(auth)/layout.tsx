@@ -13,8 +13,8 @@ export default function AuthLayout({
         className="absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, #1E3A5F 1px, transparent 1px),
-            linear-gradient(to bottom, #1E3A5F 1px, transparent 1px)
+            linear-gradient(to right, #0A1F30 1px, transparent 1px),
+            linear-gradient(to bottom, #0A1F30 1px, transparent 1px)
           `,
           backgroundSize: "40px 40px",
         }}

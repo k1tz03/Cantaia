@@ -678,7 +678,7 @@ export default function CantaiaPrixPage() {
                   type="button"
                   onClick={handleEstimate}
                   disabled={!canEstimate || estimating}
-                  className="inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-md bg-gold px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {estimating ? (
                     <>
@@ -986,7 +986,7 @@ export default function CantaiaPrixPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("estimate")}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold/90 transition-colors"
                 >
                   <Calculator className="h-4 w-4" />
                   Créer une estimation

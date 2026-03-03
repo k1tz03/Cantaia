@@ -70,7 +70,7 @@ const ACTION_LABELS: Record<string, string> = {
   reclassify: "Reclassification",
 };
 
-const PIE_COLORS = ["#1E3A5F", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#7C3AED", "#A78BFA"];
+const PIE_COLORS = ["#0A1F30", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#7C3AED", "#A78BFA"];
 
 function formatChf(value: number): string {
   return `CHF ${value.toFixed(2)}`;
@@ -246,8 +246,8 @@ export default function AdminApiCostsPage() {
               <AreaChart data={daily_trend}>
                 <defs>
                   <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1E3A5F" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#1E3A5F" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#0A1F30" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#0A1F30" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -268,7 +268,7 @@ export default function AdminApiCostsPage() {
                 <Area
                   type="monotone"
                   dataKey="cost"
-                  stroke="#1E3A5F"
+                  stroke="#0A1F30"
                   strokeWidth={2}
                   fill="url(#costGradient)"
                 />

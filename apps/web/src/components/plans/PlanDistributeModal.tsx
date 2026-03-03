@@ -224,7 +224,7 @@ export function PlanDistributeModal({
               disabled={selectedCount === 0 || sending}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-colors",
-                selectedCount > 0 && !sending ? "bg-brand hover:bg-brand/90" : "bg-slate-300 cursor-not-allowed"
+                selectedCount > 0 && !sending ? "bg-gold hover:bg-gold/90" : "bg-slate-300 cursor-not-allowed"
               )}
             >
               {sending ? (

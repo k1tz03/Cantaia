@@ -118,7 +118,7 @@ function ProjectDropdown({
             >
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: p.color || "#1E3A5F" }}
+                style={{ backgroundColor: p.color || "#0A1F30" }}
               />
               <span className="text-slate-700 truncate font-medium">{p.name}</span>
               {p.code && (
@@ -308,7 +308,7 @@ function SuggestionRow({
               <button
                 onClick={confirmClassification}
                 disabled={loading}
-                className="inline-flex items-center gap-1 rounded-md bg-brand px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-brand/90 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md bg-gold px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-gold/90 transition-colors disabled:opacity-50"
               >
                 <Check className="h-3 w-3" />
                 {t("confirm")}

@@ -504,7 +504,7 @@ export function IntegrationsTab() {
                 type="button"
                 onClick={handleSaveImapConnection}
                 disabled={!testResult?.success || saving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("emailSaveConnection")}
@@ -595,7 +595,7 @@ export function IntegrationsTab() {
                 type="button"
                 onClick={handleSyncNow}
                 disabled={syncing}
-                className="inline-flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50"
               >
                 {syncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

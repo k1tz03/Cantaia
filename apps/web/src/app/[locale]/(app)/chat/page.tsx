@@ -15,16 +15,21 @@ import { cn } from "@cantaia/ui";
 
 /** JM Avatar — Professional monogram badge */
 function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
-  if (size === "lg") {
-    return (
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg ring-2 ring-slate-200">
-        <span className="text-xl font-bold tracking-tight text-white">JM</span>
-      </div>
-    );
-  }
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 shadow-sm">
-      <span className="text-[11px] font-bold tracking-tight text-white">JM</span>
+    <div className={cn("flex shrink-0 items-center justify-center", size === "lg" ? "h-16 w-16" : "h-8 w-8")}>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="h-full w-full">
+        <circle cx="50" cy="50" r="48" fill="none" stroke="#0A1F30" strokeWidth="3" />
+        <g strokeWidth="0.5" fill="none" stroke="#8A9CA8" strokeOpacity="0.3">
+          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(30 50 50)"/>
+          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(150 50 50)"/>
+          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(90 50 50)"/>
+        </g>
+        <text x="50" y="58" fontFamily="'Playfair Display', serif" fontSize="28" fill="#C4A661" textAnchor="middle" letterSpacing="-1">JM</text>
+        <g stroke="#C4A661" strokeWidth="2" fill="none" strokeLinecap="round">
+          <path d="M35 70 A 20 20 0 0 1 65 70"/>
+          <circle cx="50" cy="70" r="2" fill="#C4A661"/>
+        </g>
+      </svg>
     </div>
   );
 }
@@ -459,7 +464,7 @@ export default function ChatPage() {
                     className={cn(
                       "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                       msg.role === "user"
-                        ? "bg-brand text-white rounded-br-md"
+                        ? "bg-gold text-white rounded-br-md"
                         : "bg-slate-100 text-slate-800 rounded-bl-md"
                     )}
                   >
@@ -507,7 +512,7 @@ export default function ChatPage() {
             <button
               onClick={() => sendMessage()}
               disabled={!input.trim() || isStreaming}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-colors hover:bg-brand/90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold text-white transition-colors hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isStreaming ? (
                 <Loader2 className="h-4.5 w-4.5 animate-spin" />

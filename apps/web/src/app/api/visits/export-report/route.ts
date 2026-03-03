@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
     const orgName = (org as any)?.name || "Cantaia";
     const brandColor = (org as any)?.branding_enabled && (org as any)?.primary_color
       ? (org as any).primary_color
-      : "#1E3A5F";
+      : "#0A1F30";
 
     // Generate document
     const doc = createVisitReportDocument(visit, report, orgName, brandColor);

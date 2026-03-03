@@ -262,7 +262,7 @@ export function SupplierImportDialog({
                   type="file"
                   accept=".csv,.txt"
                   onChange={handleFileUpload}
-                  className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-[#1E3A5F] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-[#162d4a] file:cursor-pointer"
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gold-dark file:cursor-pointer"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export function SupplierImportDialog({
                 type="button"
                 onClick={handleImport}
                 disabled={importing}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#1E3A5F] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

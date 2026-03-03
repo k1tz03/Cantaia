@@ -328,7 +328,7 @@ export function SupplierFormDialog({
                         type="checkbox"
                         checked={specialties.includes(sp)}
                         onChange={() => toggleSpecialty(sp)}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-[#1E3A5F] focus:ring-[#1E3A5F]"
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand focus:ring-brand"
                       />
                       <span className="text-gray-700 text-xs">
                         {getSpecialtyLabel(sp)}
@@ -484,7 +484,7 @@ export function SupplierFormDialog({
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#1E3A5F] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isEdit ? "Enregistrer" : "Ajouter"}

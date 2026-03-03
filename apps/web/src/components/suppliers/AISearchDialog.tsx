@@ -194,7 +194,7 @@ export function AISearchDialog({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#1E3A5F]" />
+            <Sparkles className="h-4 w-4 text-brand" />
             <h2 className="text-sm font-semibold text-gray-900">
               Recherche IA de fournisseurs
             </h2>
@@ -294,7 +294,7 @@ export function AISearchDialog({
               type="button"
               onClick={handleSearch}
               disabled={!canSearch || searching}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#1E3A5F] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {searching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -410,7 +410,7 @@ export function AISearchDialog({
                               type="button"
                               onClick={() => handleImportSuggestion(s, idx)}
                               disabled={isImporting}
-                              className="inline-flex items-center gap-1 rounded-md bg-[#1E3A5F] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center gap-1 rounded-md bg-gold px-3 py-1.5 text-xs font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {isImporting ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -432,7 +432,7 @@ export function AISearchDialog({
           {/* Loading state */}
           {searching && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-[#1E3A5F] mb-3" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
               <p className="text-sm text-gray-500">
                 L&apos;IA recherche des fournisseurs correspondants...
               </p>
