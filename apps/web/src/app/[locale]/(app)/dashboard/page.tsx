@@ -12,6 +12,8 @@ import {
   FileSpreadsheet,
   FileText,
   MessageSquare,
+  TrendingUp,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -70,6 +72,22 @@ export default function DashboardPage() {
       color: "bg-purple-500",
     },
     {
+      href: "/suppliers",
+      icon: Truck,
+      titleKey: "cardSuppliersTitle",
+      descKey: "cardSuppliersDesc",
+      color: "bg-orange-500",
+      badge: "new",
+    },
+    {
+      href: "/cantaia-prix",
+      icon: TrendingUp,
+      titleKey: "cardPrixTitle",
+      descKey: "cardPrixDesc",
+      color: "bg-gold",
+      badge: "new",
+    },
+    {
       href: "/pv-chantier",
       icon: FileText,
       titleKey: "cardPvTitle",
@@ -112,8 +130,12 @@ export default function DashboardPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 {card.badge && (
-                  <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                    {card.badge}
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    card.badge === "new"
+                      ? "bg-gold/10 text-gold-dark"
+                      : "bg-red-100 text-red-700"
+                  }`}>
+                    {card.badge === "new" ? t("badgeNew") : card.badge}
                   </span>
                 )}
               </div>
