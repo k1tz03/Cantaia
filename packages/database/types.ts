@@ -206,6 +206,8 @@ export type ApiProvider = "anthropic" | "openai_whisper" | "microsoft_graph";
 
 export type SupplierStatus = "active" | "preferred" | "blacklisted" | "inactive" | "new";
 
+export type SupplierType = "fournisseur" | "prestataire";
+
 export type SubmissionStatus =
   | "draft"
   | "parsed"
@@ -1056,7 +1058,7 @@ export interface PlanVersionAlert {
 
 // ---------- Plan Estimates (Chiffrage) ----------
 
-export type MarginLevel = "tight" | "standard" | "comfortable";
+export type MarginLevel = "tight" | "standard" | "comfortable" | "custom";
 export type EstimateScope = "general" | "line_by_line";
 export type EstimateSource = "db_historical" | "ai_knowledge" | "manual";
 
@@ -1065,6 +1067,7 @@ export interface EstimateConfig {
   site_location: string;
   departure_location: string;
   margin_level: MarginLevel;
+  custom_margin_percent?: number;
   scope: EstimateScope;
   exclusions: string[];
   precision_context?: string;
@@ -1172,6 +1175,7 @@ export interface Supplier {
   manual_rating: number;
   overall_score: number;
   status: SupplierStatus;
+  supplier_type: SupplierType;
   tags: string[];
   notes: string | null;
   total_requests_sent: number;
@@ -2046,6 +2050,7 @@ export interface Database {
       plan_alert_status: PlanAlertStatus;
       plan_source: PlanSource;
       supplier_status: SupplierStatus;
+      supplier_type: SupplierType;
       submission_status: SubmissionStatus;
       submission_source_type: SubmissionSourceType;
       submission_lot_status: SubmissionLotStatus;

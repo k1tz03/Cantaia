@@ -235,27 +235,24 @@ export function DataSharingTab() {
           <Shield className="mt-0.5 h-5 w-5 text-blue-600" />
           <div>
             <h3 className="text-sm font-semibold text-blue-900">
-              Intelligence collective — Vos données restent privées
+              Partage de données anonymisées
             </h3>
             <p className="mt-1 text-sm text-blue-700">
-              En activant le partage pour un module, vos données sont{" "}
-              <strong>anonymisées</strong> et{" "}
-              <strong>agrégées avec 3+ autres entreprises</strong> minimum. Il
-              est impossible de remonter à la source. En échange, vous accédez
-              aux benchmarks marché qui améliorent les recommandations IA.
+              Activez le partage par module pour accéder aux benchmarks du marché.
+              Vos données sont anonymisées et agrégées — aucune donnée brute n'est partagée.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-600">
               <span className="flex items-center gap-1">
                 <Lock className="h-3.5 w-3.5" />
-                Seuil minimum 3 contributeurs
+                Min. 3 contributeurs requis
               </span>
               <span className="flex items-center gap-1">
                 <Eye className="h-3.5 w-3.5" />
-                Jamais de données brutes partagées
+                Aucune donnée brute exposée
               </span>
               <span className="flex items-center gap-1">
                 <Shield className="h-3.5 w-3.5" />
-                Bruit différentiel sur les percentiles
+                Consentement révocable à tout moment
               </span>
             </div>
           </div>
@@ -369,13 +366,10 @@ export function DataSharingTab() {
       {/* Privacy footer */}
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
         <p className="text-xs text-gray-500">
-          <strong>Garanties de confidentialité :</strong> Vos données brutes
-          restent strictement privées et isolées par organisation. Seules les
-          statistiques anonymisées (médianes, percentiles) sont partagées, et
-          uniquement lorsque 3+ organisations distinctes contribuent au même
-          benchmark. Un bruit statistique (±2-5%) est ajouté pour empêcher toute
-          rétro-ingénierie. Vous pouvez révoquer votre consentement à tout
-          moment — vos données seront retirées du prochain cycle d'agrégation.
+          <strong>Protection des données :</strong> Conforme au RGPD et à la LPD suisse.
+          Vos données sont anonymisées avant tout traitement collectif.
+          Aucune donnée personnelle ou d'entreprise n'est revendue ni transmise à des tiers.
+          Le consentement est révocable à tout moment — retrait effectif au prochain cycle d'agrégation.
         </p>
       </div>
     </div>

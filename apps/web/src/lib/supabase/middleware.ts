@@ -33,7 +33,13 @@ export function createMiddlewareClient(
           });
           // Set the updated cookies on the response for the browser
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options as never);
+            response.cookies.set(name, value, {
+              ...(options as Record<string, unknown>),
+              maxAge: 60 * 60 * 24 * 7, // 7 days
+              sameSite: "lax",
+              secure: process.env.NODE_ENV === "production",
+              path: "/",
+            } as never);
           });
         },
       },

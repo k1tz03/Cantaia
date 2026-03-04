@@ -12,9 +12,6 @@ import {
   Loader2,
   Camera,
   Sparkles,
-  Bug,
-  AlertCircle,
-  CheckCircle,
   Layers,
   Lock,
   Key,
@@ -168,6 +165,9 @@ function ProfileSection() {
       last_name: data.last_name as string,
       phone: data.phone as string,
       preferred_language: data.preferred_language as "fr" | "en" | "de",
+      job_title: data.job_title as string,
+      age_range: (data.age_range || undefined) as any,
+      gender: (data.gender || undefined) as any,
     });
     if (result.error) throw new Error(result.error);
   }, []);
@@ -178,6 +178,9 @@ function ProfileSection() {
       last_name: "",
       phone: "",
       preferred_language: "fr",
+      job_title: "",
+      age_range: "",
+      gender: "",
     },
     saveProfile
   );
@@ -190,6 +193,9 @@ function ProfileSection() {
         last_name: user.user_metadata?.last_name || "",
         phone: user.user_metadata?.phone || "",
         preferred_language: user.user_metadata?.preferred_language || "fr",
+        job_title: user.user_metadata?.job_title || "",
+        age_range: user.user_metadata?.age_range || "",
+        gender: user.user_metadata?.gender || "",
       });
     }
   }, [user]);
@@ -259,6 +265,49 @@ function ProfileSection() {
               className="mt-1 block w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-500"
             />
             <p className="mt-1 text-xs text-gray-400">{t("emailReadOnly")}</p>
+          </div>
+        </div>
+
+        {/* Job title / Age / Gender */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{t("jobTitle")}</label>
+            <input
+              type="text"
+              value={form.data.job_title as string}
+              onChange={(e) => form.update({ job_title: e.target.value })}
+              placeholder={t("jobTitlePlaceholder")}
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{t("ageRange")}</label>
+            <select
+              value={form.data.age_range as string}
+              onChange={(e) => form.update({ age_range: e.target.value })}
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">{t("selectOption")}</option>
+              <option value="18-25">18-25</option>
+              <option value="26-35">26-35</option>
+              <option value="36-45">36-45</option>
+              <option value="46-55">46-55</option>
+              <option value="56+">56+</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{t("gender")}</label>
+            <select
+              value={form.data.gender as string}
+              onChange={(e) => form.update({ gender: e.target.value })}
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">{t("selectOption")}</option>
+              <option value="homme">{t("genderMale")}</option>
+              <option value="femme">{t("genderFemale")}</option>
+              <option value="autre">{t("genderOther")}</option>
+              <option value="non_specifie">{t("genderPreferNot")}</option>
+            </select>
           </div>
         </div>
 
@@ -538,7 +587,10 @@ function SecuritySection() {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email);
+      const locale = window.location.pathname.match(/^\/(fr|en|de)/)?.[1] || "fr";
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/${locale}/reset-password`,
+      });
       if (error) throw error;
       setPasswordMessage({ type: "success", text: t("passwordResetSent") });
     } catch {
@@ -612,8 +664,6 @@ function SecuritySection() {
         </button>
       </div>
 
-      {/* Diagnostics */}
-      <DiagnosticsSection />
     </div>
   );
 }
@@ -658,81 +708,3 @@ function ToggleRow({
 /* ═══════════════════════════════════════════════
    Diagnostics (kept from previous)
    ═══════════════════════════════════════════════ */
-function DiagnosticsSection() {
-  const [debugLoading, setDebugLoading] = useState(false);
-  const [debugResult, setDebugResult] = useState<Record<string, unknown> | null>(null);
-
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900">
-        <Bug className="h-4 w-4 text-gray-400" />
-        Diagnostics
-      </h3>
-      <p className="mb-3 text-sm text-gray-500">
-        V&eacute;rifier la connexion Supabase, les projets, les emails et les tokens.
-      </p>
-      <button
-        type="button"
-        onClick={async () => {
-          setDebugLoading(true);
-          setDebugResult(null);
-          try {
-            const res = await fetch("/api/debug/supabase-test");
-            const data = await res.json();
-            setDebugResult(data);
-          } catch (err) {
-            setDebugResult({ error: err instanceof Error ? err.message : "Erreur" });
-          } finally {
-            setDebugLoading(false);
-          }
-        }}
-        disabled={debugLoading}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-      >
-        {debugLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bug className="h-3.5 w-3.5" />}
-        Lancer le diagnostic
-      </button>
-      {debugResult && (
-        <div className="mt-4 space-y-2">
-          {Object.entries(debugResult).map(([key, value]) => {
-            if (key === "error") {
-              return (
-                <div key={key} className="flex items-center gap-2 text-xs text-red-600">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {String(value)}
-                </div>
-              );
-            }
-            const val = value as Record<string, unknown> | null;
-            const isOk = val?.ok === true;
-            const errMsg = val?.error ? String(val.error) : null;
-            const dataVal = val?.data;
-            return (
-              <div
-                key={key}
-                className={`rounded-md border p-3 text-xs ${
-                  isOk ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {isOk ? (
-                    <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                  )}
-                  <span className="font-medium">{key}</span>
-                </div>
-                {errMsg && <p className="mt-1 text-red-600">{errMsg}</p>}
-                {dataVal !== undefined && (
-                  <pre className="mt-1 max-h-32 overflow-auto text-[10px] text-gray-500">
-                    {typeof dataVal === "object" ? JSON.stringify(dataVal, null, 2) : String(dataVal)}
-                  </pre>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}

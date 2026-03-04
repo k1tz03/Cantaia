@@ -74,7 +74,30 @@
       "Bash(cd C:/Users/julien.ray/BUILDWISE && git push -u origin main 2>&1)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(wait b0kjn0hwn)",
+      "Bash(pnpm turbo build --filter=@cantaia/web)",
+      "Bash(node --version)",
+      "Bash(node ./node_modules/.bin/next build)",
+      "Bash(node ../../node_modules/next/dist/bin/next build)",
+      "Bash(node ../../node_modules/next/dist/bin/next dev --port 3000)",
+      "Bash(npx tsx --version)",
+      "Bash(source apps/web/.env.local)",
+      "Bash(npx tsx scripts/classify-emails.ts)",
+      "Bash(git log --all --oneline --grep=\"Amex\\\\|cèdres\\\\|Malley\" -i)",
+      "Bash(npx vercel list --limit 5)",
+      "Bash(pnpm build)",
+      "Bash(gh api:*)",
+      "Bash(claude:*)",
+      "Bash(pnpm turbo build --filter=web)",
+      "Bash(npm search msgreader --json)",
+      "Bash(npm view @kenjiuno/msgreader --json)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx vercel ls)",
+      "Bash(pnpm build --filter=@cantaia/core)",
+      "Bash(pnpm exec tsc --noEmit)",
+      "Bash(awk 'NR>=1973 && NR<=2162' \"src/app/[locale]/\\(app\\)/cantaia-prix/page.tsx\")",
+      "Bash(awk 'NR>=1974 && NR<=2155' \"src/app/[locale]/\\(app\\)/cantaia-prix/page.tsx\")"
     ]
   }
 }

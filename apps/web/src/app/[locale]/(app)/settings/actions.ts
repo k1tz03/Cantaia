@@ -21,6 +21,9 @@ export async function updateProfileAction(data: UpdateUserInput) {
       last_name: data.last_name,
       phone: data.phone,
       preferred_language: data.preferred_language,
+      job_title: data.job_title,
+      age_range: data.age_range,
+      gender: data.gender,
     },
   });
 
@@ -30,14 +33,20 @@ export async function updateProfileAction(data: UpdateUserInput) {
 
   // Update user row in database
   // Note: type assertion needed due to @supabase/ssr v0.5.2 / supabase-js v2.95.3 generic mismatch
+  const updateData: Record<string, unknown> = {
+    first_name: data.first_name,
+    last_name: data.last_name,
+    phone: data.phone,
+    preferred_language: data.preferred_language,
+  };
+  // Only include extra fields if they are present (migration 041 may not be applied yet)
+  if (data.job_title !== undefined) updateData.job_title = data.job_title;
+  if (data.age_range !== undefined) updateData.age_range = data.age_range;
+  if (data.gender !== undefined) updateData.gender = data.gender;
+
   const { error: dbError } = await (supabase as any)
     .from("users")
-    .update({
-      first_name: data.first_name,
-      last_name: data.last_name,
-      phone: data.phone,
-      preferred_language: data.preferred_language,
-    })
+    .update(updateData)
     .eq("id", user.id);
 
   if (dbError) {

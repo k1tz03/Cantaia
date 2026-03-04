@@ -7,10 +7,8 @@ import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   Users,
-  Palette,
-  Mail,
   CreditCard,
-  Settings,
+  Clock,
   ArrowLeft,
   Building2,
   ChevronLeft,
@@ -20,10 +18,8 @@ import {
 const adminNavItems = [
   { href: "/admin", icon: LayoutDashboard, labelKey: "overview" },
   { href: "/admin/members", icon: Users, labelKey: "members" },
-  { href: "/admin/branding", icon: Palette, labelKey: "customization" },
-  { href: "/admin/emails", icon: Mail, labelKey: "emailSettings" },
   { href: "/admin/subscription", icon: CreditCard, labelKey: "subscription" },
-  { href: "/admin/settings", icon: Settings, labelKey: "generalSettings" },
+  { href: "/admin/time-savings", icon: Clock, labelKey: "timeSavings" },
 ];
 
 export default function AdminLayout({

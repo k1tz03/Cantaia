@@ -22,7 +22,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { SPECIALTY_LABELS, type SupplierSpecialty } from "@cantaia/core/suppliers";
-import type { Supplier, SupplierStatus } from "@cantaia/database";
+import type { Supplier, SupplierStatus, SupplierType } from "@cantaia/database";
 import { SupplierFormDialog } from "@/components/suppliers/SupplierFormDialog";
 import { SupplierImportDialog } from "@/components/suppliers/SupplierImportDialog";
 import { AISearchDialog } from "@/components/suppliers/AISearchDialog";
@@ -33,6 +33,11 @@ const STATUS_CONFIG: Record<SupplierStatus, { color: string; dotColor: string }>
   blacklisted: { color: "text-red-700 bg-red-50", dotColor: "bg-red-500" },
   inactive: { color: "text-gray-500 bg-gray-100", dotColor: "bg-gray-400" },
   new: { color: "text-amber-700 bg-amber-50", dotColor: "bg-amber-500" },
+};
+
+const SUPPLIER_TYPE_CONFIG: Record<SupplierType, { label: string; color: string }> = {
+  fournisseur: { label: "Fournisseur", color: "bg-emerald-50 text-emerald-700" },
+  prestataire: { label: "Prestataire", color: "bg-violet-50 text-violet-700" },
 };
 
 const SPECIALTY_COLORS: Record<string, string> = {
@@ -66,6 +71,7 @@ export default function SuppliersPage() {
 
   // Filter state
   const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<string>("");
   const [filterSpecialty, setFilterSpecialty] = useState<string>("");
   const [filterZone, setFilterZone] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -134,12 +140,13 @@ export default function SuppliersPage() {
           !(s.city || "").toLowerCase().includes(q)
         ) return false;
       }
+      if (filterType && (s.supplier_type || "fournisseur") !== filterType) return false;
       if (filterSpecialty && !s.specialties.includes(filterSpecialty)) return false;
       if (filterZone && s.geo_zone !== filterZone) return false;
       if (filterStatus && s.status !== filterStatus) return false;
       return true;
     });
-  }, [suppliers, search, filterSpecialty, filterZone, filterStatus]);
+  }, [suppliers, search, filterType, filterSpecialty, filterZone, filterStatus]);
 
   const selected = selectedSupplier ? suppliers.find((s) => s.id === selectedSupplier) : null;
 
@@ -307,6 +314,27 @@ export default function SuppliersPage() {
               </div>
             )}
 
+            {/* Type filter toggle */}
+            <div className="flex items-center gap-1 mb-4 p-0.5 bg-gray-100 rounded-lg w-fit">
+              {[
+                { value: "", label: "Tous" },
+                { value: "fournisseur", label: "Fournisseurs" },
+                { value: "prestataire", label: "Prestataires" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setFilterType(opt.value)}
+                  className={`px-3.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    filterType === opt.value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <div className="relative flex-1 min-w-[200px]">
@@ -410,7 +438,18 @@ export default function SuppliersPage() {
                                 {supplier.company_name.substring(0, 2).toUpperCase()}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{supplier.company_name}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-900">{supplier.company_name}</span>
+                                  {(() => {
+                                    const sType = (supplier.supplier_type || "fournisseur") as SupplierType;
+                                    const cfg = SUPPLIER_TYPE_CONFIG[sType];
+                                    return (
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${cfg.color}`}>
+                                        {cfg.label}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                                 <div className="text-xs text-gray-500">{supplier.contact_name}</div>
                               </div>
                             </div>
@@ -455,7 +494,7 @@ export default function SuppliersPage() {
 
         {/* Detail panel */}
         {selected && (
-          <div className="w-[400px] bg-white overflow-auto shrink-0">
+          <div className="w-[400px] shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto bg-white border-l border-gray-200">
             <div className="p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-6">
@@ -464,7 +503,18 @@ export default function SuppliersPage() {
                     {selected.company_name.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{selected.company_name}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-bold text-gray-900">{selected.company_name}</h2>
+                      {(() => {
+                        const sType = (selected.supplier_type || "fournisseur") as SupplierType;
+                        const cfg = SUPPLIER_TYPE_CONFIG[sType];
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${cfg.color}`}>
+                            {cfg.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <p className="text-sm text-gray-500">{selected.contact_name}</p>
                   </div>
                 </div>

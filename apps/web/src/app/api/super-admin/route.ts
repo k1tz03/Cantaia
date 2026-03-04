@@ -370,5 +370,84 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ cancelled: true });
   }
 
+  // ── All users cross-org ──
+  if (action === "all-users") {
+    const { data: users } = await admin
+      .from("users")
+      .select("id, email, first_name, last_name, role, organization_id, created_at, last_sync_at")
+      .order("created_at", { ascending: false });
+
+    const orgIds = [...new Set((users || []).map((u: any) => u.organization_id).filter(Boolean))];
+    const { data: orgs } = orgIds.length > 0
+      ? await admin.from("organizations").select("id, name").in("id", orgIds)
+      : { data: [] };
+    const orgMap = new Map((orgs || []).map((o: any) => [o.id, o.name]));
+
+    return NextResponse.json({
+      users: (users || []).map((u: any) => ({
+        ...u,
+        org_name: orgMap.get(u.organization_id) || null,
+      })),
+    });
+  }
+
+  // ── All orgs with member counts ──
+  if (action === "all-orgs") {
+    const { data: orgs } = await admin
+      .from("organizations")
+      .select("id, name, plan, created_at")
+      .order("created_at", { ascending: false });
+
+    const enriched = [];
+    for (const org of orgs || []) {
+      const { count } = await admin
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", org.id);
+      enriched.push({ ...org, members: count || 0 });
+    }
+    return NextResponse.json({ organizations: enriched });
+  }
+
+  // ── Platform metrics ──
+  if (action === "platform-metrics") {
+    const [users, orgs, emails, pvs, tasks, suppliers, offers] = await Promise.all([
+      admin.from("users").select("id", { count: "exact", head: true }),
+      admin.from("organizations").select("id", { count: "exact", head: true }),
+      admin.from("email_records").select("id", { count: "exact", head: true }),
+      admin.from("meetings").select("id", { count: "exact", head: true }),
+      admin.from("tasks").select("id", { count: "exact", head: true }),
+      admin.from("suppliers").select("id", { count: "exact", head: true }),
+      admin.from("supplier_offers").select("id", { count: "exact", head: true }),
+    ]);
+
+    return NextResponse.json({
+      metrics: {
+        totalUsers: users.count || 0,
+        totalOrgs: orgs.count || 0,
+        totalEmails: emails.count || 0,
+        totalPlans: 0,
+        totalPvs: pvs.count || 0,
+        totalTasks: tasks.count || 0,
+        totalSuppliers: suppliers.count || 0,
+        totalOffers: offers.count || 0,
+      },
+    });
+  }
+
+  // ── Platform config ──
+  if (action === "platform-config") {
+    return NextResponse.json({
+      config: {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+        hasCronSecret: !!process.env.CRON_SECRET,
+        hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
+        nodeEnv: process.env.NODE_ENV || "development",
+        vercelEnv: process.env.VERCEL_ENV || "local",
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }

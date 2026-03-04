@@ -13,7 +13,6 @@ import type {
   EstimatedLineItem,
   EstimateResult,
   EstimateSource,
-  MarginLevel,
 } from "@cantaia/database";
 
 // ---------- Interfaces ----------
@@ -31,6 +30,7 @@ export interface EstimateOptions {
   quantities: QuantityInput[];
   config: EstimateConfig;
   organizationId: string;
+  projectId?: string;
   anthropicApiKey: string;
   supabase: any; // admin client — bypasses RLS
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void;
@@ -38,10 +38,11 @@ export interface EstimateOptions {
 
 // ---------- Constants ----------
 
-const MARGIN_MULTIPLIERS: Record<MarginLevel, number> = {
+const MARGIN_MULTIPLIERS: Record<string, number> = {
   tight: 1.05,
   standard: 1.12,
   comfortable: 1.20,
+  custom: 1.15, // default fallback, overridden by custom_margin_percent
 };
 
 const TRANSPORT_BASE_CHF = 500;
@@ -108,30 +109,48 @@ interface DbPriceMatch {
 
 /**
  * Query offer_line_items for historical price data matching an item.
- * Tries normalized_description ILIKE keywords, then cfc_subcode.
+ * Pass 1: project-specific prices (if projectId provided).
+ * Pass 2: org-wide fallback.
+ * Then: cfc_subcode fallback.
  */
 async function lookupHistoricalPrice(
   supabase: any,
   organizationId: string,
-  item: QuantityInput
+  item: QuantityInput,
+  projectId?: string
 ): Promise<DbPriceMatch | null> {
   const normalized = normalizeDescription(item.item);
   const keywords = extractKeywords(normalized);
 
   if (keywords.length === 0) return null;
 
-  // Build ILIKE filter: match ANY keyword in normalized_description
-  // Use the longest keyword for the best specificity
   const sortedByLength = [...keywords].sort((a, b) => b.length - a.length);
   const primaryKeyword = sortedByLength[0];
 
+  // Pass 1: project-specific lookup
+  if (projectId) {
+    let pQuery = supabase
+      .from("offer_line_items")
+      .select("unit_price, cfc_subcode")
+      .eq("organization_id", organizationId)
+      .eq("project_id", projectId)
+      .ilike("normalized_description", `%${primaryKeyword}%`);
+    if (sortedByLength.length > 1) {
+      pQuery = pQuery.ilike("normalized_description", `%${sortedByLength[1]}%`);
+    }
+    const { data: pData, error: pError } = await pQuery;
+    if (!pError && pData && pData.length > 0) {
+      return buildPriceMatch(pData);
+    }
+  }
+
+  // Pass 2: org-wide lookup
   let query = supabase
     .from("offer_line_items")
     .select("unit_price, cfc_subcode")
     .eq("organization_id", organizationId)
     .ilike("normalized_description", `%${primaryKeyword}%`);
 
-  // If we have a secondary keyword, add it for tighter matching
   if (sortedByLength.length > 1) {
     query = query.ilike("normalized_description", `%${sortedByLength[1]}%`);
   }
@@ -335,6 +354,7 @@ export async function estimateFromPlanAnalysis(
     quantities,
     config,
     organizationId,
+    projectId,
     anthropicApiKey,
     supabase,
     onUsage,
@@ -343,7 +363,10 @@ export async function estimateFromPlanAnalysis(
   console.log(`[auto-estimator] Starting estimation for ${quantities.length} quantities`);
   console.log(`[auto-estimator] Config: margin=${config.margin_level}, scope=${config.scope}, hourly_rate=${config.hourly_rate} CHF/h`);
 
-  const marginMultiplier = MARGIN_MULTIPLIERS[config.margin_level];
+  // Handle custom margin: use custom_margin_percent if provided, else use predefined multipliers
+  const marginMultiplier = config.margin_level === "custom" && (config as any).custom_margin_percent != null
+    ? 1 + (config as any).custom_margin_percent / 100
+    : (MARGIN_MULTIPLIERS[config.margin_level] || 1.12);
 
   // ------ Step 1: Filter exclusions ------
   const exclusionsNormalized = (config.exclusions || []).map(normalizeDescription);
@@ -367,7 +390,7 @@ export async function estimateFromPlanAnalysis(
     const q = filteredQuantities[i];
 
     try {
-      const dbMatch = await lookupHistoricalPrice(supabase, organizationId, q);
+      const dbMatch = await lookupHistoricalPrice(supabase, organizationId, q, projectId);
 
       if (dbMatch && dbMatch.count >= 1) {
         const basePrice = dbMatch.median;
@@ -422,12 +445,33 @@ export async function estimateFromPlanAnalysis(
     onUsage
   );
 
+  // Sanity thresholds per unit type to flag absurd AI prices
+  const SANITY_THRESHOLDS: Record<string, number> = {
+    pce: 50000, pcs: 50000, stk: 50000, piece: 50000,
+    m2: 10000, "m²": 10000,
+    m3: 5000, "m³": 5000,
+    ml: 2000, m: 2000,
+    kg: 200, t: 200000,
+    l: 100,
+    h: 500, heure: 500,
+    forfait: 500000, gl: 500000, fs: 500000,
+  };
+
   for (const aiItem of itemsNeedingAI) {
     const q = aiItem.item;
     const aiResult = aiResults.get(aiItem.index);
 
     if (aiResult && aiResult.unit_price > 0) {
-      const basePrice = aiResult.unit_price;
+      let basePrice = aiResult.unit_price;
+      let confidence = aiResult.confidence;
+
+      // Sanity check: flag absurd prices as low confidence
+      const unitKey = q.unit.toLowerCase().replace(/[^a-z0-9²³]/g, "");
+      const threshold = SANITY_THRESHOLDS[unitKey];
+      if (threshold && basePrice > threshold) {
+        console.warn(`[auto-estimator] Absurd price flagged: ${q.item} = ${basePrice} CHF/${q.unit} (threshold: ${threshold})`);
+        confidence = "low";
+      }
       const marginAmount = round2(basePrice * (marginMultiplier - 1));
       const unitPriceWithMargin = round2(basePrice + marginAmount);
       const totalPrice = q.quantity !== null
@@ -441,7 +485,7 @@ export async function estimateFromPlanAnalysis(
         unit: q.unit,
         unit_price: unitPriceWithMargin,
         total_price: totalPrice,
-        confidence: aiResult.confidence,
+        confidence: confidence,
         source: "ai_knowledge" as EstimateSource,
         source_detail: aiResult.reasoning || "Estimation IA basée sur les prix du marché suisse",
         db_matches: 0,

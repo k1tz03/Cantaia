@@ -77,7 +77,6 @@ export default function DashboardPage() {
       titleKey: "cardSuppliersTitle",
       descKey: "cardSuppliersDesc",
       color: "bg-orange-500",
-      badge: "new",
     },
     {
       href: "/cantaia-prix",
@@ -85,7 +84,6 @@ export default function DashboardPage() {
       titleKey: "cardPrixTitle",
       descKey: "cardPrixDesc",
       color: "bg-gold",
-      badge: "new",
     },
     {
       href: "/pv-chantier",

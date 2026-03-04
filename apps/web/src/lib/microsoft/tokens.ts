@@ -52,10 +52,16 @@ export async function getValidMicrosoftToken(
     return { error: "No refresh token available. Please reconnect Outlook." };
   }
 
-  const refreshed = await refreshMicrosoftToken(user.microsoft_refresh_token);
+  let refreshed = await refreshMicrosoftToken(user.microsoft_refresh_token);
+
+  // Retry once after a short delay before giving up
+  if (refreshed.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    refreshed = await refreshMicrosoftToken(user.microsoft_refresh_token);
+  }
 
   if (refreshed.error) {
-    // Clear invalid tokens
+    // Both attempts failed — clear invalid tokens
     await adminClient
       .from("users")
       .update({

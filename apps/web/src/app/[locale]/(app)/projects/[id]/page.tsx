@@ -29,6 +29,7 @@ import {
   formatDate,
   formatCurrency,
 } from "@/lib/mock-data";
+import { DollarSign, TrendingUp } from "lucide-react";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
 import { TaskCreateModal } from "@/components/tasks/TaskCreateModal";
 import { TaskDetailPanel } from "@/components/tasks/TaskDetailPanel";
@@ -46,9 +47,9 @@ const baseTabs = [
   { key: "visits", icon: UserCheck },
   { key: "submissions", icon: FileSpreadsheet },
   { key: "plans", icon: Map },
+  { key: "prix", icon: FileStack },
   { key: "archiving", icon: FolderArchive },
   { key: "closure", icon: ShieldCheck },
-  { key: "settings", icon: Settings },
 ] as const;
 
 export default function ProjectDetailPage() {
@@ -64,6 +65,8 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<{ id: string; title: string; reference: string; status: string; estimated_total?: number; deadline?: string }[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [benchmark, setBenchmark] = useState<any[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -94,6 +97,22 @@ export default function ProjectDetailPage() {
       .then(({ data }: { data: any[] | null }) => {
         if (data) setSubmissions(data);
       });
+
+    // Load plans
+    fetch(`/api/plans?project_id=${projectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.plans) setPlans(data.plans);
+      })
+      .catch((err) => console.error("Failed to load plans:", err));
+
+    // Load benchmark (price comparison)
+    fetch(`/api/pricing/benchmark?project_id=${projectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.groups) setBenchmark(data.groups);
+      })
+      .catch((err) => console.error("Failed to load benchmark:", err));
   }, [params.id]);
 
   if (projectLoading) {
@@ -179,18 +198,14 @@ export default function ProjectDetailPage() {
 
       {/* Tabs */}
       <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-slate-200">
-        <nav className="-mb-px flex gap-1 overflow-x-auto scrollbar-hide">
+        <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
-                onClick={() =>
-                  tab.key === "settings"
-                    ? undefined // handled by link
-                    : setActiveTab(tab.key)
-                }
+                onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
                     ? "border-brand text-brand"
@@ -610,17 +625,130 @@ export default function ProjectDetailPage() {
                   {t("viewAllPlans")}
                 </Link>
               </div>
-              <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50">
-                <div className="text-center">
-                  <Map className="mx-auto h-10 w-10 text-slate-300" />
-                  <p className="mt-3 text-sm font-medium text-slate-500">
-                    {t("plansProjectPlaceholder")}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {t("comingSoon")}
-                  </p>
+              {plans.length === 0 ? (
+                <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50">
+                  <div className="text-center">
+                    <Map className="mx-auto h-10 w-10 text-slate-300" />
+                    <p className="mt-3 text-sm font-medium text-slate-500">{t("noPlansYet")}</p>
+                    <p className="mt-1 text-xs text-slate-400">{t("plansWillAppear")}</p>
+                  </div>
                 </div>
+              ) : (
+                <div className="overflow-hidden rounded-md border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-medium text-slate-500">
+                      <tr>
+                        <th className="px-4 py-2">{t("planName")}</th>
+                        <th className="px-4 py-2">{t("planType")}</th>
+                        <th className="px-4 py-2">{t("planDiscipline")}</th>
+                        <th className="px-4 py-2">{t("planVersion")}</th>
+                        <th className="px-4 py-2">{t("planDate")}</th>
+                        <th className="px-4 py-2">{t("planStatus")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {plans.map((plan: any) => (
+                        <tr key={plan.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-2.5 font-medium text-slate-800">{plan.title || plan.file_name}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{plan.plan_type || "—"}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{plan.discipline || "—"}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{plan.version || "1"}</td>
+                          <td className="px-4 py-2.5 text-slate-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString() : "—"}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={cn(
+                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                              plan.status === "active" ? "bg-green-50 text-green-700" :
+                              plan.status === "superseded" ? "bg-amber-50 text-amber-700" :
+                              "bg-slate-100 text-slate-600"
+                            )}>
+                              {plan.status || "active"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "prix" && (
+          <div className="space-y-4">
+            <div className="rounded-md border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">{t("prixTitle")}</h3>
+                  <p className="mt-1 text-xs text-slate-500">{t("prixDescription")}</p>
+                </div>
+                <Link
+                  href="/cantaia-prix"
+                  className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  {t("viewCantaiaPrix")}
+                </Link>
               </div>
+              {benchmark.length === 0 ? (
+                <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50">
+                  <div className="text-center">
+                    <DollarSign className="mx-auto h-10 w-10 text-slate-300" />
+                    <p className="mt-3 text-sm font-medium text-slate-500">{t("noPricesYet")}</p>
+                    <p className="mt-1 text-xs text-slate-400">{t("pricesWillAppear")}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {benchmark.map((group: any, idx: number) => {
+                    const prices = group.suppliers || [];
+                    const minPrice = prices.length > 0 ? Math.min(...prices.map((s: any) => s.unit_price)) : 0;
+                    const maxPrice = prices.length > 0 ? Math.max(...prices.map((s: any) => s.unit_price)) : 0;
+                    return (
+                      <div key={idx} className="rounded-md border border-slate-200 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-slate-800">{group.description}</h4>
+                          <span className="text-xs text-slate-500">{group.unit} — {prices.length} {t("suppliers")}</span>
+                        </div>
+                        {prices.length > 0 && (
+                          <div className="space-y-1.5">
+                            {prices
+                              .sort((a: any, b: any) => a.unit_price - b.unit_price)
+                              .map((supplier: any, sIdx: number) => {
+                                const pct = maxPrice > 0 ? (supplier.unit_price / maxPrice) * 100 : 0;
+                                const isBest = supplier.unit_price === minPrice;
+                                const overPercent = minPrice > 0 ? Math.round(((supplier.unit_price - minPrice) / minPrice) * 100) : 0;
+                                return (
+                                  <div key={sIdx} className="flex items-center gap-3 text-xs">
+                                    <span className="w-32 truncate text-slate-600">{supplier.supplier_name}</span>
+                                    <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                                      <div
+                                        className={cn("h-full rounded-full", isBest ? "bg-green-500" : "bg-amber-400")}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                    <span className="w-24 text-right font-medium text-slate-700">
+                                      {supplier.unit_price.toFixed(2)} CHF
+                                    </span>
+                                    {isBest ? (
+                                      <span className="w-20 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full text-center">
+                                        {t("bestPrice")}
+                                      </span>
+                                    ) : (
+                                      <span className="w-20 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full text-center">
+                                        +{overPercent}%
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

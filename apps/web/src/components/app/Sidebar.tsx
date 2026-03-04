@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -40,12 +40,22 @@ interface NavItem {
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const pathname = usePathname();
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
   const { branding } = useBranding();
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
+
+  // Fetch user role from DB to determine admin visibility
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((d) => { if (d.profile?.role) setUserRole(d.profile.role); })
+      .catch(() => {});
+  }, [user?.id]);
 
   const navItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
@@ -54,8 +64,8 @@ export function Sidebar() {
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", badgeLabelKey: "new" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", badgeLabelKey: "new" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
     { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
   ];
@@ -222,8 +232,8 @@ export function Sidebar() {
             </ul>
           </div>
 
-          {/* Superadmin link */}
-          {user?.user_metadata?.is_superadmin && (
+          {/* Admin link — visible to org admins and superadmins */}
+          {(userRole === "admin" || user?.user_metadata?.is_superadmin) && (
             <div className="mt-1">
               <Link
                 href="/admin"

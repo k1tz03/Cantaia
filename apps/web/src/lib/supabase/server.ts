@@ -22,7 +22,13 @@ export async function createClient() {
         ) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, {
+                ...options,
+                maxAge: 60 * 60 * 24 * 7, // 7 days
+                sameSite: "lax" as const,
+                secure: process.env.NODE_ENV === "production",
+                path: "/",
+              })
             );
           } catch {
             // Server Components can't set cookies — ignore

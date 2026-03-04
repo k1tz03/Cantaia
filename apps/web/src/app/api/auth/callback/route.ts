@@ -43,8 +43,11 @@ export async function GET(request: Request) {
     linkOrgId,
   });
 
-  // Default locale for redirects
-  const locale = "fr";
+  // Detect locale from the URL path or referrer (defaults to "fr")
+  const pathLocaleMatch = new URL(request.url).pathname.match(/^\/(fr|en|de)\//);
+  const nextLocaleMatch = next?.match(/^\/(fr|en|de)(\/|$)/);
+  const refererLocaleMatch = request.headers.get("referer")?.match(/\/(fr|en|de)(\/|$)/);
+  const locale = pathLocaleMatch?.[1] || nextLocaleMatch?.[1] || refererLocaleMatch?.[1] || "fr";
 
   // Handle OAuth errors from Supabase/Microsoft/Google
   if (errorParam) {
@@ -125,7 +128,7 @@ export async function GET(request: Request) {
               first_name: metadata.first_name || metadata.full_name?.split(" ")[0] || "",
               last_name: metadata.last_name || metadata.full_name?.split(" ").slice(1).join(" ") || "",
               role: "project_manager",
-              preferred_language: "fr",
+              preferred_language: locale,
             } as any, { onConflict: "id" });
             if (userError) {
               console.error("[auth/callback] User upsert error:", userError.message);
@@ -244,7 +247,7 @@ export async function GET(request: Request) {
                   first_name: firstName,
                   last_name: lastName,
                   role: "project_manager",
-                  preferred_language: "fr",
+                  preferred_language: locale,
                 } as any, { onConflict: "id" });
                 if (userError) {
                   console.error("[auth/callback] User creation error:", userError.message);
@@ -266,8 +269,23 @@ export async function GET(request: Request) {
         });
 
         if (providerToken) {
+          // Extract real expires_in from JWT payload instead of hardcoding 3600s
+          let expiresInSeconds = 3600;
+          try {
+            const parts = providerToken.split(".");
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+              if (payload.exp && payload.iat) {
+                expiresInSeconds = payload.exp - payload.iat;
+              } else if (payload.exp) {
+                expiresInSeconds = payload.exp - Math.floor(Date.now() / 1000);
+              }
+            }
+          } catch {
+            // Fallback to 3600s if JWT parsing fails
+          }
           const tokenExpiresAt = new Date();
-          tokenExpiresAt.setSeconds(tokenExpiresAt.getSeconds() + 3600);
+          tokenExpiresAt.setSeconds(tokenExpiresAt.getSeconds() + expiresInSeconds);
 
           // Store in legacy Microsoft columns (for backward compat)
           if (authProvider === "microsoft") {

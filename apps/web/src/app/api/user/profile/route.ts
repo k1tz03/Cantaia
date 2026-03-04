@@ -20,7 +20,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from("users")
-    .select("organization_id, outlook_sync_enabled, last_sync_at, microsoft_access_token")
+    .select("organization_id, role, outlook_sync_enabled, last_sync_at, microsoft_access_token")
     .eq("id", user.id)
     .maybeSingle();
 

@@ -8,7 +8,7 @@ import {
   GEO_ZONES,
   type SupplierSpecialty,
 } from "@cantaia/core/suppliers";
-import type { Supplier, SupplierStatus } from "@cantaia/database";
+import type { Supplier, SupplierStatus, SupplierType } from "@cantaia/database";
 
 interface SupplierFormDialogProps {
   open: boolean;
@@ -40,6 +40,7 @@ export function SupplierFormDialog({
   const [geoZone, setGeoZone] = useState("");
   const [certificationsInput, setCertificationsInput] = useState("");
   const [manualRating, setManualRating] = useState(0);
+  const [supplierType, setSupplierType] = useState<SupplierType>("fournisseur");
   const [status, setStatus] = useState<SupplierStatus>("new");
   const [notes, setNotes] = useState("");
 
@@ -64,6 +65,7 @@ export function SupplierFormDialog({
       setGeoZone(supplier?.geo_zone ?? "");
       setCertificationsInput(supplier?.certifications?.join(", ") ?? "");
       setManualRating(supplier?.manual_rating ?? 0);
+      setSupplierType(supplier?.supplier_type ?? "fournisseur");
       setStatus(supplier?.status ?? "new");
       setNotes(supplier?.notes ?? "");
       setSaving(false);
@@ -116,6 +118,7 @@ export function SupplierFormDialog({
         geo_zone: geoZone || null,
         certifications: parseTags(certificationsInput),
         manual_rating: manualRating,
+        supplier_type: supplierType,
         status,
         notes: notes || null,
       };
@@ -201,6 +204,37 @@ export function SupplierFormDialog({
                 {submitted && !companyName.trim() && (
                   <p className="mt-1 text-xs text-red-600">Champ obligatoire</p>
                 )}
+              </div>
+
+              {/* Supplier type */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">
+                  Type
+                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="supplier_type"
+                      value="fournisseur"
+                      checked={supplierType === "fournisseur"}
+                      onChange={() => setSupplierType("fournisseur")}
+                      className="h-3.5 w-3.5 border-gray-300 text-brand focus:ring-brand"
+                    />
+                    <span className="text-sm text-gray-700">Fournisseur (materiaux)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="supplier_type"
+                      value="prestataire"
+                      checked={supplierType === "prestataire"}
+                      onChange={() => setSupplierType("prestataire")}
+                      className="h-3.5 w-3.5 border-gray-300 text-brand focus:ring-brand"
+                    />
+                    <span className="text-sm text-gray-700">Prestataire (services)</span>
+                  </label>
+                </div>
               </div>
 
               {/* Contact name + Email */}

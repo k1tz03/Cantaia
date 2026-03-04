@@ -39,7 +39,8 @@ interface PricingConfig {
   hourly_rate: number;
   site_location: string;
   departure_location: string;
-  margin_level: "tight" | "standard" | "comfortable";
+  margin_level: "tight" | "standard" | "comfortable" | "custom";
+  custom_margin_percent?: number;
   default_exclusions: string[];
   default_scope: "general" | "line_by_line";
 }
@@ -122,6 +123,7 @@ const MARGIN_OPTIONS = [
   { value: "tight" as const, label: "Serré (5%)", percent: 5 },
   { value: "standard" as const, label: "Standard (12%)", percent: 12 },
   { value: "comfortable" as const, label: "Confortable (20%)", percent: 20 },
+  { value: "custom" as const, label: "Personnalisé", percent: 0 },
 ];
 
 const DEFAULT_CONFIG: PricingConfig = {
@@ -133,7 +135,7 @@ const DEFAULT_CONFIG: PricingConfig = {
   default_scope: "line_by_line",
 };
 
-type Tab = "estimate" | "history" | "benchmark";
+type Tab = "estimate" | "import" | "analysis" | "history";
 
 // ── Page ──
 
@@ -188,7 +190,6 @@ export default function CantaiaPrixPage() {
   const [extractionProjectMap, setExtractionProjectMap] = useState<Record<string, string>>({});
 
   // Benchmark analysis
-  const [benchmarkView, setBenchmarkView] = useState<"upload" | "analysis">("upload");
   const [benchmarkData, setBenchmarkData] = useState<any[]>([]);
   const [benchmarkSummary, setBenchmarkSummary] = useState<any | null>(null);
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
@@ -298,9 +299,6 @@ export default function CantaiaPrixPage() {
       const data = await res.json();
       setBenchmarkData(data.items || []);
       setBenchmarkSummary(data.summary || null);
-      if (data.items?.length > 0) {
-        setBenchmarkView("analysis");
-      }
     } catch {
       setBenchmarkData([]);
       setBenchmarkSummary(null);
@@ -311,7 +309,7 @@ export default function CantaiaPrixPage() {
 
   // Auto-load benchmark on tab switch
   useEffect(() => {
-    if (activeTab === "benchmark" && benchmarkData.length === 0 && !benchmarkLoading) {
+    if (activeTab === "analysis" && benchmarkData.length === 0 && !benchmarkLoading) {
       loadBenchmark();
     }
   }, [activeTab]);
@@ -604,43 +602,27 @@ export default function CantaiaPrixPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-lg bg-slate-100 p-0.5 w-fit">
-          <button
-            onClick={() => setActiveTab("estimate")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === "estimate"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <Calculator className="h-3.5 w-3.5" />
-            Demande de chiffrage
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === "history"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Historique
-          </button>
-          <button
-            onClick={() => setActiveTab("benchmark")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === "benchmark"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            Benchmark
-          </button>
+        <div className="mb-6 flex flex-wrap gap-1 rounded-lg bg-slate-100 p-0.5 w-fit">
+          {([
+            { key: "estimate" as Tab, label: "Chiffrage IA", icon: Calculator },
+            { key: "import" as Tab, label: "Import prix", icon: Upload },
+            { key: "analysis" as Tab, label: "Analyse prix", icon: BarChart3 },
+            { key: "history" as Tab, label: "Historique", icon: Clock },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === tab.key
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* ═══════════════════════════════════════════ */}
@@ -715,7 +697,7 @@ export default function CantaiaPrixPage() {
                   <Percent className="mr-1 inline h-3 w-3" />
                   Niveau de marge
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {MARGIN_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
@@ -733,6 +715,21 @@ export default function CantaiaPrixPage() {
                       {opt.label}
                     </button>
                   ))}
+                  {config.margin_level === "custom" && (
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={config.custom_margin_percent ?? 15}
+                        onChange={(e) =>
+                          setConfig({ ...config, custom_margin_percent: Number(e.target.value) || 0 })
+                        }
+                        className="w-24 rounded-md border border-brand bg-brand/5 py-2 pl-3 pr-7 text-sm font-medium text-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-brand">%</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1517,47 +1514,10 @@ export default function CantaiaPrixPage() {
         )}
 
         {/* ═══════════════════════════════════════════ */}
-        {/* TAB 3: Benchmark                           */}
+        {/* TAB 2: Import prix                         */}
         {/* ═══════════════════════════════════════════ */}
-        {activeTab === "benchmark" && (
+        {activeTab === "import" && (
           <div className="space-y-4">
-            {/* ── Sub-view toggle ── */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setBenchmarkView("upload")}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  benchmarkView === "upload"
-                    ? "bg-brand text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                )}
-              >
-                <Upload className="inline h-3.5 w-3.5 mr-1" />
-                Importer des fichiers
-              </button>
-              <button
-                type="button"
-                onClick={() => { setBenchmarkView("analysis"); loadBenchmark(benchmarkProjectFilter || undefined); }}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  benchmarkView === "analysis"
-                    ? "bg-brand text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                )}
-              >
-                <BarChart3 className="inline h-3.5 w-3.5 mr-1" />
-                Analyse des prix
-                {benchmarkSummary?.total_data_points > 0 && (
-                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px]">
-                    {benchmarkSummary.total_data_points}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* ═══ UPLOAD SUB-VIEW ═══ */}
-            {benchmarkView === "upload" && (<>
 
             {/* ── Import completed ── */}
             {importResult && (
@@ -2004,11 +1964,14 @@ export default function CantaiaPrixPage() {
               </div>
             )}
 
-            </>)}
+          </div>
+        )}
 
-            {/* ═══ ANALYSIS SUB-VIEW ═══ */}
-            {benchmarkView === "analysis" && (
-              <div className="space-y-4">
+        {/* ═══════════════════════════════════════════ */}
+        {/* TAB 3: Analyse prix                        */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === "analysis" && (
+          <div className="space-y-4">
                 {benchmarkLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin text-brand" />
@@ -2023,7 +1986,7 @@ export default function CantaiaPrixPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setBenchmarkView("upload")}
+                      onClick={() => setActiveTab("import")}
                       className="mt-4 inline-flex items-center gap-1 text-xs text-brand hover:underline"
                     >
                       <Upload className="h-3.5 w-3.5" />
@@ -2190,8 +2153,6 @@ export default function CantaiaPrixPage() {
                   </>
                 )}
               </div>
-            )}
-          </div>
         )}
       </div>
     </div>
