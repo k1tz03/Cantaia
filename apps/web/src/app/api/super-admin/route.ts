@@ -44,7 +44,18 @@ export async function GET(request: NextRequest) {
 
   const result = await verifySuperAdmin();
   if ("error" in result) return result.error;
-  const { admin } = result;
+  const { userId, admin } = result;
+
+  if (action === "check-access") {
+    const { data } = await (admin.from("users") as any)
+      .select("first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+    return NextResponse.json({
+      authorized: true,
+      userName: data ? `${data.first_name} ${data.last_name}` : "",
+    });
+  }
 
   if (action === "list-organizations") {
     const { data, error } = await (admin.from("organizations") as any)

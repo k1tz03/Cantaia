@@ -17,8 +17,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-
 const superAdminNavItems = [
   { href: "/super-admin", icon: LayoutDashboard, labelKey: "dashboard" },
   { href: "/super-admin/organizations", icon: Building2, labelKey: "organizations" },
@@ -43,24 +41,22 @@ export default function SuperAdminLayout({
 
   useEffect(() => {
     async function checkAccess() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      try {
+        const res = await fetch("/api/super-admin?action=check-access");
+        if (!res.ok) {
+          router.replace("/dashboard");
+          return;
+        }
+        const data = await res.json();
+        if (!data.authorized) {
+          router.replace("/dashboard");
+          return;
+        }
+        setUserName(data.userName || "");
+        setAuthorized(true);
+      } catch {
         router.replace("/dashboard");
-        return;
       }
-      const { data: userData } = await (supabase
-        .from("users") as any)
-        .select("is_superadmin, first_name, last_name")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!userData?.is_superadmin) {
-        router.replace("/dashboard");
-        return;
-      }
-      setUserName(`${userData.first_name} ${userData.last_name}`);
-      setAuthorized(true);
     }
     checkAccess();
     // eslint-disable-next-line react-hooks/exhaustive-deps
