@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- Registre des plans par projet
-CREATE TABLE plan_registry (
+CREATE TABLE IF NOT EXISTS plan_registry (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
@@ -42,7 +42,7 @@ CREATE TABLE plan_registry (
 );
 
 -- Versions de chaque plan
-CREATE TABLE plan_versions (
+CREATE TABLE IF NOT EXISTS plan_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID REFERENCES plan_registry(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -87,7 +87,7 @@ CREATE TABLE plan_versions (
 );
 
 -- Table des alertes de version obsolète
-CREATE TABLE plan_version_alerts (
+CREATE TABLE IF NOT EXISTS plan_version_alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID REFERENCES plan_registry(id) ON DELETE CASCADE,
   plan_version_id UUID REFERENCES plan_versions(id),
@@ -113,21 +113,24 @@ CREATE TABLE plan_version_alerts (
 );
 
 -- Index
-CREATE INDEX idx_plan_registry_project ON plan_registry(project_id);
-CREATE INDEX idx_plan_registry_number ON plan_registry(plan_number);
-CREATE INDEX idx_plan_versions_plan ON plan_versions(plan_id);
-CREATE INDEX idx_plan_versions_current ON plan_versions(is_current);
-CREATE INDEX idx_plan_alerts_project ON plan_version_alerts(project_id);
-CREATE INDEX idx_plan_alerts_status ON plan_version_alerts(status);
+CREATE INDEX IF NOT EXISTS idx_plan_registry_project ON plan_registry(project_id);
+CREATE INDEX IF NOT EXISTS idx_plan_registry_number ON plan_registry(plan_number);
+CREATE INDEX IF NOT EXISTS idx_plan_versions_plan ON plan_versions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_plan_versions_current ON plan_versions(is_current);
+CREATE INDEX IF NOT EXISTS idx_plan_alerts_project ON plan_version_alerts(project_id);
+CREATE INDEX IF NOT EXISTS idx_plan_alerts_status ON plan_version_alerts(status);
 
 -- RLS
 ALTER TABLE plan_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_version_alerts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage plans in their org" ON plan_registry;
 CREATE POLICY "Users can manage plans in their org" ON plan_registry
   FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Users can manage plan versions in their org" ON plan_versions;
 CREATE POLICY "Users can manage plan versions in their org" ON plan_versions
   FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Users can manage plan alerts in their org" ON plan_version_alerts;
 CREATE POLICY "Users can manage plan alerts in their org" ON plan_version_alerts
   FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));

@@ -5,7 +5,7 @@
 -- ============================================================
 -- FOURNISSEURS (annuaire central partagé par tous les projets)
 -- ============================================================
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -53,7 +53,7 @@ CREATE TABLE suppliers (
 -- ============================================================
 -- SOUMISSIONS (un descriptif/appel d'offres par projet)
 -- ============================================================
-CREATE TABLE submissions (
+CREATE TABLE IF NOT EXISTS submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
@@ -100,7 +100,7 @@ CREATE TABLE submissions (
 -- ============================================================
 -- LOTS (chapitres CFC d'une soumission)
 -- ============================================================
-CREATE TABLE submission_lots (
+CREATE TABLE IF NOT EXISTS submission_lots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   submission_id UUID REFERENCES submissions(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -121,7 +121,7 @@ CREATE TABLE submission_lots (
 -- ============================================================
 -- CHAPITRES (sous-division d'un lot)
 -- ============================================================
-CREATE TABLE submission_chapters (
+CREATE TABLE IF NOT EXISTS submission_chapters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lot_id UUID REFERENCES submission_lots(id) ON DELETE CASCADE,
   submission_id UUID REFERENCES submissions(id) ON DELETE CASCADE,
@@ -137,7 +137,7 @@ CREATE TABLE submission_chapters (
 -- ============================================================
 -- POSTES (lignes unitaires à chiffrer)
 -- ============================================================
-CREATE TABLE submission_items (
+CREATE TABLE IF NOT EXISTS submission_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chapter_id UUID REFERENCES submission_chapters(id) ON DELETE CASCADE,
   lot_id UUID REFERENCES submission_lots(id) ON DELETE CASCADE,
@@ -172,7 +172,7 @@ CREATE TABLE submission_items (
 -- ============================================================
 -- DEMANDES DE PRIX (envoyées aux fournisseurs)
 -- ============================================================
-CREATE TABLE price_requests (
+CREATE TABLE IF NOT EXISTS price_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   submission_id UUID REFERENCES submissions(id) ON DELETE CASCADE,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
@@ -218,7 +218,7 @@ CREATE TABLE price_requests (
 -- ============================================================
 -- OFFRES REÇUES (réponses des fournisseurs)
 -- ============================================================
-CREATE TABLE supplier_offers (
+CREATE TABLE IF NOT EXISTS supplier_offers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   price_request_id UUID REFERENCES price_requests(id) ON DELETE CASCADE,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
@@ -264,7 +264,7 @@ CREATE TABLE supplier_offers (
 -- ============================================================
 -- PRIX UNITAIRES PAR POSTE (cœur de l'intelligence tarifaire)
 -- ============================================================
-CREATE TABLE offer_line_items (
+CREATE TABLE IF NOT EXISTS offer_line_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   offer_id UUID REFERENCES supplier_offers(id) ON DELETE CASCADE,
   submission_item_id UUID REFERENCES submission_items(id) ON DELETE CASCADE,
@@ -304,7 +304,7 @@ CREATE TABLE offer_line_items (
 -- ============================================================
 -- ALERTES INTELLIGENCE TARIFAIRE
 -- ============================================================
-CREATE TABLE pricing_alerts (
+CREATE TABLE IF NOT EXISTS pricing_alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id),
@@ -344,7 +344,7 @@ CREATE TABLE pricing_alerts (
 -- ============================================================
 -- HISTORIQUE NÉGOCIATION
 -- ============================================================
-CREATE TABLE negotiations (
+CREATE TABLE IF NOT EXISTS negotiations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   offer_id UUID REFERENCES supplier_offers(id) ON DELETE CASCADE,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
@@ -376,7 +376,7 @@ CREATE TABLE negotiations (
 -- ============================================================
 -- TEMPLATES D'EMAILS
 -- ============================================================
-CREATE TABLE email_templates (
+CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -398,45 +398,45 @@ CREATE TABLE email_templates (
 -- ============================================================
 -- INDEX
 -- ============================================================
-CREATE INDEX idx_suppliers_org ON suppliers(organization_id);
-CREATE INDEX idx_suppliers_specialties ON suppliers USING GIN (specialties);
-CREATE INDEX idx_suppliers_status ON suppliers(status);
+CREATE INDEX IF NOT EXISTS idx_suppliers_org ON suppliers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_suppliers_specialties ON suppliers USING GIN (specialties);
+CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
 
-CREATE INDEX idx_submissions_project ON submissions(project_id);
-CREATE INDEX idx_submissions_status ON submissions(status);
-CREATE INDEX idx_submissions_org ON submissions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_project ON submissions(project_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+CREATE INDEX IF NOT EXISTS idx_submissions_org ON submissions(organization_id);
 
-CREATE INDEX idx_submission_lots_submission ON submission_lots(submission_id);
-CREATE INDEX idx_submission_items_lot ON submission_items(lot_id);
-CREATE INDEX idx_submission_items_chapter ON submission_items(chapter_id);
-CREATE INDEX idx_submission_items_normalized ON submission_items(normalized_description, unit);
-CREATE INDEX idx_submission_items_cfc ON submission_items(cfc_subcode);
+CREATE INDEX IF NOT EXISTS idx_submission_lots_submission ON submission_lots(submission_id);
+CREATE INDEX IF NOT EXISTS idx_submission_items_lot ON submission_items(lot_id);
+CREATE INDEX IF NOT EXISTS idx_submission_items_chapter ON submission_items(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_submission_items_normalized ON submission_items(normalized_description, unit);
+CREATE INDEX IF NOT EXISTS idx_submission_items_cfc ON submission_items(cfc_subcode);
 
-CREATE INDEX idx_price_requests_submission ON price_requests(submission_id);
-CREATE INDEX idx_price_requests_supplier ON price_requests(supplier_id);
-CREATE INDEX idx_price_requests_status ON price_requests(status);
-CREATE INDEX idx_price_requests_token ON price_requests(portal_token);
+CREATE INDEX IF NOT EXISTS idx_price_requests_submission ON price_requests(submission_id);
+CREATE INDEX IF NOT EXISTS idx_price_requests_supplier ON price_requests(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_price_requests_status ON price_requests(status);
+CREATE INDEX IF NOT EXISTS idx_price_requests_token ON price_requests(portal_token);
 
-CREATE INDEX idx_offers_submission ON supplier_offers(submission_id);
-CREATE INDEX idx_offers_supplier ON supplier_offers(supplier_id);
-CREATE INDEX idx_offers_status ON supplier_offers(status);
+CREATE INDEX IF NOT EXISTS idx_offers_submission ON supplier_offers(submission_id);
+CREATE INDEX IF NOT EXISTS idx_offers_supplier ON supplier_offers(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_offers_status ON supplier_offers(status);
 
-CREATE INDEX idx_line_items_offer ON offer_line_items(offer_id);
-CREATE INDEX idx_line_items_item ON offer_line_items(submission_item_id);
-CREATE INDEX idx_line_items_supplier ON offer_line_items(supplier_id);
-CREATE INDEX idx_line_items_cfc ON offer_line_items(cfc_subcode);
-CREATE INDEX idx_line_items_normalized ON offer_line_items(normalized_description, unit_normalized);
-CREATE INDEX idx_line_items_project_cfc ON offer_line_items(project_id, cfc_subcode);
+CREATE INDEX IF NOT EXISTS idx_line_items_offer ON offer_line_items(offer_id);
+CREATE INDEX IF NOT EXISTS idx_line_items_item ON offer_line_items(submission_item_id);
+CREATE INDEX IF NOT EXISTS idx_line_items_supplier ON offer_line_items(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_line_items_cfc ON offer_line_items(cfc_subcode);
+CREATE INDEX IF NOT EXISTS idx_line_items_normalized ON offer_line_items(normalized_description, unit_normalized);
+CREATE INDEX IF NOT EXISTS idx_line_items_project_cfc ON offer_line_items(project_id, cfc_subcode);
 
-CREATE INDEX idx_pricing_alerts_org ON pricing_alerts(organization_id);
-CREATE INDEX idx_pricing_alerts_project ON pricing_alerts(project_id);
-CREATE INDEX idx_pricing_alerts_status ON pricing_alerts(status);
-CREATE INDEX idx_pricing_alerts_type ON pricing_alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_pricing_alerts_org ON pricing_alerts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_alerts_project ON pricing_alerts(project_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_alerts_status ON pricing_alerts(status);
+CREATE INDEX IF NOT EXISTS idx_pricing_alerts_type ON pricing_alerts(alert_type);
 
-CREATE INDEX idx_negotiations_offer ON negotiations(offer_id);
+CREATE INDEX IF NOT EXISTS idx_negotiations_offer ON negotiations(offer_id);
 
-CREATE INDEX idx_templates_org ON email_templates(organization_id);
-CREATE INDEX idx_templates_type ON email_templates(type, language);
+CREATE INDEX IF NOT EXISTS idx_templates_org ON email_templates(organization_id);
+CREATE INDEX IF NOT EXISTS idx_templates_type ON email_templates(type, language);
 
 -- ============================================================
 -- RLS (même pattern que les autres tables)
@@ -453,14 +453,25 @@ ALTER TABLE pricing_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE negotiations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "org_suppliers" ON suppliers;
 CREATE POLICY "org_suppliers" ON suppliers FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_submissions" ON submissions;
 CREATE POLICY "org_submissions" ON submissions FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_lots" ON submission_lots;
 CREATE POLICY "org_lots" ON submission_lots FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_chapters" ON submission_chapters;
 CREATE POLICY "org_chapters" ON submission_chapters FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_items" ON submission_items;
 CREATE POLICY "org_items" ON submission_items FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_requests" ON price_requests;
 CREATE POLICY "org_requests" ON price_requests FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_offers" ON supplier_offers;
 CREATE POLICY "org_offers" ON supplier_offers FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_lines" ON offer_line_items;
 CREATE POLICY "org_lines" ON offer_line_items FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_alerts" ON pricing_alerts;
 CREATE POLICY "org_alerts" ON pricing_alerts FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_nego" ON negotiations;
 CREATE POLICY "org_nego" ON negotiations FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "org_templates" ON email_templates;
 CREATE POLICY "org_templates" ON email_templates FOR ALL USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
