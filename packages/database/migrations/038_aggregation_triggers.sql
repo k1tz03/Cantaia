@@ -1,5 +1,6 @@
 -- Migration 038: Aggregation triggers on C1 source tables
 -- These triggers feed the aggregation_queue for the CRON pipeline
+-- Idempotent: DROP IF EXISTS before each CREATE
 
 -- Enable pgcrypto for SHA-256 hashing (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -33,20 +34,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- Apply triggers on all C1 source tables
+-- Clean up old triggers (including removed ones)
+DROP TRIGGER IF EXISTS trg_offer_line_items_agg ON offer_line_items;
+DROP TRIGGER IF EXISTS trg_tasks_agg ON tasks;
+DROP TRIGGER IF EXISTS trg_supplier_offers_agg ON supplier_offers;
+DROP TRIGGER IF EXISTS trg_email_classification_feedback_agg ON email_classification_feedback;
+DROP TRIGGER IF EXISTS trg_pv_corrections_agg ON pv_corrections;
+DROP TRIGGER IF EXISTS trg_chat_feedback_agg ON chat_feedback;
+DROP TRIGGER IF EXISTS trg_submission_corrections_agg ON submission_corrections;
+DROP TRIGGER IF EXISTS trg_plan_analysis_corrections_agg ON plan_analysis_corrections;
+DROP TRIGGER IF EXISTS trg_visit_report_corrections_agg ON visit_report_corrections;
+DROP TRIGGER IF EXISTS trg_estimate_accuracy_agg ON estimate_accuracy_log;
+DROP TRIGGER IF EXISTS trg_task_status_log_agg ON task_status_log;
 
--- Pricing / offers
--- NOTE: offer_line_items trigger removed — table has no organization_id column.
--- Coverage via supplier_offers trigger below.
+-- Apply triggers on C1 source tables
+-- NOTE: offer_line_items and tasks excluded — no organization_id column.
+-- Coverage via supplier_offers and task_status_log respectively.
 
 CREATE TRIGGER trg_supplier_offers_agg
   AFTER INSERT OR UPDATE ON supplier_offers
   FOR EACH ROW EXECUTE FUNCTION notify_aggregation();
 
--- NOTE: tasks trigger removed — table has no organization_id column.
--- Coverage via task_status_log trigger below.
-
--- Feedback and corrections
 CREATE TRIGGER trg_email_classification_feedback_agg
   AFTER INSERT ON email_classification_feedback
   FOR EACH ROW EXECUTE FUNCTION notify_aggregation();

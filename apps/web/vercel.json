@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/aggregate-benchmarks",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/extract-patterns",
