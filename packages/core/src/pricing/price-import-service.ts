@@ -152,7 +152,8 @@ export async function importExtractedPrices(
           project_id: projectId,
           organization_id: organizationId,
           source_type: result.source_type === "pdf_attachment" ? "pdf" : "email",
-          source_email_id: result.emailId,
+          source_email_id: result.emailId && !result.emailId.startsWith("file:") ? result.emailId : null,
+          source_file_name: result.emailId?.startsWith("file:") ? result.emailId.replace("file:", "") : null,
           total_amount: result.offer_summary.total_amount,
           currency: result.offer_summary.currency || "CHF",
           vat_included: result.offer_summary.vat_included || false,
@@ -171,7 +172,7 @@ export async function importExtractedPrices(
         .single();
 
       if (offerError) {
-        console.error("[price-import] Offer creation error:", offerError);
+        console.error("[price-import] Offer creation error:", offerError.message, offerError.details);
         continue;
       }
 
@@ -202,7 +203,7 @@ export async function importExtractedPrices(
           .insert(lineItemRows);
 
         if (itemsError) {
-          console.error("[price-import] Line items insert error:", itemsError);
+          console.error("[price-import] Line items insert error:", itemsError.message, itemsError.details);
         } else {
           lineItemsCreated += lineItemRows.length;
         }
