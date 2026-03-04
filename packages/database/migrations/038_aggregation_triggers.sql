@@ -26,7 +26,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM aggregation_consent
-    WHERE org_id = p_org_id
+    WHERE organization_id = p_org_id
       AND module = p_module
       AND opted_in = true
   );
@@ -36,18 +36,15 @@ $$ LANGUAGE plpgsql STABLE;
 -- Apply triggers on all C1 source tables
 
 -- Pricing / offers
-CREATE TRIGGER trg_offer_line_items_agg
-  AFTER INSERT OR UPDATE ON offer_line_items
-  FOR EACH ROW EXECUTE FUNCTION notify_aggregation();
+-- NOTE: offer_line_items trigger removed — table has no organization_id column.
+-- Coverage via supplier_offers trigger below.
 
 CREATE TRIGGER trg_supplier_offers_agg
   AFTER INSERT OR UPDATE ON supplier_offers
   FOR EACH ROW EXECUTE FUNCTION notify_aggregation();
 
--- Tasks
-CREATE TRIGGER trg_tasks_agg
-  AFTER INSERT OR UPDATE ON tasks
-  FOR EACH ROW EXECUTE FUNCTION notify_aggregation();
+-- NOTE: tasks trigger removed — table has no organization_id column.
+-- Coverage via task_status_log trigger below.
 
 -- Feedback and corrections
 CREATE TRIGGER trg_email_classification_feedback_agg

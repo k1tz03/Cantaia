@@ -10,6 +10,7 @@ import {
   Users,
   CreditCard,
   BarChart3,
+  Brain,
   Settings,
   ArrowLeft,
   Wrench,
@@ -24,6 +25,7 @@ const superAdminNavItems = [
   { href: "/super-admin/users", icon: Users, labelKey: "allUsers" },
   { href: "/super-admin/billing", icon: CreditCard, labelKey: "billing" },
   { href: "/super-admin/metrics", icon: BarChart3, labelKey: "globalMetrics" },
+  { href: "/super-admin/data-intelligence", icon: Brain, labelKey: "dataIntelligence" },
   { href: "/super-admin/config", icon: Settings, labelKey: "platformConfig" },
 ];
 
