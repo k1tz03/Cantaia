@@ -3,6 +3,14 @@
     {
       "path": "/api/email/sync/cron",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/aggregate-benchmarks",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/extract-patterns",
+      "schedule": "0 3 * * 0"
     }
   ]
 }

@@ -5,3 +5,4 @@ export * from "./email-record";
 export * from "./user";
 export * from "./auth";
 export * from "./plan-analysis";
+export * from "./data-intelligence";

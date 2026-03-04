@@ -20,6 +20,7 @@ import {
   Key,
   Settings,
   SlidersHorizontal,
+  Database,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useFormSection } from "@/lib/hooks/use-form-section";
@@ -30,6 +31,7 @@ import { OrganisationTab } from "@/components/settings/OrganisationTab";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { ClassificationSettingsTab } from "@/components/settings/ClassificationSettingsTab";
 import { EmailPreferencesTab } from "@/components/settings/EmailPreferencesTab";
+import { DataSharingTab } from "@/components/settings/DataSharingTab";
 
 type SettingsTab =
   | "profile"
@@ -39,6 +41,7 @@ type SettingsTab =
   | "email_prefs"
   | "security"
   | "classification"
+  | "data_sharing"
   | "organisation"
   | "subscription";
 
@@ -50,6 +53,7 @@ const TABS: { id: SettingsTab; icon: React.ElementType }[] = [
   { id: "email_prefs", icon: SlidersHorizontal },
   { id: "classification", icon: Settings },
   { id: "security", icon: Shield },
+  { id: "data_sharing", icon: Database },
   { id: "organisation", icon: Layers },
   { id: "subscription", icon: Key },
 ];
@@ -141,6 +145,7 @@ export default function SettingsPage() {
           {activeTab === "email_prefs" && <EmailPreferencesTab />}
           {activeTab === "classification" && <ClassificationSettingsTab />}
           {activeTab === "security" && <SecuritySection />}
+          {activeTab === "data_sharing" && <DataSharingTab />}
           {activeTab === "organisation" && <OrganisationTab />}
           {activeTab === "subscription" && <SubscriptionTab />}
         </div>

@@ -2074,6 +2074,35 @@ export interface Database {
       process_action: ProcessAction;
       email_provider: EmailProvider;
       email_importance: EmailImportance;
+      consent_module: ConsentModule;
+      supplier_preference_status: SupplierPreferenceStatus;
+      ai_module: AIModule;
     };
   };
 }
+
+// ---------- Data Intelligence Types ----------
+
+export type ConsentModule =
+  | "prix"
+  | "fournisseurs"
+  | "plans"
+  | "pv"
+  | "visites"
+  | "chat"
+  | "mail"
+  | "taches"
+  | "briefing";
+
+export type SupplierPreferenceStatus = "preferred" | "blacklisted" | "neutral";
+
+export type AIModule =
+  | "mail"
+  | "pv"
+  | "plans"
+  | "prix"
+  | "chat"
+  | "tasks"
+  | "visits"
+  | "briefing"
+  | "soumissions";

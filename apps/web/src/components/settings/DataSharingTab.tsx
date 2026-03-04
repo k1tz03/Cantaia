@@ -1,0 +1,383 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Shield,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  BarChart3,
+  Users,
+  FileText,
+  MessageSquare,
+  Mail,
+  ListChecks,
+  ClipboardList,
+  Briefcase,
+  Zap,
+  Lock,
+  Eye,
+} from "lucide-react";
+
+interface ConsentModule {
+  module: string;
+  label: string;
+  description: string;
+  benefitOptIn: string;
+  benefitOptOut: string;
+  icon: React.ElementType;
+}
+
+const CONSENT_MODULES: ConsentModule[] = [
+  {
+    module: "prix",
+    label: "Prix & Soumissions",
+    description:
+      "Vos prix sont anonymisés et agrégés avec 3+ autres entreprises",
+    benefitOptIn:
+      "Benchmarks marché, tendances prix, alertes anomalies, estimation ajustée",
+    benefitOptOut: "Uniquement votre historique interne de prix",
+    icon: BarChart3,
+  },
+  {
+    module: "fournisseurs",
+    label: "Fournisseurs",
+    description: "Scores et délais de réponse anonymisés",
+    benefitOptIn:
+      "Ranking marché, scores agrégés cross-entreprises, indicateurs de fiabilité",
+    benefitOptOut: "Uniquement votre scoring interne",
+    icon: Users,
+  },
+  {
+    module: "plans",
+    label: "Plans",
+    description: "Métriques de précision d'extraction (pas le contenu)",
+    benefitOptIn:
+      "Ratios quantitatifs de référence, vérification cohérence automatique",
+    benefitOptOut: "Pas de vérification de cohérence multi-source",
+    icon: FileText,
+  },
+  {
+    module: "pv",
+    label: "PV / Réunions",
+    description:
+      "Métriques qualité uniquement (nb décisions, taux correction) — jamais le contenu",
+    benefitOptIn:
+      "Structure PV optimisée par le marché, benchmarks qualité",
+    benefitOptOut: "Structure PV générique",
+    icon: ClipboardList,
+  },
+  {
+    module: "visites",
+    label: "Visites client",
+    description: "Taux de conversion et délais commerciaux anonymisés",
+    benefitOptIn: "Benchmarks commerciaux par type de travaux",
+    benefitOptOut: "Pas de comparaison commerciale",
+    icon: Briefcase,
+  },
+  {
+    module: "chat",
+    label: "Chat JM",
+    description: "Thématiques des questions uniquement (jamais le contenu)",
+    benefitOptIn: "Questions suggérées enrichies, réponses optimisées",
+    benefitOptOut: "Pool de questions standard",
+    icon: MessageSquare,
+  },
+  {
+    module: "mail",
+    label: "Mail",
+    description: "Taux de classification et correction (pas le contenu email)",
+    benefitOptIn: "Classification IA optimisée par les retours collectifs",
+    benefitOptOut: "Classification standard",
+    icon: Mail,
+  },
+  {
+    module: "taches",
+    label: "Tâches",
+    description: "Temps de complétion et taux de retard anonymisés",
+    benefitOptIn: "Suggestions d'échéances réalistes, benchmarks productivité",
+    benefitOptOut: "Échéances génériques",
+    icon: ListChecks,
+  },
+  {
+    module: "briefing",
+    label: "Briefing",
+    description: "Taux d'utilisation et types d'alertes actionnées",
+    benefitOptIn: "Format de briefing optimisé pour l'engagement",
+    benefitOptOut: "Format standard",
+    icon: Zap,
+  },
+];
+
+export function DataSharingTab() {
+  const [consents, setConsents] = useState<
+    Record<string, { opted_in: boolean; updated_at: string | null }>
+  >({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    loadConsents();
+  }, []);
+
+  async function loadConsents() {
+    try {
+      const res = await fetch("/api/settings/consent");
+      if (res.ok) {
+        const data = await res.json();
+        setConsents(data.consents || {});
+      }
+    } catch {
+      // Table may not exist yet
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const toggleModule = useCallback(
+    async (module: string, newValue: boolean) => {
+      setSaving(module);
+      setMessage(null);
+      try {
+        const res = await fetch("/api/settings/consent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modules: { [module]: newValue } }),
+        });
+        if (res.ok) {
+          setConsents((prev) => ({
+            ...prev,
+            [module]: {
+              opted_in: newValue,
+              updated_at: new Date().toISOString(),
+            },
+          }));
+          setMessage({
+            type: "success",
+            text: newValue
+              ? "Contribution activée"
+              : "Contribution désactivée",
+          });
+        } else {
+          setMessage({ type: "error", text: "Erreur lors de la sauvegarde" });
+        }
+      } catch {
+        setMessage({ type: "error", text: "Erreur réseau" });
+      } finally {
+        setSaving(null);
+        setTimeout(() => setMessage(null), 3000);
+      }
+    },
+    []
+  );
+
+  const toggleAll = useCallback(
+    async (value: boolean) => {
+      setSaving("all");
+      setMessage(null);
+      try {
+        const modules: Record<string, boolean> = {};
+        for (const m of CONSENT_MODULES) {
+          modules[m.module] = value;
+        }
+        const res = await fetch("/api/settings/consent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modules }),
+        });
+        if (res.ok) {
+          const updated: typeof consents = {};
+          for (const m of CONSENT_MODULES) {
+            updated[m.module] = {
+              opted_in: value,
+              updated_at: new Date().toISOString(),
+            };
+          }
+          setConsents(updated);
+          setMessage({
+            type: "success",
+            text: value
+              ? "Toutes les contributions activées"
+              : "Toutes les contributions désactivées",
+          });
+        }
+      } catch {
+        setMessage({ type: "error", text: "Erreur réseau" });
+      } finally {
+        setSaving(null);
+        setTimeout(() => setMessage(null), 3000);
+      }
+    },
+    []
+  );
+
+  const activeCount = Object.values(consents).filter(
+    (c) => c.opted_in
+  ).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Introduction */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-5">
+        <div className="flex items-start gap-3">
+          <Shield className="mt-0.5 h-5 w-5 text-blue-600" />
+          <div>
+            <h3 className="text-sm font-semibold text-blue-900">
+              Intelligence collective — Vos données restent privées
+            </h3>
+            <p className="mt-1 text-sm text-blue-700">
+              En activant le partage pour un module, vos données sont{" "}
+              <strong>anonymisées</strong> et{" "}
+              <strong>agrégées avec 3+ autres entreprises</strong> minimum. Il
+              est impossible de remonter à la source. En échange, vous accédez
+              aux benchmarks marché qui améliorent les recommandations IA.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-600">
+              <span className="flex items-center gap-1">
+                <Lock className="h-3.5 w-3.5" />
+                Seuil minimum 3 contributeurs
+              </span>
+              <span className="flex items-center gap-1">
+                <Eye className="h-3.5 w-3.5" />
+                Jamais de données brutes partagées
+              </span>
+              <span className="flex items-center gap-1">
+                <Shield className="h-3.5 w-3.5" />
+                Bruit différentiel sur les percentiles
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle all + status message */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          <span className="font-medium text-gray-900">{activeCount}</span> /{" "}
+          {CONSENT_MODULES.length} modules actifs
+        </div>
+        <div className="flex items-center gap-2">
+          {message && (
+            <span
+              className={`text-xs ${message.type === "success" ? "text-green-600" : "text-red-600"}`}
+            >
+              {message.type === "success" ? (
+                <CheckCircle className="mr-1 inline h-3.5 w-3.5" />
+              ) : (
+                <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
+              )}
+              {message.text}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleAll(activeCount < CONSENT_MODULES.length)}
+            disabled={saving !== null}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {saving === "all" ? (
+              <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+            ) : null}
+            {activeCount < CONSENT_MODULES.length
+              ? "Tout activer"
+              : "Tout désactiver"}
+          </button>
+        </div>
+      </div>
+
+      {/* Module cards */}
+      <div className="space-y-3">
+        {CONSENT_MODULES.map((mod) => {
+          const consent = consents[mod.module];
+          const isActive = consent?.opted_in || false;
+          const isSaving = saving === mod.module;
+          const Icon = mod.icon;
+
+          return (
+            <div
+              key={mod.module}
+              className={`rounded-lg border p-4 transition-colors ${
+                isActive
+                  ? "border-green-200 bg-green-50/30"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Icon
+                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-green-600" : "text-gray-400"}`}
+                  />
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900">
+                      {mod.label}
+                    </h4>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {mod.description}
+                    </p>
+                    <div className="mt-2 text-xs">
+                      {isActive ? (
+                        <span className="text-green-700">
+                          <CheckCircle className="mr-1 inline h-3 w-3" />
+                          {mod.benefitOptIn}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">
+                          {mod.benefitOptOut}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleModule(mod.module, !isActive)}
+                  disabled={saving !== null}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    isActive ? "bg-green-500" : "bg-gray-200"
+                  } ${saving !== null ? "opacity-50" : ""}`}
+                >
+                  {isSaving ? (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow">
+                      <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        isActive ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Privacy footer */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p className="text-xs text-gray-500">
+          <strong>Garanties de confidentialité :</strong> Vos données brutes
+          restent strictement privées et isolées par organisation. Seules les
+          statistiques anonymisées (médianes, percentiles) sont partagées, et
+          uniquement lorsque 3+ organisations distinctes contribuent au même
+          benchmark. Un bruit statistique (±2-5%) est ajouté pour empêcher toute
+          rétro-ingénierie. Vous pouvez révoquer votre consentement à tout
+          moment — vos données seront retirées du prochain cycle d'agrégation.
+        </p>
+      </div>
+    </div>
+  );
+}
