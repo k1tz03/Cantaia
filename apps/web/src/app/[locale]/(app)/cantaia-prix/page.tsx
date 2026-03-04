@@ -184,6 +184,8 @@ export default function CantaiaPrixPage() {
   const [expandedExtraction, setExpandedExtraction] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // Project assignment per extraction (emailId → project_id)
+  const [extractionProjectMap, setExtractionProjectMap] = useState<Record<string, string>>({});
 
   // Benchmark analysis
   const [benchmarkView, setBenchmarkView] = useState<"upload" | "analysis">("upload");
@@ -400,9 +402,25 @@ export default function CantaiaPrixPage() {
       }
     }
 
+    // Auto-match project_reference against existing projects
+    const autoMap: Record<string, string> = {};
+    for (const r of allResults) {
+      if (r.project_reference && projects.length > 0) {
+        const ref = r.project_reference.toLowerCase().trim();
+        const match = projects.find((p) => {
+          const pName = p.name.toLowerCase().trim();
+          return pName === ref || pName.includes(ref) || ref.includes(pName);
+        });
+        if (match) {
+          autoMap[r.emailId] = match.id;
+        }
+      }
+    }
+    setExtractionProjectMap(autoMap);
+
     setExtractionStatus("preview_ready");
     setExtractionRunning(false);
-  }, [uploadedFiles]);
+  }, [uploadedFiles, projects]);
 
   // ── Import confirmed results ──
   const handleImport = useCallback(async () => {
@@ -410,10 +428,15 @@ export default function CantaiaPrixPage() {
     if (confirmed.length === 0) return;
     setImporting(true);
     try {
+      // Attach user-selected project_id to each result
+      const resultsWithProjects = confirmed.map((r: any) => ({
+        ...r,
+        assigned_project_id: extractionProjectMap[r.emailId] || null,
+      }));
       const res = await fetch("/api/pricing/extract-from-files/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results: confirmed }),
+        body: JSON.stringify({ results: resultsWithProjects }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -429,7 +452,7 @@ export default function CantaiaPrixPage() {
     } finally {
       setImporting(false);
     }
-  }, [extractionResults, selectedExtractions]);
+  }, [extractionResults, selectedExtractions, extractionProjectMap]);
 
   // ── Load single estimate detail ──
   const openHistoryDetail = useCallback((estimateId: string) => {
@@ -1840,6 +1863,11 @@ export default function CantaiaPrixPage() {
                               {result.fileName && <span className="font-mono">{result.fileName}</span>}
                               {result.fileName && (result.supplier_info?.email || result.supplier_info?.city) ? " — " : ""}
                               {result.supplier_info?.email || ""}{result.supplier_info?.city ? ` — ${result.supplier_info.city}` : ""}
+                              {result.project_reference && (
+                                <span className="ml-2 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                  <MapPin className="h-2.5 w-2.5" />{result.project_reference}
+                                </span>
+                              )}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
@@ -1862,6 +1890,36 @@ export default function CantaiaPrixPage() {
                       {/* Expanded detail */}
                       {expandedExtraction === result.emailId && result.line_items && (
                         <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+                          {/* Project assignment */}
+                          <div className="mb-3 flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-500 shrink-0">Projet :</span>
+                            <select
+                              value={extractionProjectMap[result.emailId] || ""}
+                              onChange={(e) => {
+                                setExtractionProjectMap((prev) => ({
+                                  ...prev,
+                                  [result.emailId]: e.target.value,
+                                }));
+                              }}
+                              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
+                            >
+                              <option value="">— Aucun projet —</option>
+                              {projects.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                            {result.project_reference && !extractionProjectMap[result.emailId] && (
+                              <span className="text-[10px] text-amber-600 italic">
+                                Réf. trouvée : &quot;{result.project_reference}&quot; — aucun projet correspondant
+                              </span>
+                            )}
+                            {result.project_reference && extractionProjectMap[result.emailId] && (
+                              <span className="text-[10px] text-emerald-600">
+                                Associé depuis : &quot;{result.project_reference}&quot;
+                              </span>
+                            )}
+                          </div>
                           {/* Supplier info */}
                           <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-500">
                             {result.supplier_info?.phone && (

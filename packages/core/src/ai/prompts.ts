@@ -885,6 +885,12 @@ C) CONDITIONS GÉNÉRALES :
 - Remise éventuelle
 - Conditions spéciales
 
+D) RÉFÉRENCE PROJET / CHANTIER :
+- Cherche dans l'ensemble du contenu (en-tête, objet, corps, pied de page) une référence au projet ou chantier concerné
+- Indices : "Concerne :", "Objet :", "Chantier :", "Projet :", "Ref :", "Votre référence", "Bauvorhaben", "Objekt", "Betrifft", "Référence chantier", "N° affaire", "Dossier"
+- Extrais le nom complet du projet/chantier (ex: "Résidence Les Tilleuls", "Rénovation école de Morges", "Immeuble Rue de la Gare 12")
+- Si aucune référence trouvée, mettre null
+
 Réponds UNIQUEMENT en JSON :
 {
   "has_prices": true,

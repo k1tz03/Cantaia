@@ -170,7 +170,13 @@ CONTEXTE :
 - Fichier : ${input.attachmentName}
 ${input.projectName ? `- Projet : ${input.projectName}` : ""}
 
-Analyse ce document PDF et extrais TOUTES les informations de prix, le fournisseur et les conditions.
+Analyse ce document PDF et extrais TOUTES les informations de prix, le fournisseur, les conditions, et la référence projet/chantier.
+
+ÉTAPES :
+A) FOURNISSEUR : raison sociale, contact, email, téléphone, adresse, site web, spécialités
+B) POSTES DE PRIX : description, quantité, unité, prix unitaire, prix total, code CFC
+C) CONDITIONS : total, TVA, paiement, validité, livraison, remise
+D) RÉFÉRENCE PROJET/CHANTIER : cherche dans l'en-tête, objet, corps et pied de page une référence au projet ou chantier. Indices : "Concerne", "Objet", "Chantier", "Projet", "Ref", "Votre référence", "Bauvorhaben", "Objekt", "Betrifft", "N° affaire", "Dossier". Extrais le nom complet (ex: "Résidence Les Tilleuls"). Si aucune → null.
 
 Réponds UNIQUEMENT en JSON avec le format :
 {
@@ -178,7 +184,7 @@ Réponds UNIQUEMENT en JSON avec le format :
   "supplier_info": { "company_name": "", "contact_name": null, "email": null, "phone": null, "address": null, "postal_code": null, "city": null, "website": null, "specialties": [] },
   "line_items": [{ "description": "", "quantity": null, "unit": "", "unit_price": 0, "total_price": null, "cfc_code": null }],
   "offer_summary": { "total_amount": null, "currency": "CHF", "vat_included": false, "vat_rate": null, "payment_terms": null, "validity_days": null, "delivery_included": null, "discount_percent": null, "conditions_text": null },
-  "project_reference": null,
+  "project_reference": "Nom du projet ou chantier mentionné dans le document",
   "confidence": 0.85
 }
 
@@ -186,7 +192,8 @@ RÈGLES :
 1. Si le document ne contient PAS de prix → { "has_prices": false, "confidence": 0.9 }
 2. Extrais le fournisseur depuis l'en-tête/logo du document
 3. Ne pas inventer de prix
-4. Monnaie par défaut : CHF`;
+4. Monnaie par défaut : CHF
+5. project_reference : extrais le nom du chantier/projet tel qu'indiqué dans le document`;
 
   try {
     const mediaType = input.contentType === "application/pdf"

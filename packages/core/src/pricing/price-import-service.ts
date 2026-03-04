@@ -133,9 +133,9 @@ export async function importExtractedPrices(
       if (supplier.isNew) suppliersCreated++;
       else suppliersMatched++;
 
-      // Determine project_id from the source email (skip for file-based imports)
-      let projectId: string | null = null;
-      if (result.emailId && !result.emailId.startsWith("file:")) {
+      // Determine project_id: use assigned_project_id from UI, or fallback to email record
+      let projectId: string | null = (result as any).assigned_project_id || null;
+      if (!projectId && result.emailId && !result.emailId.startsWith("file:")) {
         const { data: emailRecord } = await supabase
           .from("email_records")
           .select("project_id")
