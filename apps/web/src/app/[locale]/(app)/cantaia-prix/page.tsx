@@ -327,7 +327,7 @@ export default function CantaiaPrixPage() {
 
   // ── Accepted file extensions for benchmark upload ──
   const ACCEPTED_EXTENSIONS = [".eml", ".msg", ".pdf", ".txt", ".html", ".htm"];
-  const BATCH_SIZE = 3;
+  const BATCH_SIZE = 2;
 
   // ── Handle file drop / selection ──
   const handleFilesSelected = useCallback((newFiles: File[]) => {

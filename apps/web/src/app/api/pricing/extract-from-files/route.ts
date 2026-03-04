@@ -55,44 +55,50 @@ export async function POST(request: Request) {
   try {
     const { extractPricesFromFile } = await import("@cantaia/core/pricing");
 
-    const allResults: any[] = [];
     const errors: string[] = [];
 
-    for (const file of files) {
+    // Process all files in parallel (each file independently calls Claude)
+    const filePromises = files.map(async (file) => {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      const result = await (extractPricesFromFile as any)({
-        fileName: file.name,
-        fileBuffer: buffer,
-        contentType: file.type,
-        anthropicApiKey,
-        onUsage: (usage: { input_tokens: number; output_tokens: number }) => {
-          trackApiUsage({
-            supabase: adminClient,
-            userId: user.id,
-            organizationId: userOrg.organization_id!,
-            actionType: "price_extract",
-            apiProvider: "anthropic",
-            model: "claude-sonnet-4-5-20250929",
-            inputTokens: usage.input_tokens,
-            outputTokens: usage.output_tokens,
-            metadata: { file_name: file.name },
-          });
-        },
-      });
+      try {
+        const result = await (extractPricesFromFile as any)({
+          fileName: file.name,
+          fileBuffer: buffer,
+          contentType: file.type,
+          anthropicApiKey,
+          onUsage: (usage: { input_tokens: number; output_tokens: number }) => {
+            trackApiUsage({
+              supabase: adminClient,
+              userId: user.id,
+              organizationId: userOrg.organization_id!,
+              actionType: "price_extract",
+              apiProvider: "anthropic",
+              model: "claude-sonnet-4-5-20250929",
+              inputTokens: usage.input_tokens,
+              outputTokens: usage.output_tokens,
+              metadata: { file_name: file.name },
+            });
+          },
+        });
 
-      if (result.error) {
-        errors.push(`${file.name}: ${result.error}`);
-      }
+        if (result.error) {
+          errors.push(`${file.name}: ${result.error}`);
+        }
 
-      for (const r of result.results) {
-        allResults.push({
+        return (result.results || []).map((r: any) => ({
           ...r,
           fileName: file.name,
-        });
+        }));
+      } catch (err: any) {
+        errors.push(`${file.name}: ${err?.message || "Erreur"}`);
+        return [];
       }
-    }
+    });
+
+    const settled = await Promise.all(filePromises);
+    const allResults = settled.flat();
 
     return NextResponse.json({
       success: true,
