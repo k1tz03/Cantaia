@@ -16,7 +16,6 @@ import {
   FileText,
   LogIn,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { getRelativeTime } from "@/lib/mock-data";
 
 interface PlatformMetrics {
@@ -52,58 +51,38 @@ export default function SuperAdminDashboardPage() {
     storageGb: 0,
     activeOrgs: 0,
   });
-  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [activities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadMetrics() {
       try {
-        const supabase = createClient();
-
-        // Fetch counts in parallel
-        const [orgsRes, usersRes, projectsRes, emailsRes, apiRes] = await Promise.all([
-          supabase.from("organizations").select("id, status", { count: "exact" }),
-          supabase.from("users").select("id", { count: "exact" }),
-          supabase.from("projects").select("id", { count: "exact" }),
-          supabase.from("email_records").select("id", { count: "exact" }),
-          supabase.from("api_usage_logs").select("id", { count: "exact" }),
+        // Use API route (admin client, bypasses RLS)
+        const [metricsRes, orgsRes] = await Promise.all([
+          fetch("/api/super-admin?action=platform-metrics").then(r => r.json()),
+          fetch("/api/super-admin?action=list-organizations").then(r => r.json()),
         ]);
 
-        const activeOrgs = orgsRes.data?.filter((o: { status: string }) =>
+        const m = metricsRes.metrics || {};
+        const orgList = orgsRes.organizations || [];
+        const activeOrgs = orgList.filter((o: any) =>
           o.status === "active" || o.status === "trial"
-        ).length ?? 0;
+        ).length;
 
         setMetrics({
-          totalOrganizations: orgsRes.count ?? 0,
-          totalUsers: usersRes.count ?? 0,
-          totalProjects: projectsRes.count ?? 0,
-          totalEmails: emailsRes.count ?? 0,
-          aiCallsThisMonth: apiRes.count ?? 0,
-          mrr: 0, // Will come from Stripe later
+          totalOrganizations: m.totalOrgs || orgList.length,
+          totalUsers: m.totalUsers || 0,
+          totalProjects: 0, // not in platform-metrics yet, use org enrichment
+          totalEmails: m.totalEmails || 0,
+          aiCallsThisMonth: 0,
+          mrr: 0,
           storageGb: 0,
           activeOrgs,
         });
 
-        // Fetch recent admin activity
-        const { data: activityData } = await supabase
-          .from("admin_activity_logs")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(10);
-
-        if (activityData && activityData.length > 0) {
-          setActivities(
-            activityData.map((a: Record<string, unknown>) => ({
-              id: a.id as string,
-              type: a.action as string,
-              orgName: ((a.metadata as Record<string, unknown>)?.org_name as string) || "—",
-              userName: ((a.metadata as Record<string, unknown>)?.user_name as string) || "—",
-              description: a.action as string,
-              time: a.created_at as string,
-              icon: getActivityIcon(a.action as string),
-            }))
-          );
-        }
+        // Calculate projects from org data
+        const totalProjects = orgList.reduce((sum: number, o: any) => sum + (o.project_count || 0), 0);
+        setMetrics(prev => ({ ...prev, totalProjects }));
       } catch (err) {
         console.error("Failed to load metrics:", err);
       } finally {
@@ -112,14 +91,6 @@ export default function SuperAdminDashboardPage() {
     }
     loadMetrics();
   }, []);
-
-  function getActivityIcon(action: string): RecentActivity["icon"] {
-    if (action.includes("email") || action.includes("classify")) return "email";
-    if (action.includes("pv") || action.includes("transcribe")) return "pv";
-    if (action.includes("login")) return "login";
-    if (action.includes("project")) return "project";
-    return "user";
-  }
 
   const iconMap = {
     email: Mail,

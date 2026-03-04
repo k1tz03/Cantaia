@@ -445,16 +445,17 @@ export async function estimateFromPlanAnalysis(
     onUsage
   );
 
-  // Sanity thresholds per unit type to flag absurd AI prices
+  // Sanity thresholds per unit type to flag absurd AI prices (Swiss construction market)
   const SANITY_THRESHOLDS: Record<string, number> = {
-    pce: 50000, pcs: 50000, stk: 50000, piece: 50000,
-    m2: 10000, "m²": 10000,
-    m3: 5000, "m³": 5000,
-    ml: 2000, m: 2000,
-    kg: 200, t: 200000,
-    l: 100,
-    h: 500, heure: 500,
-    forfait: 500000, gl: 500000, fs: 500000,
+    pce: 20000, pcs: 20000, stk: 20000, piece: 20000,
+    m2: 500, "m²": 500,
+    m3: 1000, "m³": 1000,
+    ml: 500, m: 500,
+    kg: 50, t: 50000,
+    l: 50,
+    h: 250, heure: 250,
+    ens: 50000, ensemble: 50000,
+    forfait: 100000, gl: 100000, fs: 100000,
   };
 
   for (const aiItem of itemsNeedingAI) {

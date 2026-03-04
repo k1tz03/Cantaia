@@ -110,7 +110,7 @@ export default function ProjectDetailPage() {
     fetch(`/api/pricing/benchmark?project_id=${projectId}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.groups) setBenchmark(data.groups);
+        if (data.items) setBenchmark(data.items);
       })
       .catch((err) => console.error("Failed to load benchmark:", err));
   }, [params.id]);
@@ -647,25 +647,34 @@ export default function ProjectDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {plans.map((plan: any) => (
-                        <tr key={plan.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-2.5 font-medium text-slate-800">{plan.title || plan.file_name}</td>
-                          <td className="px-4 py-2.5 text-slate-600">{plan.plan_type || "—"}</td>
-                          <td className="px-4 py-2.5 text-slate-600">{plan.discipline || "—"}</td>
-                          <td className="px-4 py-2.5 text-slate-600">{plan.version || "1"}</td>
-                          <td className="px-4 py-2.5 text-slate-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString() : "—"}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={cn(
-                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                              plan.status === "active" ? "bg-green-50 text-green-700" :
-                              plan.status === "superseded" ? "bg-amber-50 text-amber-700" :
-                              "bg-slate-100 text-slate-600"
-                            )}>
-                              {plan.status || "active"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {plans.map((plan: any) => {
+                        const fileUrl = plan.current_version?.file_url;
+                        return (
+                          <tr
+                            key={plan.id}
+                            className={cn("hover:bg-slate-50", fileUrl && "cursor-pointer")}
+                            onClick={() => fileUrl && window.open(fileUrl, "_blank")}
+                          >
+                            <td className="px-4 py-2.5 font-medium text-slate-800">
+                              {plan.plan_title || plan.plan_number || plan.current_version?.file_name || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-600">{plan.plan_type || "—"}</td>
+                            <td className="px-4 py-2.5 text-slate-600">{plan.discipline || "—"}</td>
+                            <td className="px-4 py-2.5 text-slate-600">{plan.current_version?.version_code || plan.version_count || "1"}</td>
+                            <td className="px-4 py-2.5 text-slate-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString() : "—"}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={cn(
+                                "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                plan.status === "active" ? "bg-green-50 text-green-700" :
+                                plan.status === "superseded" ? "bg-amber-50 text-amber-700" :
+                                "bg-slate-100 text-slate-600"
+                              )}>
+                                {plan.status || "active"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -707,8 +716,8 @@ export default function ProjectDetailPage() {
                     return (
                       <div key={idx} className="rounded-md border border-slate-200 p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-medium text-slate-800">{group.description}</h4>
-                          <span className="text-xs text-slate-500">{group.unit} — {prices.length} {t("suppliers")}</span>
+                          <h4 className="text-sm font-medium text-slate-800">{group.display_description || group.description}</h4>
+                          <span className="text-xs text-slate-500">{group.unit_normalized || group.unit} — {prices.length} {t("suppliers")}</span>
                         </div>
                         {prices.length > 0 && (
                           <div className="space-y-1.5">

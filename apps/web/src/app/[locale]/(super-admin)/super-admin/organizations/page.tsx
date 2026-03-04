@@ -119,7 +119,8 @@ export default function SuperAdminOrganizationsPage() {
       ) : (
         <div className="space-y-4">
           {organizations.map((org) => {
-            const statusStyle = STATUS_COLORS[org.status] || STATUS_COLORS.active;
+            const orgStatus = org.status || "active";
+            const statusStyle = STATUS_COLORS[orgStatus] || STATUS_COLORS.active;
             return (
               <div
                 key={org.id}
@@ -135,7 +136,7 @@ export default function SuperAdminOrganizationsPage() {
                         <h3 className="text-base font-semibold text-gray-900">{org.name}</h3>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
-                          {t(`status${org.status.charAt(0).toUpperCase() + org.status.slice(1)}`)}
+                          {t(`status${orgStatus.charAt(0).toUpperCase() + orgStatus.slice(1)}`)}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
@@ -187,12 +188,12 @@ export default function SuperAdminOrganizationsPage() {
                     <button
                       onClick={() => handleSuspend(org.id)}
                       className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
-                        org.status === "suspended"
+                        orgStatus === "suspended"
                           ? "text-green-600 hover:bg-green-50"
                           : "text-red-600 hover:bg-red-50"
                       }`}
                     >
-                      {org.status === "suspended" ? (
+                      {orgStatus === "suspended" ? (
                         <>
                           <Play className="h-3.5 w-3.5" />
                           {t("unsuspend")}

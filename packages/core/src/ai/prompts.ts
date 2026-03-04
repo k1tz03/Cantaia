@@ -663,13 +663,32 @@ export interface PriceEstimateContext {
 }
 
 export function buildPriceEstimatePrompt(ctx: PriceEstimateContext): string {
-  return `Tu es un économiste de la construction suisse avec 20 ans d'expérience dans l'estimation des coûts de construction en Suisse romande. Tu connais les prix du marché ${ctx.year} pour la région de ${ctx.location}.
+  return `Tu es un métreur-économiste de la construction suisse avec 20 ans d'expérience. Tu estimes les coûts pour la région de ${ctx.location}, marché ${ctx.year}.
 
 Taux horaire ouvrier de référence : ${ctx.hourly_rate} CHF/h
 ${ctx.precision_context ? `\nCONTEXTE DE LA DEMANDE :\n${ctx.precision_context}\n` : ""}
 ${ctx.scope === "general" ? "MODE : Estimation globale — donne un prix au m² ou forfaitaire par catégorie." : "MODE : Chiffrage poste par poste — donne un prix unitaire pour chaque ligne."}
 
-Pour chaque poste ci-dessous, estime le PRIX UNITAIRE en CHF (hors marge, hors TVA) basé sur les prix courants du marché suisse.
+PRIX UNITAIRES DE RÉFÉRENCE SUISSE ROMANDE (fourniture + pose, hors TVA) :
+- Béton armé coffré : 350–600 CHF/m³
+- Béton maigre / caverneux : 200–400 CHF/m³
+- Enrobé bitumineux : 35–80 CHF/m²
+- Pavés béton / pierre naturelle 10x10 : 80–180 CHF/m²
+- Dallage extérieur : 100–250 CHF/m²
+- Terrassement / excavation : 25–60 CHF/m³
+- Caniveaux / bordures : 40–120 CHF/ml
+- Étanchéité toiture / local technique : 50–150 CHF/m²
+- Garde-corps métallique : 300–800 CHF/ml
+- Fontaines / jets d'eau : 3'000–15'000 CHF/pce selon taille
+- Mobilier urbain (bancs, poubelles) : 500–3'000 CHF/pce
+- Éclairage extérieur (mât + luminaire) : 2'000–8'000 CHF/pce
+- Plantations arbres : 500–2'000 CHF/pce
+- Gazon / engazonnement : 8–25 CHF/m²
+- Clôtures : 80–250 CHF/ml
+
+IMPORTANT : Ces fourchettes sont des ordres de grandeur. Tes estimations doivent rester DANS ou PROCHES de ces fourchettes. Si un poste te semble atypique, utilise une confiance "low" et justifie.
+
+Pour chaque poste ci-dessous, estime le PRIX UNITAIRE en CHF (hors marge, hors TVA).
 
 POSTES À ESTIMER :
 ${ctx.items.map((it, i) => `${i + 1}. ${it.item} — Unité: ${it.unit}${it.quantity !== null ? ` — Quantité: ${it.quantity}` : ""}${it.specification ? ` — Spécification: ${it.specification}` : ""}${it.category ? ` — Catégorie: ${it.category}` : ""}`).join("\n")}
@@ -688,14 +707,15 @@ Réponds UNIQUEMENT en JSON :
   ]
 }
 
-RÈGLES :
-1. Prix en CHF, hors TVA, hors marge
-2. Confiance "high" si prix standard bien connu, "medium" si estimation raisonnable, "low" si très variable
+RÈGLES CRITIQUES :
+1. Prix en CHF, hors TVA, hors marge — NE PAS multiplier par la quantité
+2. Confiance "high" si prix standard bien connu, "medium" si estimation raisonnable, "low" si très variable ou incertain
 3. Inclure le code CFC pertinent si identifiable (format: 3 chiffres, ex: 211, 271, 421)
-4. Adapter au marché suisse romande ${ctx.year}
-5. price_range: fourchette min/max basée sur ton expérience du marché
+4. VÉRIFICATION : si ton prix unitaire dépasse 500 CHF/m², 300 CHF/ml, 1'000 CHF/m³, ou 20'000 CHF/pce, c'est probablement TROP ÉLEVÉ — reconsidère
+5. price_range: fourchette min/max réaliste du marché suisse
 6. Pour les surfaces (m²) et linéaires (ml), inclure la fourniture ET la pose
-7. Pour les terrassements, inclure l'évacuation si applicable`;
+7. Pour les terrassements, inclure l'évacuation si applicable
+8. Ne confonds PAS le prix total (quantité × prix unitaire) avec le prix unitaire — donne TOUJOURS le prix pour UNE SEULE unité`;
 }
 
 // ============================================================
