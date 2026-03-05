@@ -33,6 +33,9 @@ import {
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanStatus, PlanDiscipline, PlanValidationStatus } from "@cantaia/database";
+import EstimationResultV2 from "@/components/plans/EstimationResultV2";
+import QuantityCorrectionModal from "@/components/plans/QuantityCorrectionModal";
+import PriceCalibrationModal from "@/components/plans/PriceCalibrationModal";
 
 // ── Types ──
 
@@ -197,7 +200,7 @@ export default function PlanDetailPage() {
 
   const [plan, setPlan] = useState<PlanDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"viewer" | "versions" | "info" | "analysis">("viewer");
+  const [activeTab, setActiveTab] = useState<"viewer" | "versions" | "info" | "analysis" | "estimation">("viewer");
 
   // Analysis state
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
@@ -209,6 +212,15 @@ export default function PlanDetailPage() {
   const [editMode, setEditMode] = useState(false);
   const [editedQuantities, setEditedQuantities] = useState<Record<string, any>>({});
   const [savingEdits, setSavingEdits] = useState(false);
+
+  // V2 Estimation state
+  const [estimationV2, setEstimationV2] = useState<any>(null);
+  const [estimatingV2, setEstimatingV2] = useState(false);
+  const [estimationV2Error, setEstimationV2Error] = useState("");
+
+  // Correction/Calibration modals
+  const [correctionPoste, setCorrectionPoste] = useState<any>(null);
+  const [calibrationPoste, setCalibrationPoste] = useState<any>(null);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -376,6 +388,69 @@ export default function PlanDetailPage() {
     } catch {
       // Silent — not critical
     }
+  };
+
+  // Launch V2 estimation pipeline (3 AI models + Swiss reference prices)
+  const handleEstimateV2 = async () => {
+    if (!plan) return;
+    setEstimatingV2(true);
+    setEstimationV2Error("");
+    try {
+      const res = await fetch("/api/plans/estimate-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          project_id: plan.project_id,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.estimation) {
+        setEstimationV2(data.estimation);
+      } else {
+        setEstimationV2Error(data.error || "Erreur lors de l'estimation");
+      }
+    } catch (err) {
+      console.error("[estimate-v2] Error:", err);
+      setEstimationV2Error("Erreur réseau");
+    } finally {
+      setEstimatingV2(false);
+    }
+  };
+
+  // Handle quantity correction save
+  const handleSaveCorrection = async (data: { quantite_corrigee: number; raison: string; commentaire?: string }) => {
+    if (!correctionPoste || !estimationV2) return;
+    await fetch("/api/plans/corrections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        estimation_id: estimationV2.plan_id,
+        cfc_code: correctionPoste.cfc_code,
+        quantite_estimee: correctionPoste.quantite,
+        quantite_corrigee: data.quantite_corrigee,
+        raison: data.raison,
+        commentaire: data.commentaire,
+      }),
+    });
+    setCorrectionPoste(null);
+  };
+
+  // Handle price calibration save
+  const handleSaveCalibration = async (data: { prix_reel: number; source: string; fournisseur_nom?: string }) => {
+    if (!calibrationPoste || !estimationV2) return;
+    await fetch("/api/plans/calibration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        estimation_id: estimationV2.plan_id,
+        cfc_code: calibrationPoste.cfc_code,
+        prix_reel: data.prix_reel,
+        source: data.source,
+        fournisseur_nom: data.fournisseur_nom,
+      }),
+    });
+    setCalibrationPoste(null);
   };
 
   // Check for cached analysis when switching to analysis tab
@@ -561,6 +636,21 @@ export default function PlanDetailPage() {
           >
             <Sparkles className="h-4 w-4" />
             {t("tabAnalysis")}
+          </button>
+          <button
+            onClick={() => setActiveTab("estimation")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+              activeTab === "estimation" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <Calculator className="h-4 w-4" />
+            Estimation V2
+            {estimationV2 && (
+              <span className="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                {estimationV2.passe4?.analyse_fiabilite?.score_global ?? "—"}
+              </span>
+            )}
           </button>
         </div>
 
@@ -962,25 +1052,109 @@ export default function PlanDetailPage() {
                   </div>
                 )}
 
-                {/* CTA — Chiffrage automatique */}
+                {/* CTA — Estimation V2 multi-modèle */}
                 {result.quantities.length > 0 && (
                   <div className="rounded-lg border-2 border-dashed border-brand/30 bg-brand/5 p-6 text-center">
                     <Calculator className="h-8 w-8 text-brand mx-auto mb-2" />
-                    <h3 className="text-sm font-semibold text-slate-800">Chiffrage automatique</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">Estimation multi-modèle</h3>
                     <p className="text-xs text-slate-500 mt-1 mb-4 max-w-md mx-auto">
-                      Estimez automatiquement les coûts à partir des {result.quantities.length} postes extraits ci-dessus
+                      Lancez l&apos;estimation V2 avec 3 IA (Claude + GPT-4o + Gemini) et les prix de référence suisses CRB
                     </p>
-                    <Link
-                      href={`/cantaia-prix?plan_id=${plan.id}&analysis_id=${analysis?.id || ""}`}
+                    <button
+                      onClick={() => {
+                        setActiveTab("estimation");
+                        if (!estimationV2 && !estimatingV2) handleEstimateV2();
+                      }}
                       className="inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
                     >
                       <Calculator className="h-4 w-4" />
-                      Estimer les coûts
-                    </Link>
+                      Lancer l&apos;estimation V2
+                    </button>
                   </div>
                 )}
               </>
             )}
+          </div>
+        )}
+        {/* ════════════════════════════ ESTIMATION V2 TAB ════════════════════════════ */}
+        {activeTab === "estimation" && (
+          <div className="space-y-4">
+            {/* Not yet launched */}
+            {!estimationV2 && !estimatingV2 && !estimationV2Error && (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
+                <Calculator className="h-12 w-12 text-brand/40 mb-4" />
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">Estimation multi-modèle V2</h3>
+                <p className="text-sm text-slate-500 max-w-md text-center mb-6">
+                  3 IA analysent votre plan en parallèle (Claude, GPT-4o, Gemini), puis les quantités sont croisées par consensus et chiffrées avec les prix de référence suisses CRB.
+                </p>
+                <button
+                  onClick={handleEstimateV2}
+                  className="inline-flex items-center gap-2 rounded-md bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Lancer l&apos;estimation
+                </button>
+              </div>
+            )}
+
+            {/* Loading */}
+            {estimatingV2 && (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
+                <Loader2 className="h-10 w-10 animate-spin text-brand mb-4" />
+                <p className="text-sm font-medium text-slate-600">Estimation en cours...</p>
+                <p className="mt-1 text-xs text-slate-400">3 IA analysent votre plan en parallèle. Cela peut prendre 30 à 60 secondes.</p>
+              </div>
+            )}
+
+            {/* Error */}
+            {estimationV2Error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-red-700 mb-2">{estimationV2Error}</p>
+                <button
+                  onClick={handleEstimateV2}
+                  className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Réessayer
+                </button>
+              </div>
+            )}
+
+            {/* Result */}
+            {estimationV2 && (
+              <EstimationResultV2
+                estimation={estimationV2}
+                onCorrectQuantity={(poste) => setCorrectionPoste(poste)}
+                onCalibratePrice={(poste) => setCalibrationPoste(poste)}
+                onRelaunch={handleEstimateV2}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ── Modals ── */}
+        {correctionPoste && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <QuantityCorrectionModal
+                poste={correctionPoste}
+                onSave={handleSaveCorrection}
+                onClose={() => setCorrectionPoste(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {calibrationPoste && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <PriceCalibrationModal
+                poste={calibrationPoste}
+                onSave={handleSaveCalibration}
+                onClose={() => setCalibrationPoste(null)}
+              />
+            </div>
           </div>
         )}
       </div>
