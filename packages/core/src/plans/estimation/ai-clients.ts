@@ -36,6 +36,26 @@ export async function callClaudeVision<T = Passe2Result>(
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic();
 
+    // Claude supporte les PDF via type "document", les images via type "image"
+    const isPdf = mediaType === 'application/pdf';
+    const fileContent = isPdf
+      ? {
+          type: "document" as const,
+          source: {
+            type: "base64" as const,
+            media_type: "application/pdf" as const,
+            data: imageBase64,
+          },
+        }
+      : {
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: mediaType as "image/png" | "image/jpeg" | "image/gif" | "image/webp",
+            data: imageBase64,
+          },
+        };
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250514",
       max_tokens: 8000,
@@ -44,14 +64,7 @@ export async function callClaudeVision<T = Passe2Result>(
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType as "image/png" | "image/jpeg" | "image/gif" | "image/webp",
-                data: imageBase64,
-              },
-            },
+            fileContent,
             {
               type: "text",
               text: userPrompt,
@@ -127,6 +140,23 @@ export async function callGPT4oVision<T = Passe2Result>(
     const { default: OpenAI } = await import("openai");
     const client = new OpenAI();
 
+    // GPT-4o : PDF via type "file", images via type "image_url"
+    const isPdf = mediaType === 'application/pdf';
+    const fileContent = isPdf
+      ? {
+          type: "file" as const,
+          file: {
+            filename: "plan.pdf",
+            file_data: `data:application/pdf;base64,${imageBase64}`,
+          },
+        }
+      : {
+          type: "image_url" as const,
+          image_url: {
+            url: `data:${mediaType};base64,${imageBase64}`,
+          },
+        };
+
     const response = await client.chat.completions.create({
       model: "gpt-4o",
       max_tokens: 8000,
@@ -135,12 +165,7 @@ export async function callGPT4oVision<T = Passe2Result>(
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mediaType};base64,${imageBase64}`,
-              },
-            },
+            fileContent as any,
             {
               type: "text",
               text: userPrompt,
