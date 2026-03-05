@@ -57,7 +57,7 @@ export async function callClaudeVision<T = Passe2Result>(
         };
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
       system: systemPrompt,
       messages: [
@@ -102,7 +102,7 @@ export async function callClaudeText<T>(
     const client = new Anthropic();
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
       system: systemPrompt,
       messages: [
