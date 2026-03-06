@@ -22,6 +22,7 @@ import {
   Plus,
 } from "lucide-react";
 import { TaskCreateModal } from "@/components/tasks/TaskCreateModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { MeetingStatus, Meeting, Project } from "@cantaia/database";
 
 function formatDate(dateStr: string): string {
@@ -72,6 +73,7 @@ export default function MeetingDetailPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [finalizeConfirmOpen, setFinalizeConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!meetingId) return;
@@ -126,11 +128,13 @@ export default function MeetingDetailPage() {
 
   const statusCfg = STATUS_LABELS[meeting.status];
 
-  async function handleFinalize() {
-    if (!confirm(t("finalizeConfirm"))) return;
+  function handleFinalize() {
+    setFinalizeConfirmOpen(true);
+  }
+
+  async function executeFinalize() {
     setFinalizing(true);
-    // Mock finalize
-    console.log("[Meeting] Finalizing:", meetingId);
+    if (process.env.NODE_ENV === "development") console.log("[Meeting] Finalizing:", meetingId);
     await new Promise((r) => setTimeout(r, 1000));
     setFinalizing(false);
   }
@@ -138,7 +142,7 @@ export default function MeetingDetailPage() {
   async function handleSend() {
     setSending(true);
     // Mock send
-    console.log("[Meeting] Sending PV:", meetingId);
+    if (process.env.NODE_ENV === "development") console.log("[Meeting] Sending PV:", meetingId);
     await new Promise((r) => setTimeout(r, 1000));
     setSending(false);
   }
@@ -485,6 +489,15 @@ export default function MeetingDetailPage() {
         onClose={() => { setTaskModalOpen(false); setTaskPrefill(undefined); }}
         onCreated={() => { setTaskModalOpen(false); setTaskPrefill(undefined); }}
         prefill={taskPrefill as any}
+      />
+
+      <ConfirmDialog
+        open={finalizeConfirmOpen}
+        onClose={() => setFinalizeConfirmOpen(false)}
+        onConfirm={executeFinalize}
+        title={t("finalizeConfirm")}
+        description={t("finalizeDescription")}
+        variant="danger"
       />
     </div>
   );

@@ -49,12 +49,18 @@ const NEWSLETTER_SUBJECT_PATTERNS = [
   /\bkundennews\b/i,
   /\binfoblatt\b/i,
   /\brundschreiben\b/i,
+  /\bmitteilung\b/i,
+  /\bbenachrichtigung\b/i,
   /\bblack friday\b/i,
   /\bsoldes?\b/i,
   /\bpromo(tion)?\b/i,
   /\b(20|30|40|50|60|70)%\s*(off|rabais|de r[eé]duction|rabatt)\b/i,
   /\baktionsangebot\b/i,
   /\bsonderangebot\b/i,
+  /\bschn[aä]ppchen\b/i,
+  /\bgratisangebot\b/i,
+  /\bjetzt\s+bestellen\b/i,
+  /\bexklusiv(es)?\s+angebot\b/i,
 ];
 
 const SPAM_SUBJECT_PATTERNS = [
@@ -120,7 +126,17 @@ export function detectSpamNewsletter(email: {
   }
 
   // Check body for unsubscribe links (strong newsletter signal)
-  if (body.includes("unsubscribe") || body.includes("se désinscrire") || body.includes("abmelden") || body.includes("abbestellen") || body.includes("list-unsubscribe")) {
+  if (
+    body.includes("unsubscribe") ||
+    body.includes("se désinscrire") ||
+    body.includes("se desinscrire") ||
+    body.includes("abmelden") ||
+    body.includes("abbestellen") ||
+    body.includes("newsletter abbestellen") ||
+    body.includes("list-unsubscribe") ||
+    body.includes("vom verteiler entfernen") ||
+    body.includes("nicht mehr erhalten")
+  ) {
     return { detected: true, type: "newsletter", confidence: 0.70, reason: "Unsubscribe link in body" };
   }
 

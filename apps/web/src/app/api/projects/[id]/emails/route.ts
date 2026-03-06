@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns all emails classified into a specific project.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -45,18 +45,27 @@ export async function GET(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
+  // Pagination
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+  const offset = (page - 1) * limit;
+
   // Return fields needed by EmailDetailPanel
-  const { data: emails, error } = await (admin as any)
+  const { data: emails, error, count } = await (admin as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at")
+    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at", { count: "exact" })
     .eq("project_id", id)
     .eq("user_id", user.id)
-    .order("received_at", { ascending: false });
+    .order("received_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("[projects/[id]/emails] Error:", error.message);
     return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
   }
 
-  return NextResponse.json({ emails: emails || [] });
+  const response = NextResponse.json({ emails: emails || [] });
+  if (count !== null) response.headers.set("X-Total-Count", String(count));
+  return response;
 }

@@ -45,6 +45,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ plans: versions || [] });
   }
 
+  // Pagination
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+  const offset = (page - 1) * limit;
+
   // Build query for plan_registry with latest version
   let query = (adminClient as any)
     .from("plan_registry")
@@ -53,15 +58,16 @@ export async function GET(request: NextRequest) {
       author_company, status, created_at, project_id,
       projects(id, name, code),
       plan_versions(id, version_code, version_number, version_date, file_url, file_name, file_size, file_type, is_current, ai_detected, validation_status, created_at)
-    `)
+    `, { count: "exact" })
     .eq("organization_id", userOrg.organization_id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (projectId) {
     query = query.eq("project_id", projectId);
   }
 
-  const { data: plans, error } = await query;
+  const { data: plans, error, count } = await query;
 
   if (error) {
     console.error("[plans] Query error:", error);
@@ -82,5 +88,7 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ plans: result });
+  const response = NextResponse.json({ plans: result });
+  if (count !== null) response.headers.set("X-Total-Count", String(count));
+  return response;
 }

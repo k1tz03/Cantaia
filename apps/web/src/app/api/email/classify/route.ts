@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
         ai_confidence: result.confidence,
         ai_classification_confidence: result.classification_confidence || confidencePercent,
         ai_project_match_confidence: confidencePercent,
-        classification_status: result.confidence >= 0.85 ? "auto_classified" : "suggested",
+        classification_status: result.confidence >= 0.92 ? "auto_classified" : "suggested",
         email_category: "project",
         ai_reasoning: result.reasoning || null,
         triage_status: "unprocessed",
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Learn from high-confidence AI results
-  if (result.confidence >= 0.85 && result.project_id && orgId) {
+  if (result.confidence >= 0.92 && result.project_id && orgId) {
     try {
       await learnFromClassificationAction({
         supabase: admin,

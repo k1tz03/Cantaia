@@ -687,6 +687,7 @@
     "autoSaved": "Auto-saved",
 
     "finalizeConfirm": "Are you sure? The minutes cannot be edited after finalization.",
+    "finalizeDescription": "This action cannot be undone. The minutes will be locked and can no longer be edited.",
     "sendToParticipants": "Send minutes to participants?",
     "sendViaOutlook": "Send via Outlook",
     "copyAddresses": "Copy addresses",
@@ -821,6 +822,7 @@
     "suggestQ15": "What is the structure of a cost estimate using CFC codes?",
     "deleteConversation": "Delete conversation",
     "deleteConfirm": "Delete this conversation?",
+    "deleteDescription": "This action cannot be undone. The conversation will be permanently deleted.",
     "noConversations": "No conversations",
     "today": "Today",
     "yesterday": "Yesterday",

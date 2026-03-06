@@ -687,6 +687,7 @@
     "autoSaved": "Automatisch gespeichert",
 
     "finalizeConfirm": "Sind Sie sicher? Das Protokoll kann nach der Finalisierung nicht mehr bearbeitet werden.",
+    "finalizeDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Das Protokoll wird gesperrt und kann nicht mehr bearbeitet werden.",
     "sendToParticipants": "Protokoll an Teilnehmer senden?",
     "sendViaOutlook": "Via Outlook senden",
     "copyAddresses": "Adressen kopieren",
@@ -821,6 +822,7 @@
     "suggestQ15": "Wie ist ein Kostenvoranschlag nach BKP-Codes aufgebaut?",
     "deleteConversation": "Gespräch löschen",
     "deleteConfirm": "Dieses Gespräch löschen?",
+    "deleteDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Das Gespräch wird dauerhaft gelöscht.",
     "noConversations": "Keine Gespräche",
     "today": "Heute",
     "yesterday": "Gestern",

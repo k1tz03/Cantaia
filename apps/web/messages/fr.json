@@ -687,6 +687,7 @@
     "autoSaved": "Sauvegardé automatiquement",
 
     "finalizeConfirm": "Êtes-vous sûr ? Le PV ne pourra plus être modifié après finalisation.",
+    "finalizeDescription": "Cette action est irréversible. Le procès-verbal sera verrouillé et ne pourra plus être modifié.",
     "sendToParticipants": "Envoyer le PV aux participants ?",
     "sendViaOutlook": "Envoyer via Outlook",
     "copyAddresses": "Copier les adresses",
@@ -821,6 +822,7 @@
     "suggestQ15": "Quelle est la structure d'un devis selon le code CFC ?",
     "deleteConversation": "Supprimer la conversation",
     "deleteConfirm": "Supprimer cette conversation ?",
+    "deleteDescription": "Cette action est irréversible. La conversation sera définitivement supprimée.",
     "noConversations": "Aucune conversation",
     "today": "Aujourd'hui",
     "yesterday": "Hier",

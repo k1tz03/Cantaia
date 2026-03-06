@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** JM Avatar — Professional monogram badge */
 function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
@@ -60,6 +61,7 @@ export default function ChatPage() {
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -152,14 +154,17 @@ export default function ChatPage() {
     textareaRef.current?.focus();
   }
 
-  async function deleteConversation(convId: string, e: React.MouseEvent) {
+  function deleteConversation(convId: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm(t("deleteConfirm"))) return;
+    setDeleteConvId(convId);
+  }
 
+  async function executeDeleteConversation() {
+    if (!deleteConvId) return;
     try {
-      await fetch(`/api/chat/conversations/${convId}`, { method: "DELETE" });
-      setConversations((prev) => prev.filter((c) => c.id !== convId));
-      if (activeConvId === convId) {
+      await fetch(`/api/chat/conversations/${deleteConvId}`, { method: "DELETE" });
+      setConversations((prev) => prev.filter((c) => c.id !== deleteConvId));
+      if (activeConvId === deleteConvId) {
         setActiveConvId(null);
         setMessages([]);
       }
@@ -523,6 +528,15 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteConvId}
+        onClose={() => setDeleteConvId(null)}
+        onConfirm={executeDeleteConversation}
+        title={t("deleteConfirm")}
+        description={t("deleteDescription")}
+        variant="danger"
+      />
     </div>
   );
 }
