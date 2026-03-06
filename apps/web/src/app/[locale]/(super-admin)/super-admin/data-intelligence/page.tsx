@@ -684,10 +684,10 @@ function ActionsSection({ onRefresh }: { onRefresh: () => void }) {
       const data = await res.json();
       setResult({ action, data, success: res.ok });
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setResult({
         action,
-        data: { error: err?.message },
+        data: { error: err instanceof Error ? err.message : "Unknown error" },
         success: false,
       });
     } finally {

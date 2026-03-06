@@ -3,6 +3,7 @@ import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Toaster } from "sonner";
 import "../globals.css";
 
 const inter = Inter({
@@ -23,9 +24,46 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cantaia",
+  title: {
+    default: "Cantaia — L'IA au service du chantier",
+    template: "%s | Cantaia",
+  },
   description:
-    "AI assistant for construction project managers in Switzerland",
+    "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse. Soumissions, plans, PV, emails — tout centralisé.",
+  metadataBase: new URL("https://cantaia.ch"),
+  openGraph: {
+    title: "Cantaia — L'IA au service du chantier",
+    description:
+      "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse.",
+    url: "https://cantaia.ch",
+    siteName: "Cantaia",
+    type: "website",
+    locale: "fr_CH",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Cantaia — AI-powered construction management",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cantaia — L'IA au service du chantier",
+    description:
+      "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  manifest: "/manifest.json",
+  other: {
+    "theme-color": "#0A1F30",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  },
 };
 
 export default async function LocaleLayout({
@@ -51,6 +89,7 @@ export default async function LocaleLayout({
         >
           <NextIntlClientProvider messages={messages}>
             {children}
+            <Toaster position="bottom-right" richColors closeButton />
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>

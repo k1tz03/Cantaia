@@ -1,0 +1,178 @@
+"use client";
+
+import { Zap, Star, CheckCircle, MapPin, Send } from "lucide-react";
+import type { SubmissionLot, PriceRequest, Supplier, TranslateFn } from "./shared";
+import type { SupplierMatch } from "@cantaia/core/submissions";
+
+interface SuppliersTabProps {
+  lots: SubmissionLot[];
+  supplierMatches: Record<string, SupplierMatch[]>;
+  suppliers: Supplier[];
+  priceRequests: PriceRequest[];
+  selectedSuppliers: Set<string>;
+  toggleSupplierSelection: (key: string) => void;
+  selectAllRecommended: () => void;
+  setShowSendModal: (show: boolean) => void;
+  t: TranslateFn;
+}
+
+function reasonLabel(reason: string, t: TranslateFn): { label: string; color: string } {
+  switch (reason) {
+    case "specialty_match": return { label: t("reasonSpecialty"), color: "bg-blue-100 text-blue-700" };
+    case "cfc_match": return { label: t("reasonCfc"), color: "bg-indigo-100 text-indigo-700" };
+    case "high_score": return { label: t("reasonHighScore"), color: "bg-green-100 text-green-700" };
+    case "reliable_responder": return { label: t("reasonReliable"), color: "bg-emerald-100 text-emerald-700" };
+    case "preferred": return { label: t("reasonPreferred"), color: "bg-amber-100 text-amber-700" };
+    case "local": return { label: t("reasonLocal"), color: "bg-purple-100 text-purple-700" };
+    default: return { label: reason, color: "bg-gray-100 text-gray-600" };
+  }
+}
+
+export function SuppliersTab({
+  lots,
+  supplierMatches,
+  suppliers,
+  priceRequests,
+  selectedSuppliers,
+  toggleSupplierSelection,
+  selectAllRecommended,
+  setShowSendModal,
+  t,
+}: SuppliersTabProps) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-medium text-gray-700">{t("matching")}</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={selectAllRecommended}
+            className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700"
+          >
+            {t("selectAll")}
+          </button>
+          {selectedSuppliers.size > 0 && (
+            <button
+              onClick={() => setShowSendModal(true)}
+              className="text-xs px-4 py-1.5 bg-gold text-white rounded-md hover:bg-gold-dark font-medium"
+            >
+              <Send className="h-3 w-3 inline mr-1" />
+              {t("sendRequests")} ({selectedSuppliers.size})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {lots.map((lot) => {
+        const matches = supplierMatches[lot.id] || [];
+        return (
+          <div key={lot.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                CFC {lot.cfc_code}
+              </span>
+              <span className="text-sm font-medium text-gray-900">{lot.name}</span>
+              <span className="text-xs text-gray-400 ml-auto">
+                {matches.length} {t("tabSuppliers").toLowerCase()}
+              </span>
+            </div>
+            {matches.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-gray-400">
+                {t("noRecommendations")}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {matches.map((match) => {
+                  const supplier = suppliers.find((s) => s.id === match.supplier_id);
+                  const selKey = `${lot.id}:${match.supplier_id}`;
+                  const isSelected = selectedSuppliers.has(selKey);
+                  const alreadyRequested = priceRequests.some(
+                    (pr) => pr.supplier_id === match.supplier_id && pr.lot_ids?.includes(lot.id)
+                  );
+                  return (
+                    <div
+                      key={match.supplier_id}
+                      className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50/50" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected || alreadyRequested}
+                        disabled={alreadyRequested}
+                        onChange={() => toggleSupplierSelection(selKey)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#0A1F30] focus:ring-[#0A1F30]"
+                      />
+                      <div className="w-14 flex-shrink-0">
+                        <div className="flex items-center gap-1">
+                          <div
+                            className={`text-xs font-bold ${
+                              match.relevance_score >= 80 ? "text-green-600" :
+                              match.relevance_score >= 60 ? "text-amber-600" : "text-gray-500"
+                            }`}
+                          >
+                            {match.relevance_score}%
+                          </div>
+                        </div>
+                        <div className="h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              match.relevance_score >= 80 ? "bg-green-500" :
+                              match.relevance_score >= 60 ? "bg-amber-500" : "bg-gray-400"
+                            }`}
+                            style={{ width: `${match.relevance_score}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {supplier?.company_name || match.supplier_name}
+                          </span>
+                          {supplier?.status === "preferred" && (
+                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />
+                          )}
+                          {alreadyRequested && (
+                            <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {match.reasons.map((reason) => {
+                            const { label, color } = reasonLabel(reason, t);
+                            return (
+                              <span key={reason} className={`text-[10px] px-1.5 py-0.5 rounded ${color}`}>
+                                {label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-gray-500 flex-shrink-0">
+                        {supplier && (
+                          <>
+                            <span title={t("matchScore")}>
+                              {supplier.overall_score}/100
+                            </span>
+                            <span>
+                              {supplier.response_rate}% {t("responded").toLowerCase()}
+                            </span>
+                            {supplier.geo_zone && (
+                              <span className="flex items-center gap-0.5">
+                                <MapPin className="h-3 w-3" />
+                                {supplier.geo_zone}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

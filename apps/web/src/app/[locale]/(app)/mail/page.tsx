@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEmailContext } from "@/lib/contexts/email-context";
 import { cn } from "@cantaia/ui";
 import {
@@ -36,7 +37,7 @@ const TAB_CONFIG: Record<TabKey, { icon: React.ElementType; color: string }> = {
   snoozed: { icon: Clock, color: "text-amber-600" },
 };
 
-function formatRelativeDate(dateStr: string): string {
+function formatRelativeDate(dateStr: string, locale: string = "fr"): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -44,11 +45,19 @@ function formatRelativeDate(dateStr: string): string {
   const diffHrs = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 1) return "maintenant";
-  if (diffMin < 60) return `${diffMin}min`;
-  if (diffHrs < 24) return `${diffHrs}h`;
-  if (diffDays < 7) return `${diffDays}j`;
-  return date.toLocaleDateString("fr-CH", { day: "numeric", month: "short" });
+  const labels: Record<string, { now: string; min: string; h: string; d: string }> = {
+    fr: { now: "maintenant", min: "min", h: "h", d: "j" },
+    en: { now: "now", min: "min", h: "h", d: "d" },
+    de: { now: "jetzt", min: "Min", h: "Std", d: "T" },
+  };
+  const l = labels[locale] || labels.fr;
+  const localeStr = locale === "de" ? "de-CH" : locale === "en" ? "en-GB" : "fr-CH";
+
+  if (diffMin < 1) return l.now;
+  if (diffMin < 60) return `${diffMin}${l.min}`;
+  if (diffHrs < 24) return `${diffHrs}${l.h}`;
+  if (diffDays < 7) return `${diffDays}${l.d}`;
+  return date.toLocaleDateString(localeStr, { day: "numeric", month: "short" });
 }
 
 function getClassificationBadge(email: EmailRecord) {
@@ -66,6 +75,7 @@ function getClassificationBadge(email: EmailRecord) {
 
 export default function MailPage() {
   const t = useTranslations("mail");
+  const locale = useLocale();
   const router = useRouter();
   const { emails, loading, syncing, hasRealData, syncEmails, refetch, readIds, markAsRead } = useEmailContext();
   const [activeTab, setActiveTab] = useState<TabKey>("inbox");
@@ -87,6 +97,7 @@ export default function MailPage() {
   });
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Drag handle for resizing list/detail panel
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -295,7 +306,7 @@ export default function MailPage() {
       <div
         className={cn(
           "flex shrink-0 flex-col border-r border-slate-200 bg-white",
-          selectedEmail ? "hidden lg:flex" : "w-full"
+          selectedEmail ? "hidden md:flex" : "w-full"
         )}
         style={selectedEmail ? { width: `${listWidth}px` } : undefined}
       >
@@ -432,7 +443,7 @@ export default function MailPage() {
         </div>
 
         {/* Email list */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
@@ -534,6 +545,7 @@ export default function MailPage() {
                             isSelected={selectedEmail?.id === email.id}
                             isRead={readIds.has(email.id)}
                             onClick={() => handleSelectEmail(email)}
+                            locale={locale}
                           />
                         ))}
                       </div>
@@ -543,20 +555,16 @@ export default function MailPage() {
               })}
             </div>
           ) : (
-            // Flat list for processed/snoozed/filtered
-            <div>
-              {filteredEmails.map((email) => (
-                <EmailListItem
-                  key={email.id}
-                  email={email}
-                  isSelected={selectedEmail?.id === email.id}
-                  isRead={readIds.has(email.id)}
-                  onClick={() => handleSelectEmail(email)}
-                  showProject
-                  projects={projects}
-                />
-              ))}
-            </div>
+            // Virtualized flat list for processed/snoozed/filtered
+            <VirtualizedEmailList
+              emails={filteredEmails}
+              selectedEmail={selectedEmail}
+              readIds={readIds}
+              projects={projects}
+              locale={locale}
+              onSelectEmail={handleSelectEmail}
+              scrollContainerRef={scrollContainerRef}
+            />
           )}
         </div>
 
@@ -614,6 +622,71 @@ export default function MailPage() {
   );
 }
 
+// ─── VirtualizedEmailList ──────────────────────────────────────────────
+
+interface VirtualizedEmailListProps {
+  emails: EmailRecord[];
+  selectedEmail: EmailRecord | null;
+  readIds: Set<string>;
+  projects: Project[];
+  locale: string;
+  onSelectEmail: (email: EmailRecord) => void;
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function VirtualizedEmailList({
+  emails,
+  selectedEmail,
+  readIds,
+  projects,
+  locale,
+  onSelectEmail,
+  scrollContainerRef,
+}: VirtualizedEmailListProps) {
+  const virtualizer = useVirtualizer({
+    count: emails.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 76,
+    overscan: 10,
+  });
+
+  return (
+    <div
+      style={{
+        height: `${virtualizer.getTotalSize()}px`,
+        width: "100%",
+        position: "relative",
+      }}
+    >
+      {virtualizer.getVirtualItems().map((virtualItem) => {
+        const email = emails[virtualItem.index];
+        return (
+          <div
+            key={email.id}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${virtualItem.start}px)`,
+            }}
+          >
+            <EmailListItem
+              email={email}
+              isSelected={selectedEmail?.id === email.id}
+              isRead={readIds.has(email.id)}
+              onClick={() => onSelectEmail(email)}
+              showProject
+              projects={projects}
+              locale={locale}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── EmailListItem ────────────────────────────────────────────────────
 
 interface EmailListItemProps {
@@ -623,6 +696,7 @@ interface EmailListItemProps {
   onClick: () => void;
   showProject?: boolean;
   projects?: Project[];
+  locale?: string;
 }
 
 function EmailListItem({
@@ -632,6 +706,7 @@ function EmailListItem({
   onClick,
   showProject,
   projects,
+  locale = "fr",
 }: EmailListItemProps) {
   const senderName = email.from_name || email.sender_name || email.from_email || email.sender_email || "";
   const badge = getClassificationBadge(email);
@@ -671,7 +746,7 @@ function EmailListItem({
             {senderName}
           </p>
           <span className="shrink-0 text-[11px] text-slate-400">
-            {formatRelativeDate(email.received_at)}
+            {formatRelativeDate(email.received_at, locale)}
           </span>
         </div>
 

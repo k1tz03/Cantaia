@@ -1,0 +1,104 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { FileText, Clock, Plus } from "lucide-react";
+import { formatDate } from "@/lib/mock-data";
+
+export function ProjectMeetingsTab({
+  meetings,
+  projectId,
+}: {
+  meetings: any[];
+  projectId: string;
+}) {
+  const t = useTranslations("projects");
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">
+          {meetings.length} PV
+        </p>
+        <Link
+          href={`/pv-chantier/nouveau?project_id=${projectId}`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t("newMeeting")}
+        </Link>
+      </div>
+      {meetings.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {meetings.map((meeting) => {
+            const actionsCount = meeting.pv_content?.sections?.reduce(
+              (total: number, s: any) => total + (s.actions?.length || 0),
+              0
+            ) || 0;
+            const statusColors: Record<string, string> = {
+              scheduled: "bg-gray-100 text-gray-700",
+              recording: "bg-red-100 text-red-700",
+              transcribing: "bg-blue-100 text-blue-700",
+              generating_pv: "bg-violet-100 text-violet-700",
+              review: "bg-orange-100 text-orange-700",
+              finalized: "bg-green-100 text-green-700",
+              sent: "bg-green-100 text-green-800",
+            };
+            const statusLabels: Record<string, string> = {
+              scheduled: "Brouillon",
+              recording: "Enregistrement",
+              transcribing: "Transcription",
+              generating_pv: "Génération",
+              review: "En relecture",
+              finalized: "Finalisé",
+              sent: "Envoyé",
+            };
+            return (
+              <Link
+                key={meeting.id}
+                href={`/pv-chantier/${meeting.id}`}
+                className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50"
+              >
+                <FileText className="h-5 w-5 flex-shrink-0 text-slate-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800 truncate">
+                    {meeting.title}
+                    {meeting.meeting_number != null && (
+                      <span className="ml-1 text-xs text-slate-400">
+                        #{meeting.meeting_number}
+                      </span>
+                    )}
+                  </p>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(meeting.meeting_date)}
+                    </span>
+                    {actionsCount > 0 && (
+                      <span>{actionsCount} action{actionsCount > 1 ? "s" : ""}</span>
+                    )}
+                  </div>
+                </div>
+                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[meeting.status] || "bg-gray-100 text-gray-700"}`}>
+                  {statusLabels[meeting.status] || meeting.status}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 flex h-40 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white">
+          <FileText className="h-8 w-8 text-slate-300" />
+          <p className="mt-2 text-sm text-slate-400">{t("noMeetingsYet")}</p>
+          <Link
+            href={`/pv-chantier/nouveau?project_id=${projectId}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80"
+          >
+            <Plus className="h-3 w-3" />
+            {t("newMeeting")}
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}

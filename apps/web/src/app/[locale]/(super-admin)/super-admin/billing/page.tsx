@@ -100,7 +100,7 @@ export default function SuperAdminBillingPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-600">{org.members || 1}</td>
                   <td className="px-4 py-3 text-gray-500">
-                    {org.created_at ? new Date(org.created_at).toLocaleDateString() : "—"}
+                    {org.created_at ? new Date(org.created_at).toLocaleDateString("fr-CH") : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">

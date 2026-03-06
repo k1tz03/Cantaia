@@ -25,6 +25,8 @@ import {
   FileText,
   Truck,
   MessageSquare,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -39,7 +41,12 @@ interface NavItem {
 }
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("cantaia_sidebar_collapsed") === "true";
+    }
+    return false;
+  });
   const [userRole, setUserRole] = useState<string | null>(null);
   const pathname = usePathname();
   const t = useTranslations("nav");
@@ -77,8 +84,12 @@ export function Sidebar() {
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
-  const userName = user?.user_metadata?.first_name || "Utilisateur";
+  const userName = user?.user_metadata?.first_name || t("user");
   const userInitials = `${(user?.user_metadata?.first_name || "U")[0]}${(user?.user_metadata?.last_name || "")[0] || ""}`.toUpperCase();
+
+  useEffect(() => {
+    localStorage.setItem("cantaia_sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
 
   const isBranded = branding.brandingEnabled;
   const displayName = branding.customName || "Cantaia";
@@ -155,12 +166,24 @@ export function Sidebar() {
     );
   }
 
-  // Mobile: key items (max 5 for bottom nav)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+
+  // Mobile: key items (4 + More button)
   const mobileItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
+  ];
+
+  // Mobile: extra items shown in "More" sheet
+  const mobileExtraItems: NavItem[] = [
+    { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
+    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
+    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
+    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
@@ -174,6 +197,8 @@ export function Sidebar() {
           !isBranded && "bg-parchment"
         )}
         style={sidebarStyle}
+        role="navigation"
+        aria-label="Main navigation"
       >
         {/* Logo */}
         <div className={cn(
@@ -262,10 +287,10 @@ export function Sidebar() {
                 style={isBranded ? { color: branding.accentColor } : undefined}
               />
               <span className="text-[11px] font-semibold text-slate-700">
-                Plan Trial
+                {t("planTrial")}
               </span>
               <span className="ml-auto text-[11px] text-slate-400">
-                12j restants
+                {t("trialDaysLeft", { days: 12 })}
               </span>
             </div>
           </div>
@@ -292,7 +317,7 @@ export function Sidebar() {
               <button
                 onClick={signOut}
                 className="rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                title="Déconnexion"
+                title={t("logout")}
               >
                 <LogOut className="h-3.5 w-3.5" />
               </button>
@@ -307,7 +332,7 @@ export function Sidebar() {
             ) : (
               <>
                 <ChevronLeft className="h-4 w-4" />
-                <span>Réduire</span>
+                <span>{t("collapse")}</span>
               </>
             )}
           </button>
@@ -315,24 +340,11 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom" role="navigation" aria-label="Mobile navigation">
         <div className="flex items-center justify-evenly px-1 py-1">
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-            const isDisabled = item.status !== "active";
-
-            if (isDisabled) {
-              return (
-                <div
-                  key={item.href}
-                  className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium text-slate-300 cursor-not-allowed"
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="truncate max-w-[56px]">{t(item.labelKey)}</span>
-                </div>
-              );
-            }
 
             return (
               <Link
@@ -344,14 +356,61 @@ export function Sidebar() {
                   !active && "text-slate-400 hover:text-slate-600"
                 )}
                 style={active && isBranded ? { color: branding.primaryColor } : undefined}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon className="h-5 w-5" />
                 <span className="truncate max-w-[56px]">{t(item.labelKey)}</span>
               </Link>
             );
           })}
+          {/* More button */}
+          <button
+            onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
+            className={cn(
+              "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+              mobileMoreOpen ? "text-brand" : "text-slate-400 hover:text-slate-600"
+            )}
+            aria-expanded={mobileMoreOpen}
+            aria-label={t("more")}
+          >
+            {mobileMoreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
+            <span className="truncate max-w-[56px]">{t("more")}</span>
+          </button>
         </div>
       </nav>
+
+      {/* Mobile More Sheet */}
+      {mobileMoreOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-lg p-4 safe-area-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-4 gap-3">
+              {mobileExtraItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMoreOpen(false)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-lg p-3 text-[11px] font-medium transition-colors",
+                      active ? "bg-brand/10 text-brand" : "text-slate-600 hover:bg-slate-100"
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="truncate max-w-[64px] text-center">{t(item.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

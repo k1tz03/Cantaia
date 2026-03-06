@@ -207,8 +207,8 @@ export default function UploadPlanPage() {
         } else {
           updateFile(entry.id, { status: "error", error: data.error || "Erreur DB" });
         }
-      } catch (err: any) {
-        updateFile(entry.id, { status: "error", error: err?.message || "Erreur" });
+      } catch (err: unknown) {
+        updateFile(entry.id, { status: "error", error: err instanceof Error ? err.message : "Erreur" });
       }
     }
 

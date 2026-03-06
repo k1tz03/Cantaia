@@ -16,9 +16,10 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
-  FolderKanban,
   Loader2,
+  FolderOpen,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useProjects, useUserProfile } from "@/lib/hooks/use-supabase-data";
 
@@ -196,24 +197,12 @@ export default function ProjectsPage() {
   if (projects.length === 0) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center p-6">
-        <div className="max-w-md text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-            <FolderKanban className="h-8 w-8 text-gray-400" />
-          </div>
-          <h2 className="mt-4 text-lg font-semibold text-gray-800">
-            {t("emptyTitle")}
-          </h2>
-          <p className="mt-2 text-sm text-gray-500">
-            {t("emptyDescription")}
-          </p>
-          <Link
-            href="/projects/new"
-            className="mt-6 inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90"
-          >
-            <Plus className="h-4 w-4" />
-            {t("emptyButton")}
-          </Link>
-        </div>
+        <EmptyState
+          icon={FolderOpen}
+          title="Aucun projet"
+          description="Créez votre premier projet pour commencer à organiser vos emails."
+          action={{ label: "Créer un projet", onClick: () => router.push("/projects/new") }}
+        />
       </div>
     );
   }

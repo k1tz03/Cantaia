@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 export default function Error({
   error,
@@ -9,6 +10,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("nav");
+
   useEffect(() => {
     console.error("App error:", error);
   }, [error]);
@@ -17,16 +20,16 @@ export default function Error({
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center p-8 max-w-md">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Une erreur est survenue
+          {t("errorOccurred")}
         </h2>
         <p className="text-gray-600 mb-6">
-          {error.message || "Erreur inattendue. Veuillez réessayer."}
+          {error.message || t("errorDefault")}
         </p>
         <button
           onClick={reset}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-6 py-3 bg-brand text-white rounded-lg hover:bg-brand/90 transition-colors"
         >
-          Réessayer
+          {t("retry")}
         </button>
       </div>
     </div>

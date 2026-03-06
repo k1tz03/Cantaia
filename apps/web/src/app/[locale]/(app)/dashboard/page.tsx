@@ -32,7 +32,8 @@ export default function DashboardPage() {
   const emailCtx = useEmailContextSafe();
   const unreadCount = emailCtx?.unreadCount || 0;
 
-  const firstName = user?.user_metadata?.first_name || "Utilisateur";
+  const tn = useTranslations("nav");
+  const firstName = user?.user_metadata?.first_name || tn("user");
 
   const cards: DashboardCard[] = [
     {

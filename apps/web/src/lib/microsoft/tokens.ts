@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { encryptToken, decryptToken, isEncrypted } from "@/lib/crypto/token-encryption";
 
 interface TokenResult {
   accessToken: string;
@@ -8,6 +9,28 @@ interface TokenResult {
 interface TokenError {
   accessToken?: never;
   error: string;
+}
+
+/** Safely decrypt a token — returns plaintext if not encrypted */
+function safeDecrypt(token: string): string {
+  if (!token) return token;
+  if (!process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY) return token;
+  try {
+    return isEncrypted(token) ? decryptToken(token) : token;
+  } catch {
+    return token; // Fallback to plaintext during migration
+  }
+}
+
+/** Encrypt a token if encryption key is configured */
+function safeEncrypt(token: string): string {
+  if (!token) return token;
+  if (!process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY) return token;
+  try {
+    return encryptToken(token);
+  } catch {
+    return token;
+  }
 }
 
 /**
@@ -32,9 +55,13 @@ export async function getValidMicrosoftToken(
     return { error: "User not found" };
   }
 
-  if (!user.microsoft_access_token) {
+  // Check encrypted column first, then fall back to plaintext
+  const rawAccessToken = user.microsoft_access_token;
+  if (!rawAccessToken) {
     return { error: "Microsoft account not connected" };
   }
+
+  const accessToken = safeDecrypt(rawAccessToken);
 
   // Check if token is still valid (with 5-minute buffer)
   const expiresAt = user.microsoft_token_expires_at
@@ -44,20 +71,22 @@ export async function getValidMicrosoftToken(
   const bufferMs = 5 * 60 * 1000; // 5 minutes
 
   if (expiresAt.getTime() - bufferMs > now.getTime()) {
-    return { accessToken: user.microsoft_access_token };
+    return { accessToken };
   }
 
   // Token expired — refresh it
-  if (!user.microsoft_refresh_token) {
+  const rawRefreshToken = user.microsoft_refresh_token;
+  if (!rawRefreshToken) {
     return { error: "No refresh token available. Please reconnect Outlook." };
   }
 
-  let refreshed = await refreshMicrosoftToken(user.microsoft_refresh_token);
+  const refreshToken = safeDecrypt(rawRefreshToken);
+  let refreshed = await refreshMicrosoftToken(refreshToken);
 
   // Retry once after a short delay before giving up
   if (refreshed.error) {
     await new Promise((r) => setTimeout(r, 1500));
-    refreshed = await refreshMicrosoftToken(user.microsoft_refresh_token);
+    refreshed = await refreshMicrosoftToken(refreshToken);
   }
 
   if (refreshed.error) {
@@ -75,7 +104,7 @@ export async function getValidMicrosoftToken(
     return { error: refreshed.error };
   }
 
-  // Store new tokens
+  // Store new tokens (encrypted if key is configured)
   const newExpiresAt = new Date();
   newExpiresAt.setSeconds(
     newExpiresAt.getSeconds() + (refreshed.expires_in || 3600)
@@ -84,9 +113,10 @@ export async function getValidMicrosoftToken(
   await adminClient
     .from("users")
     .update({
-      microsoft_access_token: refreshed.access_token,
-      microsoft_refresh_token:
-        refreshed.refresh_token || user.microsoft_refresh_token,
+      microsoft_access_token: safeEncrypt(refreshed.access_token),
+      microsoft_refresh_token: safeEncrypt(
+        refreshed.refresh_token || refreshToken
+      ),
       microsoft_token_expires_at: newExpiresAt.toISOString(),
     })
     .eq("id", userId);

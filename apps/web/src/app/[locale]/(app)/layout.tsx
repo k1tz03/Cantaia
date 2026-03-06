@@ -2,6 +2,8 @@ import { AuthProvider } from "@/components/providers/AuthProvider";
 import { BrandingProvider } from "@/components/providers/BrandingProvider";
 import { Sidebar } from "@/components/app/Sidebar";
 import { AppEmailProvider } from "@/components/providers/AppEmailProvider";
+import { CommandPalette } from "@/components/ui/CommandPalette";
+import { OnboardingChecklist } from "@/components/app/OnboardingChecklist";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +16,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {children}
             </main>
           </div>
+          <CommandPalette />
+          <OnboardingChecklist />
         </AppEmailProvider>
       </BrandingProvider>
     </AuthProvider>

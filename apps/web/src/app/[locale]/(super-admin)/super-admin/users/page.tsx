@@ -112,7 +112,7 @@ export default function SuperAdminUsersPage() {
                   <td className="px-4 py-3 text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString("fr-CH") : "—"}
                     </span>
                   </td>
                 </tr>

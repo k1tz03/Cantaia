@@ -310,9 +310,9 @@ export default function NouveauPVPage() {
 
       // 6. Redirect to detail page
       router.push(`/pv-chantier/${meetingId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Processing error:", err);
-      setError(err.message || "Une erreur est survenue");
+      setError(err instanceof Error ? err.message : "Une erreur est survenue");
       setProcessing(false);
     }
   };
