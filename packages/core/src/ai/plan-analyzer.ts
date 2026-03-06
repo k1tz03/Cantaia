@@ -101,6 +101,10 @@ export async function analyzePlan(
       });
     } catch { /* tracking must never fail */ }
 
+    if (response.stop_reason !== "end_turn") {
+      console.error(`[analyzePlan] Warning: response truncated (stop_reason=${response.stop_reason})`);
+    }
+
     // Extract text content from response
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
@@ -108,7 +112,9 @@ export async function analyzePlan(
       return DEFAULT_RESULT;
     }
 
-    console.log(`[analyzePlan] Claude response length: ${textBlock.text.length} chars`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[analyzePlan] Claude response length: ${textBlock.text.length} chars`);
+    }
 
     // Parse JSON from response (handle markdown code blocks)
     let jsonStr = textBlock.text.trim();
@@ -117,7 +123,24 @@ export async function analyzePlan(
       jsonStr = codeBlockMatch[1].trim();
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          console.error("[analyzePlan] Failed to parse JSON even with regex fallback");
+          return DEFAULT_RESULT;
+        }
+      } else {
+        console.error("[analyzePlan] No JSON object found in response");
+        return DEFAULT_RESULT;
+      }
+    }
     const validated = planAnalysisResultSchema.safeParse(parsed);
 
     if (!validated.success) {

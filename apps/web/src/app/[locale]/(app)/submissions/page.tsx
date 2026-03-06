@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";
-import { SubmissionEditor } from "@/components/submissions/SubmissionEditor";
+const SubmissionEditor = dynamic(
+  () => import("@/components/submissions/SubmissionEditor").then((m) => m.SubmissionEditor),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-64"><div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-brand" /></div> }
+);
 import type { SavedSubmission, ViewMode } from "@/components/submissions/types";
 import {
   loadSubmissionsFromStorage,

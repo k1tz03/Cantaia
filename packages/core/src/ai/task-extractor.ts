@@ -63,6 +63,10 @@ export async function extractTasks(
       });
     } catch { /* tracking must never fail */ }
 
+    if (response.stop_reason !== "end_turn") {
+      console.error(`[extractTasks] Warning: response truncated (stop_reason=${response.stop_reason})`);
+    }
+
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       console.error("[extractTasks] No text content in Claude response");
@@ -75,7 +79,20 @@ export async function extractTasks(
       jsonStr = codeBlockMatch[1].trim();
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // Fallback: extract JSON object with regex if direct parse fails
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        console.error("[extractTasks] No JSON object found in response");
+        return DEFAULT_RESULT;
+      }
+    }
     const validated = extractTasksResultSchema.safeParse(parsed);
 
     if (!validated.success) {
