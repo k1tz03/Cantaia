@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
 
   // Parse target date (default: yesterday)
-  let body: any = {};
+  let body: { date?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       date: targetDate,
       metrics: stored,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("[compute-daily-metrics] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },

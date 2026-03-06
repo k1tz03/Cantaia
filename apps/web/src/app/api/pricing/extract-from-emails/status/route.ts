@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
   const { data: job, error } = await (adminClient as any)
     .from("price_extraction_jobs")
-    .select("*")
+    .select("id, status, total_emails, scanned_emails, emails_with_prices, extracted_items, imported_items, extraction_results, errors, started_at, completed_at")
     .eq("id", jobId)
     .eq("organization_id", userOrg.organization_id)
     .maybeSingle();

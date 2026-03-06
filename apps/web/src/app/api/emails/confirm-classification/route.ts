@@ -15,7 +15,7 @@ import { parseBody, validateRequired } from "@/lib/api/parse-body";
  *                      classification to null, project_id to null.
  */
 export async function POST(request: NextRequest) {
-  console.log("[emails/confirm-classification] Starting...");
+  if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Starting...");
 
   // 1. Auth check
   const supabase = await createClient();
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (fetchErr || !email) {
-    console.log("[emails/confirm-classification] Email not found:", email_id, fetchErr?.message);
+    if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email not found:", email_id, fetchErr?.message);
     return NextResponse.json({ error: "Email not found" }, { status: 404 });
   }
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       }).catch(() => {});
     }
 
-    console.log("[emails/confirm-classification] Email confirmed:", email_id);
+    if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email confirmed:", email_id);
     return NextResponse.json({ success: true });
   }
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       }).catch(() => {});
     }
 
-    console.log("[emails/confirm-classification] Email reassigned to project:", project_id, "email:", email_id);
+    if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email reassigned to project:", project_id, "email:", email_id);
     return NextResponse.json({ success: true });
   }
 
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       }).catch(() => {});
     }
 
-    console.log("[emails/confirm-classification] Email classification rejected:", email_id);
+    if (process.env.NODE_ENV === "development") console.log("[emails/confirm-classification] Email classification rejected:", email_id);
     return NextResponse.json({ success: true });
   }
 
@@ -208,7 +208,7 @@ async function addSenderToProject(
           .from("projects")
           .update({ email_senders: updatedSenders } as Record<string, unknown>)
           .eq("id", projectId);
-        console.log(`[emails/confirm-classification] Added sender "${normalizedSender}" to project ${projectId}`);
+        if (process.env.NODE_ENV === "development") console.log(`[emails/confirm-classification] Added sender "${normalizedSender}" to project ${projectId}`);
       }
     }
   } catch (err) {

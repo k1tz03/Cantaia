@@ -2,6 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
+interface ClientRequest {
+  description: string;
+  category: string;
+  priority?: string;
+  details?: string;
+  cfc_code?: string;
+}
+
+interface VisitReport {
+  title?: string;
+  summary?: string;
+  client_requests?: ClientRequest[];
+  client_info_extracted?: {
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  budget?: {
+    client_mentioned: boolean;
+    range_min?: number;
+    range_max?: number;
+    currency?: string;
+    notes?: string;
+  };
+  timeline?: {
+    desired_start?: string;
+    desired_end?: string;
+    urgency?: string;
+    constraints?: string;
+  };
+  next_steps?: string[];
+  closing_probability?: number;
+  sentiment?: string;
+  ai_parse_failed?: boolean;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -24,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Get the visit
     const { data: visit, error: visitErr } = await (supabase.from("client_visits") as any)
-      .select("*")
+      .select("id, transcription, client_name, client_address, client_postal_code, client_city, visit_date, project_id, organization_id, created_by, title, client_email, client_phone, is_prospect")
       .eq("id", visit_id)
       .maybeSingle();
 
@@ -61,11 +97,11 @@ export async function POST(request: NextRequest) {
     // Generate report
     const { buildVisitReportPrompt, getMockVisitReport } = await import("@cantaia/core/visits");
 
-    let report;
+    let report: VisitReport;
     const useMock = !process.env.ANTHROPIC_API_KEY;
 
     if (useMock) {
-      console.log("[Visit Report] Using mock report");
+      if (process.env.NODE_ENV === "development") console.log("[Visit Report] Using mock report");
       report = getMockVisitReport();
     } else {
       // Real Claude API call
@@ -79,10 +115,10 @@ export async function POST(request: NextRequest) {
       });
 
       const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic();
+      const anthropic = new Anthropic({ timeout: 60_000 });
 
       const response = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
         max_tokens: 4096,
         messages: [{ role: "user", content: prompt }],
       });
@@ -103,8 +139,8 @@ export async function POST(request: NextRequest) {
         }
       } catch (parseErr) {
         console.error("[Visit Report] Failed to parse AI response, falling back to template. Raw:", text.substring(0, 300));
-        report = getMockVisitReport();
-        (report as any).ai_parse_failed = true;
+        report = getMockVisitReport() as VisitReport;
+        report.ai_parse_failed = true;
       }
 
       // Track API usage
@@ -114,7 +150,7 @@ export async function POST(request: NextRequest) {
           organization_id: visit.organization_id,
           action_type: "visit_report_generate",
           api_provider: "anthropic",
-          model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+          model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
           input_tokens: response.usage.input_tokens,
           output_tokens: response.usage.output_tokens,
           estimated_cost_chf: (response.usage.input_tokens * 0.003 + response.usage.output_tokens * 0.015) / 1000,
@@ -156,7 +192,7 @@ export async function POST(request: NextRequest) {
     // Main task: establish quote
     if (report.client_requests && report.client_requests.length > 0) {
       const requestsList = report.client_requests
-        .map((r: any) => `- ${r.description} (${r.category})`)
+        .map((r: ClientRequest) => `- ${r.description} (${r.category})`)
         .join("\n");
 
       const budgetInfo = report.budget?.client_mentioned
@@ -239,7 +275,7 @@ export async function POST(request: NextRequest) {
       tasks_created: createdTasks.length + (quoteTaskId ? 1 : 0),
       suggest_create_project: visit.is_prospect && (report.closing_probability || 0) > 0.5 && !visit.project_id,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Visit Report] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

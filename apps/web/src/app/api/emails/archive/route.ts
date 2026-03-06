@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  console.log(
+  if (process.env.NODE_ENV === "development") console.log(
     `[archive] Created ${archived} archive records for project ${project.name}, ${failed} failed`
   );
 

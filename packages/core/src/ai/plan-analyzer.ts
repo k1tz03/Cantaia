@@ -84,7 +84,7 @@ export async function analyzePlan(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 90_000 });
 
     const response = await client.messages.create({
       model,

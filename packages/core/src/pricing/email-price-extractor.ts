@@ -160,7 +160,7 @@ export async function extractPricesFromPdf(
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void
 ): Promise<EmailPriceExtractionResult> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
   const prompt = `Tu es un expert en analyse d'offres de prix pour la construction en Suisse.
 
@@ -259,7 +259,7 @@ async function callExtractionAI(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
     const response = await client.messages.create({
       model: AI_MODEL,

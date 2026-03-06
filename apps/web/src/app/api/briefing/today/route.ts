@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   // Fetch briefing for the target date
   const { data: existing } = await (admin as any)
     .from("daily_briefings")
-    .select("*")
+    .select("id, user_id, briefing_date, content, created_at")
     .eq("user_id", user.id)
     .eq("briefing_date", targetDate)
     .maybeSingle();

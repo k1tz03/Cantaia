@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log(`[cron/aggregate] ${count} pending events in queue`);
+    if (process.env.NODE_ENV === "development") console.log(`[cron/aggregate] ${count} pending events in queue`);
 
     // Execute aggregation functions in order
     const aggregations = [
@@ -56,9 +56,10 @@ export async function POST(request: NextRequest) {
         } else {
           results.push({ fn, status: "ok" });
         }
-      } catch (err: any) {
-        console.error(`[cron/aggregate] Exception in ${fn}:`, err?.message);
-        results.push({ fn, status: "exception", error: err?.message });
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : "Unknown";
+        console.error(`[cron/aggregate] Exception in ${fn}:`, errMsg);
+        results.push({ fn, status: "exception", error: errMsg });
       }
     }
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const succeeded = results.filter((r) => r.status === "ok").length;
-    console.log(
+    if (process.env.NODE_ENV === "development") console.log(
       `[cron/aggregate] Done: ${succeeded}/${aggregations.length} functions succeeded, ${count} events processed`
     );
 
@@ -84,10 +85,10 @@ export async function POST(request: NextRequest) {
       succeeded,
       total: aggregations.length,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[cron/aggregate] Fatal error:", err);
     return NextResponse.json(
-      { error: err?.message || "Aggregation failed" },
+      { error: err instanceof Error ? err.message : "Aggregation failed" },
       { status: 500 }
     );
   }

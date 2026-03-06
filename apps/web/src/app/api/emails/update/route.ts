@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (fetchErr || !email) {
-    console.log("[emails/update] Email not found:", body.email_id, fetchErr?.message);
+    if (process.env.NODE_ENV === "development") console.log("[emails/update] Email not found:", body.email_id, fetchErr?.message);
     return NextResponse.json({ error: "Email not found" }, { status: 404 });
   }
 
@@ -49,12 +49,12 @@ export async function POST(request: NextRequest) {
 
   if (body.project_id !== undefined) {
     updateData.project_id = body.project_id;
-    console.log(`[emails/update] Reclassifying email ${body.email_id} to project ${body.project_id}`);
+    if (process.env.NODE_ENV === "development") console.log(`[emails/update] Reclassifying email ${body.email_id} to project ${body.project_id}`);
   }
 
   if (body.classification !== undefined) {
     updateData.classification = body.classification;
-    console.log(`[emails/update] Setting classification to "${body.classification}" for email ${body.email_id}`);
+    if (process.env.NODE_ENV === "development") console.log(`[emails/update] Setting classification to "${body.classification}" for email ${body.email_id}`);
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
-  console.log("[emails/update] Email updated successfully:", body.email_id, updateData);
+  if (process.env.NODE_ENV === "development") console.log("[emails/update] Email updated successfully:", body.email_id, updateData);
 
   // If reclassifying to a project, add sender to project's email_senders for future AI learning
   if (body.project_id && body.add_sender_to_project) {
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
             .from("projects")
             .update({ email_senders: updatedSenders })
             .eq("id", body.project_id);
-          console.log(`[emails/update] Added sender "${senderEmail}" to project ${body.project_id} email_senders`);
+          if (process.env.NODE_ENV === "development") console.log(`[emails/update] Added sender "${senderEmail}" to project ${body.project_id} email_senders`);
         }
       }
     } catch (err) {

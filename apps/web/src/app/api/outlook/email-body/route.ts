@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
               a.isInline && a.contentBytes
           );
 
-          console.log(`[email-body] Found ${inlineAtts.length} inline attachments for ${messageId}`);
+          if (process.env.NODE_ENV === "development") console.log(`[email-body] Found ${inlineAtts.length} inline attachments for ${messageId}`);
 
           for (const att of inlineAtts) {
             const cid = att.contentId || att.name;

@@ -73,8 +73,8 @@ export async function POST(request: Request) {
       success: true,
       ...result,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[extract-from-emails/process] Error:", err);
-    return NextResponse.json({ error: err.message || "Processing failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Processing failed" }, { status: 500 });
   }
 }

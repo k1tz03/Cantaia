@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data: prefs, error } = await (admin as any)
     .from("email_preferences")
-    .select("*")
+    .select("auto_move_outlook, auto_dismiss_spam, auto_dismiss_newsletters, show_dismissed, outlook_root_folder_name, outlook_root_folder_id, default_snooze_hours, archive_enabled, archive_path")
     .eq("user_id", user.id)
     .maybeSingle();
 

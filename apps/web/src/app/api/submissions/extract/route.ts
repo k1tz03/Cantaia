@@ -129,10 +129,11 @@ export async function POST(request: Request) {
       success: true,
       data: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[submissions/extract] Error:", error);
-    const status = error?.status || error?.error?.status;
-    const isOverloaded = status === 529 || error?.error?.type === "overloaded_error";
+    const errObj = error as Record<string, any>;
+    const status = errObj?.status || errObj?.error?.status;
+    const isOverloaded = status === 529 || errObj?.error?.type === "overloaded_error";
 
     if (isOverloaded) {
       return NextResponse.json(
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { error: error.message || "Extraction failed" },
+      { error: error instanceof Error ? error.message : "Extraction failed" },
       { status: 500 }
     );
   }
@@ -163,12 +164,12 @@ async function extractFromPDF(
 
   // Use Claude API for PDF extraction — model fallback chain
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, timeout: 60_000 });
 
   // Try models in order: Haiku 4.5 (fast, lighter) → Sonnet 4 (more capable)
   const MODELS = [
     "claude-haiku-4-5-20251001",
-    "claude-sonnet-4-20250514",
+    "claude-sonnet-4-5-20250929",
   ];
   const MAX_RETRIES = 2;
   let response: any;
@@ -203,10 +204,11 @@ async function extractFromPDF(
         });
         console.log(`[submissions/extract] Success with ${model}`);
         break; // success
-      } catch (err: any) {
+      } catch (err: unknown) {
         lastError = err;
-        const status = err?.status || err?.error?.status;
-        const isOverloaded = status === 529 || err?.error?.type === "overloaded_error";
+        const errObj = err as Record<string, any>;
+        const status = errObj?.status || errObj?.error?.status;
+        const isOverloaded = status === 529 || errObj?.error?.type === "overloaded_error";
         const isRateLimited = status === 429;
 
         if ((isOverloaded || isRateLimited) && attempt < MAX_RETRIES) {

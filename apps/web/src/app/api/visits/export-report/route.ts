@@ -16,6 +16,67 @@ import {
   HeadingLevel,
 } from "docx";
 
+// ─── Types ───
+
+interface VisitRecord {
+  id: string;
+  client_name: string;
+  client_company?: string;
+  client_phone?: string;
+  client_email?: string;
+  client_address?: string;
+  client_postal_code?: string;
+  client_city?: string;
+  visit_date: string;
+  duration_minutes?: number;
+  organization_id: string;
+  project_id?: string | null;
+  created_by: string;
+  is_prospect?: boolean;
+  report?: VisitReportData;
+  report_pdf_url?: string;
+}
+
+interface VisitReportData {
+  title?: string;
+  summary?: string;
+  client_requests?: ReportClientRequest[];
+  measurements?: ReportMeasurement[];
+  constraints?: string[];
+  budget?: {
+    client_mentioned: boolean;
+    range_min?: number;
+    range_max?: number;
+    currency?: string;
+    notes?: string;
+  };
+  timeline?: {
+    desired_start?: string;
+    desired_end?: string;
+    urgency?: string;
+    constraints?: string;
+  };
+  next_steps?: string[];
+  competitors_mentioned?: string[];
+  closing_probability?: number;
+  sentiment?: string;
+  closing_notes?: string;
+}
+
+interface ReportClientRequest {
+  description: string;
+  category?: string;
+  priority?: string;
+  cfc_code?: string;
+  details?: string;
+}
+
+interface ReportMeasurement {
+  zone?: string;
+  dimensions?: string;
+  notes?: string;
+}
+
 // ─── Helpers ───
 
 function formatDateFR(dateStr: string): string {
@@ -100,8 +161,8 @@ function bulletItem(text: string, opts?: { color?: string; indent?: number }): P
 // ─── Document builder ───
 
 function createVisitReportDocument(
-  visit: any,
-  report: any,
+  visit: VisitRecord,
+  report: VisitReportData,
   orgName: string,
   brandColor: string
 ): Document {
@@ -216,7 +277,7 @@ function createVisitReportDocument(
     };
 
     for (const prio of priorityOrder) {
-      const items = requests.filter((r: any) => r.priority === prio);
+      const items = requests.filter((r: ReportClientRequest) => r.priority === prio);
       if (items.length === 0) continue;
 
       children.push(
@@ -291,7 +352,7 @@ function createVisitReportDocument(
         ],
       }),
       ...report.measurements.map(
-        (m: any) =>
+        (m: ReportMeasurement) =>
           new TableRow({
             children: [
               createCell(m.zone || "", { width: 30 }),
@@ -388,7 +449,7 @@ function createVisitReportDocument(
         children: [
           new TextRun({ text: "• Urgence : ", size: 20, font: "Arial" }),
           new TextRun({
-            text: urgencyLabels[report.timeline.urgency] || report.timeline.urgency || "Modérée",
+            text: (report.timeline.urgency && urgencyLabels[report.timeline.urgency]) || report.timeline.urgency || "Modérée",
             bold: true,
             size: 20,
             font: "Arial",
@@ -546,7 +607,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Visit not found" }, { status: 404 });
     }
 
-    const report = (visit as any).report || {};
+    const typedVisit = visit as unknown as VisitRecord;
+    const report: VisitReportData = typedVisit.report || {};
 
     // Load organization branding
     const { data: org } = await supabaseAdmin
@@ -555,20 +617,21 @@ export async function POST(request: NextRequest) {
       .eq("id", userRow.organization_id)
       .maybeSingle();
 
-    const orgName = (org as any)?.name || "Cantaia";
-    const brandColor = (org as any)?.branding_enabled && (org as any)?.primary_color
-      ? (org as any).primary_color
+    const orgRow = org as { name?: string; primary_color?: string; branding_enabled?: boolean } | null;
+    const orgName = orgRow?.name || "Cantaia";
+    const brandColor = orgRow?.branding_enabled && orgRow?.primary_color
+      ? orgRow.primary_color
       : "#0A1F30";
 
     // Generate document
-    const doc = createVisitReportDocument(visit, report, orgName, brandColor);
+    const doc = createVisitReportDocument(typedVisit, report, orgName, brandColor);
     const buffer = await Packer.toBuffer(doc);
     const uint8 = new Uint8Array(buffer);
 
     // Upload to Supabase Storage
-    const clientSlug = ((visit as any).client_name || "client").replace(/\s+/g, "-").toLowerCase().slice(0, 30);
-    const dateStr = new Date((visit as any).visit_date).toISOString().split("T")[0];
-    const storagePath = `reports/${(visit as any).organization_id}/${visit_id}/rapport-visite-${clientSlug}-${dateStr}.docx`;
+    const clientSlug = (typedVisit.client_name || "client").replace(/\s+/g, "-").toLowerCase().slice(0, 30);
+    const dateStr = new Date(typedVisit.visit_date).toISOString().split("T")[0];
+    const storagePath = `reports/${typedVisit.organization_id}/${visit_id}/rapport-visite-${clientSlug}-${dateStr}.docx`;
 
     await supabaseAdmin.storage
       .from("audio")
@@ -594,7 +657,7 @@ export async function POST(request: NextRequest) {
         "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[VisitExport] Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

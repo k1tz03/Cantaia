@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       .from("users")
       .update({ last_sync_at: null })
       .eq("id", user.id);
-    console.log("[outlook/sync] Full resync requested — cleared last_sync_at");
+    if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Full resync requested — cleared last_sync_at");
   }
 
   // 2. Get user's organization
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   // 3. Determine sync strategy: new email_connections table or legacy Microsoft tokens
   let { data: emailConnection } = await adminClient
     .from("email_connections")
-    .select("*")
+    .select("id, user_id, organization_id, provider, oauth_access_token, oauth_refresh_token, oauth_token_expires_at, oauth_scopes, email_address, display_name, status, last_sync_at, sync_delta_link, total_emails_synced, created_at")
     .eq("user_id", user.id)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (legacyUser?.microsoft_access_token) {
-      console.log("[outlook/sync] Auto-creating email_connection from legacy Microsoft tokens");
+      if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Auto-creating email_connection from legacy Microsoft tokens");
       const { data: newConn } = await adminClient
         .from("email_connections")
         .insert({
@@ -90,12 +90,12 @@ export async function POST(request: Request) {
           display_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
           status: "active",
         } as any)
-        .select("*")
+        .select("id, user_id, organization_id, provider, oauth_access_token, oauth_refresh_token, oauth_token_expires_at, oauth_scopes, email_address, display_name, status, last_sync_at, sync_delta_link, total_emails_synced, created_at")
         .maybeSingle();
 
       if (newConn) {
         emailConnection = newConn;
-        console.log("[outlook/sync] Email connection auto-created successfully");
+        if (process.env.NODE_ENV === "development") console.log("[outlook/sync] Email connection auto-created successfully");
       }
     }
   }
@@ -210,13 +210,13 @@ export async function POST(request: Request) {
   // Get unprocessed emails
   const { data: unprocessedEmails } = await (adminClient as any)
     .from("email_records")
-    .select("*")
+    .select("id, subject, sender_email, sender_name, body_preview, received_at, project_id, classification, is_processed, has_attachments, outlook_message_id, recipients")
     .eq("user_id", user.id)
     .eq("is_processed", false)
     .order("received_at", { ascending: false })
     .limit(100);
 
-  console.log(`[sync] ${(unprocessedEmails || []).length} unprocessed emails to classify, ${projects.length} projects available`);
+  if (process.env.NODE_ENV === "development") console.log(`[sync] ${(unprocessedEmails || []).length} unprocessed emails to classify, ${projects.length} projects available`);
 
   for (const email of unprocessedEmails || []) {
     try {
@@ -269,7 +269,7 @@ export async function POST(request: Request) {
               })
               .eq("id", priceMatch.priceRequestId);
 
-            console.log(`[sync] Level 0: Linked email "${email.subject}" to price request ${priceMatch.priceRequestId} (${priceMatch.matchMethod})`);
+            if (process.env.NODE_ENV === "development") console.log(`[sync] Level 0: Linked email "${email.subject}" to price request ${priceMatch.priceRequestId} (${priceMatch.matchMethod})`);
             emailsClassified++;
             continue;
           }
@@ -285,7 +285,7 @@ export async function POST(request: Request) {
       if (userOrg?.organization_id) {
         const localMatch = await checkLocalRules(adminClient, userOrg.organization_id, senderEmail);
         if (localMatch) {
-          console.log(`[sync] L1 Local rule match for "${email.subject}": project=${localMatch.projectId}, confidence=${localMatch.confidence}`);
+          if (process.env.NODE_ENV === "development") console.log(`[sync] L1 Local rule match for "${email.subject}": project=${localMatch.projectId}, confidence=${localMatch.confidence}`);
           await (adminClient as any)
             .from("email_records")
             .update({
@@ -318,7 +318,7 @@ export async function POST(request: Request) {
           (spamCheck.type === "spam" && userPrefs.auto_dismiss_spam) ||
           (spamCheck.type === "newsletter" && userPrefs.auto_dismiss_newsletters);
 
-        console.log(`[sync] L2 ${spamCheck.type} detected: "${email.subject}" (dismiss=${shouldAutoDismiss})`);
+        if (process.env.NODE_ENV === "development") console.log(`[sync] L2 ${spamCheck.type} detected: "${email.subject}" (dismiss=${shouldAutoDismiss})`);
 
         await (adminClient as any)
           .from("email_records")
@@ -351,7 +351,7 @@ export async function POST(request: Request) {
         );
 
         if (keywordMatch && keywordMatch.confidence >= 0.6) {
-          console.log(`[sync] L2b Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}`);
+          if (process.env.NODE_ENV === "development") console.log(`[sync] L2b Keyword match for "${email.subject}": project=${keywordMatch.projectId}, score=${keywordMatch.score}`);
           await (adminClient as any)
             .from("email_records")
             .update({
@@ -372,7 +372,7 @@ export async function POST(request: Request) {
 
       // Skip AI if subject clearly identifies an unknown project
       if (isUnknownProjectSubject(email.subject, projects)) {
-        console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
+        if (process.env.NODE_ENV === "development") console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
         await (adminClient as any)
           .from("email_records")
           .update({ is_processed: true })
@@ -677,11 +677,28 @@ export async function POST(request: Request) {
 
 // ── Multi-provider sync via email_connections table ──────────────────────────
 
+interface EmailConnectionRecord {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  provider: string;
+  oauth_access_token: string | null;
+  oauth_refresh_token: string | null;
+  oauth_token_expires_at: string | null;
+  oauth_scopes: string | null;
+  email_address: string;
+  display_name: string | null;
+  status: string;
+  last_sync_at: string | null;
+  sync_delta_link: string | null;
+  total_emails_synced: number;
+  created_at: string;
+}
+
 async function syncViaProvider(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  connection: any,
+  connection: EmailConnectionRecord,
   _organizationId?: string
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   try {
@@ -692,7 +709,7 @@ async function syncViaProvider(
         isTokenExpired(connection.oauth_token_expires_at) &&
         provider.refreshToken) {
       try {
-        const tokens = await provider.refreshToken(connection as EmailConnectionConfig);
+        const tokens = await provider.refreshToken(connection as unknown as EmailConnectionConfig);
         await adminClient
           .from("email_connections")
           .update({
@@ -717,8 +734,8 @@ async function syncViaProvider(
     let newDeltaLink: string | null = null;
 
     if (connection.provider === "microsoft" && provider.fetchEmailsDelta) {
-      console.log(`[sync] Using delta query for Microsoft (deltaLink exists: ${!!connection.sync_delta_link})`);
-      const deltaResult = await provider.fetchEmailsDelta(connection as EmailConnectionConfig);
+      if (process.env.NODE_ENV === "development") console.log(`[sync] Using delta query for Microsoft (deltaLink exists: ${!!connection.sync_delta_link})`);
+      const deltaResult = await provider.fetchEmailsDelta(connection as unknown as EmailConnectionConfig);
       rawEmails = deltaResult.emails;
       newDeltaLink = deltaResult.deltaLink;
     } else {
@@ -726,7 +743,7 @@ async function syncViaProvider(
       const sinceDate = connection.last_sync_at
         ? new Date(connection.last_sync_at)
         : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      rawEmails = await provider.fetchEmails(connection as EmailConnectionConfig, sinceDate);
+      rawEmails = await provider.fetchEmails(connection as unknown as EmailConnectionConfig, sinceDate);
     }
 
     let synced = 0;
@@ -899,15 +916,14 @@ async function syncLegacyMicrosoft(
 
 async function buildBodyFetcher(
   userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  emailConnection: any | null
+  emailConnection: EmailConnectionRecord | null
 ): Promise<(messageId: string) => Promise<string | undefined>> {
   if (emailConnection) {
     const provider = getEmailProvider(emailConnection.provider);
     if (provider.getEmailBody) {
       return async (messageId: string) => {
         try {
-          const body = await provider.getEmailBody!(emailConnection as EmailConnectionConfig, messageId);
+          const body = await provider.getEmailBody!(emailConnection as unknown as EmailConnectionConfig, messageId);
           if (body.bodyHtml) return stripHtml(body.bodyHtml).substring(0, 10000);
           if (body.bodyText) return body.bodyText.substring(0, 10000);
         } catch {

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { collectBriefingData } from "@cantaia/core/briefing";
 import { generateBriefingAI, generateBriefingFallback } from "@cantaia/core/briefing";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
+import { MODEL_FOR_TASK } from "@cantaia/core/ai";
 
 export async function POST() {
   const supabase = await createClient();
@@ -39,7 +40,7 @@ export async function POST() {
   // Fetch projects (filtered if user has preferences)
   let projectsQuery = (admin as any)
     .from("projects")
-    .select("*")
+    .select("id, name, code, status, color")
     .eq("organization_id", orgId)
     .in("status", ["active", "planning"]);
 
@@ -54,7 +55,7 @@ export async function POST() {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const { data: emails } = await (admin as any)
     .from("email_records")
-    .select("*")
+    .select("id, project_id, subject, sender_email, sender_name, received_at, classification, is_processed")
     .eq("user_id", user.id)
     .gte("received_at", sevenDaysAgo.toISOString());
 
@@ -62,7 +63,7 @@ export async function POST() {
   const projectIds = (projects || []).map((p: { id: string }) => p.id);
   const { data: tasks } = await (admin as any)
     .from("tasks")
-    .select("*")
+    .select("id, project_id, title, status, due_date, assigned_to_name, priority")
     .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
     .in("status", ["todo", "in_progress", "waiting"]);
 
@@ -72,7 +73,7 @@ export async function POST() {
   nextWeek.setDate(nextWeek.getDate() + 7);
   const { data: meetings } = await (admin as any)
     .from("meetings")
-    .select("*")
+    .select("id, project_id, title, meeting_date, location, status, participants")
     .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
     .gte("meeting_date", today)
     .lte("meeting_date", nextWeek.toISOString());
@@ -95,7 +96,7 @@ export async function POST() {
     briefingContent = await generateBriefingAI(
       anthropicApiKey,
       rawData,
-      "claude-sonnet-4-5-20250929",
+      MODEL_FOR_TASK.briefing,
       (usage) => {
         trackApiUsage({
           supabase: admin,
@@ -110,7 +111,7 @@ export async function POST() {
       }
     );
   } else {
-    console.log("[briefing/generate] No Anthropic API key, using fallback");
+    if (process.env.NODE_ENV === "development") console.log("[briefing/generate] No Anthropic API key, using fallback");
     briefingContent = generateBriefingFallback(rawData);
   }
 

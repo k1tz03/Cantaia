@@ -7,6 +7,7 @@ import {
   extractTasksResultSchema,
   type ExtractTasksResult,
 } from "../models/email-record";
+import { MODEL_FOR_TASK } from "./ai-utils";
 
 export interface EmailForTaskExtraction {
   sender_email: string;
@@ -31,7 +32,7 @@ export async function extractTasks(
   anthropicApiKey: string,
   email: EmailForTaskExtraction,
   projectContext: ProjectContext,
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.task_extraction,
   onUsage?: ApiUsageCallback
 ): Promise<ExtractTasksResult> {
   const ctx: TaskExtractContext = {
@@ -45,7 +46,7 @@ export async function extractTasks(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
     const response = await client.messages.create({
       model,

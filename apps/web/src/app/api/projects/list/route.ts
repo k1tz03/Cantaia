@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns all projects for the authenticated user's organization,
  * enriched with task counts, email counts, and next meeting.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,6 +18,12 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
+
+  // Pagination
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+  const offset = (page - 1) * limit;
 
   // Get user's organization
   const { data: userRow } = await admin
@@ -30,11 +36,12 @@ export async function GET() {
     return NextResponse.json({ projects: [] });
   }
 
-  const { data: projects, error } = await admin
+  const { data: projects, error, count } = await admin
     .from("projects")
-    .select("*")
+    .select("id, name, code, status, color, organization_id, created_by, client_name, city, address, description, start_date, end_date, budget_total, currency, email_keywords, email_senders, archive_enabled, archive_path, archive_structure, archive_filename_format, archive_attachments_mode, archived_at, created_at, updated_at", { count: "exact" })
     .eq("organization_id", userRow.organization_id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("[projects/list] Error:", error.message);
@@ -116,5 +123,7 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ projects: enriched });
+  const response = NextResponse.json({ projects: enriched });
+  if (count !== null) response.headers.set("X-Total-Count", String(count));
+  return response;
 }

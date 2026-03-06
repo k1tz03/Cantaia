@@ -45,8 +45,8 @@ export async function GET(request: Request) {
       task_benchmarks: taskBench.data || [],
       pv_benchmarks: pvBench.data || [],
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[benchmarks/projects] Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Internal error" }, { status: 500 });
   }
 }

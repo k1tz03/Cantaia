@@ -4,6 +4,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzePlan } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
+interface PlanVersion {
+  id: string;
+  version_code: string;
+  version_number: number;
+  file_url: string | null;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  is_current: boolean;
+}
+
 const MAX_FILE_SIZE_MB = 20;
 
 /**
@@ -70,14 +81,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Select the version to analyze
-    const versions = plan.plan_versions || [];
-    let targetVersion: any;
+    const versions: PlanVersion[] = plan.plan_versions || [];
+    let targetVersion: PlanVersion | undefined;
 
     if (version_id) {
-      targetVersion = versions.find((v: any) => v.id === version_id);
+      targetVersion = versions.find((v: PlanVersion) => v.id === version_id);
     } else {
       // Default to current version
-      targetVersion = versions.find((v: any) => v.is_current) || versions[0];
+      targetVersion = versions.find((v: PlanVersion) => v.is_current) || versions[0];
     }
 
     if (!targetVersion || !targetVersion.file_url) {
@@ -98,7 +109,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingAnalysis && !body.force) {
-      console.log(`[analyze-plan] Returning cached analysis for version ${targetVersion.id}`);
+      if (process.env.NODE_ENV === "development") console.log(`[analyze-plan] Returning cached analysis for version ${targetVersion.id}`);
       return NextResponse.json({
         success: true,
         analysis: existingAnalysis,
@@ -107,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Download file from Supabase Storage
-    console.log(`[analyze-plan] Downloading file: ${targetVersion.file_url}`);
+    if (process.env.NODE_ENV === "development") console.log(`[analyze-plan] Downloading file: ${targetVersion.file_url}`);
     const fileResponse = await fetch(targetVersion.file_url);
     if (!fileResponse.ok) {
       console.error(`[analyze-plan] File download failed: ${fileResponse.status}`);
@@ -130,7 +141,7 @@ export async function POST(request: NextRequest) {
     const fileBase64 = fileBuffer.toString("base64");
     const fileMediaType = targetVersion.file_type || "application/pdf";
 
-    console.log(`[analyze-plan] File downloaded: ${fileSizeMB.toFixed(1)} MB, type: ${fileMediaType}`);
+    if (process.env.NODE_ENV === "development") console.log(`[analyze-plan] File downloaded: ${fileSizeMB.toFixed(1)} MB, type: ${fileMediaType}`);
 
     // Call Claude Vision
     const startTime = Date.now();
@@ -170,7 +181,7 @@ export async function POST(request: NextRequest) {
     );
 
     const durationMs = Date.now() - startTime;
-    console.log(`[analyze-plan] Analysis completed in ${durationMs}ms`);
+    if (process.env.NODE_ENV === "development") console.log(`[analyze-plan] Analysis completed in ${durationMs}ms`);
 
     // Store result in plan_analyses table
     const { data: analysis, error: insertError } = await (adminClient as any)
@@ -216,10 +227,10 @@ export async function POST(request: NextRequest) {
       analysis,
       cached: false,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[analyze-plan] Error:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

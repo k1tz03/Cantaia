@@ -44,8 +44,8 @@ function findFfmpeg(): string | null {
       console.log("[Transcription] Using ffmpeg-static:", staticPath);
       return staticPath;
     }
-  } catch (e: any) {
-    console.warn("[Transcription] ffmpeg-static not usable:", e.message);
+  } catch (e: unknown) {
+    console.warn("[Transcription] ffmpeg-static not usable:", e instanceof Error ? e.message : e);
   }
 
   // 2. Try system ffmpeg
@@ -76,8 +76,8 @@ function getAudioDuration(
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 30000,
     });
-  } catch (e: any) {
-    const stderr = e.stderr || "";
+  } catch (e: unknown) {
+    const stderr = (e as any).stderr || "";
     const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
     if (match) {
       return (
@@ -221,10 +221,10 @@ export async function transcribeAudioChunked(
       console.log(
         "[Transcription] Compressed file still too large, splitting into chunks"
       );
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.warn(
         "[Transcription] Full compression failed, splitting:",
-        e.message
+        e instanceof Error ? e.message : e
       );
     }
 

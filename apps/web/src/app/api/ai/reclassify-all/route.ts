@@ -1,23 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, type ProjectForClassification } from "@cantaia/core/ai";
+import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, cleanEmailForAI, type ProjectForClassification } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
-/** Strip HTML tags for AI classification */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+/** Run promises in batches with concurrency limit */
+async function runWithConcurrency<T>(
+  items: T[],
+  fn: (item: T) => Promise<void>,
+  concurrency: number
+): Promise<void> {
+  const queue = [...items];
+  const active: Promise<void>[] = [];
+  while (queue.length > 0 || active.length > 0) {
+    while (active.length < concurrency && queue.length > 0) {
+      const item = queue.shift()!;
+      const promise = fn(item).then(() => {
+        active.splice(active.indexOf(promise), 1);
+      });
+      active.push(promise);
+    }
+    if (active.length > 0) await Promise.race(active);
+  }
 }
 
 /**
@@ -114,9 +119,11 @@ export async function POST() {
     projects = (projectsData || []) as ProjectForClassification[];
   }
 
-  console.log(`[reclassify-all] ${projects.length} projects available for classification`);
-  if (projects.length > 0) {
-    console.log(`[reclassify-all] Projects:`, projects.map(p => `${p.name} (${p.code || "N/A"})`));
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[reclassify-all] ${projects.length} projects available for classification`);
+    if (projects.length > 0) {
+      console.log(`[reclassify-all] Projects:`, projects.map(p => `${p.name} (${p.code || "N/A"})`));
+    }
   }
 
   // Get Microsoft token for fetching full email bodies
@@ -124,15 +131,15 @@ export async function POST() {
   try {
     const tokenResult = await getValidMicrosoftToken(user.id);
     graphAccessToken = tokenResult.accessToken || undefined;
-    console.log(`[reclassify-all] Microsoft token: ${graphAccessToken ? "OK" : "MISSING"}`);
+    if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Microsoft token: ${graphAccessToken ? "OK" : "MISSING"}`);
   } catch {
-    console.warn("[reclassify-all] Could not get Microsoft token for full body fetch");
+    if (process.env.NODE_ENV === "development") console.warn("[reclassify-all] Could not get Microsoft token for full body fetch");
   }
 
   // Get ALL user emails for reclassification (including already-classified ones)
   const { data: emails } = await adminClient
     .from("email_records")
-    .select("*")
+    .select("id, subject, sender_email, sender_name, body_preview, received_at, project_id, classification, ai_classification_confidence, classification_status, is_processed, outlook_message_id, recipients")
     .eq("user_id", user.id)
     .order("received_at", { ascending: false })
     .limit(200);
@@ -147,11 +154,13 @@ export async function POST() {
   // Collect IDs of emails that just need is_processed=true (batch at end)
   const markProcessedIds: string[] = [];
 
-  console.log(`[reclassify-all] ${(emails || []).length} emails to reclassify, AI key: ${anthropicApiKey ? "OK" : "MISSING"}`);
+  if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] ${(emails || []).length} emails to reclassify, AI key: ${anthropicApiKey ? "OK" : "MISSING"}`);
+
+  // Emails that need AI classification (after local pass)
+  const needsAiClassification: typeof emails = [];
 
   for (const email of emails || []) {
     try {
-      console.log(`[reclassify-all] Classifying: "${email.subject}" from ${email.sender_email}`);
 
       // ── FIRST PASS: Local keyword classification (fast, no AI cost) ──
       const localMatch = projects.length > 0
@@ -170,7 +179,7 @@ export async function POST() {
       if (localMatch) {
         const changed = email.project_id !== localMatch.projectId;
         if (changed) {
-          console.log(`[reclassify-all] LOCAL match: project=${localMatch.projectId}, score=${localMatch.score}, reasons=[${localMatch.reasons.join(", ")}]`);
+          if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] LOCAL match: project=${localMatch.projectId}, score=${localMatch.score}, reasons=[${localMatch.reasons.join(", ")}]`);
           await adminClient
             .from("email_records")
             .update({
@@ -199,7 +208,7 @@ export async function POST() {
       if (!email.project_id) {
         const suggestion = detectPotentialProject(email.subject);
         if (suggestion) {
-          console.log(`[reclassify-all] New project suggestion: "${suggestion.name}" from "${email.subject}"`);
+          if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] New project suggestion: "${suggestion.name}" from "${email.subject}"`);
           await adminClient
             .from("email_records")
             .update({
@@ -214,7 +223,7 @@ export async function POST() {
         }
       }
 
-      // ── SECOND PASS: Claude AI classification (with full email body) ──
+      // ── SECOND PASS: Queue for AI classification ──
       if (!anthropicApiKey) {
         if (!email.is_processed) {
           markProcessedIds.push(email.id);
@@ -224,108 +233,118 @@ export async function POST() {
 
       // Skip AI if the subject clearly identifies an unknown project
       if (isUnknownProjectSubject(email.subject, projects)) {
-        console.log(`[reclassify-all] SKIP AI: "${email.subject}" — first segment is unknown project`);
+        if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] SKIP AI: "${email.subject}" — first segment is unknown project`);
         if (!email.is_processed) {
           markProcessedIds.push(email.id);
         }
         continue;
       }
 
-      // Fetch full body from Microsoft Graph
-      let bodyFull: string | undefined;
-      if (graphAccessToken && email.outlook_message_id) {
-        try {
-          const graphRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${email.outlook_message_id}?$select=body`,
-            { headers: { Authorization: `Bearer ${graphAccessToken}` } }
-          );
-          if (graphRes.ok) {
-            const graphData = await graphRes.json();
-            if (graphData.body?.content) {
-              bodyFull = stripHtml(graphData.body.content).substring(0, 10000);
-              console.log(`[reclassify-all] Full body fetched: ${bodyFull.length} chars`);
-            }
-          }
-        } catch {
-          console.warn(`[reclassify-all] Graph body fetch failed for ${email.outlook_message_id}`);
-        }
-      }
-
-      const result = await classifyEmail(
-        anthropicApiKey,
-        {
-          sender_email: email.sender_email,
-          sender_name: email.sender_name || "",
-          subject: email.subject,
-          body_preview: email.body_preview || "",
-          body_full: bodyFull,
-          received_at: email.received_at,
-          recipients: email.recipients || [],
-        },
-        projects,
-        undefined,
-        (usage) => {
-          trackApiUsage({
-            supabase: adminClient,
-            userId: user.id,
-            organizationId: userOrg?.organization_id ?? "",
-            actionType: "reclassify",
-            apiProvider: "anthropic",
-            model: usage.model,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            metadata: { email_id: email.id },
-          });
-        }
-      );
-
-      console.log(`[reclassify-all] AI Result: classification=${result.classification}, project_id=${result.project_id}, confidence=${result.classification_confidence}`);
-
-      const previousProjectId = email.project_id;
-      await adminClient
-        .from("email_records")
-        .update({
-          project_id: result.project_id,
-          classification: result.classification,
-          ai_summary: result.summary_fr,
-          ai_classification_confidence: result.classification_confidence,
-          ai_project_match_confidence: result.project_match_confidence,
-          classification_status: "auto_classified",
-          is_processed: true,
-        })
-        .eq("id", email.id);
-
-      if (previousProjectId && previousProjectId !== result.project_id) {
-        emailsReclassified++;
-      } else {
-        emailsClassified++;
-      }
-
-      if (result.contains_task && result.task?.title && result.project_id) {
-        await (adminClient as any).from("tasks").insert({
-          project_id: result.project_id,
-          created_by: user.id,
-          title: result.task.title,
-          priority: result.task.priority || "medium",
-          source: "email" as const,
-          source_id: email.id,
-          source_reference: `Email: ${email.subject}`,
-          assigned_to_name: result.task.assigned_to_name,
-          assigned_to_company: result.task.assigned_to_company,
-          due_date: result.task.due_date,
-        });
-        tasksCreated++;
-      }
+      // Queue for AI classification (will be processed in batch below)
+      needsAiClassification.push(email);
     } catch (err) {
-      console.error(`[reclassify-all] Failed for "${email.subject}":`, err);
-      // Mark as processed to avoid infinite retry loops
+      console.error(`[reclassify-all] Failed local pass for "${email.subject}":`, err);
+    }
+  }
+
+  // ── BATCH AI CLASSIFICATION with concurrency pool (5 parallel) ──
+  if (anthropicApiKey && needsAiClassification.length > 0) {
+    if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Starting AI batch: ${needsAiClassification.length} emails, concurrency=5`);
+
+    await runWithConcurrency(needsAiClassification, async (email) => {
       try {
+        // Fetch full body from Microsoft Graph
+        let bodyFull: string | undefined;
+        if (graphAccessToken && email.outlook_message_id) {
+          try {
+            const graphRes = await fetch(
+              `https://graph.microsoft.com/v1.0/me/messages/${email.outlook_message_id}?$select=body`,
+              { headers: { Authorization: `Bearer ${graphAccessToken}` } }
+            );
+            if (graphRes.ok) {
+              const graphData = await graphRes.json();
+              if (graphData.body?.content) {
+                bodyFull = cleanEmailForAI(graphData.body.content);
+              }
+            }
+          } catch {
+            if (process.env.NODE_ENV === "development") console.warn(`[reclassify-all] Graph body fetch failed for ${email.outlook_message_id}`);
+          }
+        }
+
+        const result = await classifyEmail(
+          anthropicApiKey,
+          {
+            sender_email: email.sender_email,
+            sender_name: email.sender_name || "",
+            subject: email.subject,
+            body_preview: email.body_preview || "",
+            body_full: bodyFull,
+            received_at: email.received_at,
+            recipients: email.recipients || [],
+          },
+          projects,
+          undefined,
+          (usage) => {
+            trackApiUsage({
+              supabase: adminClient,
+              userId: user.id,
+              organizationId: userOrg?.organization_id ?? "",
+              actionType: "reclassify",
+              apiProvider: "anthropic",
+              model: usage.model,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              metadata: { email_id: email.id },
+            });
+          }
+        );
+
+        const previousProjectId = email.project_id;
         await adminClient
           .from("email_records")
-          .update({ is_processed: true })
+          .update({
+            project_id: result.project_id,
+            classification: result.classification,
+            ai_summary: result.summary_fr,
+            ai_classification_confidence: result.classification_confidence,
+            ai_project_match_confidence: result.project_match_confidence,
+            classification_status: "auto_classified",
+            is_processed: true,
+          })
           .eq("id", email.id);
-      } catch { /* ignore */ }
-    }
+
+        if (previousProjectId && previousProjectId !== result.project_id) {
+          emailsReclassified++;
+        } else {
+          emailsClassified++;
+        }
+
+        if (result.contains_task && result.task?.title && result.project_id) {
+          await (adminClient as any).from("tasks").insert({
+            project_id: result.project_id,
+            created_by: user.id,
+            title: result.task.title,
+            priority: result.task.priority || "medium",
+            source: "email" as const,
+            source_id: email.id,
+            source_reference: `Email: ${email.subject}`,
+            assigned_to_name: result.task.assigned_to_name,
+            assigned_to_company: result.task.assigned_to_company,
+            due_date: result.task.due_date,
+          });
+          tasksCreated++;
+        }
+      } catch (err) {
+        console.error(`[reclassify-all] AI failed for "${email.subject}":`, err);
+        try {
+          await adminClient
+            .from("email_records")
+            .update({ is_processed: true })
+            .eq("id", email.id);
+        } catch { /* ignore */ }
+      }
+    }, 5); // concurrency = 5
   }
 
   // Batch update all emails that just need is_processed=true
@@ -338,10 +357,10 @@ export async function POST() {
         .update({ is_processed: true })
         .in("id", chunk);
     }
-    console.log(`[reclassify-all] Batch marked ${markProcessedIds.length} emails as processed`);
+    if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Batch marked ${markProcessedIds.length} emails as processed`);
   }
 
-  console.log(`[reclassify-all] Done: ${emailsClassified} new, ${emailsReclassified} reclassified, ${emailsDeclassified} declassified, ${newProjectsSuggested} suggestions, ${tasksCreated} tasks`);
+  if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Done: ${emailsClassified} new, ${emailsReclassified} reclassified, ${emailsDeclassified} declassified, ${newProjectsSuggested} suggestions, ${tasksCreated} tasks`);
 
   return NextResponse.json({
     success: true,

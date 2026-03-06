@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // Fetch job
   const { data: job } = await (adminClient as any)
     .from("price_extraction_jobs")
-    .select("*")
+    .select("id, status, extraction_results")
     .eq("id", job_id)
     .eq("organization_id", userOrg.organization_id)
     .maybeSingle();
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       success: true,
       ...result,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[extract-from-emails/import] Error:", err);
 
     await (adminClient as any)
@@ -85,6 +85,6 @@ export async function POST(request: Request) {
       .update({ status: "failed", updated_at: new Date().toISOString() })
       .eq("id", job_id);
 
-    return NextResponse.json({ error: err.message || "Import failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Import failed" }, { status: 500 });
   }
 }

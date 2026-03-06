@@ -13,7 +13,7 @@ import { parseBody, validateRequired } from "@/lib/api/parse-body";
  * 4. Adds extracted contacts to the project's email_senders array
  */
 export async function POST(request: NextRequest) {
-  console.log("[emails/create-project-from-email] Starting...");
+  if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Starting...");
 
   // 1. Auth check
   const supabase = await createClient();
@@ -32,12 +32,12 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (userErr || !userRow) {
-    console.log("[emails/create-project-from-email] ERROR: User not found:", userErr?.message);
+    if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] ERROR: User not found:", userErr?.message);
     return NextResponse.json({ error: "User profile not found" }, { status: 404 });
   }
 
   if (!userRow.organization_id) {
-    console.log("[emails/create-project-from-email] ERROR: User has no organization_id");
+    if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] ERROR: User has no organization_id");
     return NextResponse.json(
       { error: "No organization associated with your account." },
       { status: 400 }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (fetchErr || !email) {
-    console.log("[emails/create-project-from-email] Email not found:", email_id, fetchErr?.message);
+    if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Email not found:", email_id, fetchErr?.message);
     return NextResponse.json({ error: "Email not found" }, { status: 404 });
   }
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     email_senders: emailSenders,
   };
 
-  console.log("[emails/create-project-from-email] Creating project:", JSON.stringify(projectData));
+  if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Creating project:", JSON.stringify(projectData));
 
   const { data: project, error: insertErr } = await admin
     .from("projects")
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  console.log("[emails/create-project-from-email] Project created:", project.id, project.name);
+  if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Project created:", project.id, project.name);
 
   // 7. Create project_member (user as owner)
   const { error: memberErr } = await admin
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
   if (memberErr) {
     console.error("[emails/create-project-from-email] WARNING: Failed to create project_member:", memberErr.message);
   } else {
-    console.log("[emails/create-project-from-email] Project member created: user", user.id, "as owner of", project.id);
+    if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Project member created: user", user.id, "as owner of", project.id);
   }
 
   // 8. Update the email with the new project_id and confirm classification
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
   if (emailUpdateErr) {
     console.error("[emails/create-project-from-email] WARNING: Failed to update email:", emailUpdateErr.message);
   } else {
-    console.log("[emails/create-project-from-email] Email updated with project_id:", project.id);
+    if (process.env.NODE_ENV === "development") console.log("[emails/create-project-from-email] Email updated with project_id:", project.id);
   }
 
   return NextResponse.json({ success: true, project });

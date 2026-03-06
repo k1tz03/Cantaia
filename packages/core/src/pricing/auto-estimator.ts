@@ -256,7 +256,7 @@ async function estimateWithAI(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
     const response = await client.messages.create({
       model: AI_MODEL,

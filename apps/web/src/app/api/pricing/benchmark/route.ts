@@ -181,8 +181,8 @@ export async function GET(request: Request) {
         avg_spread_percent: avgSpread,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[benchmark] Error:", err);
-    return NextResponse.json({ error: err.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });
   }
 }

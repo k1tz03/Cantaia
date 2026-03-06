@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   // Get the email
   const { data: email, error: emailError } = await adminClient
     .from("email_records")
-    .select("*")
+    .select("id, sender_email, sender_name, subject, body_preview, received_at, project_id, outlook_message_id")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   const confidencePercent = Math.round(result.confidence * 100);
 
   if (result.match_type === "existing_project") {
-    const isAutoClassified = result.confidence >= 0.85;
+    const isAutoClassified = result.confidence >= 0.92;
     await adminClient
       .from("email_records")
       .update({

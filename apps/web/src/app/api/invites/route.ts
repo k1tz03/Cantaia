@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   // Get invite
   const { data: invite } = await (admin.from("organization_invites") as any)
-    .select("*")
+    .select("id, organization_id, role, first_name, last_name, status")
     .eq("token", token)
     .eq("status", "pending")
     .maybeSingle();

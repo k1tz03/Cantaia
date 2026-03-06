@@ -63,12 +63,12 @@ export async function POST(request: NextRequest) {
     let { data: task, error } = await (admin as any)
       .from("tasks")
       .insert(insertData)
-      .select("*")
+      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, reminder, created_at, updated_at")
       .single();
 
     // If insert failed (likely due to enum mismatch), retry with fallback values
     if (error && error.message?.includes("invalid input value")) {
-      console.warn("[Tasks Create] Enum error, retrying with legacy values:", error.message);
+      if (process.env.NODE_ENV === "development") console.warn("[Tasks Create] Enum error, retrying with legacy values:", error.message);
       // Map new enum values to old ones (migration 006 might not be applied)
       const statusMap: Record<string, string> = { todo: "open", done: "completed" };
       const sourceMap: Record<string, string> = { meeting: "meeting_pv", reserve: "ai_suggestion" };
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       const retry = await (admin as any)
         .from("tasks")
         .insert(insertData)
-        .select("*")
+        .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at")
         .single();
       task = retry.data;
       error = retry.error;
@@ -134,20 +134,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, tasks: [], projects: [] });
     }
 
+    // Pagination
+    const page = parseInt(request.nextUrl.searchParams.get("page") || "1");
+    const limit = Math.min(parseInt(request.nextUrl.searchParams.get("limit") || "50"), 100);
+    const offset = (page - 1) * limit;
+
     // Fetch tasks for user's projects
     const projectId = request.nextUrl.searchParams.get("project_id");
 
     let query = admin
       .from("tasks")
-      .select("*")
+      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, reminder, created_at, updated_at", { count: "exact" })
       .in("project_id", projectIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (projectId) {
       query = query.eq("project_id", projectId);
     }
 
-    const { data: tasks, error } = await query;
+    const { data: tasks, error, count } = await query;
 
     if (error) {
       console.error("[Tasks List] Error:", error);
@@ -163,11 +169,13 @@ export async function GET(request: NextRequest) {
       .select("id, name, code, color")
       .in("id", projectIds);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       tasks: tasks || [],
       projects: projects || [],
     });
+    if (count !== null) response.headers.set("X-Total-Count", String(count));
+    return response;
   } catch (error) {
     console.error("[Tasks List] Error:", error);
     return NextResponse.json(

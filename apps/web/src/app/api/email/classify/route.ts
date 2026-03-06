@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyEmail, classifyEmailByKeywords, type ProjectForClassification } from "@cantaia/core/ai";
+import { classifyEmail, classifyEmailByKeywords, cleanEmailForAI, type ProjectForClassification } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkLocalRules, detectSpamNewsletter, learnFromClassificationAction } from "@cantaia/core/emails";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
-
-/** Strip HTML tags */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 /**
  * POST /api/email/classify
@@ -64,7 +49,7 @@ export async function POST(request: NextRequest) {
   // Get the email
   const { data: email, error: emailErr } = await (admin as any)
     .from("email_records")
-    .select("*")
+    .select("id, from_email, sender_email, subject, body_preview, sender_name, from_name, body_text, body_html, received_at")
     .eq("id", email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -226,7 +211,7 @@ export async function POST(request: NextRequest) {
   // Use stored body or body_preview
   let bodyFull = email.body_text || email.body_preview || "";
   if (!bodyFull && email.body_html) {
-    bodyFull = stripHtml(email.body_html);
+    bodyFull = cleanEmailForAI(email.body_html);
   }
 
   const result = await classifyEmail(

@@ -34,7 +34,7 @@ export async function callClaudeVision<T = Passe2Result>(
   const start = Date.now();
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic();
+    const client = new Anthropic({ timeout: 90_000 });
 
     // Claude supporte les PDF via type "document", les images via type "image"
     const isPdf = mediaType === 'application/pdf';
@@ -99,7 +99,7 @@ export async function callClaudeText<T>(
   const start = Date.now();
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic();
+    const client = new Anthropic({ timeout: 90_000 });
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",

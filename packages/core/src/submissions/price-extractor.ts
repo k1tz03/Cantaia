@@ -43,7 +43,7 @@ export async function extractPricesFromEmail(
 ): Promise<PriceExtractionResult> {
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
     const prompt = buildPriceExtractionPrompt({
       email_body: emailContent,

@@ -12,6 +12,7 @@ import {
   type ClassifyEmailResult,
 } from "../models/email-record";
 import type { ApiUsageCallback } from "../tracking/api-cost-tracker";
+import { callAnthropicWithRetry, cleanEmailForAI } from "./ai-utils";
 
 export interface EmailForClassification {
   sender_email: string;
@@ -62,9 +63,11 @@ export async function classifyEmail(
   model = "claude-sonnet-4-5-20250929",
   onUsage?: ApiUsageCallback
 ): Promise<ClassifyEmailResult> {
-  console.log(`[classifyEmail] Starting classification for: "${email.subject}"`);
-  console.log(`[classifyEmail] From: ${email.sender_name} <${email.sender_email}>`);
-  console.log(`[classifyEmail] Projects available: ${userProjects.length}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[classifyEmail] Starting classification for: "${email.subject}"`);
+    console.log(`[classifyEmail] From: ${email.sender_name} <${email.sender_email}>`);
+    console.log(`[classifyEmail] Projects available: ${userProjects.length}`);
+  }
 
   // Build projects list for the prompt
   const projectsList = userProjects
@@ -82,7 +85,7 @@ export async function classifyEmail(
     sender_email: email.sender_email,
     sender_name: email.sender_name,
     subject: email.subject,
-    body_content: bodyContent.substring(0, 10000),
+    body_content: cleanEmailForAI(bodyContent),
     received_at: email.received_at,
     recipients: email.recipients?.length ? email.recipients.join(", ") : undefined,
   };
@@ -91,13 +94,26 @@ export async function classifyEmail(
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
-    const response = await client.messages.create({
-      model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const response = await callAnthropicWithRetry(() =>
+      client.messages.create({
+        model,
+        max_tokens: 600,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+          },
+        ],
+      })
+    );
 
     // Fire-and-forget usage tracking
     try {
@@ -108,6 +124,11 @@ export async function classifyEmail(
       });
     } catch { /* tracking must never fail */ }
 
+    // Check for truncation
+    if (response.stop_reason !== "end_turn") {
+      console.error(`[classifyEmail] Warning: response truncated (stop_reason=${response.stop_reason})`);
+    }
+
     // Extract text content from response
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
@@ -115,7 +136,9 @@ export async function classifyEmail(
       return DEFAULT_RESULT;
     }
 
-    console.log(`[classifyEmail] Claude raw response: ${textBlock.text.substring(0, 500)}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[classifyEmail] Claude raw response: ${textBlock.text.substring(0, 500)}`);
+    }
 
     // Parse JSON from response (handle markdown code blocks)
     let jsonStr = textBlock.text.trim();
@@ -124,7 +147,25 @@ export async function classifyEmail(
       jsonStr = codeBlockMatch[1].trim();
     }
 
-    const parsed = JSON.parse(jsonStr);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      // Fallback: try to extract JSON object with regex
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          console.error("[classifyEmail] Failed to parse JSON even with regex fallback");
+          return DEFAULT_RESULT;
+        }
+      } else {
+        console.error("[classifyEmail] No JSON object found in response");
+        return DEFAULT_RESULT;
+      }
+    }
+
     const validated = classifyEmailResultSchema.safeParse(parsed);
 
     if (!validated.success) {
@@ -135,15 +176,17 @@ export async function classifyEmail(
 
     const result = validated.data;
 
-    console.log(`[classifyEmail] Classification result:`, {
-      match_type: result.match_type,
-      confidence: result.confidence,
-      project_id: result.project_id,
-      classification: result.classification,
-      email_category: result.email_category,
-      reasoning: result.reasoning,
-      contains_task: result.contains_task,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[classifyEmail] Classification result:`, {
+        match_type: result.match_type,
+        confidence: result.confidence,
+        project_id: result.project_id,
+        classification: result.classification,
+        email_category: result.email_category,
+        reasoning: result.reasoning,
+        contains_task: result.contains_task,
+      });
+    }
 
     return result;
   } catch (err) {
@@ -354,7 +397,7 @@ export function classifyEmailByKeywords(
       }
     }
 
-    if (reasons.length > 0) {
+    if (reasons.length > 0 && process.env.NODE_ENV === "development") {
       console.log(`[classifyByKeywords]   "${project.name}": score=${score} [${reasons.join("; ")}]`);
     }
 
@@ -364,20 +407,24 @@ export function classifyEmailByKeywords(
       bestMatch = {
         projectId: project.id,
         score,
-        confidence: Math.min(score / 18, 0.99),
+        confidence: Math.min(0.60 + (score - 8) * 0.035, 0.95),
         reasons,
       };
     }
   }
 
   if (bestMatch) {
-    console.log(
-      `[classifyByKeywords] MATCH: project="${projects.find((p) => p.id === bestMatch!.projectId)?.name}" score=${bestMatch.score}`
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `[classifyByKeywords] MATCH: project="${projects.find((p) => p.id === bestMatch!.projectId)?.name}" score=${bestMatch.score}`
+      );
+    }
     return bestMatch;
   }
 
-  console.log(`[classifyByKeywords] NO MATCH for "${email.subject}"`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[classifyByKeywords] NO MATCH for "${email.subject}"`);
+  }
   return null;
 }
 

@@ -53,10 +53,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[submissions/export] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Export failed" },
+      { error: error instanceof Error ? error.message : "Export failed" },
       { status: 500 }
     );
   }

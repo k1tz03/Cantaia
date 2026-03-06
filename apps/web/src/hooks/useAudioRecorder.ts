@@ -65,10 +65,10 @@ export function useAudioRecorder() {
       timerRef.current = setInterval(() => {
         setDuration((d) => d + 1);
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Microphone access denied:', err);
       setError(
-        err.name === 'NotAllowedError'
+        err instanceof DOMException && err.name === 'NotAllowedError'
           ? 'microphone_denied'
           : 'microphone_error'
       );

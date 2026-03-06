@@ -13,7 +13,7 @@ async function migrateUserData(
   fromUserId: string,
   toUserId: string
 ) {
-  console.log("[auth/callback] Migrating data from", fromUserId, "to", toUserId);
+  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Migrating data from", fromUserId, "to", toUserId);
   await adminClient.from("project_members").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   await adminClient.from("tasks").update({ assigned_to: toUserId } as any).eq("assigned_to", fromUserId);
   await adminClient.from("tasks").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
@@ -22,7 +22,7 @@ async function migrateUserData(
   await adminClient.from("email_connections").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   // Delete old user row
   await adminClient.from("users").delete().eq("id", fromUserId).neq("id", toUserId);
-  console.log("[auth/callback] Data migration complete");
+  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Data migration complete");
 }
 
 export async function GET(request: Request) {
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
 
-  console.log("[auth/callback] Received callback:", {
+  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Received callback:", {
     hasCode: !!code,
     error: errorParam,
     errorDesc,
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
   if (code) {
     try {
       const supabase = await createClient();
-      console.log("[auth/callback] Exchanging code for session...");
+      if (process.env.NODE_ENV === "development") console.log("[auth/callback] Exchanging code for session...");
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) {
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
       }
 
       if (data.user && data.session) {
-        console.log("[auth/callback] Session established for:", data.user.email);
+        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Session established for:", data.user.email);
         const adminClient = createAdminClient();
 
         // Determine auth provider from Supabase identity
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
             ? "google"
             : "email";
 
-        console.log("[auth/callback] Auth provider:", authProvider);
+        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Auth provider:", authProvider);
 
         // ────────────────────────────────────────────────────────────────
         // ORGANIZATION RESOLUTION: Find the right org for this user
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
 
         if (existingUser) {
           // Known user, just update auth provider columns
-          console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
+          if (process.env.NODE_ENV === "development") console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
           await adminClient
             .from("users")
             .update({ auth_provider: authProvider, auth_provider_id: identity?.id || null } as any)
@@ -119,7 +119,7 @@ export async function GET(request: Request) {
             .maybeSingle();
 
           if (linkedOrg) {
-            console.log("[auth/callback] Linking to existing org via link_org:", linkOrgId);
+            if (process.env.NODE_ENV === "development") console.log("[auth/callback] Linking to existing org via link_org:", linkOrgId);
             const metadata = data.user.user_metadata || {};
             const { error: userError } = await adminClient.from("users").upsert({
               id: data.user.id,
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
               console.error("[auth/callback] User upsert error:", userError.message);
             }
           } else {
-            console.warn("[auth/callback] link_org not found:", linkOrgId, "— falling through to creation");
+            if (process.env.NODE_ENV === "development") console.warn("[auth/callback] link_org not found:", linkOrgId, "— falling through to creation");
           }
 
         } else {
@@ -148,7 +148,7 @@ export async function GET(request: Request) {
             : { data: null };
 
           if (existingByEmail) {
-            console.log("[auth/callback] Found existing user by email, reusing org:", existingByEmail.organization_id);
+            if (process.env.NODE_ENV === "development") console.log("[auth/callback] Found existing user by email, reusing org:", existingByEmail.organization_id);
             const { data: oldUserRow } = await adminClient
               .from("users")
               .select("first_name, last_name, role, preferred_language")
@@ -185,7 +185,7 @@ export async function GET(request: Request) {
               : { data: null };
 
             if (existingConnection) {
-              console.log("[auth/callback] Found existing email_connection for this email, reusing org:", existingConnection.organization_id);
+              if (process.env.NODE_ENV === "development") console.log("[auth/callback] Found existing email_connection for this email, reusing org:", existingConnection.organization_id);
 
               // Get the original user's profile info
               const { data: connUser } = await adminClient
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
 
             } else {
               // Check 5: Truly new user — create org + profile
-              console.log("[auth/callback] First-time user, creating org + profile...");
+              if (process.env.NODE_ENV === "development") console.log("[auth/callback] First-time user, creating org + profile...");
               const metadata = data.user.user_metadata || {};
               const fullName = metadata.full_name || metadata.name || data.user.email || "";
               const nameParts = fullName.split(" ");
@@ -262,7 +262,7 @@ export async function GET(request: Request) {
         // ────────────────────────────────────────────────────────────────
         const providerToken = data.session.provider_token;
         const providerRefreshToken = data.session.provider_refresh_token;
-        console.log("[auth/callback] Provider tokens:", {
+        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Provider tokens:", {
           hasAccessToken: !!providerToken,
           hasRefreshToken: !!providerRefreshToken,
           provider: authProvider,
@@ -343,7 +343,7 @@ export async function GET(request: Request) {
                 .eq("user_id", data.user.id)
                 .neq("id", newConn.id);
 
-              console.log("[auth/callback] Email connection created for:", authProvider);
+              if (process.env.NODE_ENV === "development") console.log("[auth/callback] Email connection created for:", authProvider);
             }
           }
         }
@@ -362,7 +362,7 @@ export async function GET(request: Request) {
         }
 
         const redirectUrl = `${origin}/${userLocale}${next}`;
-        console.log("[auth/callback] Redirecting to:", redirectUrl);
+        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Redirecting to:", redirectUrl);
         return NextResponse.redirect(redirectUrl);
       }
     } catch (err) {

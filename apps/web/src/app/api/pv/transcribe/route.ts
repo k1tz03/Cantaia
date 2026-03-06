@@ -28,12 +28,13 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const { meeting_id } = body;
+    const { meeting_id, language } = body;
+    const whisperLanguage = (language === "de" || language === "en") ? language : "fr";
 
     // Get the meeting
     const { data: meeting, error: meetingError } = await admin
       .from("meetings")
-      .select("*")
+      .select("id, audio_url")
       .eq("id", meeting_id)
       .maybeSingle();
 
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       }
 
       const sizeMB = (audioData.size / 1048576).toFixed(1);
-      console.log(
+      if (process.env.NODE_ENV === "development") console.log(
         `[Transcribe] Starting transcription for meeting ${meeting_id} (${sizeMB} MB)`
       );
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile,
         model: "whisper-1",
-        language: "fr",
+        language: whisperLanguage,
         response_format: "verbose_json",
         timestamp_granularities: ["segment"],
       });
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(
+      if (process.env.NODE_ENV === "development") console.log(
         `[Transcribe] Success: ${transcription.text.length} chars, lang=${(transcription as any).language}`
       );
 
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
         language: (transcription as any).language,
         duration: (transcription as any).duration,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Transcribe] Whisper failed:", err);
 
       await admin
@@ -143,12 +144,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Transcription failed: " + (err.message || "Unknown error"),
+            "Transcription failed: " + (err instanceof Error ? err.message : "Unknown error"),
         },
         { status: 502 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Transcribe] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

@@ -31,7 +31,7 @@ export async function POST(
     // Get the meeting
     const { data: meeting } = await admin
       .from("meetings")
-      .select("*")
+      .select("id, pv_content, project_id, meeting_number")
       .eq("id", id)
       .maybeSingle();
 
@@ -65,7 +65,7 @@ export async function POST(
       }
     }
 
-    console.log(`[Finalize] Meeting ${id}: ${allActions.length} total actions found`);
+    if (process.env.NODE_ENV === "development") console.log(`[Finalize] Meeting ${id}: ${allActions.length} total actions found`);
 
     // Create tasks for selected actions
     const selectedIndices = new Set(body.selected_action_indices || []);
@@ -104,7 +104,7 @@ export async function POST(
         due_date: dueDate,
       };
 
-      console.log(`[Finalize] Inserting task ${i}: ${taskData.title} (status=${taskData.status}, source=${taskData.source})`);
+      if (process.env.NODE_ENV === "development") console.log(`[Finalize] Inserting task ${i}: ${taskData.title} (status=${taskData.status}, source=${taskData.source})`);
 
       const { data: insertedTask, error: insertError } = await admin
         .from("tasks")
@@ -124,7 +124,7 @@ export async function POST(
           hint: insertError.hint,
         });
       } else {
-        console.log(`[Finalize] Task ${i} created: ${insertedTask?.id}`);
+        if (process.env.NODE_ENV === "development") console.log(`[Finalize] Task ${i} created: ${insertedTask?.id}`);
         tasksCreated++;
       }
     }
@@ -135,7 +135,7 @@ export async function POST(
       .update({ status: "finalized" } as any)
       .eq("id", id);
 
-    console.log(`[Finalize] Done: ${tasksCreated} tasks created, ${errors.length} errors`);
+    if (process.env.NODE_ENV === "development") console.log(`[Finalize] Done: ${tasksCreated} tasks created, ${errors.length} errors`);
 
     return NextResponse.json({
       success: true,

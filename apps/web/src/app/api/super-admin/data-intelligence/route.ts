@@ -82,10 +82,10 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[super-admin/data-intelligence] Error:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal error" },
+      { error: err instanceof Error ? err.message : "Internal error" },
       { status: 500 }
     );
   }
@@ -135,9 +135,9 @@ export async function POST(request: NextRequest) {
     });
     const data = await res.json();
     return NextResponse.json({ success: res.ok, ...data });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: err?.message || "CRON trigger failed" },
+      { error: err instanceof Error ? err.message : "CRON trigger failed" },
       { status: 500 }
     );
   }

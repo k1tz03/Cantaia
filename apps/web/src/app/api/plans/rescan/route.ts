@@ -142,20 +142,21 @@ export async function POST() {
             });
             if (saved) {
               plansSaved++;
-              console.log(`[rescan] Plan saved: ${att.name} → ${saved.planId}`);
+              if (process.env.NODE_ENV === "development") console.log(`[rescan] Plan saved: ${att.name} → ${saved.planId}`);
             }
           }
         }
 
         scanned++;
-      } catch (err: any) {
-        console.warn(`[rescan] Error for email ${email.id}:`, err?.message || err);
-        errors.push(`${email.subject}: ${err?.message || "Unknown error"}`);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : "Unknown error";
+        console.warn(`[rescan] Error for email ${email.id}:`, errMsg);
+        errors.push(`${email.subject}: ${errMsg}`);
         scanned++;
       }
     }
 
-    console.log(`[rescan] Done: scanned=${scanned}, plans_saved=${plansSaved}`);
+    if (process.env.NODE_ENV === "development") console.log(`[rescan] Done: scanned=${scanned}, plans_saved=${plansSaved}`);
 
     return NextResponse.json({
       success: true,
@@ -163,10 +164,10 @@ export async function POST() {
       plans_saved: plansSaved,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[rescan] Error:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

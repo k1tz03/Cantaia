@@ -77,13 +77,13 @@ export async function POST(request: NextRequest) {
       participants = JSON.stringify(meeting.participants || []);
     }
 
-    console.log(
+    if (process.env.NODE_ENV === "development") console.log(
       `[GeneratePV] Generating PV for meeting ${meeting_id}`,
       `transcript: ${transcript.length} chars`
     );
 
     if (USE_MOCK_PV || !process.env.ANTHROPIC_API_KEY) {
-      console.log("[GeneratePV] Using mock PV generation");
+      if (process.env.NODE_ENV === "development") console.log("[GeneratePV] Using mock PV generation");
       const mockPV = {
         header: {
           project_name: project_name || "Projet Test",
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     });
 
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000 });
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
@@ -189,14 +189,14 @@ export async function POST(request: NextRequest) {
       .update({ pv_content: pvContent as any, status: "review" } as any)
       .eq("id", meeting_id);
 
-    console.log("[GeneratePV] Usage:", {
+    if (process.env.NODE_ENV === "development") console.log("[GeneratePV] Usage:", {
       action: "pv_generate",
       model: "claude-sonnet-4-5-20250929",
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
     });
 
-    console.log(
+    if (process.env.NODE_ENV === "development") console.log(
       `[GeneratePV] Success: ${pvContent.sections?.length || 0} sections`
     );
 

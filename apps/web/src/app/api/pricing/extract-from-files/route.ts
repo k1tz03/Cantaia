@@ -91,8 +91,8 @@ export async function POST(request: Request) {
           ...r,
           fileName: file.name,
         }));
-      } catch (err: any) {
-        errors.push(`${file.name}: ${err?.message || "Erreur"}`);
+      } catch (err: unknown) {
+        errors.push(`${file.name}: ${err instanceof Error ? err.message : "Erreur"}`);
         return [];
       }
     });
@@ -106,8 +106,8 @@ export async function POST(request: Request) {
       errors,
       files_processed: files.length,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[extract-from-files] Error:", err);
-    return NextResponse.json({ error: err.message || "Extraction failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Extraction failed" }, { status: 500 });
   }
 }

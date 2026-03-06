@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildSupplierSearchPrompt } from "@cantaia/core/ai";
+import { buildSupplierSearchPrompt, MODEL_FOR_TASK } from "@cantaia/core/ai";
 
 /**
  * POST /api/suppliers/search
@@ -79,10 +79,11 @@ export async function POST(request: NextRequest) {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 60_000,
     });
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.supplier_search,
       max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       suggestions: result.suggestions || [],
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[suppliers/search] AI search error:", err);
 
     // Distinguish between JSON parse errors and API errors

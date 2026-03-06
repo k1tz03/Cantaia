@@ -37,7 +37,7 @@ export async function searchSuppliersAI(
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void
 ): Promise<SupplierSearchResult> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
   const ctx: SupplierSearchContext = {
     cfc_codes: params.cfc_codes,

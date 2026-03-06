@@ -3,6 +3,8 @@
 // Handles forwarded emails (FW:/TR:) with smart context detection
 // ============================================================
 
+import { callAnthropicWithRetry, cleanEmailForAI } from "./ai-utils";
+
 export interface EmailForReply {
   sender_name: string;
   sender_email: string;
@@ -89,7 +91,7 @@ function buildReplyPrompt(
     ? `Projet : ${project.name} (${project.code || "N/A"})`
     : "";
 
-  const bodyContent = email.body_full || email.body_preview;
+  const bodyContent = cleanEmailForAI(email.body_full || email.body_preview);
   const recipientsStr = email.recipients?.join(", ") || "";
   const isReply = /^RE\s*:/i.test(email.subject.trim());
 
@@ -109,6 +111,18 @@ function buildReplyPrompt(
     }
   }
 
+  // Detect email language from subject and body
+  const textSample = `${email.subject} ${bodyContent.substring(0, 500)}`;
+  const hasGerman = /\b(Sehr geehrte|Grüezi|Freundliche Grüsse|Angebot|Offerte|Baustelle|bitte|Herr|Frau)\b/i.test(textSample);
+  const hasEnglish = /\b(Dear|Please|Regards|Thank you|Kind regards|Meeting|Schedule)\b/i.test(textSample);
+  const detectedLang = hasGerman ? "de" : hasEnglish ? "en" : "fr";
+
+  const langInstructions: Record<string, string> = {
+    fr: "Réponds en FRANÇAIS. Vouvoiement. Signe avec :",
+    de: "Antworte auf DEUTSCH. Siezen. Unterschreibe mit:",
+    en: "Reply in ENGLISH. Professional tone. Sign with:",
+  };
+
   return `Tu es l'assistant IA de ${user.first_name} ${user.last_name}, ${user.role} chez ${user.company_name}.
 Tu rédiges une réponse professionnelle à un email reçu dans le contexte de la construction en Suisse.
 
@@ -122,26 +136,23 @@ ${forwardSection}
 Contenu complet :
 ${bodyContent}
 
-RÈGLE PRINCIPALE : Tu dois TOUJOURS générer une réponse professionnelle.
-Le seul cas où tu peux répondre __NO_REPLY_NEEDED__ est :
-- Email automatique/système (notifications, newsletters, confirmations automatiques, noreply@)
+Réponds __NO_REPLY_NEEDED__ UNIQUEMENT si :
+- Email automatique/système (notifications, newsletters, noreply@)
 - Email où je suis en copie (CC) et non destinataire principal
 - Accusé de réception automatique
 
-Pour TOUS les autres emails (même informatifs), génère une réponse adaptée :
-- Envoi de documents/plans → "Bien reçu, merci. [action concrète]"
-- Information/mise à jour → "Merci pour l'information. [accusé de réception contextuel]"
+Pour TOUS les autres emails, génère une réponse adaptée :
+- Documents/plans → "Bien reçu, merci. [action concrète]"
+- Information → "Merci pour l'information. [accusé contextuel]"
 - Demande d'action → "Bien noté. [engagement sur l'action]"
 - Offre/devis → "Merci pour votre offre. Je l'examine et vous reviens."
-- Signalement problème → "Merci de nous avoir signalé. [action proposée]"
-- Transfert sans commentaire → "Bien reçu. [action selon le contenu transféré]"
+- Problème → "Merci de nous avoir signalé. [action proposée]"
 
 STYLE :
-- Ton professionnel construction suisse (vouvoiement, concis, direct)
-- Pas de formules vides comme "je reviens vers vous dans les meilleurs délais"
-- Sois spécifique et contextuel — mentionne les éléments concrets de l'email
+- Ton professionnel construction suisse, concis et direct
+- Sois spécifique — mentionne les éléments concrets de l'email
 - Ne génère QUE le texte de la réponse, sans JSON ni markup
-- Signe avec : ${user.first_name} ${user.last_name}`;
+- ${langInstructions[detectedLang]} ${user.first_name} ${user.last_name}`;
 }
 
 /**
@@ -158,22 +169,39 @@ export async function generateReply(
   model = "claude-sonnet-4-5-20250929",
   onUsage?: ApiUsageCallback
 ): Promise<ReplyResult> {
-  console.log(`[generateReply] Starting for: "${email.subject}" from ${email.sender_email}`);
-  console.log(`[generateReply] Project: ${projectContext?.name || "none"}, User: ${userProfile.first_name} ${userProfile.last_name}`);
-  console.log(`[generateReply] Body length: preview=${email.body_preview.length}, full=${email.body_full?.length || 0}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[generateReply] Starting for: "${email.subject}" from ${email.sender_email}`);
+    console.log(`[generateReply] Project: ${projectContext?.name || "none"}, User: ${userProfile.first_name} ${userProfile.last_name}`);
+    console.log(`[generateReply] Body length: preview=${email.body_preview.length}, full=${email.body_full?.length || 0}`);
+  }
 
   const prompt = buildReplyPrompt(email, projectContext, userProfile);
 
   try {
-    console.log(`[generateReply] Calling Claude API (model: ${model})...`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[generateReply] Calling Claude API (model: ${model})...`);
+    }
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
-    const response = await client.messages.create({
-      model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const response = await callAnthropicWithRetry(() =>
+      client.messages.create({
+        model,
+        max_tokens: 600,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+          },
+        ],
+      })
+    );
 
     // Fire-and-forget usage tracking
     try {
@@ -184,6 +212,11 @@ export async function generateReply(
       });
     } catch { /* tracking must never fail */ }
 
+    // Check for truncation
+    if (response.stop_reason !== "end_turn") {
+      console.error(`[generateReply] Warning: response truncated (stop_reason=${response.stop_reason})`);
+    }
+
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       console.error("[generateReply] No text content in Claude response");
@@ -191,20 +224,28 @@ export async function generateReply(
     }
 
     const text = textBlock.text.trim();
-    console.log(`[generateReply] Claude response (${text.length} chars): ${text.substring(0, 200)}...`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[generateReply] Claude response (${text.length} chars): ${text.substring(0, 200)}...`);
+    }
 
     // Handle special markers
     if (text.includes("__NO_REPLY_NEEDED__")) {
-      console.log("[generateReply] Result: NO_REPLY_NEEDED");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[generateReply] Result: NO_REPLY_NEEDED");
+      }
       return { reply_text: "", no_reply_needed: true };
     }
 
     if (text.includes("__INSUFFICIENT_CONTEXT__")) {
-      console.log("[generateReply] Result: INSUFFICIENT_CONTEXT");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[generateReply] Result: INSUFFICIENT_CONTEXT");
+      }
       return { reply_text: "", no_reply_needed: false };
     }
 
-    console.log(`[generateReply] Result: Generated reply (${text.length} chars)`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[generateReply] Result: Generated reply (${text.length} chars)`);
+    }
     return { reply_text: text, no_reply_needed: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

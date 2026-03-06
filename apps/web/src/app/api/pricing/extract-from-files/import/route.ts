@@ -46,8 +46,8 @@ export async function POST(request: Request) {
       success: true,
       ...result,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[extract-from-files/import] Error:", err);
-    return NextResponse.json({ error: err.message || "Import failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Import failed" }, { status: 500 });
   }
 }

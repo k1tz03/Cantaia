@@ -9,17 +9,17 @@ import { parseBody, validateRequired } from "@/lib/api/parse-body";
  * Creates a new project in Supabase with proper organization assignment and project_member creation.
  */
 export async function POST(request: NextRequest) {
-  console.log("[projects/create] Starting project creation...");
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] Starting project creation...");
 
   // 1. Auth check
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    console.log("[projects/create] ERROR: No authenticated user");
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] ERROR: No authenticated user");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  console.log("[projects/create] Authenticated user:", user.id, user.email);
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] Authenticated user:", user.id, user.email);
 
   // 2. Get user's organization_id (auto-create profile if missing)
   const admin = createAdminClient();
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (!userRow) {
-    console.log("[projects/create] User profile missing, auto-creating...");
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] User profile missing, auto-creating...");
     // Auto-create organization + user profile from auth metadata
     const metadata = user.user_metadata || {};
     const fullName = metadata.full_name || metadata.name || user.email || "";
@@ -81,17 +81,17 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     userRow = newUserRow;
-    console.log("[projects/create] Auto-created profile with org:", org.id);
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] Auto-created profile with org:", org.id);
   }
 
   if (!userRow?.organization_id) {
-    console.log("[projects/create] ERROR: User has no organization_id");
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] ERROR: User has no organization_id");
     return NextResponse.json(
       { error: "No organization associated with your account. Please contact support." },
       { status: 400 }
     );
   }
-  console.log("[projects/create] User org:", userRow.organization_id);
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] User org:", userRow.organization_id);
 
   // 3. Parse body
   const { data: body, error: parseError } = await parseBody(request);
@@ -101,10 +101,10 @@ export async function POST(request: NextRequest) {
 
   const requiredError = validateRequired(body, ["name"]);
   if (requiredError) {
-    console.log("[projects/create] ERROR: Missing project name");
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] ERROR: Missing project name");
     return NextResponse.json({ error: "Project name is required" }, { status: 400 });
   }
-  console.log("[projects/create] Project data:", {
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] Project data:", {
     name: body.name,
     code: body.code,
     city: body.city,
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     const reason = duplicate.name.toLowerCase() === body.name.toLowerCase()
       ? `Un projet nommé "${duplicate.name}" existe déjà`
       : `Un projet avec le code "${duplicate.code}" existe déjà`;
-    console.log("[projects/create] Duplicate found:", duplicate.id, reason);
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] Duplicate found:", duplicate.id, reason);
     return NextResponse.json(
       { error: reason },
       { status: 409 }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     email_senders: body.email_senders || [],
   };
 
-  console.log("[projects/create] Inserting project:", JSON.stringify(projectData));
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] Inserting project:", JSON.stringify(projectData));
 
   const { data: project, error: insertErr } = await admin
     .from("projects")
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  console.log("[projects/create] Project created successfully:", project.id, project.name);
+  if (process.env.NODE_ENV === "development") console.log("[projects/create] Project created successfully:", project.id, project.name);
 
   // 5. INSERT project_member (creator as owner)
   const { error: memberErr } = await admin
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     console.error("[projects/create] WARNING: Failed to create project_member:", memberErr.message);
     // Don't fail — the project was created, just log the warning
   } else {
-    console.log("[projects/create] Project member created: user", user.id, "as owner of", project.id);
+    if (process.env.NODE_ENV === "development") console.log("[projects/create] Project member created: user", user.id, "as owner of", project.id);
   }
 
   logActivityAsync({

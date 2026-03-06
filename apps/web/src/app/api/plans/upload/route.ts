@@ -124,10 +124,10 @@ export async function POST(request: NextRequest) {
       success: true,
       plan_id: plan.id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[plans/upload] Error:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

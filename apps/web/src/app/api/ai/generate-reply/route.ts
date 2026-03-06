@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateReply } from "@cantaia/core/ai";
+import { generateReply, cleanEmailForAI } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   // Get the email
   const { data: email, error: emailError } = await adminClient
     .from("email_records")
-    .select("*")
+    .select("id, sender_email, sender_name, subject, body_preview, project_id, outlook_message_id, recipients, received_at")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -98,14 +98,7 @@ export async function POST(request: NextRequest) {
         if (graphRes.ok) {
           const graphData = await graphRes.json();
           if (graphData.body?.content) {
-            // Strip HTML tags for plain text content to send to AI
-            bodyFull = graphData.body.content
-              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-              .replace(/<[^>]+>/g, " ")
-              .replace(/&nbsp;/g, " ")
-              .replace(/\s+/g, " ")
-              .trim()
-              .substring(0, 8000); // Limit to ~8k chars for AI context
+            bodyFull = cleanEmailForAI(graphData.body.content);
           }
         }
       }
@@ -114,8 +107,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
-  console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}`);
+  if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
+  if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}`);
 
   const result = await generateReply(
     anthropicApiKey,
@@ -151,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
   );
 
-  console.log(`[generate-reply] Result: reply=${result.reply_text.length} chars, no_reply=${result.no_reply_needed}, error=${result.error || "none"}`);
+  if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Result: reply=${result.reply_text.length} chars, no_reply=${result.no_reply_needed}, error=${result.error || "none"}`);
 
   if (result.error) {
     return NextResponse.json(

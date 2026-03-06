@@ -20,12 +20,15 @@ import {
   Sparkles,
   Pencil,
   Trash2,
+  Users,
 } from "lucide-react";
 import { SPECIALTY_LABELS, type SupplierSpecialty } from "@cantaia/core/suppliers";
 import type { Supplier, SupplierStatus, SupplierType } from "@cantaia/database";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { SupplierFormDialog } from "@/components/suppliers/SupplierFormDialog";
 import { SupplierImportDialog } from "@/components/suppliers/SupplierImportDialog";
 import { AISearchDialog } from "@/components/suppliers/AISearchDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_CONFIG: Record<SupplierStatus, { color: string; dotColor: string }> = {
   active: { color: "text-green-700 bg-green-50", dotColor: "bg-green-500" },
@@ -83,6 +86,7 @@ export default function SuppliersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [aiSearchOpen, setAiSearchOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
   const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState<string | null>(null);
 
@@ -199,11 +203,15 @@ export default function SuppliersPage() {
     setFormOpen(true);
   }
 
-  async function handleDelete(supplier: Supplier) {
-    if (!confirm(`Desactiver "${supplier.company_name}" ?`)) return;
+  function handleDelete(supplier: Supplier) {
+    setDeleteTarget(supplier);
+  }
+
+  async function executeDelete() {
+    if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/suppliers/${supplier.id}`, {
+      const res = await fetch(`/api/suppliers/${deleteTarget.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -383,29 +391,22 @@ export default function SuppliersPage() {
 
             {/* Table */}
             {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                  <Building2 className="h-8 w-8 text-gray-400" />
+              suppliers.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="Aucun fournisseur"
+                  description="Ajoutez votre premier fournisseur pour commencer."
+                  action={{ label: "Ajouter un fournisseur", onClick: handleAddNew }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                    <Building2 className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">{t("noSuppliers")}</h3>
+                  <p className="text-sm text-gray-500 max-w-sm">{t("noSuppliersDesc")}</p>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">{t("noSuppliers")}</h3>
-                <p className="text-sm text-gray-500 max-w-sm">{t("noSuppliersDesc")}</p>
-                <div className="flex items-center gap-3 mt-4">
-                  <button
-                    onClick={handleAddNew}
-                    className="flex items-center gap-2 px-4 py-2 bg-gold text-white rounded-md text-sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t("addFirst")}
-                  </button>
-                  <button
-                    onClick={() => setImportOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Importer CSV
-                  </button>
-                </div>
-              </div>
+              )
             ) : (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table className="w-full">
@@ -773,6 +774,15 @@ export default function SuppliersPage() {
         open={aiSearchOpen}
         onOpenChange={setAiSearchOpen}
         onSupplierAdded={handleSaved}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={executeDelete}
+        title={t("deleteSupplierTitle")}
+        description={t("deleteSupplierDescription", { name: deleteTarget?.company_name || "" })}
+        variant="danger"
       />
     </>
   );

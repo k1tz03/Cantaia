@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { extractTasks } from "@cantaia/core/ai";
+import { extractTasks, cleanEmailForAI } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
-
-/** Strip HTML tags for AI task extraction */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -54,7 +39,7 @@ export async function POST(request: NextRequest) {
   // Get the email
   const { data: email, error: emailError } = await adminClient
     .from("email_records")
-    .select("*")
+    .select("id, sender_email, sender_name, subject, body_preview, project_id, outlook_message_id")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -96,7 +81,7 @@ export async function POST(request: NextRequest) {
         if (graphRes.ok) {
           const graphData = await graphRes.json();
           if (graphData.body?.content) {
-            bodyContent = stripHtml(graphData.body.content).substring(0, 10000);
+            bodyContent = cleanEmailForAI(graphData.body.content);
           }
         }
       }

@@ -114,8 +114,8 @@ export async function POST(request: Request) {
       estimate: estimateResult,
       estimate_id: savedEstimate?.id || null,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[estimate-from-plan] Error:", err);
-    return NextResponse.json({ error: err.message || "Estimation failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Estimation failed" }, { status: 500 });
   }
 }

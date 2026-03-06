@@ -21,7 +21,7 @@ export async function enrichSupplier(
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void
 ): Promise<EnrichmentResult> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
   const prompt = buildSupplierEnrichPrompt({
     company_name: supplier.company_name,

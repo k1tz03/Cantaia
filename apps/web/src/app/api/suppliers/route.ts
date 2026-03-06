@@ -37,9 +37,14 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status");
   const cfcCode = searchParams.get("cfc_code");
 
+  // Pagination
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+  const offset = (page - 1) * limit;
+
   let query = (adminClient as any)
     .from("suppliers")
-    .select("*")
+    .select("id, organization_id, company_name, contact_name, email, phone, address, city, postal_code, country, website, specialties, cfc_codes, geo_zone, languages, certifications, status, supplier_type, tags, overall_score, manual_rating, response_rate, avg_response_days, price_competitiveness, reliability_score, notes, total_requests_sent, total_offers_received, total_projects_involved, created_by, created_at, updated_at", { count: "exact" })
     .eq("organization_id", userOrg.organization_id);
 
   // Full-text search across multiple fields
@@ -72,9 +77,10 @@ export async function GET(request: NextRequest) {
   // Order by overall_score DESC, then company_name ASC
   query = query
     .order("overall_score", { ascending: false, nullsFirst: false })
-    .order("company_name", { ascending: true });
+    .order("company_name", { ascending: true })
+    .range(offset, offset + limit - 1);
 
-  const { data: suppliers, error } = await query;
+  const { data: suppliers, error, count } = await query;
 
   if (error) {
     console.error("[suppliers] Query error:", error);
@@ -84,7 +90,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ suppliers: suppliers || [] });
+  const response = NextResponse.json({ suppliers: suppliers || [] });
+  if (count !== null) response.headers.set("X-Total-Count", String(count));
+  return response;
 }
 
 /**
@@ -158,7 +166,7 @@ export async function POST(request: NextRequest) {
   const { data: supplier, error } = await (adminClient as any)
     .from("suppliers")
     .insert(insertData)
-    .select("*")
+    .select("id, organization_id, company_name, contact_name, email, phone, address, city, postal_code, country, website, specialties, cfc_codes, geo_zone, languages, certifications, status, supplier_type, tags, overall_score, manual_rating, response_rate, avg_response_days, price_competitiveness, reliability_score, notes, total_requests_sent, total_offers_received, total_projects_involved, created_by, created_at, updated_at")
     .single();
 
   if (error) {

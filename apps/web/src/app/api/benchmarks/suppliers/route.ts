@@ -64,8 +64,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ scores: scores || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[benchmarks/suppliers] Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Internal error" }, { status: 500 });
   }
 }

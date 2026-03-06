@@ -120,36 +120,51 @@ export interface TaskExtractContext {
 }
 
 export function buildTaskExtractPrompt(ctx: TaskExtractContext): string {
-  return `Tu es un assistant pour chefs de projet construction. Analyse cet email et
-extrais TOUTES les tâches/actions implicites ou explicites.
+  return `Tu es un expert en gestion de projets de construction suisse. Tu extrais les tâches et actions à partir d'emails de chantier.
 
-Email :
+CONTEXTE :
 - Projet : ${ctx.project_name}
 - De : ${ctx.sender}
 - Objet : ${ctx.subject}
-- Contenu : ${ctx.body}
 
-Pour chaque tâche détectée, retourne :
+CONTENU DE L'EMAIL :
+${ctx.body}
+
+INSTRUCTIONS :
+Analyse cet email et extrais TOUTES les tâches/actions — explicites ET implicites.
+
+EXEMPLES de détection :
+- "Merci de nous transmettre le planning" → tâche: "Transmettre le planning", assigné au destinataire
+- "Les plans seront envoyés d'ici vendredi" → tâche: "Envoyer les plans", deadline: vendredi, assigné à l'expéditeur
+- "Nous avons constaté un problème d'étanchéité" → tâche: "Vérifier/résoudre problème d'étanchéité", priorité haute
+- "Bitte senden Sie uns die Offerte" → tâche: "Envoyer l'offre", assigné au destinataire
+- "We need to schedule a site visit" → tâche: "Planifier une visite de chantier"
+
+Réponds UNIQUEMENT en JSON :
 {
   "tasks": [
     {
-      "title": "<action claire et concise>",
-      "description": "<contexte de l'email>",
-      "assigned_to_name": "<qui doit agir>",
-      "assigned_to_company": "<entreprise>",
+      "title": "<action claire et concise, toujours en français>",
+      "description": "<contexte extrait de l'email>",
+      "assigned_to_name": "<nom de la personne qui doit agir, ou null>",
+      "assigned_to_company": "<entreprise, ou null>",
       "due_date": "<YYYY-MM-DD ou null>",
-      "priority": "<low|medium|high|urgent>",
-      "source_quote": "<phrase exacte de l'email qui implique cette tâche>"
+      "priority": "low" | "medium" | "high" | "urgent",
+      "source_quote": "<phrase exacte de l'email qui implique cette tâche>",
+      "confidence": <0.5-1.0>
     }
   ]
 }
 
-Règles :
-- "Merci de nous envoyer..." = tâche pour le destinataire
-- "Nous reviendrons vers vous..." = tâche en attente
-- Une date mentionnée = deadline
-- "Urgent", "dès que possible", "rapidement" = priorité haute
-- Si aucune tâche détectée, retourne {"tasks": []}`;
+RÈGLES :
+1. "Merci de nous envoyer...", "Pourriez-vous...", "Bitte senden Sie..." = tâche pour le destinataire
+2. "Nous reviendrons vers vous...", "Wir werden..." = tâche en attente
+3. Une date mentionnée dans l'email = deadline (convertir en YYYY-MM-DD)
+4. "Urgent", "dès que possible", "rapidement", "dringend", "asap" = priorité haute
+5. Toujours inclure source_quote — la phrase exacte qui justifie la tâche
+6. confidence: 0.9+ si la tâche est explicite, 0.6-0.8 si implicite
+7. Si aucune tâche détectée, retourne {"tasks": []}
+8. Les titres de tâches doivent être en français, même si l'email est en DE/EN`;
 }
 
 export interface PVGenerateContext {
@@ -228,25 +243,33 @@ export interface BriefingGenerateContext {
   user_name: string;
   today: string;
   per_project_data: string;
+  language?: "fr" | "en" | "de";
 }
 
 export function buildBriefingGeneratePrompt(
   ctx: BriefingGenerateContext
 ): string {
-  return `Tu es l'assistant IA d'un chef de projet construction. Génère son briefing
-matinal concis et actionnable.
+  const lang = ctx.language || "fr";
+  const langInstruction = lang === "de"
+    ? "Antworte AUF DEUTSCH."
+    : lang === "en"
+    ? "Answer in ENGLISH."
+    : "Réponds en FRANÇAIS.";
+
+  return `Tu es l'assistant IA d'un chef de projet construction. Génère son briefing matinal concis et actionnable.
+
+${langInstruction}
 
 Utilisateur : ${ctx.user_name}
 Date : ${ctx.today}
 
 Données par projet :
 ${ctx.per_project_data}
-(inclut : emails non traités, tâches en retard, tâches dues aujourd'hui,
-réunions du jour, dernières alertes)
+(inclut : emails non traités, tâches en retard, tâches dues aujourd'hui, réunions du jour, dernières alertes)
 
 Génère un briefing en JSON :
 {
-  "greeting": "<Bonjour {prénom}, voici votre briefing du {date}.>",
+  "greeting": "<salutation personnalisée avec prénom et date>",
   "priority_alerts": [
     "<alertes critiques, max 3>"
   ],
@@ -766,11 +789,13 @@ Réponds UNIQUEMENT en JSON :
 }
 
 RÈGLES :
-1. Ne propose QUE des entreprises suisses réelles que tu connais de tes données d'entraînement
+1. Ne propose QUE des entreprises suisses réelles que tu connais avec certitude de tes données d'entraînement
 2. Confidence ≥ 0.7 uniquement — si tu n'es pas sûr qu'une entreprise existe, ne la propose pas
 3. Les spécialités doivent correspondre au catalogue : gros_oeuvre, electricite, cvc, sanitaire, peinture, menuiserie, etancheite, facades, serrurerie, carrelage, platrerie, charpente, couverture, ascenseur, amenagement_exterieur, demolition, terrassement, echafaudage
-4. Inclure le site web si tu le connais, sinon omettre le champ
-5. Privilégier les entreprises de la zone ${ctx.geo_zone}`;
+4. Inclure le site web si tu le connais avec certitude, sinon omettre le champ
+5. Privilégier les entreprises de la zone ${ctx.geo_zone}
+6. IMPORTANT : Ne JAMAIS inventer de numéros de téléphone, adresses email ou sites web. N'inclure que les informations de contact dont tu es certain à 90%+. Omettre un champ plutôt que risquer une information fausse.
+7. AVERTISSEMENT : Tes données d'entraînement peuvent être obsolètes. L'utilisateur devra vérifier l'existence et les coordonnées de chaque entreprise proposée.`;
 }
 
 // ============================================================
@@ -810,9 +835,11 @@ Réponds UNIQUEMENT en JSON :
 }
 
 RÈGLES :
-1. Ne propose QUE des informations dont tu es raisonnablement sûr
-2. Si tu ne connais pas une information, omets le champ ou retourne null
-3. Ne pas inventer d'emails ou numéros de téléphone`;
+1. Ne propose QUE des informations dont tu es certain à 90%+ de tes données d'entraînement
+2. Si tu ne connais pas une information, omets le champ ou retourne null — JAMAIS inventer
+3. Ne JAMAIS inventer d'emails, numéros de téléphone, ou noms de contacts
+4. Les sites web doivent être des URLs que tu connais de tes données — ne pas deviner
+5. AVERTISSEMENT : Tes données peuvent être obsolètes. L'utilisateur vérifiera toutes les informations.`;
 }
 
 // ============================================================

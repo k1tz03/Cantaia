@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Get the visit
     const { data: visit, error: visitErr } = await (supabase.from("client_visits") as any)
-      .select("*")
+      .select("id, audio_url, transcription_language, organization_id")
       .eq("id", visit_id)
       .maybeSingle();
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
           .download(visit.audio_url);
         audioBlob = audioData;
       } catch {
-        console.log("[Visit Transcribe] Could not download audio, using mock");
+        if (process.env.NODE_ENV === "development") console.log("[Visit Transcribe] Could not download audio, using mock");
       }
     }
 

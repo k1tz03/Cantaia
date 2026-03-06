@@ -82,8 +82,8 @@ export async function GET(request: Request) {
       benchmarks: benchmarks || [],
       regional_index: regionalIndex,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[benchmarks/market] Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Internal error" }, { status: 500 });
   }
 }

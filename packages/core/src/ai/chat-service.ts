@@ -25,12 +25,12 @@ export async function* streamChatResponse(
   model = "claude-sonnet-4-5-20250929",
 ): AsyncGenerator<ChatStreamChunk> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
   const stream = await client.messages.create({
     model,
-    max_tokens: 4096,
-    system: systemPrompt,
+    max_tokens: 2048,
+    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
     stream: true,
   });

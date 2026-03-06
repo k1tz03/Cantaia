@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -63,24 +63,25 @@ export async function POST(request: NextRequest) {
         }
 
         results.push({ module, patterns_updated: patternsUpdated });
-      } catch (err: any) {
-        console.error(`[cron/patterns] Error for module ${module}:`, err?.message);
-        results.push({ module, patterns_updated: 0, error: err?.message });
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : "Unknown";
+        console.error(`[cron/patterns] Error for module ${module}:`, errMsg);
+        results.push({ module, patterns_updated: 0, error: errMsg });
       }
     }
 
     const totalPatterns = results.reduce((s, r) => s + r.patterns_updated, 0);
-    console.log(`[cron/patterns] Done: ${totalPatterns} patterns updated across ${modules.length} modules`);
+    if (process.env.NODE_ENV === "development") console.log(`[cron/patterns] Done: ${totalPatterns} patterns updated across ${modules.length} modules`);
 
     return NextResponse.json({
       success: true,
       results,
       total_patterns_updated: totalPatterns,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[cron/patterns] Fatal error:", err);
     return NextResponse.json(
-      { error: err?.message || "Pattern extraction failed" },
+      { error: err instanceof Error ? err.message : "Pattern extraction failed" },
       { status: 500 }
     );
   }

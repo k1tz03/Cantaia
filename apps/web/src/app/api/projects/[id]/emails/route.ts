@@ -45,10 +45,10 @@ export async function GET(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Return all fields (EmailDetailPanel needs outlook_message_id, recipients, etc.)
+  // Return fields needed by EmailDetailPanel
   const { data: emails, error } = await (admin as any)
     .from("email_records")
-    .select("*")
+    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at")
     .eq("project_id", id)
     .eq("user_id", user.id)
     .order("received_at", { ascending: false });

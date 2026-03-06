@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { MODEL_FOR_TASK } from "@cantaia/core/ai";
 
 /**
  * POST /api/suppliers/[id]/enrich
@@ -37,7 +38,7 @@ export async function POST(
   // Fetch supplier
   const { data: supplier, error: fetchErr } = await (adminClient as any)
     .from("suppliers")
-    .select("*")
+    .select("id, company_name, city, specialties, website, notes, certifications")
     .eq("id", id)
     .eq("organization_id", userOrg.organization_id)
     .maybeSingle();
@@ -63,7 +64,7 @@ export async function POST(
           organizationId: userOrg.organization_id!,
           actionType: "supplier_enrichment",
           apiProvider: "anthropic",
-          model: "claude-sonnet-4-5-20250929",
+          model: MODEL_FOR_TASK.supplier_enrichment,
           inputTokens: usage.input_tokens,
           outputTokens: usage.output_tokens,
           metadata: { supplier_id: id },
@@ -102,8 +103,8 @@ export async function POST(
       enrichment: result,
       updates_applied: Object.keys(updates),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[suppliers/enrich] Error:", err);
-    return NextResponse.json({ error: err.message || "Enrichment failed" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Enrichment failed" }, { status: 500 });
   }
 }

@@ -130,7 +130,7 @@ export async function PATCH(
     "overall_score",
   ];
 
-  const updates: Record<string, any> = {};
+  const updates: Record<string, unknown> = {};
   for (const key of allowedFields) {
     if (body[key] !== undefined) {
       updates[key] = body[key];

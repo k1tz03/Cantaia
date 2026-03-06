@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "audio file required" }, { status: 400 });
     }
 
-    console.log(
+    if (process.env.NODE_ENV === "development") console.log(
       `[Transcription] Processing meeting ${meetingId}`,
       audioFile ? `audio: ${audioFile.name} (${(audioFile.size / (1024 * 1024)).toFixed(1)} MB)` : "(mock mode)"
     );
@@ -56,12 +56,12 @@ export async function POST(request: NextRequest) {
 
     if (USE_MOCK_TRANSCRIPTION || !process.env.OPENAI_API_KEY) {
       // Mock transcription
-      console.log("[Transcription] Using mock transcription");
+      if (process.env.NODE_ENV === "development") console.log("[Transcription] Using mock transcription");
       transcript = MOCK_TRANSCRIPT;
       audioDurationSeconds = 4980;
     } else {
       // Real OpenAI Whisper transcription
-      console.log("[Transcription] Calling OpenAI Whisper API...");
+      if (process.env.NODE_ENV === "development") console.log("[Transcription] Calling OpenAI Whisper API...");
 
       const openaiFormData = new FormData();
       openaiFormData.append("file", audioFile!);
@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
       transcript = whisperResult.text;
       audioDurationSeconds = Math.round(whisperResult.duration || 0);
 
-      console.log(
+      if (process.env.NODE_ENV === "development") console.log(
         `[Transcription] Success: ${transcript.length} chars, ${audioDurationSeconds}s`
       );
 
       // Log API usage (full tracking with Supabase will be added when auth context is available)
-      console.log("[Transcription] Usage:", {
+      if (process.env.NODE_ENV === "development") console.log("[Transcription] Usage:", {
         action: "pv_transcribe",
         model: "whisper-1",
         audio_seconds: audioDurationSeconds,

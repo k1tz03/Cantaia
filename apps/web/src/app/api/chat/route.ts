@@ -94,13 +94,13 @@ export async function POST(request: NextRequest) {
     content: body.message,
   });
 
-  // Load last 50 messages for context
+  // Load last 20 messages for context (reduced from 50 to control token costs)
   const { data: history } = await (admin as any)
     .from("chat_messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
-    .limit(50);
+    .limit(20);
 
   const messages: ChatMessage[] = (history || []).map(
     (m: { role: "user" | "assistant"; content: string }) => ({
