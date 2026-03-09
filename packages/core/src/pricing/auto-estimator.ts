@@ -263,7 +263,23 @@ async function lookupHistoricalPrice(
     const maxPrice = getMaxUnitPrice(item.unit);
 
     if (terms.length > 0) {
-      const ranked = [...terms].sort((a, b) => b.length - a.length);
+      // Separate granulometry terms from text terms
+      const granuloTerms = terms.filter((t) => /^\d+[\/\-.]?\d+/.test(t));
+      const textTerms = terms.filter((t) => !/^\d+[\/\-.]?\d+/.test(t));
+      const rankedText = [...textTerms].sort((a, b) => b.length - a.length);
+
+      // Build top2: always include granulometry if present
+      let top2: string[];
+      if (granuloTerms.length > 0 && rankedText.length > 0) {
+        top2 = [rankedText[0], granuloTerms[0]];
+      } else {
+        const ranked = [...rankedText, ...granuloTerms];
+        top2 = ranked.slice(0, 2);
+      }
+
+      const hasGranulo = top2.findIndex((t) => /^\d+[\/\-.]?\d+/.test(t));
+
+      console.log(`[ESTIMATOR] Searching "${item.item}" → terms: ${JSON.stringify(terms)}, top2: ${JSON.stringify(top2)}, hasGranulo: ${hasGranulo >= 0 ? top2[hasGranulo] : 'none'}`);
 
       // Helper: run a single ILIKE query against ingested_offer_lines
       const queryIngested = async (ilikeTerms: string[]): Promise<any[] | null> => {
@@ -279,10 +295,6 @@ async function lookupHistoricalPrice(
         const { data } = await q.order("date_offre", { ascending: false }).limit(30);
         return data && data.length > 0 ? data : null;
       };
-
-      // Strategy 1: top 2 keywords with granulometry variants
-      const top2 = ranked.slice(0, 2);
-      const hasGranulo = top2.findIndex((t) => /^\d+[\/\-.]?\d+/.test(t));
 
       if (hasGranulo >= 0) {
         // Try each granulometry variant explicitly
@@ -312,7 +324,7 @@ async function lookupHistoricalPrice(
           pass3Result = filterByUnitAndBuild(data2, item.unit, cfcCode, terms);
         }
         if (!pass3Result && top2.length > 1) {
-          const data1 = await queryIngested([ranked[0]]);
+          const data1 = await queryIngested([top2[0]]);
           if (data1) {
             pass3Result = filterByUnitAndBuild(data1, item.unit, cfcCode, terms);
           }
@@ -407,6 +419,11 @@ async function lookupHistoricalPrice(
   }
 
   if (pass3Result) {
+    // If Pass 3 price is suspect and no Pass 4 to cross-check, reject it
+    if (floor > 0 && pass3Result.median < floor) {
+      console.log(`[ESTIMATOR] "${item.item}" → Pass 3: ${pass3Result.median} CHF/${item.unit} REJECTED (< floor ${floor}), no Pass 4 available, falling back to AI`);
+      return null;
+    }
     console.log(`[ESTIMATOR] "${item.item}" → Pass 3: ${pass3Result.median} CHF/${item.unit} (${pass3Result.count} matches)`);
     return pass3Result;
   }
