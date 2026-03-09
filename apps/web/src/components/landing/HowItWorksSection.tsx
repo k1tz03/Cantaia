@@ -1,93 +1,72 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
-const steps = ["1", "2", "3"] as const;
-
-/** Small provider logos shown on step 2 */
-function ProviderLogos() {
-  return (
-    <div className="mt-3 flex items-center justify-center gap-3 sm:justify-center">
-      {/* Microsoft */}
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white shadow-sm">
-        <svg className="h-4 w-4" viewBox="0 0 21 21" fill="none">
-          <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-          <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-          <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-          <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-        </svg>
-      </div>
-      {/* Google */}
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white shadow-sm">
-        <svg className="h-4 w-4" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-        </svg>
-      </div>
-      {/* IMAP */}
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white shadow-sm">
-        <svg className="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" />
-          <path d="m2 3 10 9L22 3" />
-        </svg>
-      </div>
-    </div>
-  );
-}
+const steps = [
+  {
+    number: "1",
+    title: "Connectez Outlook",
+    description: "OAuth en 2 clics. Aucune installation.",
+    icon: (
+      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+    ),
+  },
+  {
+    number: "2",
+    title: "Créez votre premier projet",
+    description: "Donnez un nom. CANTAIA scanne vos emails.",
+    icon: (
+      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+      </svg>
+    ),
+  },
+  {
+    number: "3",
+    title: "C'est parti",
+    description: "Emails classés, tâches créées, briefing demain matin.",
+    icon: (
+      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.58-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+      </svg>
+    ),
+  },
+];
 
 export function HowItWorksSection() {
-  const t = useTranslations("landing.howItWorks");
-
   return (
-    <section
-      id="how-it-works"
-      className="relative overflow-hidden px-6 py-24"
-      style={{ backgroundColor: "#F5F2EB" }}
-    >
-      <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <AnimatedSection className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            {t("title")}
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-slate-600">
-            {t("subtitle")}
-          </p>
+    <section id="how-it-works" className="bg-[#FAFAFA]">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+        <AnimatedSection>
+          <div className="text-center mb-16">
+            <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
+              Opérationnel en 5 minutes
+            </h2>
+          </div>
         </AnimatedSection>
 
-        {/* Timeline */}
-        <div className="relative mt-20">
-          {/* Connecting line — desktop horizontal */}
-          <div className="absolute left-[calc(16.667%+20px)] right-[calc(16.667%+20px)] top-6 hidden h-0.5 bg-gradient-to-r from-gold-light via-gold to-gold-light sm:block" />
+        <div className="relative">
+          {/* Dashed line connecting steps (desktop) */}
+          <div className="hidden md:block absolute top-12 left-[16.67%] right-[16.67%] h-0.5 border-t-2 border-dashed border-[#E5E7EB]" />
 
-          {/* Connecting line — mobile vertical */}
-          <div className="absolute bottom-6 left-6 top-6 w-0.5 bg-gradient-to-b from-gold-light via-gold to-gold-light sm:hidden" />
+          <div className="grid grid-cols-1 gap-12 md:grid-cols-3 md:gap-8">
+            {steps.map((step, i) => (
+              <AnimatedSection key={i} delay={i * 0.15}>
+                <div className="flex flex-col items-center text-center">
+                  {/* Circle */}
+                  <div className="relative z-10 flex h-24 w-24 flex-col items-center justify-center rounded-full bg-[#2563EB] shadow-lg shadow-blue-500/20">
+                    {step.icon}
+                    <span className="mt-1 text-xs font-bold text-white/80">{step.number}</span>
+                  </div>
 
-          <div className="grid grid-cols-1 gap-12 sm:grid-cols-3 sm:gap-8">
-            {steps.map((step, index) => (
-              <AnimatedSection
-                key={step}
-                delay={0.15 * index}
-                className="relative flex gap-6 sm:flex-col sm:items-center sm:gap-0 sm:text-center"
-              >
-                {/* Numbered circle */}
-                <div className="relative z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gold text-lg font-bold text-white shadow-lg shadow-gold/30">
-                  {step}
-                </div>
-
-                {/* Content */}
-                <div className="sm:mt-6">
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {t(`step${step}Title`)}
+                  <h3 className="mt-6 font-display text-lg font-bold text-[#111827]">
+                    {step.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                    {t(`step${step}Desc`)}
+                  <p className="mt-2 text-sm text-[#6B7280] max-w-[240px]">
+                    {step.description}
                   </p>
-                  {/* Show provider logos on step 2 */}
-                  {step === "2" && <ProviderLogos />}
                 </div>
               </AnimatedSection>
             ))}

@@ -35,7 +35,7 @@ const classificationConfig: Record<string, { label: string; icon: React.ElementT
   action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 bg-orange-50" },
   urgent: { label: "Urgent", icon: AlertTriangle, color: "text-red-600 bg-red-50" },
   waiting_response: { label: "En attente", icon: Clock, color: "text-blue-600 bg-blue-50" },
-  info_only: { label: "Info", icon: Info, color: "text-slate-500 bg-slate-100" },
+  info_only: { label: "Info", icon: Info, color: "text-gray-500 bg-gray-100" },
 };
 
 interface AttachmentInfo {

@@ -17,20 +17,20 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 /** JM Avatar — Professional monogram badge */
 function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
   return (
-    <div className={cn("flex shrink-0 items-center justify-center", size === "lg" ? "h-16 w-16" : "h-8 w-8")}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="h-full w-full">
-        <circle cx="50" cy="50" r="48" fill="none" stroke="#0A1F30" strokeWidth="3" />
-        <g strokeWidth="0.5" fill="none" stroke="#8A9CA8" strokeOpacity="0.3">
-          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(30 50 50)"/>
-          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(150 50 50)"/>
-          <ellipse cx="50" cy="50" rx="40" ry="12" transform="rotate(90 50 50)"/>
-        </g>
-        <text x="50" y="58" fontFamily="'Playfair Display', serif" fontSize="28" fill="#C4A661" textAnchor="middle" letterSpacing="-1">JM</text>
-        <g stroke="#C4A661" strokeWidth="2" fill="none" strokeLinecap="round">
-          <path d="M35 70 A 20 20 0 0 1 65 70"/>
-          <circle cx="50" cy="70" r="2" fill="#C4A661"/>
-        </g>
-      </svg>
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-[#2563EB]",
+        size === "lg" ? "h-16 w-16" : "h-8 w-8"
+      )}
+    >
+      <span
+        className={cn(
+          "font-display font-bold text-white",
+          size === "lg" ? "text-2xl" : "text-xs"
+        )}
+      >
+        JM
+      </span>
     </div>
   );
 }
@@ -351,11 +351,11 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
       {/* Left panel — Conversation list */}
-      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-slate-200 bg-slate-50 shrink-0">
-        <div className="p-3 border-b border-slate-200">
+      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-[#E5E7EB] bg-gray-50 shrink-0">
+        <div className="p-3 border-b border-[#E5E7EB]">
           <button
             onClick={startNewConversation}
-            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+            className="flex w-full items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-medium text-[#374151] shadow-sm transition-colors hover:bg-gray-50"
           >
             <Plus className="h-4 w-4" />
             {t("newConversation")}
@@ -365,16 +365,16 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto">
           {loadingConvs ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-[#9CA3AF]" />
             </div>
           ) : conversations.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-slate-400">
+            <p className="px-4 py-8 text-center text-xs text-[#9CA3AF]">
               {t("noConversations")}
             </p>
           ) : (
             groupConversations().map((group) => (
               <div key={group.label}>
-                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
                   {group.label}
                 </p>
                 {group.items.map((conv) => (
@@ -384,16 +384,16 @@ export default function ChatPage() {
                     className={cn(
                       "group flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-white",
                       activeConvId === conv.id &&
-                        "bg-white shadow-sm border-r-2 border-brand"
+                        "bg-white shadow-sm border-r-2 border-[#2563EB]"
                     )}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    <span className="flex-1 truncate text-slate-700">
+                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" />
+                    <span className="flex-1 truncate text-[#374151]">
                       {conv.title}
                     </span>
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
-                      className="hidden shrink-0 rounded p-0.5 text-slate-300 hover:text-red-500 group-hover:block"
+                      className="hidden shrink-0 rounded p-0.5 text-[#D1D5DB] hover:text-red-500 group-hover:block"
                       title={t("deleteConversation")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -409,14 +409,14 @@ export default function ChatPage() {
       {/* Right panel — Chat area */}
       <div className="flex flex-1 flex-col">
         {/* Mobile header with new conversation button */}
-        <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2 md:hidden">
+        <div className="flex items-center gap-2 border-b border-[#E5E7EB] px-4 py-2 md:hidden">
           <button
             onClick={startNewConversation}
-            className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"
+            className="rounded-md border border-[#E5E7EB] p-1.5 text-[#6B7280] hover:bg-gray-50"
           >
             <Plus className="h-4 w-4" />
           </button>
-          <h1 className="flex-1 text-sm font-semibold text-slate-800 truncate">
+          <h1 className="flex-1 text-sm font-semibold text-[#111827] truncate">
             {t("title")}
           </h1>
         </div>
@@ -429,10 +429,10 @@ export default function ChatPage() {
               <div className="mb-4">
                 <JMAvatar size="lg" />
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">
+              <h2 className="text-lg font-semibold text-[#111827]">
                 {t("emptyTitle")}
               </h2>
-              <p className="mt-2 max-w-md text-center text-sm text-slate-500">
+              <p className="mt-2 max-w-md text-center text-sm text-[#6B7280]">
                 {t("emptyDesc")}
               </p>
               <div className="mt-6 flex flex-col gap-2 w-full max-w-md">
@@ -440,7 +440,7 @@ export default function ChatPage() {
                   <button
                     key={i}
                     onClick={() => sendMessage(q)}
-                    className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-600 shadow-sm transition-all hover:border-cyan-300 hover:shadow-md"
+                    className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-left text-sm text-[#6B7280] shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
                   >
                     {q}
                   </button>
@@ -449,7 +449,7 @@ export default function ChatPage() {
             </div>
           ) : loadingMessages ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
             </div>
           ) : (
             // Message list
@@ -469,18 +469,18 @@ export default function ChatPage() {
                     className={cn(
                       "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                       msg.role === "user"
-                        ? "bg-gold text-white rounded-br-md"
-                        : "bg-slate-100 text-slate-800 rounded-bl-md"
+                        ? "bg-[#2563EB] text-white rounded-br-md"
+                        : "bg-gray-100 text-[#111827] rounded-bl-md"
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <div className="prose prose-sm prose-gray max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                         {msg.content ? (
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {msg.content}
                           </ReactMarkdown>
                         ) : isStreaming && i === messages.length - 1 ? (
-                          <span className="inline-flex items-center gap-1.5 text-slate-400">
+                          <span className="inline-flex items-center gap-1.5 text-[#9CA3AF]">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             {t("sending")}
                           </span>
@@ -498,7 +498,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-slate-200 bg-white px-4 py-3">
+        <div className="border-t border-[#E5E7EB] bg-white px-4 py-3">
           <div className="mx-auto flex max-w-3xl items-end gap-2">
             <textarea
               ref={textareaRef}
@@ -511,13 +511,13 @@ export default function ChatPage() {
               placeholder={t("placeholder")}
               rows={1}
               disabled={isStreaming}
-              className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-cyan-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-200 disabled:opacity-50"
               style={{ maxHeight: 160 }}
             />
             <button
               onClick={() => sendMessage()}
               disabled={!input.trim() || isStreaming}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold text-white transition-colors hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isStreaming ? (
                 <Loader2 className="h-4.5 w-4.5 animate-spin" />

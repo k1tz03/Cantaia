@@ -5,24 +5,24 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 205 65% 11%;
+    --foreground: 220 13% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 205 65% 11%;
+    --card-foreground: 220 13% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 205 65% 11%;
-    --primary: 40 40% 57%;
+    --popover-foreground: 220 13% 13%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 37 30% 94%;
-    --secondary-foreground: 205 65% 11%;
-    --muted: 37 30% 94%;
-    --muted-foreground: 203 13% 60%;
-    --accent: 37 30% 94%;
-    --accent-foreground: 205 65% 11%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 13% 13%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 220 13% 13%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 203 13% 60% / 0.2;
-    --input: 203 13% 60% / 0.2;
-    --ring: 40 40% 57%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
     --radius: 0.5rem;
   }
 }
@@ -37,7 +37,7 @@
     color-scheme: light;
   }
   h1, h2, h3 {
-    font-family: var(--font-heading), 'Playfair Display', serif;
+    font-family: var(--font-display), 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   input, select, textarea {
     color-scheme: light;
@@ -45,7 +45,7 @@
   }
 }
 
-/* Scrollbar light mode */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -53,20 +53,18 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #8A9CA8;
+  background: #D1D5DB;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6B7F8D;
+  background: #9CA3AF;
 }
 
-/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #8A9CA8 transparent;
+  scrollbar-color: #D1D5DB transparent;
 }
 
-/* Hide scrollbar for horizontal tab bars on mobile */
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

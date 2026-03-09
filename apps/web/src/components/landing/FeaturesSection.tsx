@@ -1,124 +1,123 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
-interface FeatureCard {
-  key: string;
-  emoji: string;
-  row: number;
-  hasBadge?: boolean;
+function InboxMockup() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-[#F9FAFB] border-b border-gray-200">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+        </div>
+        <div className="flex-1 text-center text-[10px] text-gray-400">CANTAIA — Emails</div>
+      </div>
+
+      <div className="p-3 space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-semibold text-[#111827]">Boîte de réception</span>
+          <div className="flex gap-2 text-[10px] text-gray-400">
+            <span className="font-medium text-[#2563EB]">Tous</span>
+            <span>Non lus</span>
+          </div>
+        </div>
+
+        {/* Email rows */}
+        <div className="rounded-lg border border-[#10B981]/20 bg-[#10B981]/5 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#111827]">Marc Dupont</span>
+            <span className="text-[10px] text-gray-400">il y a 12m</span>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-0.5">Réservation grue — semaine 14</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="rounded-full bg-[#10B981]/15 px-2.5 py-0.5 text-[9px] font-semibold text-[#10B981]">HRS Lausanne</span>
+            <span className="rounded-full bg-[#10B981]/10 px-2 py-0.5 text-[9px] font-medium text-[#10B981]">87%</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-[#EF4444]/20 bg-[#EF4444]/5 p-3 opacity-50">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 line-through">Hilti AG — Catalogue 2026</span>
+            <span className="rounded-full bg-[#EF4444]/10 px-2.5 py-0.5 text-[9px] font-semibold text-[#EF4444]">Spam</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-100 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#111827]">Julie Favre — Arch.</span>
+            <span className="text-[10px] text-gray-400">il y a 1h</span>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-0.5">Plans façade rév. C</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="rounded-full bg-[#2563EB]/10 px-2.5 py-0.5 text-[9px] font-semibold text-[#2563EB]">Cèdres</span>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] text-gray-500 flex items-center gap-1">
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+              PDF
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-100 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#111827]">Schaller SARL</span>
+            <span className="text-[10px] text-gray-400">il y a 3h</span>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-0.5">RE: Offre garde-corps</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-0.5 text-[9px] font-semibold text-[#F59E0B]">EMS L'Orée</span>
+            <span className="rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[9px] font-medium text-[#F59E0B]">72%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-const features: FeatureCard[] = [
-  // Row 1 - Gestion quotidienne
-  { key: "f1", emoji: "\u{1F4E7}", row: 1 },
-  { key: "f2", emoji: "\u{1F4DD}", row: 1 },
-  { key: "f3", emoji: "\u2705", row: 1 },
-  { key: "f4", emoji: "\u2600\uFE0F", row: 1 },
-  // Row 2 - Pilotage projet
-  { key: "f5", emoji: "\u{1F4CA}", row: 2 },
-  { key: "f6", emoji: "\u{1F4D0}", row: 2 },
-  { key: "f7", emoji: "\u{1F3D7}\uFE0F", row: 2 },
-  { key: "f8", emoji: "\u{1F399}\uFE0F", row: 2 },
-  // Row 3 - Intelligence & soumissions
-  { key: "f9", emoji: "\u{1F4B0}", row: 3 },
-  { key: "f10", emoji: "\u{1F4CA}", row: 3 },
-  { key: "f11", emoji: "\u{1F525}", row: 3, hasBadge: true },
-  { key: "f12", emoji: "\u{1F465}", row: 3 },
-  // Row 4 - Administration
-  { key: "f13", emoji: "\u{1F3E2}", row: 4 },
-];
-
-const rowKeys = ["row1", "row2", "row3", "row4"] as const;
-
-const emojiBgColors: Record<number, string> = {
-  1: "bg-blue-500/10",
-  2: "bg-emerald-500/10",
-  3: "bg-gold/10",
-  4: "bg-violet-500/10",
-};
+function BulletPoint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <svg className="h-5 w-5 flex-shrink-0 text-[#10B981] mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+      </svg>
+      <span className="text-[#6B7280]">{children}</span>
+    </div>
+  );
+}
 
 export function FeaturesSection() {
-  const t = useTranslations("landing.features");
-
-  const featuresByRow = rowKeys.map((_, idx) => {
-    const rowNum = idx + 1;
-    return features.filter((f) => f.row === rowNum);
-  });
-
   return (
-    <section className="bg-[#0A1F30] px-6 py-24">
-      <div className="mx-auto max-w-7xl">
-        <AnimatedSection className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            {t("title")}
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            {t("subtitle")}
-          </p>
-        </AnimatedSection>
+    <section id="features" className="bg-white">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-20">
+          {/* Text left */}
+          <AnimatedSection>
+            <div>
+              <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
+                Vos emails classés par chantier en temps réel
+              </h2>
+              <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
+                Connectez Outlook ou Gmail. CANTAIA trie, classifie et priorise vos emails automatiquement.
+              </p>
 
-        {featuresByRow.map((rowFeatures, rowIdx) => (
-          <div key={rowKeys[rowIdx]} className="mt-12 first:mt-16">
-            {/* Row label */}
-            <AnimatedSection delay={0.05}>
-              <div className="mb-6 flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-700/50" />
-                <span className="font-heading text-xs font-semibold uppercase tracking-widest text-slate-500">
-                  {t(rowKeys[rowIdx])}
-                </span>
-                <div className="h-px flex-1 bg-slate-700/50" />
+              <div className="mt-8 space-y-4">
+                <BulletPoint>Classification automatique par projet (87% de précision)</BulletPoint>
+                <BulletPoint>Spam et newsletters filtrés sans effort</BulletPoint>
+                <BulletPoint>Tâches extraites directement depuis vos emails</BulletPoint>
               </div>
-            </AnimatedSection>
 
-            {/* Feature cards grid */}
-            <div
-              className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
-                rowFeatures.length === 1
-                  ? "lg:grid-cols-1 lg:max-w-sm lg:mx-auto"
-                  : "lg:grid-cols-4"
-              }`}
-            >
-              {rowFeatures.map((feature, featureIdx) => {
-                return (
-                  <AnimatedSection
-                    key={feature.key}
-                    delay={0.08 * featureIdx + 0.1}
-                  >
-                    <div className="group relative h-full rounded-xl border border-slate-700/50 bg-slate-800/50 p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-600 hover:shadow-xl hover:shadow-black/20">
-                      {/* Badge for f11 */}
-                      {feature.hasBadge && (
-                        <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-gold to-gold-dark px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg shadow-gold/25">
-                          {t("f11Badge")}
-                        </span>
-                      )}
-
-                      {/* Emoji icon */}
-                      <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-lg ${emojiBgColors[feature.row]} transition-transform duration-300 group-hover:scale-110`}
-                      >
-                        <span className="text-2xl" role="img">
-                          {feature.emoji}
-                        </span>
-                      </div>
-
-                      {/* Title */}
-                      <h3 className="mt-4 font-heading text-base font-semibold text-white">
-                        {t(`${feature.key}Title`)}
-                      </h3>
-
-                      {/* Description */}
-                      <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                        {t(`${feature.key}Desc`)}
-                      </p>
-                    </div>
-                  </AnimatedSection>
-                );
-              })}
+              <a href="#how-it-works" className="mt-8 inline-flex items-center gap-1 text-[#2563EB] font-medium hover:underline">
+                Voir comment ça marche
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </a>
             </div>
-          </div>
-        ))}
+          </AnimatedSection>
+
+          {/* Mockup right */}
+          <AnimatedSection delay={0.2}>
+            <InboxMockup />
+          </AnimatedSection>
+        </div>
       </div>
     </section>
   );

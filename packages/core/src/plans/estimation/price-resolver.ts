@@ -1,5 +1,10 @@
 // Résolveur de prix — hiérarchie stricte des sources
-// 1. Historique interne → 2. Benchmark Cantaia → 3. Référentiel CFC → 4. Non disponible
+// 1. Historique interne (offer_line_items de l'org)
+// 2. Données ingérées (mv_reference_prices — 2500+ prix réels)
+// 3. Fallback textuel (ingested_offer_lines par description)
+// 4. Benchmark Cantaia (market_benchmarks cross-tenant)
+// 5. Référentiel CFC statique (CRB 2025)
+// 6. Non disponible
 
 import type { PrixUnitaire } from './types';
 import { CFC_REFERENCE_PRICES } from './reference-data/cfc-prices';
@@ -56,7 +61,101 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
     // Continuer vers la source suivante
   }
 
-  // 2. Benchmark Cantaia (Couche 2, données agrégées cross-tenant)
+  // 2. Données ingérées — mv_reference_prices (2500+ prix réels fournisseurs)
+  try {
+    // 2a. Match exact par code CFC
+    const { data: mvExact } = await supabase
+      .from('mv_reference_prices')
+      .select('cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs, derniere_offre')
+      .eq('cfc_code', cfc_code)
+      .order('nb_datapoints', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (mvExact) {
+      return {
+        min: mvExact.prix_p25,
+        median: mvExact.prix_median,
+        max: mvExact.prix_p75,
+        source: 'historique_interne',
+        detail_source: `${mvExact.nb_datapoints} offres réelles, ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+        date_reference: mvExact.derniere_offre?.slice(0, 10) ?? quarter,
+        ajustements: [],
+      };
+    }
+
+    // 2b. Match par préfixe CFC (ex: "215.3" → "215.0" → "215")
+    const cfcParts = cfc_code.split('.');
+    const prefixes: string[] = [];
+    if (cfcParts.length >= 2) {
+      prefixes.push(`${cfcParts[0]}.0`); // ex: "215.0"
+    }
+    prefixes.push(cfcParts[0]); // ex: "215"
+
+    for (const prefix of prefixes) {
+      const { data: mvPrefix } = await supabase
+        .from('mv_reference_prices')
+        .select('cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs, derniere_offre')
+        .like('cfc_code', `${prefix}%`)
+        .order('nb_datapoints', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (mvPrefix) {
+        return {
+          min: mvPrefix.prix_p25,
+          median: mvPrefix.prix_median,
+          max: mvPrefix.prix_p75,
+          source: 'historique_interne',
+          detail_source: `${mvPrefix.nb_datapoints} offres réelles (match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+          date_reference: mvPrefix.derniere_offre?.slice(0, 10) ?? quarter,
+          ajustements: [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`],
+        };
+      }
+    }
+  } catch {
+    // Continuer vers la source suivante
+  }
+
+  // 3. Fallback textuel — recherche par description dans ingested_offer_lines
+  try {
+    // Extraire le mot-clé principal de la description (≥ 4 caractères)
+    const keywords = description
+      .toLowerCase()
+      .split(/[\s,;()\/\-]+/)
+      .filter((w) => w.length >= 4)
+      .slice(0, 3);
+
+    if (keywords.length > 0) {
+      const searchTerm = keywords[0];
+      const { data: textMatches } = await supabase
+        .from('ingested_offer_lines')
+        .select('cfc_code, prix_unitaire_ht')
+        .ilike('description', `%${searchTerm}%`)
+        .gt('prix_unitaire_ht', 0)
+        .limit(50);
+
+      if (textMatches && textMatches.length >= 2) {
+        const prices = textMatches.map((r: any) => Number(r.prix_unitaire_ht)).filter((p: number) => p > 0).sort((a: number, b: number) => a - b);
+        if (prices.length >= 2) {
+          const cfcFound = textMatches[0].cfc_code ?? 'N/A';
+          return {
+            min: Math.round(percentile(prices, 0.25) * 100) / 100,
+            median: Math.round(percentile(prices, 0.50) * 100) / 100,
+            max: Math.round(percentile(prices, 0.75) * 100) / 100,
+            source: 'historique_interne',
+            detail_source: `${prices.length} offres réelles (recherche texte: "${searchTerm}", CFC ${cfcFound})`,
+            date_reference: quarter,
+            ajustements: [`Recherche textuelle: "${searchTerm}"`, `Confiance réduite (match par description)`],
+          };
+        }
+      }
+    }
+  } catch {
+    // Continuer vers la source suivante
+  }
+
+  // 4. Benchmark Cantaia (Couche 2, données agrégées cross-tenant)
   try {
     const { data: benchmark } = await supabase
       .from('market_benchmarks')
@@ -82,7 +181,7 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
     // Continuer vers la source suivante
   }
 
-  // 3. Référentiel CFC (données statiques)
+  // 5. Référentiel CFC (données statiques)
   const coeff = REGIONAL_COEFFICIENTS[region.toLowerCase()] ?? 1.0;
 
   // Chercher par code exact
@@ -115,7 +214,7 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
     };
   }
 
-  // 4. Aucun prix trouvé
+  // 6. Aucun prix trouvé
   return {
     min: null,
     median: null,

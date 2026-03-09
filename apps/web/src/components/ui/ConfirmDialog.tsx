@@ -43,12 +43,12 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-        <p className="text-sm text-slate-600 mb-6">{description}</p>
+        <h3 className="text-lg font-semibold text-[#111827] mb-2">{title}</h3>
+        <p className="text-sm text-[#6B7280] mb-6">{description}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[#374151] bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
             disabled={loading}
           >
             {cancelLabel || t("cancel")}
@@ -59,7 +59,7 @@ export function ConfirmDialog({
             className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
               variant === "danger"
                 ? "bg-red-600 hover:bg-red-700"
-                : "bg-brand hover:bg-brand/90"
+                : "bg-[#2563EB] hover:bg-[#1D4ED8]"
             }`}
           >
             {loading ? t("loading") : confirmLabel || t("confirm")}

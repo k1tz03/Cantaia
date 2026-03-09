@@ -1,119 +1,74 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { useState, useEffect, useRef } from "react";
-import { Mail, Clock, BarChart3 } from "lucide-react";
 import { AnimatedSection } from "./AnimatedSection";
 
-const painPoints = [
-  { key: "1", icon: Mail, accent: "border-l-gold" },
-  { key: "2", icon: Clock, accent: "border-l-red-500" },
-  { key: "3", icon: BarChart3, accent: "border-l-gold-dark" },
-] as const;
-
-function useCountUp(target: number, duration = 2000) {
-  const [count, setCount] = useState(0);
-  const [hasStarted, setHasStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasStarted) {
-          setHasStarted(true);
-        }
-      },
-      { threshold: 0.5 }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted) return;
-
-    const startTime = performance.now();
-
-    function animate(currentTime: number) {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * target));
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    }
-
-    requestAnimationFrame(animate);
-  }, [hasStarted, target, duration]);
-
-  return { count, ref };
-}
-
 export function ProblemSection() {
-  const t = useTranslations("landing.problem");
-  const { count, ref: counterRef } = useCountUp(15, 2000);
-
   return (
-    <section className="bg-parchment px-6 py-24">
-      <div className="mx-auto max-w-6xl">
-        <AnimatedSection className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">
-            {t("title")}
-          </h2>
-        </AnimatedSection>
-
-        {/* Animated counter */}
-        <AnimatedSection delay={0.1} className="mt-12 flex justify-center">
-          <div
-            ref={counterRef}
-            className="inline-flex flex-col items-center rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-50 to-parchment px-12 py-8 shadow-lg shadow-gold/10"
-          >
-            <div className="flex items-baseline gap-2">
-              <span className="font-heading text-6xl font-extrabold text-gold-dark sm:text-7xl">
-                {count}
-              </span>
-              <span className="text-2xl font-semibold text-gold sm:text-3xl">
-                {t("statUnit")}
-              </span>
-            </div>
-            <p className="mt-3 text-lg font-semibold text-slate-700">
-              {t("statLabel")}
-            </p>
-            <p className="mt-2 max-w-md text-center text-sm leading-relaxed text-slate-500">
-              {t("statDescription")}
+    <section className="bg-[#FAFAFA]">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+        <AnimatedSection>
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
+              Vous perdez 15 heures par semaine sur l'administratif
+            </h2>
+            <p className="mt-4 text-lg text-[#6B7280]">
+              Et chaque email non traité est un risque pour votre chantier.
             </p>
           </div>
         </AnimatedSection>
 
-        {/* Pain point cards */}
-        <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-3">
-          {painPoints.map((point, index) => {
-            const Icon = point.icon;
-            return (
-              <AnimatedSection key={point.key} delay={0.15 * (index + 1)}>
-                <div
-                  className={`group h-full rounded-xl border border-slate-200 border-l-4 ${point.accent} bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 transition-colors group-hover:bg-gold-50">
-                    <Icon className="h-6 w-6 text-slate-600 transition-colors group-hover:text-gold-dark" />
-                  </div>
-                  <h3 className="mt-5 font-heading text-lg font-bold text-slate-900">
-                    {t(`painPoint${point.key}Title`)}
-                  </h3>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-500">
-                    {t(`painPoint${point.key}Desc`)}
-                  </p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Main card — big */}
+          <AnimatedSection delay={0.1}>
+            <div className="h-full rounded-xl border border-gray-200 bg-white p-8 border-l-4 border-l-[#EF4444] shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EF4444]/10">
+                  <svg className="w-5 h-5 text-[#EF4444]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
                 </div>
-              </AnimatedSection>
-            );
-          })}
+                <h3 className="font-display text-xl font-bold text-[#111827]">150+ emails / jour</h3>
+              </div>
+              <p className="text-[#6B7280] leading-relaxed">
+                12 chantiers dans une seule boîte. Chaque email non lu est une décision qui glisse. Les urgences se mélangent aux newsletters, les offres se perdent, et vous passez plus de temps à trier qu'à décider.
+              </p>
+            </div>
+          </AnimatedSection>
+
+          {/* 2 stacked cards */}
+          <div className="flex flex-col gap-6">
+            <AnimatedSection delay={0.2}>
+              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#F59E0B] shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F59E0B]/10">
+                    <svg className="w-4.5 h-4.5 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-[#111827]">2h par PV de séance</h3>
+                </div>
+                <p className="text-sm text-[#6B7280] leading-relaxed">
+                  Rédiger, formater, envoyer. Les décisions se perdent entre deux réunions.
+                </p>
+              </div>
+            </AnimatedSection>
+
+            <AnimatedSection delay={0.3}>
+              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#EAB308] shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EAB308]/10">
+                    <svg className="w-4.5 h-4.5 text-[#EAB308]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-[#111827]">Aucune vue d'ensemble</h3>
+                </div>
+                <p className="text-sm text-[#6B7280] leading-relaxed">
+                  Budgets, délais, fournisseurs — tout est éclaté entre Excel, Outlook et WhatsApp.
+                </p>
+              </div>
+            </AnimatedSection>
+          </div>
         </div>
       </div>
     </section>

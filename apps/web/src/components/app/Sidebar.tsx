@@ -38,6 +38,7 @@ interface NavItem {
   status: NavItemStatus;
   badge?: string;
   badgeLabelKey?: string;
+  group?: string;
 }
 
 export function Sidebar() {
@@ -55,7 +56,6 @@ export function Sidebar() {
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
 
-  // Fetch user role from DB to determine admin visibility
   useEffect(() => {
     if (!user?.id) return;
     fetch("/api/user/profile")
@@ -65,19 +65,16 @@ export function Sidebar() {
   }, [user?.id]);
 
   const navItems: NavItem[] = [
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
-    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
-    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
-    { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
-    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
-    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
-    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
-  ];
-
-  const lockedItems: NavItem[] = [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", group: "main" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, group: "daily" },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", group: "daily" },
+    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", group: "daily" },
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active", group: "projects" },
+    { href: "/plans", labelKey: "plans", icon: Map, status: "active", group: "projects" },
+    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", group: "projects" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", group: "data" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", group: "data" },
+    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active", group: "assistant" },
   ];
 
   const bottomItems: NavItem[] = [
@@ -114,17 +111,17 @@ export function Sidebar() {
         <li key={item.href}>
           <div
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium cursor-not-allowed select-none",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium cursor-not-allowed select-none",
               collapsed && "justify-center px-0"
             )}
             title={collapsed ? t(item.labelKey) : undefined}
           >
-            <Icon className="h-[18px] w-[18px] shrink-0 text-muted-foreground/40" />
+            <Icon className="h-[18px] w-[18px] shrink-0 text-gray-300" />
             {!collapsed && (
               <>
-                <span className="flex-1 text-muted-foreground/40">{t(item.labelKey)}</span>
+                <span className="flex-1 text-gray-300">{t(item.labelKey)}</span>
                 {badgeText && (
-                  <span className="text-[10px] font-medium bg-muted text-muted-foreground/60 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
                     {badgeText}
                   </span>
                 )}
@@ -140,22 +137,22 @@ export function Sidebar() {
         <Link
           href={item.href}
           className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
             active
-              ? "bg-white shadow-sm"
-              : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
-            !isBranded && active && "text-brand",
-            collapsed && "justify-center px-0"
+              ? "bg-blue-50 text-[#2563EB] border-l-[3px] border-l-[#2563EB]"
+              : "text-[#6B7280] hover:bg-gray-50 hover:text-[#111827]",
+            collapsed && "justify-center px-0 border-l-0",
+            active && collapsed && "bg-blue-50"
           )}
-          style={active && isBranded ? { color: branding.primaryColor } : undefined}
+          style={active && isBranded ? { color: branding.primaryColor, backgroundColor: `${branding.primaryColor}10`, borderLeftColor: branding.primaryColor } : undefined}
           title={collapsed ? t(item.labelKey) : undefined}
         >
-          <Icon className="h-[18px] w-[18px] shrink-0" />
+          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-[#2563EB]" : "text-[#9CA3AF]")} />
           {!collapsed && (
             <>
               <span className="flex-1">{t(item.labelKey)}</span>
               {badgeText && (
-                <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {badgeText}
                 </span>
               )}
@@ -168,7 +165,6 @@ export function Sidebar() {
 
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
 
-  // Mobile: key items (4 + More button)
   const mobileItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
@@ -176,7 +172,6 @@ export function Sidebar() {
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
   ];
 
-  // Mobile: extra items shown in "More" sheet
   const mobileExtraItems: NavItem[] = [
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
@@ -192,9 +187,9 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col border-r border-steel/20 transition-all duration-300 h-screen sticky top-0",
-          collapsed ? "w-[72px]" : "w-[220px]",
-          !isBranded && "bg-parchment"
+          "hidden lg:flex flex-col border-r border-[#E5E7EB] transition-all duration-200 h-screen sticky top-0",
+          collapsed ? "w-[64px]" : "w-[240px]",
+          !isBranded && "bg-white"
         )}
         style={sidebarStyle}
         role="navigation"
@@ -202,34 +197,22 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className={cn(
-          "flex items-center border-b border-slate-200 h-14 px-4",
-          collapsed ? "justify-center" : "gap-3"
+          "flex items-center border-b border-[#E5E7EB] h-14 px-4",
+          collapsed ? "justify-center" : "gap-2.5"
         )}>
           {isBranded && branding.logoUrl ? (
-            <img
-              src={branding.logoUrl}
-              alt={displayName}
-              className="h-8 max-w-[140px] object-contain"
-            />
+            <img src={branding.logoUrl} alt={displayName} className="h-8 max-w-[140px] object-contain" />
           ) : (
             <>
-              {collapsed ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="h-8 w-8">
-                  <g strokeWidth="5" fill="none" strokeLinecap="round">
-                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(30 50 50)" stroke="#0A1F30" />
-                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(150 50 50)" stroke="#0A1F30" />
-                    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(90 50 50)" stroke="#C4A661" />
-                  </g>
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 210" className="h-8 w-auto">
-                  <g strokeWidth="5" fill="none" strokeLinecap="round">
-                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(30 125 90)" stroke="#0A1F30" />
-                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(150 125 90)" stroke="#0A1F30" />
-                    <ellipse cx="125" cy="90" rx="55" ry="20" transform="rotate(90 125 90)" stroke="#C4A661" />
-                  </g>
-                  <text x="125" y="185" fontFamily="'Inter', sans-serif" fontWeight="800" fontSize="26" fill="#0A1F30" textAnchor="middle" letterSpacing="4">CANTAIA</text>
-                </svg>
+              <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" fill="none">
+                <rect x="2" y="8" width="28" height="18" rx="3" stroke="#2563EB" strokeWidth="2" />
+                <path d="M8 14h6M8 18h10M8 22h8" stroke="#2563EB" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M22 14l4 4-4 4" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {!collapsed && (
+                <span className="font-display text-lg font-bold tracking-tight text-[#111827]">
+                  Cantaia
+                </span>
               )}
             </>
           )}
@@ -241,32 +224,23 @@ export function Sidebar() {
             {navItems.map(renderNavItem)}
           </ul>
 
-          {/* Locked items */}
-          {lockedItems.length > 0 && (
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <ul className="space-y-0.5">
-                {lockedItems.map(renderNavItem)}
-              </ul>
-            </div>
-          )}
-
           {/* Settings */}
-          <div className="mt-3 border-t border-slate-200 pt-3">
+          <div className="mt-3 border-t border-[#E5E7EB] pt-3">
             <ul className="space-y-0.5">
               {bottomItems.map(renderNavItem)}
             </ul>
           </div>
 
-          {/* Admin link — visible to org admins and superadmins */}
+          {/* Admin link */}
           {(userRole === "admin" || user?.user_metadata?.is_superadmin) && (
             <div className="mt-1">
               <Link
                 href="/admin"
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive("/admin")
-                    ? "bg-red-50 text-red-700 shadow-sm"
-                    : "text-slate-500 hover:bg-red-50/50 hover:text-red-600",
+                    ? "bg-red-50 text-red-700"
+                    : "text-[#9CA3AF] hover:bg-red-50/50 hover:text-red-600",
                   collapsed && "justify-center px-0"
                 )}
                 title={collapsed ? "Admin" : undefined}
@@ -280,16 +254,16 @@ export function Sidebar() {
 
         {/* Plan indicator */}
         {!collapsed && (
-          <div className="mx-3 mb-2 rounded-md border border-slate-200 bg-white px-2.5 py-2">
+          <div className="mx-3 mb-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
             <div className="flex items-center gap-1.5">
               <Sparkles
-                className={isBranded ? "h-3.5 w-3.5" : "h-3.5 w-3.5 text-amber-500"}
+                className="h-3.5 w-3.5 text-amber-500"
                 style={isBranded ? { color: branding.accentColor } : undefined}
               />
-              <span className="text-[11px] font-semibold text-slate-700">
+              <span className="text-[11px] font-semibold text-amber-700">
                 {t("planTrial")}
               </span>
-              <span className="ml-auto text-[11px] text-slate-400">
+              <span className="ml-auto text-[11px] text-amber-500">
                 {t("trialDaysLeft", { days: 12 })}
               </span>
             </div>
@@ -297,26 +271,21 @@ export function Sidebar() {
         )}
 
         {/* User & Collapse */}
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-[#E5E7EB] p-3">
           {!collapsed && (
-            <div className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5">
+            <div className="mb-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5">
               <div
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white",
-                  !isBranded && "bg-brand"
-                )}
-                style={isBranded ? { backgroundColor: branding.primaryColor } : undefined}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold bg-blue-100 text-[#2563EB]"
+                style={isBranded ? { backgroundColor: `${branding.primaryColor}20`, color: branding.primaryColor } : undefined}
               >
                 {userInitials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-slate-800">
-                  {userName}
-                </p>
+                <p className="truncate text-xs font-medium text-[#111827]">{userName}</p>
               </div>
               <button
                 onClick={signOut}
-                className="rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                className="rounded-md p-1 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280] transition-colors"
                 title={t("logout")}
               >
                 <LogOut className="h-3.5 w-3.5" />
@@ -325,7 +294,7 @@ export function Sidebar() {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-white hover:text-slate-600"
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#9CA3AF] transition-colors hover:bg-gray-50 hover:text-[#6B7280]"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -340,20 +309,18 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom" role="navigation" aria-label="Mobile navigation">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom" role="navigation" aria-label="Mobile navigation">
         <div className="flex items-center justify-evenly px-1 py-1">
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
-                  !isBranded && active && "text-brand",
-                  !active && "text-slate-400 hover:text-slate-600"
+                  "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-colors",
+                  active ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
                 )}
                 style={active && isBranded ? { color: branding.primaryColor } : undefined}
                 aria-current={active ? "page" : undefined}
@@ -363,12 +330,11 @@ export function Sidebar() {
               </Link>
             );
           })}
-          {/* More button */}
           <button
             onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
             className={cn(
-              "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
-              mobileMoreOpen ? "text-brand" : "text-slate-400 hover:text-slate-600"
+              "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-colors",
+              mobileMoreOpen ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
             )}
             aria-expanded={mobileMoreOpen}
             aria-label={t("more")}
@@ -382,9 +348,9 @@ export function Sidebar() {
       {/* Mobile More Sheet */}
       {mobileMoreOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
           <div
-            className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-lg p-4 safe-area-bottom"
+            className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-4 safe-area-bottom"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grid grid-cols-4 gap-3">
@@ -397,8 +363,8 @@ export function Sidebar() {
                     href={item.href}
                     onClick={() => setMobileMoreOpen(false)}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-lg p-3 text-[11px] font-medium transition-colors",
-                      active ? "bg-brand/10 text-brand" : "text-slate-600 hover:bg-slate-100"
+                      "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
+                      active ? "bg-blue-50 text-[#2563EB]" : "text-[#6B7280] hover:bg-gray-50"
                     )}
                     aria-current={active ? "page" : undefined}
                   >

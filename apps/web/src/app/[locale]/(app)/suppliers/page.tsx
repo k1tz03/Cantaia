@@ -269,7 +269,7 @@ export default function SuppliersPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-brand" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
           <p className="text-sm text-gray-500">Chargement des fournisseurs...</p>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default function SuppliersPage() {
                   onClick={() => setAiSearchOpen(true)}
                   className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm font-medium text-gray-700"
                 >
-                  <Sparkles className="h-4 w-4 text-brand" />
+                  <Sparkles className="h-4 w-4 text-[#2563EB]" />
                   Recherche IA
                 </button>
                 <button
@@ -307,7 +307,7 @@ export default function SuppliersPage() {
                 </button>
                 <button
                   onClick={handleAddNew}
-                  className="flex items-center gap-2 px-4 py-2 bg-gold text-white rounded-md hover:bg-gold-dark text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] text-sm font-medium"
                 >
                   <Plus className="h-4 w-4" />
                   {t("addSupplier")}
@@ -435,7 +435,7 @@ export default function SuppliersPage() {
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-full bg-brand flex items-center justify-center text-white text-xs font-medium shrink-0">
+                              <div className="h-9 w-9 rounded-full bg-[#2563EB] flex items-center justify-center text-white text-xs font-medium shrink-0">
                                 {supplier.company_name.substring(0, 2).toUpperCase()}
                               </div>
                               <div>
@@ -500,7 +500,7 @@ export default function SuppliersPage() {
               {/* Header */}
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-brand flex items-center justify-center text-white text-sm font-medium">
+                  <div className="h-12 w-12 rounded-full bg-[#2563EB] flex items-center justify-center text-white text-sm font-medium">
                     {selected.company_name.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
@@ -523,7 +523,7 @@ export default function SuppliersPage() {
                   <button
                     onClick={() => handleEnrich(selected)}
                     disabled={enriching}
-                    className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-brand disabled:opacity-50"
+                    className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-[#2563EB] disabled:opacity-50"
                     title="Enrichir via IA"
                   >
                     {enriching ? (

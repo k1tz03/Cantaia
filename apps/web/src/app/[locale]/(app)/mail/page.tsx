@@ -32,7 +32,7 @@ import { useRouter } from "next/navigation";
 type TabKey = "inbox" | "processed" | "snoozed";
 
 const TAB_CONFIG: Record<TabKey, { icon: React.ElementType; color: string }> = {
-  inbox: { icon: Inbox, color: "text-brand" },
+  inbox: { icon: Inbox, color: "text-[#2563EB]" },
   processed: { icon: CheckCircle2, color: "text-green-600" },
   snoozed: { icon: Clock, color: "text-amber-600" },
 };
@@ -305,22 +305,22 @@ export default function MailPage() {
       {/* Left: Email list */}
       <div
         className={cn(
-          "flex shrink-0 flex-col border-r border-slate-200 bg-white",
+          "flex shrink-0 flex-col border-r border-[#E5E7EB] bg-white",
           selectedEmail ? "hidden md:flex" : "w-full"
         )}
         style={selectedEmail ? { width: `${listWidth}px` } : undefined}
       >
         {/* Header */}
-        <div className="border-b border-slate-200 px-4 py-3">
+        <div className="border-b border-[#E5E7EB] px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-              <Mail className="h-5 w-5 text-brand" />
+            <h1 className="flex items-center gap-2 text-lg font-semibold text-[#111827]">
+              <Mail className="h-5 w-5 text-[#2563EB]" />
               {t("title")}
             </h1>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-md p-1.5 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280]"
                 title={t("sort")}
               >
                 <ArrowUpDown className="h-4 w-4" />
@@ -328,8 +328,8 @@ export default function MailPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={cn(
-                  "rounded-md p-1.5 hover:bg-slate-100",
-                  showFilters || filterProjectId ? "text-brand" : "text-slate-400 hover:text-slate-600"
+                  "rounded-md p-1.5 hover:bg-gray-100",
+                  showFilters || filterProjectId ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
                 )}
                 title={t("filter")}
               >
@@ -338,7 +338,7 @@ export default function MailPage() {
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                className="rounded-md p-1.5 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280] disabled:opacity-50"
                 title={t("sync")}
               >
                 {syncing ? (
@@ -353,7 +353,7 @@ export default function MailPage() {
           {/* Search */}
           <div className="mt-2 flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
                 value={searchQuery}
@@ -363,10 +363,10 @@ export default function MailPage() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder={t("searchPlaceholder")}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#E5E7EB] bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
               />
               {searching && (
-                <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-slate-400" />
+                <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-[#9CA3AF]" />
               )}
             </div>
           </div>
@@ -379,8 +379,8 @@ export default function MailPage() {
                 className={cn(
                   "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
                   !filterProjectId
-                    ? "bg-brand text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-[#2563EB] text-white"
+                    : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
                 )}
               >
                 {t("allProjects")}
@@ -392,8 +392,8 @@ export default function MailPage() {
                   className={cn(
                     "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
                     filterProjectId === p.id
-                      ? "bg-brand text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-[#2563EB] text-white"
+                      : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
                   )}
                 >
                   <span
@@ -407,7 +407,7 @@ export default function MailPage() {
           )}
 
           {/* Tabs */}
-          <div className="mt-3 flex gap-1 rounded-lg bg-slate-100 p-0.5">
+          <div className="mt-3 flex gap-1 rounded-lg bg-gray-100 p-0.5">
             {(["inbox", "processed", "snoozed"] as TabKey[]).map((tab) => {
               const Icon = TAB_CONFIG[tab].icon;
               const count = tabCounts[tab];
@@ -418,8 +418,8 @@ export default function MailPage() {
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors",
                     activeTab === tab
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                      ? "bg-white text-[#111827] shadow-sm"
+                      : "text-[#6B7280] hover:text-[#374151]"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -429,8 +429,8 @@ export default function MailPage() {
                       className={cn(
                         "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
                         activeTab === tab
-                          ? "bg-brand/10 text-brand"
-                          : "bg-slate-200 text-slate-500"
+                          ? "bg-blue-100 text-[#2563EB]"
+                          : "bg-gray-200 text-[#6B7280]"
                       )}
                     >
                       {count}
@@ -446,34 +446,34 @@ export default function MailPage() {
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
             </div>
           ) : filteredEmails.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
               {searchResults ? (
                 <>
-                  <MailX className="h-10 w-10 text-slate-300" />
-                  <p className="mt-3 text-sm font-medium text-slate-500">
+                  <MailX className="h-10 w-10 text-[#D1D5DB]" />
+                  <p className="mt-3 text-sm font-medium text-[#6B7280]">
                     {t("noSearchResults")}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-[#9CA3AF]">
                     {t("tryDifferentSearch")}
                   </p>
                 </>
               ) : !hasRealData ? (
                 <>
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
-                    <Link2 className="h-8 w-8 text-brand" />
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                    <Link2 className="h-8 w-8 text-[#2563EB]" />
                   </div>
-                  <p className="mt-4 text-sm font-semibold text-slate-700">
+                  <p className="mt-4 text-sm font-semibold text-[#374151]">
                     {t("connectTitle")}
                   </p>
-                  <p className="mt-1 max-w-xs text-xs text-slate-400">
+                  <p className="mt-1 max-w-xs text-xs text-[#9CA3AF]">
                     {t("connectDesc")}
                   </p>
                   <button
                     onClick={() => router.push("/settings?tab=outlook")}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-gold-dark"
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#1D4ED8]"
                   >
                     <Settings className="h-4 w-4" />
                     {t("connectButton")}
@@ -481,17 +481,17 @@ export default function MailPage() {
                 </>
               ) : (
                 <>
-                  <MailX className="h-10 w-10 text-slate-300" />
-                  <p className="mt-3 text-sm font-medium text-slate-500">
+                  <MailX className="h-10 w-10 text-[#D1D5DB]" />
+                  <p className="mt-3 text-sm font-medium text-[#6B7280]">
                     {t("noEmails")}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-[#9CA3AF]">
                     {t("noEmailsDesc")}
                   </p>
                   <button
                     onClick={handleSync}
                     disabled={syncing}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-gold-dark disabled:opacity-50"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#1D4ED8] disabled:opacity-50"
                   >
                     {syncing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -505,7 +505,7 @@ export default function MailPage() {
             </div>
           ) : activeTab === "inbox" && !filterProjectId ? (
             // Group by project for inbox
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-gray-100">
               {groupedByProject.map(([groupKey, group]) => {
                 const isCollapsed = collapsedProjects.has(groupKey);
                 const projectName = group.project?.name || t("unclassified");
@@ -516,21 +516,21 @@ export default function MailPage() {
                     {/* Project header */}
                     <button
                       onClick={() => toggleProjectCollapse(groupKey)}
-                      className="sticky top-0 z-10 flex w-full items-center gap-2.5 border-b border-slate-200 bg-slate-50/95 px-4 py-2.5 text-left backdrop-blur-sm hover:bg-slate-100/95"
+                      className="sticky top-0 z-10 flex w-full items-center gap-2.5 border-b border-[#E5E7EB] bg-gray-50/95 px-4 py-2.5 text-left backdrop-blur-sm hover:bg-gray-100/95"
                     >
                       {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4 text-slate-500" />
+                        <ChevronRight className="h-4 w-4 text-[#6B7280]" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-slate-500" />
+                        <ChevronDown className="h-4 w-4 text-[#6B7280]" />
                       )}
                       <span
                         className="h-3 w-3 rounded-full ring-2 ring-white"
                         style={{ backgroundColor: projectColor }}
                       />
-                      <span className="text-sm font-bold text-slate-800">
+                      <span className="text-sm font-bold text-[#111827]">
                         {projectName}
                       </span>
-                      <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] font-semibold text-[#6B7280]">
                         {group.emails.length}
                       </span>
                     </button>
@@ -569,8 +569,8 @@ export default function MailPage() {
         </div>
 
         {/* Status bar */}
-        <div className="border-t border-slate-200 px-4 py-2">
-          <p className="text-[11px] text-slate-400">
+        <div className="border-t border-[#E5E7EB] px-4 py-2">
+          <p className="text-[11px] text-[#9CA3AF]">
             {filteredEmails.length} {t("emailCount")}
             {searchResults && (
               <button
@@ -578,7 +578,7 @@ export default function MailPage() {
                   setSearchResults(null);
                   setSearchQuery("");
                 }}
-                className="ml-2 text-brand hover:underline"
+                className="ml-2 text-[#2563EB] hover:underline"
               >
                 {t("clearSearch")}
               </button>
@@ -591,7 +591,7 @@ export default function MailPage() {
       {selectedEmail && (
         <div
           onMouseDown={handleMouseDown}
-          className="hidden w-1 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-brand/40 active:bg-brand/60 lg:block"
+          className="hidden w-1 shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-200 active:bg-blue-300 lg:block"
         />
       )}
 
@@ -606,13 +606,13 @@ export default function MailPage() {
           />
         </div>
       ) : (
-        <div className="hidden flex-1 items-center justify-center bg-slate-50 lg:flex">
+        <div className="hidden flex-1 items-center justify-center bg-gray-50 lg:flex">
           <div className="text-center">
-            <Mail className="mx-auto h-12 w-12 text-slate-300" />
-            <p className="mt-3 text-sm font-medium text-slate-500">
+            <Mail className="mx-auto h-12 w-12 text-[#D1D5DB]" />
+            <p className="mt-3 text-sm font-medium text-[#6B7280]">
               {t("selectEmail")}
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-[#9CA3AF]">
               {t("selectEmailDesc")}
             </p>
           </div>
@@ -718,17 +718,17 @@ function EmailListItem({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full gap-3 px-4 py-3 text-left transition-colors border-b border-slate-100",
+        "flex w-full gap-3 px-4 py-3 text-left transition-colors border-b border-gray-100",
         isSelected
-          ? "bg-brand/5 border-l-2 border-l-brand"
-          : "hover:bg-slate-50",
+          ? "bg-blue-50 border-l-2 border-l-[#2563EB]"
+          : "hover:bg-gray-50",
         !isRead && "bg-blue-50/30"
       )}
     >
       {/* Unread indicator */}
       <div className="mt-1.5 shrink-0">
         {!isRead ? (
-          <div className="h-2 w-2 rounded-full bg-brand" />
+          <div className="h-2 w-2 rounded-full bg-[#2563EB]" />
         ) : (
           <div className="h-2 w-2" />
         )}
@@ -740,12 +740,12 @@ function EmailListItem({
           <p
             className={cn(
               "truncate text-sm",
-              !isRead ? "font-semibold text-slate-900" : "font-medium text-slate-700"
+              !isRead ? "font-semibold text-[#111827]" : "font-medium text-[#374151]"
             )}
           >
             {senderName}
           </p>
-          <span className="shrink-0 text-[11px] text-slate-400">
+          <span className="shrink-0 text-[11px] text-[#9CA3AF]">
             {formatRelativeDate(email.received_at, locale)}
           </span>
         </div>
@@ -754,7 +754,7 @@ function EmailListItem({
         <p
           className={cn(
             "truncate text-sm",
-            !isRead ? "font-medium text-slate-800" : "text-slate-600"
+            !isRead ? "font-medium text-[#111827]" : "text-[#6B7280]"
           )}
         >
           {email.subject}
@@ -762,12 +762,12 @@ function EmailListItem({
 
         {/* Row 3: Preview + badges */}
         <div className="mt-0.5 flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate text-xs text-slate-400">
+          <p className="min-w-0 flex-1 truncate text-xs text-[#9CA3AF]">
             {email.body_preview || ""}
           </p>
           <div className="flex shrink-0 items-center gap-1">
             {email.has_attachments && (
-              <Paperclip className="h-3 w-3 text-slate-400" />
+              <Paperclip className="h-3 w-3 text-[#9CA3AF]" />
             )}
             {badge && (
               <span

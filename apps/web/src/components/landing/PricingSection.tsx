@@ -1,188 +1,71 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { Check } from "lucide-react";
-import { cn } from "@cantaia/ui";
+import { Link } from "@/i18n/navigation";
 import { AnimatedSection } from "./AnimatedSection";
 
-interface PlanConfig {
-  key: "starter" | "pro" | "enterprise";
-  featured: boolean;
-  featuresKey: "starterFeatures" | "proFeatures" | "enterpriseFeatures";
-}
-
-const plans: PlanConfig[] = [
-  { key: "starter", featured: false, featuresKey: "starterFeatures" },
-  { key: "pro", featured: true, featuresKey: "proFeatures" },
-  { key: "enterprise", featured: false, featuresKey: "enterpriseFeatures" },
+const features = [
+  "Triage intelligent des emails",
+  "PV de séance automatiques",
+  "Gestion des tâches IA",
+  "Briefing quotidien",
+  "Estimation de prix sur données réelles",
+  "Support prioritaire",
 ];
 
-const featureKeys: Record<string, string[]> = {
-  starterFeatures: [
-    "users",
-    "projects",
-    "emailClassification",
-    "basicPV",
-    "tasks",
-    "plans",
-    "emailSupport",
-  ],
-  proFeatures: [
-    "users",
-    "projects",
-    "emailClassification",
-    "advancedPV",
-    "dailyBriefing",
-    "submissions",
-    "intelligence",
-    "visits",
-    "archiving",
-    "prioritySupport",
-  ],
-  enterpriseFeatures: [
-    "users",
-    "projects",
-    "allProFeatures",
-    "subdomain",
-    "branding",
-    "customIntegrations",
-    "dedicatedSupport",
-    "training",
-  ],
-};
-
 export function PricingSection() {
-  const t = useTranslations("landing.pricing");
-
   return (
-    <section
-      id="pricing"
-      className="relative overflow-hidden px-6 py-24"
-      style={{ backgroundColor: "#F5F2EB" }}
-    >
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <AnimatedSection className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            {t("title")}
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-slate-600">
-            {t("subtitle")}
-          </p>
+    <section id="pricing" className="bg-white">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+        <AnimatedSection>
+          <div className="text-center mb-12">
+            <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
+              Un seul plan. Tout inclus.
+            </h2>
+            <p className="mt-3 text-lg text-[#6B7280]">
+              Pas de modules payants cachés.
+            </p>
+          </div>
         </AnimatedSection>
 
-        {/* Plan cards */}
-        <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {plans.map((plan, index) => {
-            const features = featureKeys[plan.featuresKey];
-            const isEnterprise = plan.key === "enterprise";
-
-            return (
-              <AnimatedSection key={plan.key} delay={0.1 * (index + 1)}>
-                <div
-                  className={cn(
-                    "relative flex h-full flex-col rounded-2xl border p-8 transition-shadow",
-                    plan.featured
-                      ? "border-gold bg-white shadow-xl shadow-gold/20 ring-2 ring-gold/50"
-                      : "border-slate-200 bg-white shadow-sm hover:shadow-md"
-                  )}
-                >
-                  {/* Popular badge */}
-                  {plan.featured && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-gold-light to-gold px-4 py-1 text-xs font-semibold text-slate-900 shadow-md">
-                      {t("popular")}
-                    </div>
-                  )}
-
-                  {/* Plan name & description */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      {t(`${plan.key}Name`)}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {t(`${plan.key}Desc`)}
-                    </p>
+        <AnimatedSection delay={0.2}>
+          <div className="mx-auto max-w-[480px]">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-xl border-t-4 border-t-[#2563EB] overflow-hidden">
+              <div className="p-8">
+                <div className="text-center">
+                  <h3 className="font-display text-xl font-bold text-[#111827]">CANTAIA Fondateur</h3>
+                  <div className="mt-4 flex items-baseline justify-center gap-1">
+                    <span className="font-display text-5xl font-extrabold text-[#111827]">99</span>
+                    <span className="text-xl text-[#6B7280]">CHF / mois</span>
                   </div>
-
-                  {/* Price */}
-                  <div className="mt-6">
-                    {isEnterprise ? (
-                      <span className="text-3xl font-bold text-slate-900">
-                        {t("customPrice")}
-                      </span>
-                    ) : (
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm text-slate-500">
-                          {t("currency")}
-                        </span>
-                        <span className="text-4xl font-bold text-slate-900">
-                          {t(`${plan.key}Price`)}
-                        </span>
-                        <span className="text-sm text-slate-500">
-                          {t("perMonth")}
-                        </span>
-                      </div>
-                    )}
-                    {!isEnterprise && (
-                      <p className="mt-1 text-xs text-slate-400">
-                        {t("perUser")}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Features list */}
-                  <ul className="mt-8 flex-1 space-y-3">
-                    {features.map((featureKey) => (
-                      <li key={featureKey} className="flex items-start gap-3">
-                        <Check
-                          className={cn(
-                            "mt-0.5 h-4 w-4 flex-shrink-0",
-                            plan.featured
-                              ? "text-gold"
-                              : "text-slate-700"
-                          )}
-                        />
-                        <span className="text-sm text-slate-600">
-                          {t(`${plan.featuresKey}.${featureKey}`)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA button */}
-                  <div className="mt-8">
-                    {isEnterprise ? (
-                      <a
-                        href="mailto:contact@cantaia.ch"
-                        className="block w-full rounded-lg border border-slate-300 px-6 py-3 text-center text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                      >
-                        {t("contactUs")}
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        className={cn(
-                          "block w-full rounded-lg px-6 py-3 text-center text-sm font-semibold transition-colors",
-                          plan.featured
-                            ? "bg-gold text-slate-900 shadow-lg shadow-gold/25 hover:bg-gold-dark"
-                            : "bg-[#0A1F30] text-white hover:bg-slate-800"
-                        )}
-                      >
-                        {t("choosePlan")}
-                      </button>
-                    )}
-                  </div>
+                  <p className="mt-2 text-sm text-[#2563EB] font-medium">
+                    Prix bloqué 12 mois pour les premiers utilisateurs
+                  </p>
                 </div>
-              </AnimatedSection>
-            );
-          })}
-        </div>
 
-        {/* Trial banner */}
-        <AnimatedSection delay={0.4} className="mt-10 text-center">
-          <p className="text-sm font-medium text-slate-600">
-            {t("subtitle")}
-          </p>
+                <div className="mt-8 space-y-3">
+                  {features.map((feature, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <svg className="h-5 w-5 flex-shrink-0 text-[#10B981]" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-[#111827]">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  href="/register"
+                  className="mt-8 block w-full rounded-lg bg-[#2563EB] py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-[#1D4ED8] hover:shadow-xl"
+                >
+                  Essai gratuit — 14 jours
+                </Link>
+
+                <p className="mt-3 text-center text-sm text-[#6B7280]">
+                  Sans engagement. Sans carte bancaire.
+                </p>
+              </div>
+            </div>
+          </div>
         </AnimatedSection>
       </div>
     </section>

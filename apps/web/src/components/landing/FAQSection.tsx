@@ -1,61 +1,63 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
 import { AnimatedSection } from "./AnimatedSection";
 
-const faqKeys = [
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "9",
-  "10",
-  "11",
-  "12",
-] as const;
+const cards = [
+  {
+    emoji: "🇨🇭",
+    title: "Pensé pour la Suisse",
+    description: "Codes CFC, normes SIA, multilingue FR/DE/EN, prix en CHF.",
+  },
+  {
+    emoji: "🏗️",
+    title: "Né sur le terrain",
+    description: "Développé par un chef de projet qui gère 5+ chantiers simultanément. Chaque feature résout un vrai problème.",
+  },
+  {
+    emoji: "🔒",
+    title: "Vos données restent en Europe",
+    description: "Hébergement européen. Chiffrement de bout en bout. Conforme RGPD et droit suisse.",
+  },
+];
 
-export function FAQSection() {
-  const t = useTranslations("landing.faq");
+const bottomStats = [
+  { value: "2'500+", label: "prix réels" },
+  { value: "60+", label: "fournisseurs" },
+  { value: "3", label: "langues" },
+  { value: "5 min", label: "pour démarrer" },
+];
 
+export function TrustSection() {
   return (
-    <section className="px-6 py-24" style={{ backgroundColor: "#F5F2EB" }}>
-      <div className="mx-auto max-w-3xl">
-        {/* Title */}
-        <AnimatedSection className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            {t("title")}
+    <section className="bg-[#111827]">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+        <AnimatedSection>
+          <h2 className="text-center font-display text-3xl font-bold text-white sm:text-4xl">
+            Conçu par et pour des chefs de projet construction
           </h2>
         </AnimatedSection>
 
-        {/* Accordion */}
-        <AnimatedSection delay={0.1} className="mt-12">
-          <Accordion.Root type="single" collapsible className="space-y-3">
-            {faqKeys.map((key) => (
-              <Accordion.Item
-                key={key}
-                value={`faq-${key}`}
-                className="rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
-              >
-                <Accordion.Header>
-                  <Accordion.Trigger className="group flex w-full items-center justify-between px-6 py-5 text-left text-sm font-semibold text-slate-900 transition-colors hover:text-gold-dark">
-                    {t(`q${key}`)}
-                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-300 ease-in-out group-data-[state=open]:rotate-180" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                  <div className="px-6 pb-5 text-sm leading-relaxed text-slate-600">
-                    {t(`a${key}`)}
-                  </div>
-                </Accordion.Content>
-              </Accordion.Item>
+        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {cards.map((card, i) => (
+            <AnimatedSection key={i} delay={i * 0.1}>
+              <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur p-6 h-full">
+                <div className="text-3xl mb-4">{card.emoji}</div>
+                <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-400">{card.description}</p>
+              </div>
+            </AnimatedSection>
+          ))}
+        </div>
+
+        <AnimatedSection delay={0.3}>
+          <div className="mt-16 flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-white/10">
+            {bottomStats.map((stat, i) => (
+              <div key={i} className="flex flex-col items-center px-8 md:px-12">
+                <div className="font-display text-2xl font-bold text-white">{stat.value}</div>
+                <div className="mt-1 text-sm text-gray-400">{stat.label}</div>
+              </div>
             ))}
-          </Accordion.Root>
+          </div>
         </AnimatedSection>
       </div>
     </section>

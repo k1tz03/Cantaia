@@ -58,7 +58,7 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-slate-700"
+          className="block text-sm font-medium text-[#374151]"
         >
           {t("email")}
         </label>
@@ -67,7 +67,7 @@ export function LoginForm() {
           type="email"
           id="email"
           autoComplete="email"
-          className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
         />
         {errors.email && (
           <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
@@ -77,7 +77,7 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-slate-700"
+          className="block text-sm font-medium text-[#374151]"
         >
           {t("password")}
         </label>
@@ -87,12 +87,12 @@ export function LoginForm() {
             type={showPassword ? "text" : "password"}
             id="password"
             autoComplete="current-password"
-            className="block w-full rounded-lg border border-slate-300 px-3 py-2.5 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            className="block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 pr-10 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword ? (
@@ -112,7 +112,7 @@ export function LoginForm() {
       <div className="flex items-center justify-end">
         <Link
           href="/forgot-password"
-          className="text-sm text-brand hover:text-brand-500"
+          className="text-sm text-[#2563EB] hover:text-[#1D4ED8]"
         >
           {t("forgotPassword")}
         </Link>
@@ -121,17 +121,17 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-dark disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
       >
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
         {t("login")}
       </button>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-[#6B7280]">
         {t("noAccount")}{" "}
         <Link
           href="/register"
-          className="font-medium text-brand hover:text-brand-500"
+          className="font-medium text-[#2563EB] hover:text-[#1D4ED8]"
         >
           {t("register")}
         </Link>

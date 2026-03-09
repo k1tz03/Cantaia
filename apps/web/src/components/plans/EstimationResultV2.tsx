@@ -48,10 +48,15 @@ function formatCHF(n: number | null | undefined): string {
   return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'");
 }
 
-// Badge source coloré
-function SourceBadge({ source }: { source: PriceSource }) {
+// Badge source coloré avec tooltip détaillé
+function SourceBadge({ source, detailSource }: { source: PriceSource; detailSource?: string }) {
+  const isRealData = source === "historique_interne" && detailSource?.includes("offres réelles");
   const config: Record<PriceSource, { label: string; bg: string; text: string }> = {
-    historique_interne: { label: "Historique", bg: "bg-green-100", text: "text-green-800" },
+    historique_interne: {
+      label: isRealData ? "Données réelles" : "Historique",
+      bg: isRealData ? "bg-emerald-100" : "bg-green-100",
+      text: isRealData ? "text-emerald-800" : "text-green-800",
+    },
     benchmark_cantaia: { label: "Benchmark", bg: "bg-blue-100", text: "text-blue-800" },
     referentiel_crb: { label: "CRB", bg: "bg-yellow-100", text: "text-yellow-800" },
     ratio_estimation: { label: "Ratio", bg: "bg-orange-100", text: "text-orange-800" },
@@ -61,7 +66,10 @@ function SourceBadge({ source }: { source: PriceSource }) {
   };
   const c = config[source] ?? config.prix_non_disponible;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.bg} ${c.text}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.bg} ${c.text}`}
+      title={detailSource ?? ""}
+    >
       {c.label}
     </span>
   );
@@ -88,7 +96,7 @@ function ScoreDisplay({ score, large }: { score: number; large?: boolean }) {
 // Barre de répartition des sources
 function SourceDistributionBar({ repartition }: { repartition: Record<string, number> }) {
   const segments = [
-    { key: "historique_interne_pct", label: "Historique", color: "bg-green-500" },
+    { key: "historique_interne_pct", label: "Données réelles", color: "bg-emerald-500" },
     { key: "benchmark_cantaia_pct", label: "Benchmark", color: "bg-blue-500" },
     { key: "referentiel_crb_pct", label: "CRB", color: "bg-yellow-500" },
     { key: "ratio_estimation_pct", label: "Ratio", color: "bg-orange-400" },
@@ -221,7 +229,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                       const isRisky = poste.confiance_prix === 'estimation' || poste.confiance_prix === 'low';
                       return (
                         <tr key={idx} className={`border-b border-gray-50 ${isRisky ? "bg-orange-50/50" : ""}`}>
-                          <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire.source} /></td>
+                          <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire.source} detailSource={poste.prix_unitaire.detail_source} /></td>
                           <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
                           <td className="py-2 pr-2 text-right font-mono">{poste.quantite}</td>
                           <td className="py-2 pr-2 text-gray-500">{poste.unite}</td>
