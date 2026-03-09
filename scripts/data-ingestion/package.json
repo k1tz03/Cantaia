@@ -1,0 +1,27 @@
+{
+  "name": "cantaia-data-ingestion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ingest": "npx tsx index.ts",
+    "ingest:offers": "npx tsx index.ts --offers",
+    "ingest:plans": "npx tsx index.ts --plans",
+    "ingest:emails": "npx tsx index.ts --emails",
+    "ingest:emails-classify": "npx tsx index.ts --emails-classify",
+    "ingest:metrages": "npx tsx index.ts --metrages",
+    "ingest:all": "npx tsx index.ts --offers --plans --emails --metrages"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "@kenjiuno/msgreader": "^1.28.0",
+    "@supabase/supabase-js": "latest",
+    "dotenv": "^16.4.7",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
