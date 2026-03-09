@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const { data: emails, error, count } = await admin
       .from("email_records")
-      .select("id, subject, sender_email, sender_name, from_name, from_email, received_at, body_preview, project_id, classification, importance, ai_classification_confidence, ai_summary, classification_status, email_category, triage_status, is_processed, is_read, has_attachments, outlook_message_id, created_at", { count: "exact" })
+      .select("id, subject, sender_email, sender_name, from_name, from_email, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_summary, classification_status, email_category, triage_status, is_processed, has_attachments, outlook_message_id, created_at", { count: "exact" })
       .eq("user_id", user.id)
       .order("received_at", { ascending: false })
       .range(offset, offset + limit - 1);
