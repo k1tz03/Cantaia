@@ -30,6 +30,18 @@ function percentile(values: number[], p: number): number {
   return sorted[lower] * (upper - idx) + sorted[upper] * (idx - lower);
 }
 
+// Plafond de prix unitaire par type d'unité (CHF) — filtre les forfaits contaminants
+function getMaxUnitPrice(unite: string): number {
+  switch (unite?.toLowerCase()) {
+    case 'm²': case 'm2': return 2000;
+    case 'm³': case 'm3': return 1500;
+    case 'kg': return 20;
+    case 'ml': case 'm': return 500;
+    case 'h': return 250;
+    default: return 10000;
+  }
+}
+
 export async function resolvePrice(params: PriceResolverParams): Promise<PrixUnitaire> {
   const { cfc_code, description, unite, region, quarter, org_id, supabase } = params;
 
@@ -44,7 +56,8 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
       .limit(20);
 
     if (internal && internal.length >= 2) {
-      const prices = internal.map((d: any) => Number(d.unit_price)).filter((p: number) => p > 0);
+      const maxPrice = getMaxUnitPrice(unite);
+      const prices = internal.map((d: any) => Number(d.unit_price)).filter((p: number) => p > 0 && p <= maxPrice);
       if (prices.length >= 2) {
         return {
           min: Math.round(percentile(prices, 0.25) * 100) / 100,
@@ -72,7 +85,7 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
       .limit(1)
       .single();
 
-    if (mvExact) {
+    if (mvExact && mvExact.prix_median <= getMaxUnitPrice(unite)) {
       return {
         min: mvExact.prix_p25,
         median: mvExact.prix_median,
@@ -101,7 +114,7 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
         .limit(1)
         .single();
 
-      if (mvPrefix) {
+      if (mvPrefix && mvPrefix.prix_median <= getMaxUnitPrice(unite)) {
         return {
           min: mvPrefix.prix_p25,
           median: mvPrefix.prix_median,
@@ -128,15 +141,18 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
 
     if (keywords.length > 0) {
       const searchTerm = keywords[0];
+      const maxPrice = getMaxUnitPrice(unite);
       const { data: textMatches } = await supabase
         .from('ingested_offer_lines')
         .select('cfc_code, prix_unitaire_ht')
         .ilike('description', `%${searchTerm}%`)
+        .eq('is_forfait', false)
         .gt('prix_unitaire_ht', 0)
+        .lt('prix_unitaire_ht', maxPrice)
         .limit(50);
 
       if (textMatches && textMatches.length >= 2) {
-        const prices = textMatches.map((r: any) => Number(r.prix_unitaire_ht)).filter((p: number) => p > 0).sort((a: number, b: number) => a - b);
+        const prices = textMatches.map((r: any) => Number(r.prix_unitaire_ht)).filter((p: number) => p > 0 && p <= maxPrice).sort((a: number, b: number) => a - b);
         if (prices.length >= 2) {
           const cfcFound = textMatches[0].cfc_code ?? 'N/A';
           return {
