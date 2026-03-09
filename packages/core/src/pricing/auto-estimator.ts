@@ -100,6 +100,20 @@ function extractSearchTerms(description: string): string[] {
 }
 
 /**
+ * Convert a search term to an ILIKE pattern.
+ * Granulometry patterns like "0/22" become "0_22" so that
+ * ILIKE '%0_22%' matches "0/22", "0-22", "0.22", "0/22.4" etc.
+ * (underscore = any single character in SQL ILIKE)
+ */
+function termToIlike(term: string): string {
+  // Detect granulometry pattern: digits/digits (e.g. 0/22, 0/45, 4/8)
+  if (/^\d+\/\d+/.test(term)) {
+    return term.replace('/', '_');
+  }
+  return term;
+}
+
+/**
  * Normalize a unit string to a canonical form for comparison.
  */
 function normalizeUnit(u: string): string {
@@ -257,31 +271,31 @@ async function lookupHistoricalPrice(
       const top2 = ranked.slice(0, 2);
       let q3 = supabase
         .from("ingested_offer_lines")
-        .select("prix_unitaire_ht, unite, cfc_code, date_offre")
+        .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
         .eq("is_forfait", false)
         .gt("prix_unitaire_ht", 0)
         .lte("prix_unitaire_ht", maxPrice);
       for (const t of top2) {
-        q3 = q3.ilike("description", `%${t}%`);
+        q3 = q3.ilike("description", `%${termToIlike(t)}%`);
       }
       const { data: d3a } = await q3.order("date_offre", { ascending: false }).limit(30);
 
-      const match3a = filterByUnitAndBuild(d3a, item.unit, cfcCode);
+      const match3a = filterByUnitAndBuild(d3a, item.unit, cfcCode, terms);
       if (match3a) return match3a;
 
       // Strategy 2: single most distinctive keyword (broader)
       if (top2.length > 1) {
         const { data: d3b } = await supabase
           .from("ingested_offer_lines")
-          .select("prix_unitaire_ht, unite, cfc_code, date_offre")
+          .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
           .eq("is_forfait", false)
           .gt("prix_unitaire_ht", 0)
           .lte("prix_unitaire_ht", maxPrice)
-          .ilike("description", `%${ranked[0]}%`)
+          .ilike("description", `%${termToIlike(ranked[0])}%`)
           .order("date_offre", { ascending: false })
           .limit(30);
 
-        const match3b = filterByUnitAndBuild(d3b, item.unit, cfcCode);
+        const match3b = filterByUnitAndBuild(d3b, item.unit, cfcCode, terms);
         if (match3b) return match3b;
       }
     }
@@ -290,7 +304,7 @@ async function lookupHistoricalPrice(
     if (cfcCode) {
       const { data: cfcIngest, error: cfcIngestErr } = await supabase
         .from("ingested_offer_lines")
-        .select("prix_unitaire_ht, unite, cfc_code, date_offre")
+        .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
         .eq("is_forfait", false)
         .gt("prix_unitaire_ht", 0)
         .lte("prix_unitaire_ht", maxPrice)
@@ -299,7 +313,7 @@ async function lookupHistoricalPrice(
         .limit(20);
 
       if (!cfcIngestErr && cfcIngest && cfcIngest.length > 0) {
-        const match = filterByUnitAndBuild(cfcIngest, item.unit, cfcCode);
+        const match = filterByUnitAndBuild(cfcIngest, item.unit, cfcCode, terms);
         if (match) return match;
       }
     }
@@ -357,16 +371,25 @@ async function lookupHistoricalPrice(
 
 /**
  * Filter ingested_offer_lines results by unit compatibility,
- * apply conversion factor, then build a DbPriceMatch.
+ * score by keyword relevance, apply conversion factor, then build a DbPriceMatch.
+ *
+ * When searchTerms are provided, each result row is scored by how many
+ * search terms appear in its description. Only the best-scoring rows
+ * are used to compute the median — this prevents low-relevance matches
+ * (e.g. "Stratex NT 150") from diluting the price of the intended
+ * product (e.g. "Stratex NT 200").
  */
 function filterByUnitAndBuild(
   data: any[] | null,
   wantedUnit: string,
-  cfcCode: string | null
+  cfcCode: string | null,
+  searchTerms?: string[]
 ): DbPriceMatch | null {
   if (!data || data.length === 0) return null;
 
-  const converted: { unit_price: number; cfc_subcode: string | null }[] = [];
+  // Score each row by keyword relevance + unit compatibility
+  const scored: { unit_price: number; cfc_subcode: string | null; score: number }[] = [];
+
   for (const r of data) {
     const price = Number(r.prix_unitaire_ht);
     if (!(price > 0)) continue;
@@ -375,15 +398,42 @@ function filterByUnitAndBuild(
     const factor = unitConversionFactor(wantedUnit, dbUnit);
     if (factor === null) continue; // incompatible units — skip
 
-    converted.push({
+    // Compute relevance score: how many search terms match this row's description
+    let score = 1; // base score for unit-compatible match
+    if (searchTerms && searchTerms.length > 0 && r.description) {
+      const descLower = r.description.toLowerCase();
+      score = 0;
+      for (const term of searchTerms) {
+        // For granulometry terms, also match variant separators
+        if (/^\d+\/\d+/.test(term)) {
+          const pattern = term.replace('/', '.');
+          const pattern2 = term.replace('/', '-');
+          if (descLower.includes(term) || descLower.includes(pattern) || descLower.includes(pattern2)) {
+            score++;
+          }
+        } else if (descLower.includes(term)) {
+          score++;
+        }
+      }
+    }
+
+    scored.push({
       unit_price: price * factor,
       cfc_subcode: r.cfc_code ?? null,
+      score,
     });
   }
 
-  if (converted.length === 0) return null;
+  if (scored.length === 0) return null;
 
-  const match = buildPriceMatch(converted, wantedUnit);
+  // Keep only the best-scoring rows (highest keyword match count)
+  const maxScore = Math.max(...scored.map((s) => s.score));
+  const bestRows = maxScore > 0
+    ? scored.filter((s) => s.score === maxScore)
+    : scored; // if all scored 0, use everything
+
+  const rows = bestRows.map((s) => ({ unit_price: s.unit_price, cfc_subcode: s.cfc_subcode }));
+  const match = buildPriceMatch(rows, wantedUnit);
   if (match) {
     match.cfc_code = match.cfc_code || (cfcCode ?? undefined);
   }
