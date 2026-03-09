@@ -100,17 +100,15 @@ function extractSearchTerms(description: string): string[] {
 }
 
 /**
- * Convert a search term to an ILIKE pattern.
- * Granulometry patterns like "0/22" become "0_22" so that
- * ILIKE '%0_22%' matches "0/22", "0-22", "0.22", "0/22.4" etc.
- * (underscore = any single character in SQL ILIKE)
+ * Generate search variants for a term.
+ * Granulometry patterns like "0/22" produce ["0/22", "0-22", "0/22."]
+ * so we can try each explicitly with ILIKE.
  */
-function termToIlike(term: string): string {
-  // Detect granulometry pattern: digits/digits (e.g. 0/22, 0/45, 4/8)
-  if (/^\d+\/\d+/.test(term)) {
-    return term.replace('/', '_');
-  }
-  return term;
+function getSearchVariants(term: string): string[] {
+  const match = term.match(/^(\d+)[\/\-.](\d+)/);
+  if (!match) return [term];
+  const [, a, b] = match;
+  return [`${a}/${b}`, `${a}-${b}`, `${a}/${b}.`];
 }
 
 /**
@@ -258,51 +256,73 @@ async function lookupHistoricalPrice(
     } catch { /* continue */ }
   }
 
-  // ── Pass 3: ingested_offer_lines — 2500+ real supplier prices (fuzzy keyword search) ──
+  // ── Pass 3: ingested_offer_lines — 2500+ real supplier prices ──
+  let pass3Result: DbPriceMatch | null = null;
   try {
     const terms = extractSearchTerms(item.item);
     const maxPrice = getMaxUnitPrice(item.unit);
 
     if (terms.length > 0) {
-      // Sort by length descending — longer terms are more distinctive
       const ranked = [...terms].sort((a, b) => b.length - a.length);
 
-      // Strategy 1: top 2 keywords combined (high precision)
-      const top2 = ranked.slice(0, 2);
-      let q3 = supabase
-        .from("ingested_offer_lines")
-        .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
-        .eq("is_forfait", false)
-        .gt("prix_unitaire_ht", 0)
-        .lte("prix_unitaire_ht", maxPrice);
-      for (const t of top2) {
-        q3 = q3.ilike("description", `%${termToIlike(t)}%`);
-      }
-      const { data: d3a } = await q3.order("date_offre", { ascending: false }).limit(30);
-
-      const match3a = filterByUnitAndBuild(d3a, item.unit, cfcCode, terms);
-      if (match3a) return match3a;
-
-      // Strategy 2: single most distinctive keyword (broader)
-      if (top2.length > 1) {
-        const { data: d3b } = await supabase
+      // Helper: run a single ILIKE query against ingested_offer_lines
+      const queryIngested = async (ilikeTerms: string[]): Promise<any[] | null> => {
+        let q = supabase
           .from("ingested_offer_lines")
           .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
           .eq("is_forfait", false)
           .gt("prix_unitaire_ht", 0)
-          .lte("prix_unitaire_ht", maxPrice)
-          .ilike("description", `%${termToIlike(ranked[0])}%`)
-          .order("date_offre", { ascending: false })
-          .limit(30);
+          .lte("prix_unitaire_ht", maxPrice);
+        for (const t of ilikeTerms) {
+          q = q.ilike("description", `%${t}%`);
+        }
+        const { data } = await q.order("date_offre", { ascending: false }).limit(30);
+        return data && data.length > 0 ? data : null;
+      };
 
-        const match3b = filterByUnitAndBuild(d3b, item.unit, cfcCode, terms);
-        if (match3b) return match3b;
+      // Strategy 1: top 2 keywords with granulometry variants
+      const top2 = ranked.slice(0, 2);
+      const hasGranulo = top2.findIndex((t) => /^\d+[\/\-.]?\d+/.test(t));
+
+      if (hasGranulo >= 0) {
+        // Try each granulometry variant explicitly
+        const granuloTerm = top2[hasGranulo];
+        const otherTerms = top2.filter((_, i) => i !== hasGranulo);
+        const variants = getSearchVariants(granuloTerm);
+
+        for (const variant of variants) {
+          const data = await queryIngested([...otherTerms, variant]);
+          if (data) {
+            pass3Result = filterByUnitAndBuild(data, item.unit, cfcCode, terms);
+            if (pass3Result) break;
+          }
+        }
+
+        // Broader: just the non-granulo keyword
+        if (!pass3Result && otherTerms.length > 0) {
+          const data = await queryIngested(otherTerms);
+          if (data) {
+            pass3Result = filterByUnitAndBuild(data, item.unit, cfcCode, terms);
+          }
+        }
+      } else {
+        // No granulometry — standard 2-keyword then 1-keyword search
+        const data2 = await queryIngested(top2);
+        if (data2) {
+          pass3Result = filterByUnitAndBuild(data2, item.unit, cfcCode, terms);
+        }
+        if (!pass3Result && top2.length > 1) {
+          const data1 = await queryIngested([ranked[0]]);
+          if (data1) {
+            pass3Result = filterByUnitAndBuild(data1, item.unit, cfcCode, terms);
+          }
+        }
       }
     }
 
     // 3c: search by CFC code if available
-    if (cfcCode) {
-      const { data: cfcIngest, error: cfcIngestErr } = await supabase
+    if (!pass3Result && cfcCode) {
+      const { data: cfcIngest } = await supabase
         .from("ingested_offer_lines")
         .select("prix_unitaire_ht, unite, description, cfc_code, date_offre")
         .eq("is_forfait", false)
@@ -312,14 +332,14 @@ async function lookupHistoricalPrice(
         .order("date_offre", { ascending: false })
         .limit(20);
 
-      if (!cfcIngestErr && cfcIngest && cfcIngest.length > 0) {
-        const match = filterByUnitAndBuild(cfcIngest, item.unit, cfcCode, terms);
-        if (match) return match;
+      if (cfcIngest && cfcIngest.length > 0) {
+        pass3Result = filterByUnitAndBuild(cfcIngest, item.unit, cfcCode, terms);
       }
     }
   } catch { /* continue */ }
 
   // ── Pass 4: mv_reference_prices — aggregated view by CFC code ──
+  let pass4Result: DbPriceMatch | null = null;
   if (cfcCode) {
     try {
       const maxPrice = getMaxUnitPrice(item.unit);
@@ -331,7 +351,7 @@ async function lookupHistoricalPrice(
         .maybeSingle();
 
       if (!mvError && mvData && mvData.prix_median > 0 && mvData.prix_median <= maxPrice) {
-        return {
+        pass4Result = {
           unit_price: mvData.prix_median,
           count: mvData.nb_datapoints ?? 1,
           min: mvData.prix_p25 ?? mvData.prix_median,
@@ -342,42 +362,72 @@ async function lookupHistoricalPrice(
       }
 
       // 4b: try CFC prefix (e.g. "215.3" → "215")
-      const cfcPrefix = cfcCode.split('.')[0];
-      if (cfcPrefix !== cfcCode) {
-        const { data: mvPrefix, error: mvPrefixErr } = await supabase
-          .from("mv_reference_prices")
-          .select("cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs")
-          .like("cfc_code", `${cfcPrefix}%`)
-          .order("nb_datapoints", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      if (!pass4Result) {
+        const cfcPrefix = cfcCode.split('.')[0];
+        if (cfcPrefix !== cfcCode) {
+          const { data: mvPrefix, error: mvPrefixErr } = await supabase
+            .from("mv_reference_prices")
+            .select("cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs")
+            .like("cfc_code", `${cfcPrefix}%`)
+            .order("nb_datapoints", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (!mvPrefixErr && mvPrefix && mvPrefix.prix_median > 0 && mvPrefix.prix_median <= maxPrice) {
-          return {
-            unit_price: mvPrefix.prix_median,
-            count: mvPrefix.nb_datapoints ?? 1,
-            min: mvPrefix.prix_p25 ?? mvPrefix.prix_median,
-            max: mvPrefix.prix_p75 ?? mvPrefix.prix_median,
-            median: mvPrefix.prix_median,
-            cfc_code: mvPrefix.cfc_code,
-          };
+          if (!mvPrefixErr && mvPrefix && mvPrefix.prix_median > 0 && mvPrefix.prix_median <= maxPrice) {
+            pass4Result = {
+              unit_price: mvPrefix.prix_median,
+              count: mvPrefix.nb_datapoints ?? 1,
+              min: mvPrefix.prix_p25 ?? mvPrefix.prix_median,
+              max: mvPrefix.prix_p75 ?? mvPrefix.prix_median,
+              median: mvPrefix.prix_median,
+              cfc_code: mvPrefix.cfc_code,
+            };
+          }
         }
       }
     } catch { /* continue */ }
   }
 
+  // ── Cross-check: if Pass 3 price is suspiciously low, prefer Pass 4 ──
+  const SUSPECT_FLOOR: Record<string, number> = { 'm²': 1.0, 'm³': 5.0, 'ml': 1.0, 'h': 30.0 };
+  const floor = SUSPECT_FLOOR[normalizeUnit(item.unit)] ?? 0;
+
+  if (pass3Result && pass4Result) {
+    if (pass3Result.median < floor && pass4Result.median >= floor) {
+      console.log(`[ESTIMATOR] "${item.item}" → Pass 3 suspect (${pass3Result.median} CHF/${item.unit}), using Pass 4 (${pass4Result.median} CHF/${item.unit})`);
+      return pass4Result;
+    }
+    // If both valid, take the higher (more realistic for construction)
+    if (pass3Result.median < floor) {
+      console.log(`[ESTIMATOR] "${item.item}" → Pass 3: ${pass3Result.median} (suspect) → Pass 4: ${pass4Result.median}`);
+      return pass4Result;
+    }
+    console.log(`[ESTIMATOR] "${item.item}" → Pass 3: ${pass3Result.median} (${pass3Result.count} matches) → Pass 4: ${pass4Result.median} → using Pass 3`);
+    return pass3Result;
+  }
+
+  if (pass3Result) {
+    console.log(`[ESTIMATOR] "${item.item}" → Pass 3: ${pass3Result.median} CHF/${item.unit} (${pass3Result.count} matches)`);
+    return pass3Result;
+  }
+
+  if (pass4Result) {
+    console.log(`[ESTIMATOR] "${item.item}" → Pass 4: ${pass4Result.median} CHF/${item.unit} (CFC ${cfcCode})`);
+    return pass4Result;
+  }
+
+  console.log(`[ESTIMATOR] "${item.item}" → no DB match, falling back to AI`);
   return null;
 }
 
 /**
  * Filter ingested_offer_lines results by unit compatibility,
- * score by keyword relevance, apply conversion factor, then build a DbPriceMatch.
+ * then narrow by significant numbers from the search description.
  *
- * When searchTerms are provided, each result row is scored by how many
- * search terms appear in its description. Only the best-scoring rows
- * are used to compute the median — this prevents low-relevance matches
- * (e.g. "Stratex NT 150") from diluting the price of the intended
- * product (e.g. "Stratex NT 200").
+ * Example: searching "STRATEX NT 200" with results containing
+ * both "Stratex Premium 200" and "Stratex NT 150":
+ * → "200" is a significant number → keep only rows containing "200"
+ * → median is computed only on the relevant product variant.
  */
 function filterByUnitAndBuild(
   data: any[] | null,
@@ -387,52 +437,40 @@ function filterByUnitAndBuild(
 ): DbPriceMatch | null {
   if (!data || data.length === 0) return null;
 
-  // Score each row by keyword relevance + unit compatibility
-  const scored: { unit_price: number; cfc_subcode: string | null; score: number }[] = [];
-
+  // Step 1: filter by unit compatibility and apply conversion
+  const compatible: { unit_price: number; cfc_subcode: string | null; description: string }[] = [];
   for (const r of data) {
     const price = Number(r.prix_unitaire_ht);
     if (!(price > 0)) continue;
 
     const dbUnit = r.unite ?? '';
     const factor = unitConversionFactor(wantedUnit, dbUnit);
-    if (factor === null) continue; // incompatible units — skip
+    if (factor === null) continue;
 
-    // Compute relevance score: how many search terms match this row's description
-    let score = 1; // base score for unit-compatible match
-    if (searchTerms && searchTerms.length > 0 && r.description) {
-      const descLower = r.description.toLowerCase();
-      score = 0;
-      for (const term of searchTerms) {
-        // For granulometry terms, also match variant separators
-        if (/^\d+\/\d+/.test(term)) {
-          const pattern = term.replace('/', '.');
-          const pattern2 = term.replace('/', '-');
-          if (descLower.includes(term) || descLower.includes(pattern) || descLower.includes(pattern2)) {
-            score++;
-          }
-        } else if (descLower.includes(term)) {
-          score++;
-        }
-      }
-    }
-
-    scored.push({
+    compatible.push({
       unit_price: price * factor,
       cfc_subcode: r.cfc_code ?? null,
-      score,
+      description: (r.description ?? '').toLowerCase(),
     });
   }
 
-  if (scored.length === 0) return null;
+  if (compatible.length === 0) return null;
 
-  // Keep only the best-scoring rows (highest keyword match count)
-  const maxScore = Math.max(...scored.map((s) => s.score));
-  const bestRows = maxScore > 0
-    ? scored.filter((s) => s.score === maxScore)
-    : scored; // if all scored 0, use everything
+  // Step 2: if the search has significant numbers (≥3 digits), filter results that contain them
+  let filtered = compatible;
+  if (searchTerms && searchTerms.length > 0) {
+    const significantNumbers = searchTerms.filter((t) => /^\d{3,}$/.test(t));
+    if (significantNumbers.length > 0) {
+      const narrowed = compatible.filter((r) =>
+        significantNumbers.some((n) => r.description.includes(n))
+      );
+      if (narrowed.length > 0) {
+        filtered = narrowed;
+      }
+    }
+  }
 
-  const rows = bestRows.map((s) => ({ unit_price: s.unit_price, cfc_subcode: s.cfc_subcode }));
+  const rows = filtered.map((r) => ({ unit_price: r.unit_price, cfc_subcode: r.cfc_subcode }));
   const match = buildPriceMatch(rows, wantedUnit);
   if (match) {
     match.cfc_code = match.cfc_code || (cfcCode ?? undefined);
