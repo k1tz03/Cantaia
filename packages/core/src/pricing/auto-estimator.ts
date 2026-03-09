@@ -96,6 +96,22 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Plafond de prix unitaire par type d'unité (CHF).
+ * Filtre les forfaits et prix aberrants qui contaminent les médianes.
+ */
+function getMaxUnitPrice(unit: string): number {
+  switch (unit?.toLowerCase()) {
+    case 'm²': case 'm2': return 2000;
+    case 'm³': case 'm3': return 1500;
+    case 'kg': return 20;
+    case 'ml': return 500;
+    case 'h': case 'heure': return 250;
+    case 't': return 1000;
+    default: return 5000;
+  }
+}
+
 // ---------- DB Price Lookup ----------
 
 interface DbPriceMatch {
@@ -140,7 +156,8 @@ async function lookupHistoricalPrice(
     }
     const { data: pData, error: pError } = await pQuery;
     if (!pError && pData && pData.length > 0) {
-      return buildPriceMatch(pData);
+      const match = buildPriceMatch(pData, item.unit);
+      if (match) return match;
     }
   }
 
@@ -163,7 +180,8 @@ async function lookupHistoricalPrice(
   }
 
   if (data && data.length > 0) {
-    return buildPriceMatch(data);
+    const match = buildPriceMatch(data, item.unit);
+    if (match) return match;
   }
 
   // Fallback: try matching by cfc_subcode if the item's specification
@@ -178,7 +196,8 @@ async function lookupHistoricalPrice(
         .eq("cfc_subcode", cfcMatch[1]);
 
       if (!cfcError && cfcData && cfcData.length > 0) {
-        return buildPriceMatch(cfcData);
+        const match = buildPriceMatch(cfcData, item.unit);
+        if (match) return match;
       }
     }
   }
@@ -187,9 +206,16 @@ async function lookupHistoricalPrice(
 }
 
 function buildPriceMatch(
-  rows: { unit_price: number; cfc_subcode: string | null }[]
-): DbPriceMatch {
-  const prices = rows.map((r) => Number(r.unit_price));
+  rows: { unit_price: number; cfc_subcode: string | null }[],
+  unit: string
+): DbPriceMatch | null {
+  const maxPrice = getMaxUnitPrice(unit);
+  const prices = rows
+    .map((r) => Number(r.unit_price))
+    .filter((p) => p > 0 && p <= maxPrice);
+
+  if (prices.length === 0) return null;
+
   const sorted = [...prices].sort((a, b) => a - b);
   const med = median(prices);
   // Pick the most common CFC code
@@ -200,7 +226,7 @@ function buildPriceMatch(
 
   return {
     unit_price: med,
-    count: rows.length,
+    count: prices.length,
     min: sorted[0],
     max: sorted[sorted.length - 1],
     median: med,
@@ -445,7 +471,7 @@ export async function estimateFromPlanAnalysis(
     onUsage
   );
 
-  // Sanity thresholds per unit type to flag absurd AI prices (Swiss construction market)
+  // Sanity thresholds per unit type — applied to ALL prices (DB + AI)
   const SANITY_THRESHOLDS: Record<string, number> = {
     pce: 20000, pcs: 20000, stk: 20000, piece: 20000,
     m2: 500, "m²": 500,
@@ -511,6 +537,23 @@ export async function estimateFromPlanAnalysis(
         db_matches: 0,
         margin_applied: 0,
       });
+    }
+  }
+
+  // ------ Step 3b: Final sanity check on ALL items (DB + AI) ------
+  for (const li of lineItems) {
+    const unitKey = li.unit.toLowerCase().replace(/[^a-z0-9²³]/g, "");
+    const threshold = SANITY_THRESHOLDS[unitKey];
+    const basePrice = li.unit_price / (marginMultiplier || 1);
+    if (threshold && basePrice > threshold) {
+      console.warn(
+        `[auto-estimator] Absurd price rejected: ${li.item} = ${round2(basePrice)} CHF/${li.unit} (threshold: ${threshold}, source: ${li.source})`
+      );
+      li.unit_price = 0;
+      li.total_price = 0;
+      li.confidence = "low";
+      li.margin_applied = 0;
+      li.source_detail = `Prix rejeté (${round2(basePrice)} CHF/${li.unit} > seuil ${threshold}) — à vérifier manuellement`;
     }
   }
 
