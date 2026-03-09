@@ -124,10 +124,12 @@ interface DbPriceMatch {
 }
 
 /**
- * Query offer_line_items for historical price data matching an item.
- * Pass 1: project-specific prices (if projectId provided).
- * Pass 2: org-wide fallback.
- * Then: cfc_subcode fallback.
+ * Query historical prices from multiple sources in priority order:
+ * Pass 1: offer_line_items — project-specific (if projectId provided)
+ * Pass 2: offer_line_items — org-wide
+ * Pass 3: ingested_offer_lines — 2500+ real supplier prices (description + CFC)
+ * Pass 4: mv_reference_prices — aggregated view by CFC code
+ * If all fail → returns null → caller falls back to AI
  */
 async function lookupHistoricalPrice(
   supabase: any,
@@ -137,69 +139,151 @@ async function lookupHistoricalPrice(
 ): Promise<DbPriceMatch | null> {
   const normalized = normalizeDescription(item.item);
   const keywords = extractKeywords(normalized);
+  const sortedByLength = keywords.length > 0
+    ? [...keywords].sort((a, b) => b.length - a.length)
+    : [];
+  const primaryKeyword = sortedByLength[0] ?? '';
 
-  if (keywords.length === 0) return null;
+  // Extract CFC code from specification if present (3-digit pattern)
+  const cfcCode = item.specification?.match(/\b(\d{3}(?:\.\d+)?)\b/)?.[1] ?? null;
 
-  const sortedByLength = [...keywords].sort((a, b) => b.length - a.length);
-  const primaryKeyword = sortedByLength[0];
-
-  // Pass 1: project-specific lookup
-  if (projectId) {
-    let pQuery = supabase
-      .from("offer_line_items")
-      .select("unit_price, cfc_subcode")
-      .eq("organization_id", organizationId)
-      .eq("project_id", projectId)
-      .ilike("normalized_description", `%${primaryKeyword}%`);
-    if (sortedByLength.length > 1) {
-      pQuery = pQuery.ilike("normalized_description", `%${sortedByLength[1]}%`);
-    }
-    const { data: pData, error: pError } = await pQuery;
-    if (!pError && pData && pData.length > 0) {
-      const match = buildPriceMatch(pData, item.unit);
-      if (match) return match;
-    }
-  }
-
-  // Pass 2: org-wide lookup
-  let query = supabase
-    .from("offer_line_items")
-    .select("unit_price, cfc_subcode")
-    .eq("organization_id", organizationId)
-    .ilike("normalized_description", `%${primaryKeyword}%`);
-
-  if (sortedByLength.length > 1) {
-    query = query.ilike("normalized_description", `%${sortedByLength[1]}%`);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error(`[auto-estimator] DB lookup error for "${item.item}":`, error.message);
-    return null;
-  }
-
-  if (data && data.length > 0) {
-    const match = buildPriceMatch(data, item.unit);
-    if (match) return match;
-  }
-
-  // Fallback: try matching by cfc_subcode if the item's specification
-  // looks like a CFC code (3-digit pattern)
-  if (item.specification) {
-    const cfcMatch = item.specification.match(/\b(\d{3})\b/);
-    if (cfcMatch) {
-      const { data: cfcData, error: cfcError } = await supabase
+  // ── Pass 1: offer_line_items — project-specific ──
+  if (projectId && primaryKeyword) {
+    try {
+      let pQuery = supabase
         .from("offer_line_items")
         .select("unit_price, cfc_subcode")
         .eq("organization_id", organizationId)
-        .eq("cfc_subcode", cfcMatch[1]);
+        .eq("project_id", projectId)
+        .ilike("normalized_description", `%${primaryKeyword}%`);
+      if (sortedByLength.length > 1) {
+        pQuery = pQuery.ilike("normalized_description", `%${sortedByLength[1]}%`);
+      }
+      const { data: pData, error: pError } = await pQuery;
+      if (!pError && pData && pData.length > 0) {
+        const match = buildPriceMatch(pData, item.unit);
+        if (match) return match;
+      }
+    } catch { /* continue */ }
+  }
 
-      if (!cfcError && cfcData && cfcData.length > 0) {
-        const match = buildPriceMatch(cfcData, item.unit);
+  // ── Pass 2: offer_line_items — org-wide ──
+  if (primaryKeyword) {
+    try {
+      let query = supabase
+        .from("offer_line_items")
+        .select("unit_price, cfc_subcode")
+        .eq("organization_id", organizationId)
+        .ilike("normalized_description", `%${primaryKeyword}%`);
+      if (sortedByLength.length > 1) {
+        query = query.ilike("normalized_description", `%${sortedByLength[1]}%`);
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        const match = buildPriceMatch(data, item.unit);
+        if (match) return match;
+      }
+    } catch { /* continue */ }
+  }
+
+  // ── Pass 3: ingested_offer_lines — 2500+ real supplier prices ──
+  try {
+    const maxPrice = getMaxUnitPrice(item.unit);
+
+    // 3a: search by description keyword
+    if (primaryKeyword) {
+      let ingestQuery = supabase
+        .from("ingested_offer_lines")
+        .select("prix_unitaire_ht, cfc_code")
+        .eq("is_forfait", false)
+        .gt("prix_unitaire_ht", 0)
+        .lt("prix_unitaire_ht", maxPrice)
+        .ilike("description", `%${primaryKeyword}%`)
+        .order("date_offre", { ascending: false })
+        .limit(20);
+
+      const { data: ingestData, error: ingestError } = await ingestQuery;
+      if (!ingestError && ingestData && ingestData.length > 0) {
+        const rows = ingestData.map((r: any) => ({
+          unit_price: Number(r.prix_unitaire_ht),
+          cfc_subcode: r.cfc_code ?? null,
+        }));
+        const match = buildPriceMatch(rows, item.unit);
+        if (match) {
+          match.cfc_code = match.cfc_code || (cfcCode ?? undefined);
+          return match;
+        }
+      }
+    }
+
+    // 3b: search by CFC code if available
+    if (cfcCode) {
+      const { data: cfcIngest, error: cfcIngestErr } = await supabase
+        .from("ingested_offer_lines")
+        .select("prix_unitaire_ht, cfc_code")
+        .eq("is_forfait", false)
+        .gt("prix_unitaire_ht", 0)
+        .lt("prix_unitaire_ht", maxPrice)
+        .eq("cfc_code", cfcCode)
+        .order("date_offre", { ascending: false })
+        .limit(20);
+
+      if (!cfcIngestErr && cfcIngest && cfcIngest.length > 0) {
+        const rows = cfcIngest.map((r: any) => ({
+          unit_price: Number(r.prix_unitaire_ht),
+          cfc_subcode: r.cfc_code ?? null,
+        }));
+        const match = buildPriceMatch(rows, item.unit);
         if (match) return match;
       }
     }
+  } catch { /* continue */ }
+
+  // ── Pass 4: mv_reference_prices — aggregated view by CFC code ──
+  if (cfcCode) {
+    try {
+      const maxPrice = getMaxUnitPrice(item.unit);
+      const { data: mvData, error: mvError } = await supabase
+        .from("mv_reference_prices")
+        .select("cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs")
+        .eq("cfc_code", cfcCode)
+        .limit(1)
+        .maybeSingle();
+
+      if (!mvError && mvData && mvData.prix_median > 0 && mvData.prix_median <= maxPrice) {
+        return {
+          unit_price: mvData.prix_median,
+          count: mvData.nb_datapoints ?? 1,
+          min: mvData.prix_p25 ?? mvData.prix_median,
+          max: mvData.prix_p75 ?? mvData.prix_median,
+          median: mvData.prix_median,
+          cfc_code: mvData.cfc_code,
+        };
+      }
+
+      // 4b: try CFC prefix (e.g. "215.3" → "215")
+      const cfcPrefix = cfcCode.split('.')[0];
+      if (cfcPrefix !== cfcCode) {
+        const { data: mvPrefix, error: mvPrefixErr } = await supabase
+          .from("mv_reference_prices")
+          .select("cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs")
+          .like("cfc_code", `${cfcPrefix}%`)
+          .order("nb_datapoints", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!mvPrefixErr && mvPrefix && mvPrefix.prix_median > 0 && mvPrefix.prix_median <= maxPrice) {
+          return {
+            unit_price: mvPrefix.prix_median,
+            count: mvPrefix.nb_datapoints ?? 1,
+            min: mvPrefix.prix_p25 ?? mvPrefix.prix_median,
+            max: mvPrefix.prix_p75 ?? mvPrefix.prix_median,
+            median: mvPrefix.prix_median,
+            cfc_code: mvPrefix.cfc_code,
+          };
+        }
+      }
+    } catch { /* continue */ }
   }
 
   return null;
