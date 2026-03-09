@@ -9,10 +9,10 @@ export function ProblemSection() {
         <AnimatedSection>
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-              Vous perdez 15 heures par semaine sur l'administratif
+              Vous passez plus de temps à trier vos emails qu'à piloter vos chantiers
             </h2>
             <p className="mt-4 text-lg text-[#6B7280]">
-              Et chaque email non traité est un risque pour votre chantier.
+              Et chaque email non traité est une décision qui glisse, une offre qui expire, un délai qui dérape.
             </p>
           </div>
         </AnimatedSection>
@@ -20,7 +20,7 @@ export function ProblemSection() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Main card — big */}
           <AnimatedSection delay={0.1}>
-            <div className="h-full rounded-xl border border-gray-200 bg-white p-8 border-l-4 border-l-[#EF4444] shadow-sm">
+            <div className="h-full rounded-xl border border-gray-200 bg-white p-8 border-l-4 border-l-[#EF4444] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EF4444]/10">
                   <svg className="w-5 h-5 text-[#EF4444]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -30,7 +30,7 @@ export function ProblemSection() {
                 <h3 className="font-display text-xl font-bold text-[#111827]">150+ emails / jour</h3>
               </div>
               <p className="text-[#6B7280] leading-relaxed">
-                12 chantiers dans une seule boîte. Chaque email non lu est une décision qui glisse. Les urgences se mélangent aux newsletters, les offres se perdent, et vous passez plus de temps à trier qu'à décider.
+                12 chantiers dans une seule boîte de réception. Les urgences se noient dans les newsletters. Vous passez plus de temps à trier qu'à décider.
               </p>
             </div>
           </AnimatedSection>
@@ -38,7 +38,7 @@ export function ProblemSection() {
           {/* 2 stacked cards */}
           <div className="flex flex-col gap-6">
             <AnimatedSection delay={0.2}>
-              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#F59E0B] shadow-sm">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#F59E0B] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F59E0B]/10">
                     <svg className="w-4.5 h-4.5 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -54,7 +54,7 @@ export function ProblemSection() {
             </AnimatedSection>
 
             <AnimatedSection delay={0.3}>
-              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#EAB308] shadow-sm">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 border-l-4 border-l-[#EAB308] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EAB308]/10">
                     <svg className="w-4.5 h-4.5 text-[#EAB308]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

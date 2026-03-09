@@ -94,10 +94,10 @@ export function FeaturesSection() {
           <AnimatedSection>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Vos emails classés par chantier en temps réel
+                Fini les 150 emails mélangés dans une seule boîte
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                Connectez Outlook ou Gmail. CANTAIA trie, classifie et priorise vos emails automatiquement.
+                Connectez Outlook ou Gmail. En 2 minutes, CANTAIA trie vos emails par projet avec 87% de précision. Le spam disparaît. Les urgences remontent.
               </p>
 
               <div className="mt-8 space-y-4">
@@ -106,9 +106,9 @@ export function FeaturesSection() {
                 <BulletPoint>Tâches extraites directement depuis vos emails</BulletPoint>
               </div>
 
-              <a href="#how-it-works" className="mt-8 inline-flex items-center gap-1 text-[#2563EB] font-medium hover:underline">
+              <a href="#how-it-works" className="group mt-8 inline-flex items-center gap-1 text-[#2563EB] font-medium hover:underline">
                 Voir comment ça marche
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>
             </div>
           </AnimatedSection>

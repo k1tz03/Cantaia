@@ -29,7 +29,7 @@ export function PricingSection() {
 
         <AnimatedSection delay={0.2}>
           <div className="mx-auto max-w-[480px]">
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-xl border-t-4 border-t-[#2563EB] overflow-hidden">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-xl border-t-4 border-t-[#2563EB] overflow-hidden transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(37,99,235,0.1)]">
               <div className="p-8">
                 <div className="text-center">
                   <h3 className="font-display text-xl font-bold text-[#111827]">CANTAIA Fondateur</h3>
@@ -55,7 +55,7 @@ export function PricingSection() {
 
                 <Link
                   href="/register"
-                  className="mt-8 block w-full rounded-lg bg-[#2563EB] py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-[#1D4ED8] hover:shadow-xl"
+                  className="mt-8 block w-full rounded-lg bg-[#2563EB] py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Essai gratuit — 14 jours
                 </Link>

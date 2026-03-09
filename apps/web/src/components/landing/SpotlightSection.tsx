@@ -87,10 +87,10 @@ export function SpotlightSection() {
           <AnimatedSection delay={0.2}>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Votre PV de séance en 5 minutes au lieu de 2 heures
+                Enregistrez la réunion. Le PV est prêt en 5 minutes.
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                Enregistrez la réunion. CANTAIA transcrit, structure et envoie le procès-verbal aux participants.
+                Plus besoin de prendre des notes pendant la séance. CANTAIA transcrit, identifie les décisions et actions, et envoie le procès-verbal structuré aux participants.
               </p>
 
               <div className="mt-8 space-y-4">

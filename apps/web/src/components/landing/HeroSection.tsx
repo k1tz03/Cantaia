@@ -117,54 +117,71 @@ function DashboardMockup() {
   );
 }
 
+const stagger = {
+  badge:    { delay: 0 },
+  title:    { delay: 0.2 },
+  subtitle: { delay: 0.4 },
+  buttons:  { delay: 0.6 },
+  trust:    { delay: 0.7 },
+};
+
+const fadeUp = (delay: number) => ({
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6, delay, ease: "easeOut" as const },
+});
+
 export function HeroSection() {
   return (
     <section className="bg-[#FAFAFA] overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-6 py-16 lg:py-24">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
-          <motion.div
-            className="lg:col-span-7"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#2563EB]">
-              <span>🇨🇭</span> Conçu en Suisse pour la construction
-            </div>
+          <div className="lg:col-span-7">
+            <motion.div {...fadeUp(stagger.badge.delay)}>
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#2563EB]">
+                <span>🇨🇭</span> Conçu en Suisse pour la construction
+              </div>
+            </motion.div>
 
-            <h1 className="mt-6 font-display text-4xl font-bold leading-[1.1] text-[#111827] sm:text-5xl lg:text-[52px]">
+            <motion.h1
+              {...fadeUp(stagger.title.delay)}
+              className="mt-6 font-display text-4xl font-bold leading-[1.1] text-[#111827] sm:text-5xl lg:text-[52px]"
+            >
               Vos emails triés.<br />
               Vos PV rédigés.<br />
               Vos prix vérifiés.
-            </h1>
+            </motion.h1>
 
-            <p className="mt-6 max-w-[520px] text-lg leading-relaxed text-[#6B7280]">
-              CANTAIA analyse vos emails de chantier, génère vos procès-verbaux et estime vos prix depuis des données réelles. Vous gagnez 2 heures par jour.
-            </p>
+            <motion.p
+              {...fadeUp(stagger.subtitle.delay)}
+              className="mt-6 max-w-[520px] text-lg leading-relaxed text-[#6B7280]"
+            >
+              Connectez Outlook. CANTAIA classe vos emails par chantier, rédige vos PV de séance et vérifie vos prix contre 2&apos;500 offres réelles. Résultat : 2 heures gagnées par jour.
+            </motion.p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/register" className="rounded-lg bg-[#2563EB] px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-[#1D4ED8] hover:shadow-xl">
+            <motion.div {...fadeUp(stagger.buttons.delay)} className="mt-8 flex flex-wrap items-center gap-4">
+              <Link href="/register" className="rounded-lg bg-[#2563EB] px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]">
                 Essai gratuit — 14 jours
               </Link>
-              <a href="#features" className="rounded-lg border border-[#E5E7EB] px-6 py-3.5 text-base font-semibold text-[#111827] transition-colors hover:bg-gray-50">
+              <a href="#features" className="rounded-lg border border-[#E5E7EB] px-6 py-3.5 text-base font-semibold text-[#111827] transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
                 Voir la démo
               </a>
-            </div>
+            </motion.div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[#6B7280]">
+            <motion.div {...fadeUp(stagger.trust.delay)} className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[#6B7280]">
               <span className="flex items-center gap-1.5"><CheckIcon /> Normes SIA</span>
               <span className="flex items-center gap-1.5"><CheckIcon /> Données en Europe</span>
               <span className="flex items-center gap-1.5"><CheckIcon /> Sans carte bancaire</span>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
 
           <motion.div
             className="lg:col-span-5"
-            initial={{ opacity: 0, x: 40 }}
+            initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
           >
-            <div className="lg:rotate-1 lg:scale-105">
+            <div className="lg:rotate-1 lg:scale-110">
               <DashboardMockup />
             </div>
           </motion.div>

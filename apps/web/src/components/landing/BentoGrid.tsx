@@ -97,10 +97,10 @@ export function FeaturePrixSection() {
           <AnimatedSection>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Des estimations basées sur des prix réels, pas sur du vent
+                Vos estimations vérifiées contre 2'500 offres réelles
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                CANTAIA compare vos prix avec 2'500+ offres fournisseurs réelles du marché suisse.
+                Chaque prix est comparé à notre base de données du marché suisse. Vous voyez d'où vient chaque chiffre — fini les estimations au doigt mouillé.
               </p>
 
               <div className="mt-8 space-y-4">
