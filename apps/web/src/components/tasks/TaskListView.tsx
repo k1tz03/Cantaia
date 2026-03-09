@@ -204,8 +204,8 @@ export function TaskListView({
               <td colSpan={7}>
                 <EmptyState
                   icon={ClipboardList}
-                  title="Aucune t\u00e2che"
-                  description="Les t\u00e2ches seront d\u00e9tect\u00e9es automatiquement dans vos emails."
+                  title="Aucune tâche"
+                  description="Les tâches seront détectées automatiquement dans vos emails."
                 />
               </td>
             </tr>

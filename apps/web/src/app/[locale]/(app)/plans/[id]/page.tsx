@@ -68,12 +68,12 @@ export default function PlanDetailPage() {
       const disc = result.discipline?.toLowerCase() || "";
       const disciplineMap: Record<string, string> = {
         architecture: "architecture", structure: "structure",
-        "gros-\u0153uvre": "structure", "gros-oeuvre": "structure",
+        "gros-œuvre": "structure", "gros-oeuvre": "structure",
         cvcs: "cvcs", cvc: "cvcs", chauffage: "cvcs", ventilation: "cvcs",
-        "\u00e9lectricit\u00e9": "electricite", electricite: "electricite", electrical: "electricite",
+        "électricité": "electricite", electricite: "electricite", electrical: "electricite",
         sanitaire: "sanitaire", plumbing: "sanitaire",
-        "fa\u00e7ades": "facades", facades: "facades",
-        "am\u00e9nagement": "amenagement", amenagement: "amenagement", paysagisme: "amenagement",
+        "façades": "facades", facades: "facades",
+        "aménagement": "amenagement", amenagement: "amenagement", paysagisme: "amenagement",
         plantation: "amenagement",
       };
       for (const [key, val] of Object.entries(disciplineMap)) {
@@ -117,7 +117,7 @@ export default function PlanDetailPage() {
       }
     } catch (err) {
       console.error("[analyze] Error:", err);
-      setAnalysisError("Erreur r\u00e9seau");
+      setAnalysisError("Erreur réseau");
     } finally {
       setAnalyzing(false);
     }
@@ -144,7 +144,7 @@ export default function PlanDetailPage() {
       }
     } catch (err) {
       console.error("[estimate-v2] Error:", err);
-      setEstimationV2Error("Erreur r\u00e9seau");
+      setEstimationV2Error("Erreur réseau");
     } finally {
       setEstimatingV2(false);
     }

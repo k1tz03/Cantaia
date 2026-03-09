@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from("tasks")
-      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, reminder, created_at, updated_at", { count: "exact" })
+      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at", { count: "exact" })
       .in("project_id", projectIds)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
