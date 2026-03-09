@@ -78,6 +78,64 @@ function extractKeywords(normalized: string): string[] {
 }
 
 /**
+ * Extract search terms from a raw description for fuzzy DB matching.
+ * Preserves accented chars and special patterns (e.g. "0/45") for ILIKE.
+ * Filters stop words common in Swiss construction descriptions.
+ */
+function extractSearchTerms(description: string): string[] {
+  const stopWords = new Set([
+    'de', 'du', 'le', 'la', 'les', 'un', 'une', 'des', 'en', 'et',
+    'ou', 'pour', 'avec', 'sans', 'par', 'sur', 'sous', 'dans',
+    'mm', 'cm', 'nr', 'type', 'selon', 'anneau', 'externe', 'interne',
+    'coeur', 'zone', 'partie', 'environ', 'env', 'inclus', 'compris',
+    'the', 'and', 'for', 'bis', 'von', 'und', 'mit', 'aus',
+  ]);
+
+  return description
+    .toLowerCase()
+    .replace(/[^a-zàâäéèêëïîôùûüç0-9/.\s-]/g, '')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w))
+    .slice(0, 5);
+}
+
+/**
+ * Normalize a unit string to a canonical form for comparison.
+ */
+function normalizeUnit(u: string): string {
+  const s = u?.toLowerCase().trim() ?? '';
+  if (s === 'm2' || s === 'm²') return 'm²';
+  if (s === 'm3' || s === 'm³') return 'm³';
+  if (s === 'ml' || s === 'm\'' || s === 'lm') return 'ml';
+  if (s === 'h' || s === 'heure' || s === 'std') return 'h';
+  if (s === 'kg' || s === 'kilo') return 'kg';
+  if (s === 't' || s === 'tonne' || s === 'to') return 't';
+  if (s === 'l' || s === 'litre') return 'l';
+  if (s === 'pce' || s === 'pcs' || s === 'stk' || s === 'piece' || s === 'stück') return 'pce';
+  if (s === 'ens' || s === 'ensemble' || s === 'gl' || s === 'forfait' || s === 'fs') return 'ens';
+  return s;
+}
+
+/** Unit conversion factors: [fromUnit][toUnit] = multiplier */
+const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
+  'm³': { 't': 1.8 },   // 1 m³ grave ≈ 1.8 t
+  't':  { 'm³': 1 / 1.8 },
+  'ml': { 'm': 1, 'm\'': 1 },
+  'm':  { 'ml': 1 },
+};
+
+/**
+ * Check if two units are compatible and return a conversion factor.
+ * Returns null if incompatible.
+ */
+function unitConversionFactor(wantedUnit: string, dbUnit: string): number | null {
+  const a = normalizeUnit(wantedUnit);
+  const b = normalizeUnit(dbUnit);
+  if (a === b) return 1;
+  return UNIT_CONVERSIONS[a]?.[b] ?? null;
+}
+
+/**
  * Compute the median of a numeric array.
  */
 function median(values: number[]): number {
@@ -186,54 +244,62 @@ async function lookupHistoricalPrice(
     } catch { /* continue */ }
   }
 
-  // ── Pass 3: ingested_offer_lines — 2500+ real supplier prices ──
+  // ── Pass 3: ingested_offer_lines — 2500+ real supplier prices (fuzzy keyword search) ──
   try {
+    const terms = extractSearchTerms(item.item);
     const maxPrice = getMaxUnitPrice(item.unit);
 
-    // 3a: search by description keyword
-    if (primaryKeyword) {
-      let ingestQuery = supabase
+    if (terms.length > 0) {
+      // Sort by length descending — longer terms are more distinctive
+      const ranked = [...terms].sort((a, b) => b.length - a.length);
+
+      // Strategy 1: top 2 keywords combined (high precision)
+      const top2 = ranked.slice(0, 2);
+      let q3 = supabase
         .from("ingested_offer_lines")
-        .select("prix_unitaire_ht, cfc_code")
+        .select("prix_unitaire_ht, unite, cfc_code, date_offre")
         .eq("is_forfait", false)
         .gt("prix_unitaire_ht", 0)
-        .lt("prix_unitaire_ht", maxPrice)
-        .ilike("description", `%${primaryKeyword}%`)
-        .order("date_offre", { ascending: false })
-        .limit(20);
+        .lte("prix_unitaire_ht", maxPrice);
+      for (const t of top2) {
+        q3 = q3.ilike("description", `%${t}%`);
+      }
+      const { data: d3a } = await q3.order("date_offre", { ascending: false }).limit(30);
 
-      const { data: ingestData, error: ingestError } = await ingestQuery;
-      if (!ingestError && ingestData && ingestData.length > 0) {
-        const rows = ingestData.map((r: any) => ({
-          unit_price: Number(r.prix_unitaire_ht),
-          cfc_subcode: r.cfc_code ?? null,
-        }));
-        const match = buildPriceMatch(rows, item.unit);
-        if (match) {
-          match.cfc_code = match.cfc_code || (cfcCode ?? undefined);
-          return match;
-        }
+      const match3a = filterByUnitAndBuild(d3a, item.unit, cfcCode);
+      if (match3a) return match3a;
+
+      // Strategy 2: single most distinctive keyword (broader)
+      if (top2.length > 1) {
+        const { data: d3b } = await supabase
+          .from("ingested_offer_lines")
+          .select("prix_unitaire_ht, unite, cfc_code, date_offre")
+          .eq("is_forfait", false)
+          .gt("prix_unitaire_ht", 0)
+          .lte("prix_unitaire_ht", maxPrice)
+          .ilike("description", `%${ranked[0]}%`)
+          .order("date_offre", { ascending: false })
+          .limit(30);
+
+        const match3b = filterByUnitAndBuild(d3b, item.unit, cfcCode);
+        if (match3b) return match3b;
       }
     }
 
-    // 3b: search by CFC code if available
+    // 3c: search by CFC code if available
     if (cfcCode) {
       const { data: cfcIngest, error: cfcIngestErr } = await supabase
         .from("ingested_offer_lines")
-        .select("prix_unitaire_ht, cfc_code")
+        .select("prix_unitaire_ht, unite, cfc_code, date_offre")
         .eq("is_forfait", false)
         .gt("prix_unitaire_ht", 0)
-        .lt("prix_unitaire_ht", maxPrice)
+        .lte("prix_unitaire_ht", maxPrice)
         .eq("cfc_code", cfcCode)
         .order("date_offre", { ascending: false })
         .limit(20);
 
       if (!cfcIngestErr && cfcIngest && cfcIngest.length > 0) {
-        const rows = cfcIngest.map((r: any) => ({
-          unit_price: Number(r.prix_unitaire_ht),
-          cfc_subcode: r.cfc_code ?? null,
-        }));
-        const match = buildPriceMatch(rows, item.unit);
+        const match = filterByUnitAndBuild(cfcIngest, item.unit, cfcCode);
         if (match) return match;
       }
     }
@@ -287,6 +353,41 @@ async function lookupHistoricalPrice(
   }
 
   return null;
+}
+
+/**
+ * Filter ingested_offer_lines results by unit compatibility,
+ * apply conversion factor, then build a DbPriceMatch.
+ */
+function filterByUnitAndBuild(
+  data: any[] | null,
+  wantedUnit: string,
+  cfcCode: string | null
+): DbPriceMatch | null {
+  if (!data || data.length === 0) return null;
+
+  const converted: { unit_price: number; cfc_subcode: string | null }[] = [];
+  for (const r of data) {
+    const price = Number(r.prix_unitaire_ht);
+    if (!(price > 0)) continue;
+
+    const dbUnit = r.unite ?? '';
+    const factor = unitConversionFactor(wantedUnit, dbUnit);
+    if (factor === null) continue; // incompatible units — skip
+
+    converted.push({
+      unit_price: price * factor,
+      cfc_subcode: r.cfc_code ?? null,
+    });
+  }
+
+  if (converted.length === 0) return null;
+
+  const match = buildPriceMatch(converted, wantedUnit);
+  if (match) {
+    match.cfc_code = match.cfc_code || (cfcCode ?? undefined);
+  }
+  return match;
 }
 
 function buildPriceMatch(
