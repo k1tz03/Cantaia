@@ -25,17 +25,27 @@ export function usePVContent(id: string) {
         const data = await res.json();
         if (data.success && data.meeting) {
           setMeeting(data.meeting);
-          if (data.meeting.pv_content) {
-            setPvContent(data.meeting.pv_content);
-            const allActions: number[] = [];
-            let idx = 0;
-            for (const section of data.meeting.pv_content.sections || []) {
-              for (const _action of section.actions || []) {
-                allActions.push(idx++);
-              }
+          // Use existing pv_content or initialize an empty structure for drafts
+          const content = data.meeting.pv_content || {
+            project_name: data.meeting.projects?.name || "",
+            project_code: data.meeting.projects?.code || "",
+            meeting_number: data.meeting.meeting_number || 1,
+            date: data.meeting.meeting_date || new Date().toISOString().split("T")[0],
+            location: data.meeting.location || "",
+            participants: data.meeting.participants || [],
+            sections: [],
+            next_meeting: "",
+            summary: "",
+          };
+          setPvContent(content);
+          const allActions: number[] = [];
+          let idx = 0;
+          for (const section of content.sections || []) {
+            for (const _action of section.actions || []) {
+              allActions.push(idx++);
             }
-            setSelectedActions(new Set(allActions));
           }
+          setSelectedActions(new Set(allActions));
         }
       } catch (err) {
         console.error("Failed to load meeting:", err);
