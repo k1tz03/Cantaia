@@ -140,8 +140,9 @@ export async function GET(request: Request) {
             .eq("id", data.user.id);
 
         } else if (linkOrgId) {
-          // Check 2: Settings flow — user connected email from within the app
-          // Validate the org exists
+          // Check 2: Settings flow — user connected email provider from within the app.
+          // The user may already exist under a DIFFERENT auth ID (email identity vs OAuth identity).
+          // We must save tokens under the ORIGINAL user to prevent split-identity issues.
           const { data: linkedOrg } = await adminClient
             .from("organizations")
             .select("id")
@@ -149,6 +150,86 @@ export async function GET(request: Request) {
             .maybeSingle();
 
           if (linkedOrg) {
+            // Find existing user with same email in this org (the ORIGINAL user)
+            const { data: originalUser } = data.user.email
+              ? await adminClient
+                  .from("users")
+                  .select("id, organization_id")
+                  .eq("email", data.user.email)
+                  .eq("organization_id", linkOrgId)
+                  .maybeSingle()
+              : { data: null };
+
+            if (originalUser && originalUser.id !== data.user.id) {
+              // Identity was NOT linked (fallback signInWithOAuth created a new auth user).
+              // Save tokens under the ORIGINAL user instead of the new OAuth user.
+              if (process.env.NODE_ENV === "development") console.log("[auth/callback] Settings flow: found original user", originalUser.id, "— will save tokens under their ID, not", data.user.id);
+
+              // Store provider tokens on the original user
+              const providerToken = data.session?.provider_token;
+              const providerRefreshToken = data.session?.provider_refresh_token;
+              if (providerToken && authProvider === "microsoft") {
+                let expiresIn = 3600;
+                try {
+                  const parts = providerToken.split(".");
+                  if (parts.length === 3) {
+                    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+                    if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
+                    else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+                  }
+                } catch { /* fallback 3600s */ }
+                const expiresAt = new Date();
+                expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
+
+                await adminClient.from("users").update({
+                  microsoft_access_token: providerToken,
+                  microsoft_refresh_token: providerRefreshToken || null,
+                  microsoft_token_expires_at: expiresAt.toISOString(),
+                  outlook_sync_enabled: true,
+                  auth_provider: authProvider,
+                } as any).eq("id", originalUser.id);
+
+                // Create email_connection under original user
+                const scopes = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
+                const { data: newConn } = await adminClient.from("email_connections").insert({
+                  user_id: originalUser.id,
+                  organization_id: linkOrgId,
+                  provider: "microsoft",
+                  oauth_access_token: providerToken,
+                  oauth_refresh_token: providerRefreshToken || null,
+                  oauth_token_expires_at: expiresAt.toISOString(),
+                  oauth_scopes: scopes,
+                  email_address: data.user.email!,
+                  display_name: data.user.user_metadata?.full_name || null,
+                  status: "active",
+                }).select("id").single();
+
+                if (newConn) {
+                  await adminClient.from("email_connections").delete()
+                    .eq("user_id", originalUser.id).neq("id", newConn.id);
+                }
+
+                if (process.env.NODE_ENV === "development") console.log("[auth/callback] Tokens saved under original user", originalUser.id);
+              }
+
+              // Clean up: delete the orphaned users row for the new OAuth user (if created)
+              await adminClient.from("users").delete().eq("id", data.user.id).neq("id", originalUser.id);
+              // Also clean up any email_connections under the OAuth user
+              await adminClient.from("email_connections").delete().eq("user_id", data.user.id);
+
+              // Redirect — the browser has a session for the OAuth user,
+              // but we stored data under the original user. The user will need
+              // to re-login with email/password to get the correct session.
+              const { data: origProfile } = await adminClient
+                .from("users")
+                .select("preferred_language")
+                .eq("id", originalUser.id)
+                .maybeSingle();
+              const origLocale = origProfile?.preferred_language || locale;
+              return NextResponse.redirect(`${origin}/${origLocale}/login?message=microsoft_linked`);
+            }
+
+            // Normal case: identities are linked (same user ID) or truly new user
             if (process.env.NODE_ENV === "development") console.log("[auth/callback] Linking to existing org via link_org:", linkOrgId);
             const metadata = data.user.user_metadata || {};
             const { error: userError } = await adminClient.from("users").upsert({

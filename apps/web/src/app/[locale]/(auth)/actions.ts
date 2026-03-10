@@ -146,17 +146,40 @@ export async function signInWithMicrosoftAction(options?: {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  // When linking from Settings/Onboarding, pass org_id so the callback reuses it
-  const callbackUrl = options?.linkToOrg
-    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`
-    : `${appUrl}/api/auth/callback`;
+  const scopes = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
+  // When linking from Settings/Onboarding, use linkIdentity to attach Azure
+  // to the CURRENT user (prevents creating a second auth user with a different ID)
+  if (options?.linkToOrg) {
+    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`;
+
+    const { data, error } = await supabase.auth.linkIdentity({
+      provider: "azure",
+      options: {
+        scopes,
+        redirectTo: callbackUrl,
+      },
+    });
+
+    if (error) {
+      // Fallback to signInWithOAuth if linking fails (e.g. identity already exists elsewhere)
+      console.warn("[auth] linkIdentity failed, falling back to signInWithOAuth:", error.message);
+      const fallback = await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: { scopes, redirectTo: callbackUrl },
+      });
+      if (fallback.error) return { error: fallback.error.message };
+      return { url: fallback.data.url };
+    }
+
+    return { url: data.url };
+  }
+
+  // Login page: full OAuth sign-in (creates or reuses Azure auth user)
+  const callbackUrl = `${appUrl}/api/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "azure",
-    options: {
-      scopes: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
-      redirectTo: callbackUrl,
-    },
+    options: { scopes, redirectTo: callbackUrl },
   });
 
   if (error) {
@@ -176,19 +199,46 @@ export async function signInWithGoogleAction(options?: {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  const callbackUrl = options?.linkToOrg
-    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`
-    : `${appUrl}/api/auth/callback`;
+  const scopes = "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify";
 
+  // When linking from Settings, use linkIdentity to attach Google to the CURRENT user
+  if (options?.linkToOrg) {
+    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`;
+
+    const { data, error } = await supabase.auth.linkIdentity({
+      provider: "google",
+      options: {
+        scopes,
+        redirectTo: callbackUrl,
+        queryParams: { access_type: "offline", prompt: "consent" },
+      },
+    });
+
+    if (error) {
+      console.warn("[auth] linkIdentity failed, falling back to signInWithOAuth:", error.message);
+      const fallback = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          scopes,
+          redirectTo: callbackUrl,
+          queryParams: { access_type: "offline", prompt: "consent" },
+        },
+      });
+      if (fallback.error) return { error: fallback.error.message };
+      return { url: fallback.data.url };
+    }
+
+    return { url: data.url };
+  }
+
+  // Login page: full OAuth sign-in
+  const callbackUrl = `${appUrl}/api/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      scopes: "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
+      scopes,
       redirectTo: callbackUrl,
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
-      },
+      queryParams: { access_type: "offline", prompt: "consent" },
     },
   });
 
