@@ -507,13 +507,13 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               </p>
               <p className="text-xs text-slate-400">{email.sender_email}</p>
             </div>
-            {email.recipients.length > 0 && (
+            {(email.recipients?.length ?? 0) > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   {t("recipients")}
                 </p>
                 <p className="text-xs text-slate-600">
-                  {email.recipients.join(", ")}
+                  {email.recipients?.join(", ")}
                 </p>
               </div>
             )}
