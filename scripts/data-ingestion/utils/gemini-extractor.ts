@@ -26,9 +26,9 @@ export async function extractWithGemini(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await model.generateContent([
-        { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userContent }] },
-      ]);
+      const result = await model.generateContent(
+        systemPrompt + '\n\n' + userContent
+      );
       return result.response.text();
     } catch (error: any) {
       if (error.status === 429 && attempt < maxRetries) {
