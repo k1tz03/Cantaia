@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
  * POST /api/email/[id]/move
@@ -49,15 +50,10 @@ export async function POST(
     return NextResponse.json({ error: "No provider message ID" }, { status: 400 });
   }
 
-  // Get Microsoft token
-  const { data: userRow } = await (admin as any)
-    .from("users")
-    .select("microsoft_access_token")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!(userRow as any)?.microsoft_access_token) {
-    return NextResponse.json({ error: "No Microsoft connection" }, { status: 400 });
+  // Get valid Microsoft token (auto-refreshes if expired)
+  const tokenResult = await getValidMicrosoftToken(user.id);
+  if (tokenResult.error) {
+    return NextResponse.json({ error: tokenResult.error }, { status: 400 });
   }
 
   try {
@@ -66,7 +62,7 @@ export async function POST(
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${(userRow as any).microsoft_access_token}`,
+          Authorization: `Bearer ${tokenResult.accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ destinationId: body.folder_id }),

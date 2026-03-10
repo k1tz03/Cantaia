@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
  * GET /api/email/folders
@@ -18,22 +18,14 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-
-  // Get user's Microsoft token
-  const { data: userRow } = await (admin as any)
-    .from("users")
-    .select("microsoft_access_token, microsoft_token_expires_at")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.microsoft_access_token) {
-    return NextResponse.json({ error: "No Microsoft connection" }, { status: 400 });
+  const tokenResult = await getValidMicrosoftToken(user.id);
+  if (tokenResult.error) {
+    return NextResponse.json({ error: tokenResult.error }, { status: 400 });
   }
 
   try {
     const res = await fetch("https://graph.microsoft.com/v1.0/me/mailFolders?$top=100", {
-      headers: { Authorization: `Bearer ${userRow.microsoft_access_token}` },
+      headers: { Authorization: `Bearer ${tokenResult.accessToken}` },
     });
 
     if (!res.ok) {
@@ -77,16 +69,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-
-  const { data: userRow } = await (admin as any)
-    .from("users")
-    .select("microsoft_access_token")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.microsoft_access_token) {
-    return NextResponse.json({ error: "No Microsoft connection" }, { status: 400 });
+  const tokenResult = await getValidMicrosoftToken(user.id);
+  if (tokenResult.error) {
+    return NextResponse.json({ error: tokenResult.error }, { status: 400 });
   }
 
   try {
@@ -97,7 +82,7 @@ export async function POST(request: NextRequest) {
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${userRow.microsoft_access_token}`,
+        Authorization: `Bearer ${tokenResult.accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ displayName: body.name }),

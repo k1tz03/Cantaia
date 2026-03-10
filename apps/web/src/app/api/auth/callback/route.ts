@@ -102,11 +102,41 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (existingUser) {
-          // Known user, just update auth provider columns
+          // Known user — update auth provider + refresh Microsoft tokens if present
           if (process.env.NODE_ENV === "development") console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
+          const updatePayload: Record<string, unknown> = {
+            auth_provider: authProvider,
+            auth_provider_id: identity?.id || null,
+          };
+
+          // Re-save provider tokens so they stay fresh after each login
+          const providerTokenForExisting = data.session?.provider_token;
+          const providerRefreshForExisting = data.session?.provider_refresh_token;
+          if (providerTokenForExisting && authProvider === "microsoft") {
+            let expiresIn = 3600;
+            try {
+              const parts = providerTokenForExisting.split(".");
+              if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+                if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
+                else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+              }
+            } catch { /* fallback 3600s */ }
+            const expiresAt = new Date();
+            expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
+
+            updatePayload.microsoft_access_token = providerTokenForExisting;
+            updatePayload.microsoft_token_expires_at = expiresAt.toISOString();
+            updatePayload.outlook_sync_enabled = true;
+            if (providerRefreshForExisting) {
+              updatePayload.microsoft_refresh_token = providerRefreshForExisting;
+            }
+            if (process.env.NODE_ENV === "development") console.log("[auth/callback] Refreshed Microsoft tokens for existing user");
+          }
+
           await adminClient
             .from("users")
-            .update({ auth_provider: authProvider, auth_provider_id: identity?.id || null } as any)
+            .update(updatePayload as any)
             .eq("id", data.user.id);
 
         } else if (linkOrgId) {

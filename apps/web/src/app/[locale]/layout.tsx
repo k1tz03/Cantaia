@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
+import CookieConsent from "@/components/CookieConsent";
 import "../globals.css";
 
 const inter = Inter({
@@ -97,6 +98,7 @@ export default async function LocaleLayout({
           <NextIntlClientProvider messages={messages}>
             {children}
             <Toaster position="bottom-right" richColors closeButton />
+            <CookieConsent />
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>
