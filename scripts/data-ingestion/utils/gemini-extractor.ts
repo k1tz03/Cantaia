@@ -17,7 +17,7 @@ export async function extractWithGemini(
   }
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-001',
+    model: 'gemini-1.5-flash',
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 4096,
