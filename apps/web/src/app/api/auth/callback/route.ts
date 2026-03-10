@@ -33,6 +33,8 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/dashboard";
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
+  // link_user is the ID of the user who initiated the connection (may differ from OAuth user)
+  const linkUserId = searchParams.get("link_user");
 
   if (process.env.NODE_ENV === "development") console.log("[auth/callback] Received callback:", {
     hasCode: !!code,
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
     origin,
     next,
     linkOrgId,
+    linkUserId,
   });
 
   // Detect locale from the URL path or referrer (defaults to "fr")
@@ -150,15 +153,34 @@ export async function GET(request: Request) {
             .maybeSingle();
 
           if (linkedOrg) {
-            // Find existing user with same email in this org (the ORIGINAL user)
-            const { data: originalUser } = data.user.email
-              ? await adminClient
-                  .from("users")
-                  .select("id, organization_id")
-                  .eq("email", data.user.email)
-                  .eq("organization_id", linkOrgId)
-                  .maybeSingle()
-              : { data: null };
+            // Find the ORIGINAL user who initiated the connection.
+            // Priority: link_user param (explicit ID) > email match in org (fallback)
+            let originalUser: { id: string; organization_id: string | null } | null = null;
+
+            if (linkUserId && linkUserId !== data.user.id) {
+              // Explicit user ID passed — use it directly (handles different emails)
+              const { data: userById } = await adminClient
+                .from("users")
+                .select("id, organization_id")
+                .eq("id", linkUserId)
+                .eq("organization_id", linkOrgId)
+                .maybeSingle();
+              originalUser = userById;
+              if (process.env.NODE_ENV === "development") console.log("[auth/callback] link_user lookup:", linkUserId, "found:", !!userById);
+            }
+
+            if (!originalUser && data.user.email) {
+              // Fallback: match by email in the same org
+              const { data: userByEmail } = await adminClient
+                .from("users")
+                .select("id, organization_id")
+                .eq("email", data.user.email)
+                .eq("organization_id", linkOrgId)
+                .maybeSingle();
+              if (userByEmail && userByEmail.id !== data.user.id) {
+                originalUser = userByEmail;
+              }
+            }
 
             if (originalUser && originalUser.id !== data.user.id) {
               // Identity was NOT linked (fallback signInWithOAuth created a new auth user).

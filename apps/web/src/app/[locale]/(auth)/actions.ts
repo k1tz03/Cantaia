@@ -151,7 +151,11 @@ export async function signInWithMicrosoftAction(options?: {
   // When linking from Settings/Onboarding, use linkIdentity to attach Azure
   // to the CURRENT user (prevents creating a second auth user with a different ID)
   if (options?.linkToOrg) {
-    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`;
+    // Get current user ID so the callback knows who initiated the connection
+    // (critical when OAuth email differs from login email)
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const linkUserId = currentUser?.id || "";
+    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&link_user=${linkUserId}&next=${options.next || "/settings"}`;
 
     const { data, error } = await supabase.auth.linkIdentity({
       provider: "azure",
@@ -203,7 +207,11 @@ export async function signInWithGoogleAction(options?: {
 
   // When linking from Settings, use linkIdentity to attach Google to the CURRENT user
   if (options?.linkToOrg) {
-    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`;
+    // Pass current user ID so the callback can save tokens under the correct user
+    // even when the OAuth email differs from the login email
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const linkUserId = currentUser?.id || "";
+    const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&link_user=${linkUserId}&next=${options.next || "/settings"}`;
 
     const { data, error } = await supabase.auth.linkIdentity({
       provider: "google",
