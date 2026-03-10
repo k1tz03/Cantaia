@@ -19,11 +19,11 @@ export default function GlobalError({
       <body>
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb" }}>
           <div style={{ textAlign: "center", padding: "2rem", maxWidth: "400px" }}>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#111827", marginBottom: "1rem" }}>
-              Something went wrong
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#111827", marginBottom: "1rem", fontFamily: "Plus Jakarta Sans, sans-serif" }}>
+              Une erreur est survenue
             </h2>
-            <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>
-              {error.message || "An unexpected error occurred."}
+            <p style={{ color: "#6b7280", marginBottom: "1.5rem", fontFamily: "Plus Jakarta Sans, sans-serif" }}>
+              Notre équipe a été notifiée automatiquement.
             </p>
             <button
               onClick={reset}
@@ -35,9 +35,10 @@ export default function GlobalError({
                 border: "none",
                 cursor: "pointer",
                 fontSize: "0.875rem",
+                fontFamily: "Plus Jakarta Sans, sans-serif",
               }}
             >
-              Try again
+              Réessayer
             </button>
           </div>
         </div>
