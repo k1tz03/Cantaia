@@ -28,6 +28,21 @@ export async function loginAction(formData: {
   }
 
   const locale = await getLocale();
+
+  // Check onboarding status
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const adminClient = createAdminClient();
+    const { data: profile } = await (adminClient as any)
+      .from("users")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile && (profile as any).onboarding_completed === false) {
+      return { success: true, redirectTo: `/${locale}/onboarding` };
+    }
+  }
+
   return { success: true, redirectTo: `/${locale}/dashboard` };
 }
 
@@ -123,6 +138,7 @@ export async function forgotPasswordAction(formData: {
 
 export async function signInWithMicrosoftAction(options?: {
   linkToOrg?: string;
+  next?: string;
 }): Promise<{
   url?: string;
   error?: string;
@@ -130,9 +146,9 @@ export async function signInWithMicrosoftAction(options?: {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  // When linking from Settings, pass org_id so the callback reuses it
+  // When linking from Settings/Onboarding, pass org_id so the callback reuses it
   const callbackUrl = options?.linkToOrg
-    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=/settings`
+    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`
     : `${appUrl}/api/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -152,6 +168,7 @@ export async function signInWithMicrosoftAction(options?: {
 
 export async function signInWithGoogleAction(options?: {
   linkToOrg?: string;
+  next?: string;
 }): Promise<{
   url?: string;
   error?: string;
@@ -160,7 +177,7 @@ export async function signInWithGoogleAction(options?: {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const callbackUrl = options?.linkToOrg
-    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=/settings`
+    ? `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&next=${options.next || "/settings"}`
     : `${appUrl}/api/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({

@@ -350,18 +350,25 @@ export async function GET(request: Request) {
 
         // ────────────────────────────────────────────────────────────────
         // REDIRECT: Use preferred language, redirect to target page
+        // If onboarding not completed, redirect to /onboarding instead
         // ────────────────────────────────────────────────────────────────
         let userLocale = locale;
-        const { data: profile } = await adminClient
+        const { data: profile } = await (adminClient as any)
           .from("users")
-          .select("preferred_language")
+          .select("preferred_language, onboarding_completed")
           .eq("id", data.user.id)
           .maybeSingle();
         if (profile?.preferred_language) {
           userLocale = profile.preferred_language;
         }
 
-        const redirectUrl = `${origin}/${userLocale}${next}`;
+        // Redirect to onboarding if not completed (unless already heading there)
+        let finalNext = next;
+        if (profile && (profile as any).onboarding_completed === false && !next.includes("onboarding")) {
+          finalNext = "/onboarding";
+        }
+
+        const redirectUrl = `${origin}/${userLocale}${finalNext}`;
         if (process.env.NODE_ENV === "development") console.log("[auth/callback] Redirecting to:", redirectUrl);
         return NextResponse.redirect(redirectUrl);
       }

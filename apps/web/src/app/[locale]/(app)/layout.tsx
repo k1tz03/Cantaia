@@ -4,12 +4,14 @@ import { Sidebar } from "@/components/app/Sidebar";
 import { AppEmailProvider } from "@/components/providers/AppEmailProvider";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { OnboardingChecklist } from "@/components/app/OnboardingChecklist";
+import { OnboardingGuard } from "@/components/app/OnboardingGuard";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <BrandingProvider>
         <AppEmailProvider>
+          <OnboardingGuard />
           <div className="flex min-h-screen bg-white">
             <Sidebar />
             <main className="flex-1 overflow-auto pb-20 lg:pb-0">

@@ -27,6 +27,7 @@ const protectedPaths = [
   "/pricing-intelligence",
   "/plans",
   "/visits",
+  "/onboarding",
 ];
 
 function isProtectedPath(pathname: string): boolean {
