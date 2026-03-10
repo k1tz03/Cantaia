@@ -90,59 +90,21 @@ export async function GET(request: Request) {
         // ────────────────────────────────────────────────────────────────
         // ORGANIZATION RESOLUTION: Find the right org for this user
         // Priority:
-        //   1. Existing user row with same auth ID → reuse org
-        //   2. link_org parameter (from Settings connection flow) → reuse specified org
+        //   1. link_org parameter (from Settings connection flow) → highest priority
+        //   2. Existing user row with same auth ID → reuse org
         //   3. Existing user row with same email → reuse org + migrate data
         //   4. email_connections with same email → reuse org (user connecting with provider email)
         //   5. Create new org (truly first-time user)
         // ────────────────────────────────────────────────────────────────
 
-        // Check 1: User exists by auth ID
+        // Check 1: User exists by auth ID (needed by multiple branches)
         const { data: existingUser } = await adminClient
           .from("users")
           .select("id, organization_id")
           .eq("id", data.user.id)
           .maybeSingle();
 
-        if (existingUser) {
-          // Known user — update auth provider + refresh Microsoft tokens if present
-          if (process.env.NODE_ENV === "development") console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
-          const updatePayload: Record<string, unknown> = {
-            auth_provider: authProvider,
-            auth_provider_id: identity?.id || null,
-          };
-
-          // Re-save provider tokens so they stay fresh after each login
-          const providerTokenForExisting = data.session?.provider_token;
-          const providerRefreshForExisting = data.session?.provider_refresh_token;
-          if (providerTokenForExisting && authProvider === "microsoft") {
-            let expiresIn = 3600;
-            try {
-              const parts = providerTokenForExisting.split(".");
-              if (parts.length === 3) {
-                const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-                if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
-                else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
-              }
-            } catch { /* fallback 3600s */ }
-            const expiresAt = new Date();
-            expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
-
-            updatePayload.microsoft_access_token = providerTokenForExisting;
-            updatePayload.microsoft_token_expires_at = expiresAt.toISOString();
-            updatePayload.outlook_sync_enabled = true;
-            if (providerRefreshForExisting) {
-              updatePayload.microsoft_refresh_token = providerRefreshForExisting;
-            }
-            if (process.env.NODE_ENV === "development") console.log("[auth/callback] Refreshed Microsoft tokens for existing user");
-          }
-
-          await adminClient
-            .from("users")
-            .update(updatePayload as any)
-            .eq("id", data.user.id);
-
-        } else if (linkOrgId) {
+        if (linkOrgId) {
           // Check 2: Settings flow — user connected email provider from within the app.
           // The user may already exist under a DIFFERENT auth ID (email identity vs OAuth identity).
           // We must save tokens under the ORIGINAL user to prevent split-identity issues.
@@ -271,6 +233,42 @@ export async function GET(request: Request) {
           } else {
             if (process.env.NODE_ENV === "development") console.warn("[auth/callback] link_org not found:", linkOrgId, "— falling through to creation");
           }
+
+        } else if (existingUser) {
+          // Check 2: Known user by auth ID — update auth provider + refresh tokens
+          if (process.env.NODE_ENV === "development") console.log("[auth/callback] Existing user found, org:", existingUser.organization_id);
+          const updatePayload: Record<string, unknown> = {
+            auth_provider: authProvider,
+            auth_provider_id: identity?.id || null,
+          };
+
+          const providerTokenForExisting = data.session?.provider_token;
+          const providerRefreshForExisting = data.session?.provider_refresh_token;
+          if (providerTokenForExisting && authProvider === "microsoft") {
+            let expiresIn = 3600;
+            try {
+              const parts = providerTokenForExisting.split(".");
+              if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+                if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
+                else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+              }
+            } catch { /* fallback 3600s */ }
+            const expiresAt = new Date();
+            expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
+
+            updatePayload.microsoft_access_token = providerTokenForExisting;
+            updatePayload.microsoft_token_expires_at = expiresAt.toISOString();
+            updatePayload.outlook_sync_enabled = true;
+            if (providerRefreshForExisting) {
+              updatePayload.microsoft_refresh_token = providerRefreshForExisting;
+            }
+          }
+
+          await adminClient
+            .from("users")
+            .update(updatePayload as any)
+            .eq("id", data.user.id);
 
         } else {
           // Check 3: User with same email under different auth ID
