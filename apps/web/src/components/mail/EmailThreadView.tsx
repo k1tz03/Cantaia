@@ -12,6 +12,25 @@ import {
 } from "lucide-react";
 import type { EmailRecord } from "@cantaia/database";
 
+function stripSignature(text: string): string {
+  if (!text) return "";
+  const patterns = [
+    /[Mm]eilleures salutations[\s\S]*/,
+    /[Cc]ordialement[\s\S]*/,
+    /[Bb]est regards[\s\S]*/,
+    /[Mm]it freundlichen[\s\S]*/,
+    /[Rr]estant à votre disposition[\s\S]*/,
+    /\n--\n[\s\S]*/,
+    /^(\+41|\+33).*/m,
+  ];
+  let cleaned = text;
+  for (const p of patterns) {
+    const idx = cleaned.search(p);
+    if (idx > 0) cleaned = cleaned.substring(0, idx);
+  }
+  return cleaned.replace(/\s+/g, " ").trim().substring(0, 100);
+}
+
 interface EmailThreadViewProps {
   email: EmailRecord;
   onSelectEmail: (email: EmailRecord) => void;
@@ -111,7 +130,7 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
                         </span>
                       </div>
                       <p className="truncate text-[11px] text-slate-400">
-                        {te.body_preview || te.subject}
+                        {stripSignature(te.body_preview || "") || te.subject}
                       </p>
                     </div>
                   </button>

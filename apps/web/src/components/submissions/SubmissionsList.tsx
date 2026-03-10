@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useTranslations } from "next-intl";
 import {
@@ -36,6 +36,21 @@ export function SubmissionsList({
 }) {
   const t = useTranslations("products.submissions");
   const tCommon = useTranslations("common");
+
+  // Deduplicate submissions by source_filename, keep most recent
+  const deduped = useMemo(() => {
+    const seen = new Map<string, SavedSubmission>();
+    for (const sub of submissions) {
+      const key = sub.source_filename || sub.name;
+      const existing = seen.get(key);
+      if (!existing || new Date(sub.created_at) > new Date(existing.created_at)) {
+        seen.set(key, sub);
+      }
+    }
+    return Array.from(seen.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [submissions]);
 
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -154,7 +169,7 @@ export function SubmissionsList({
             {t("title")}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {t("subtitle_count", { count: submissions.length })}
+            {t("subtitle_count", { count: deduped.length })}
           </p>
         </div>
 
@@ -267,7 +282,7 @@ export function SubmissionsList({
               />
             ))}
           </div>
-        ) : submissions.length === 0 ? (
+        ) : deduped.length === 0 ? (
           <div className="flex flex-col items-center py-10 text-center">
             <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
               <FileSpreadsheet className="h-7 w-7 text-gray-300" />
@@ -285,7 +300,7 @@ export function SubmissionsList({
               {t("history")}
             </h2>
 
-            {submissions.map((sub) => (
+            {deduped.map((sub) => (
               <div
                 key={sub.id}
                 className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-brand/30 hover:bg-gray-50/50 transition-all group"

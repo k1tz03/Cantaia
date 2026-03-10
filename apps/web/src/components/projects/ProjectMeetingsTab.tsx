@@ -30,7 +30,7 @@ export function ProjectMeetingsTab({
       </div>
       {meetings.length > 0 ? (
         <div className="mt-3 space-y-2">
-          {meetings.map((meeting) => {
+          {[...meetings].sort((a: any, b: any) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()).map((meeting) => {
             const actionsCount = meeting.pv_content?.sections?.reduce(
               (total: number, s: any) => total + (s.actions?.length || 0),
               0
@@ -74,9 +74,7 @@ export function ProjectMeetingsTab({
                       <Clock className="h-3 w-3" />
                       {formatDate(meeting.meeting_date)}
                     </span>
-                    {actionsCount > 0 && (
-                      <span>{actionsCount} action{actionsCount > 1 ? "s" : ""}</span>
-                    )}
+                    <span>{actionsCount} action{actionsCount !== 1 ? "s" : ""}</span>
                   </div>
                 </div>
                 <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[meeting.status] || "bg-gray-100 text-gray-700"}`}>

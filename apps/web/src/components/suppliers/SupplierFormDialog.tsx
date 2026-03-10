@@ -350,7 +350,7 @@ export function SupplierFormDialog({
               {/* Specialties (multi-select checkboxes) */}
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">
-                  Specialites
+                  Spécialités
                 </label>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-1.5">
                   {SUPPLIER_SPECIALTIES.map((sp) => (

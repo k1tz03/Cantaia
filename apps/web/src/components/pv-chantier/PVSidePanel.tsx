@@ -23,7 +23,7 @@ export function PVSidePanel({
   const t = useTranslations("pv");
   const [activeTab, setActiveTab] = useState<
     "transcription" | "actions" | "audio"
-  >("transcription");
+  >("actions");
 
   return (
     <div className="hidden w-[35%] border-l border-gray-200 bg-gray-50 lg:flex lg:flex-col">

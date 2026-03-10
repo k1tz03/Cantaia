@@ -180,7 +180,9 @@ export function AnalysisTab({
                       <td className="px-3 py-2.5 text-center">
                         <span className={cn(
                           "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          item.price_spread_percent > 50
+                          item.data_points < 3
+                            ? "bg-gray-50 text-gray-400"
+                            : item.price_spread_percent > 50
                             ? "bg-amber-50 text-amber-700"
                             : item.price_spread_percent > 20
                             ? "bg-blue-50 text-blue-700"

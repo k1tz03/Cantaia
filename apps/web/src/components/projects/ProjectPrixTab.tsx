@@ -40,17 +40,26 @@ export function ProjectPrixTab({
           <div className="space-y-3">
             {benchmark.map((group: any, idx: number) => {
               const prices = group.suppliers || [];
-              const minPrice = prices.length > 0 ? Math.min(...prices.map((s: any) => s.unit_price)) : 0;
-              const maxPrice = prices.length > 0 ? Math.max(...prices.map((s: any) => s.unit_price)) : 0;
+              const seen = new Set<string>();
+              const uniquePrices = prices.filter((s: any) => {
+                const key = `${s.supplier_name}::${s.unit_price}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              const uniqueSupplierNames = new Set(uniquePrices.map((s: any) => s.supplier_name));
+              const showBestPrice = uniqueSupplierNames.size >= 2;
+              const minPrice = uniquePrices.length > 0 ? Math.min(...uniquePrices.map((s: any) => s.unit_price)) : 0;
+              const maxPrice = uniquePrices.length > 0 ? Math.max(...uniquePrices.map((s: any) => s.unit_price)) : 0;
               return (
                 <div key={idx} className="rounded-md border border-slate-200 p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-medium text-slate-800">{group.display_description || group.description}</h4>
-                    <span className="text-xs text-slate-500">{group.unit_normalized || group.unit} — {prices.length} {t("suppliers")}</span>
+                    <span className="text-xs text-slate-500">{group.unit_normalized || group.unit} — {uniquePrices.length} {t("suppliers")}</span>
                   </div>
-                  {prices.length > 0 && (
+                  {uniquePrices.length > 0 && (
                     <div className="space-y-1.5">
-                      {prices
+                      {uniquePrices
                         .sort((a: any, b: any) => a.unit_price - b.unit_price)
                         .map((supplier: any, sIdx: number) => {
                           const pct = maxPrice > 0 ? (supplier.unit_price / maxPrice) * 100 : 0;
@@ -61,21 +70,23 @@ export function ProjectPrixTab({
                               <span className="w-32 truncate text-slate-600">{supplier.supplier_name}</span>
                               <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
                                 <div
-                                  className={cn("h-full rounded-full", isBest ? "bg-green-500" : "bg-amber-400")}
+                                  className={cn("h-full rounded-full", isBest && showBestPrice ? "bg-green-500" : "bg-amber-400")}
                                   style={{ width: `${pct}%` }}
                                 />
                               </div>
                               <span className="w-24 text-right font-medium text-slate-700">
                                 {supplier.unit_price.toFixed(2)} CHF
                               </span>
-                              {isBest ? (
+                              {isBest && showBestPrice ? (
                                 <span className="w-20 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full text-center">
                                   {t("bestPrice")}
                                 </span>
-                              ) : (
+                              ) : !isBest ? (
                                 <span className="w-20 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full text-center">
                                   +{overPercent}%
                                 </span>
+                              ) : (
+                                <span className="w-20" />
                               )}
                             </div>
                           );

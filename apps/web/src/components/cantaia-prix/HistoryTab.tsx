@@ -10,6 +10,7 @@ import {
   Eye,
   Database,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import {
@@ -30,6 +31,7 @@ interface HistoryTabProps {
   setHistoryDetail: (detail: any | null) => void;
   openHistoryDetail: (estimateId: string) => void;
   setActiveTab: (tab: Tab) => void;
+  onDeleteEstimate?: (estimateId: string) => void;
 }
 
 export function HistoryTab({
@@ -40,7 +42,10 @@ export function HistoryTab({
   setHistoryDetail,
   openHistoryDetail,
   setActiveTab,
+  onDeleteEstimate,
 }: HistoryTabProps) {
+  const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
+
   return (
     <div>
       {/* Detail view */}
@@ -292,7 +297,7 @@ export function HistoryTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {history.map((item: any) => (
+              {history.filter((item: any) => !item.grand_total || item.grand_total < 500000).map((item: any) => (
                 <tr
                   key={item.id}
                   onClick={() => openHistoryDetail(item.id)}
@@ -330,12 +335,46 @@ export function HistoryTab({
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <Eye className="h-4 w-4 text-slate-400" />
+                    <div className="flex items-center justify-center gap-2">
+                      <Eye className="h-4 w-4 text-slate-400" />
+                      {onDeleteEstimate && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(item.id); }}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {deleteTarget && onDeleteEstimate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Supprimer cette estimation ?</h3>
+            <p className="text-sm text-gray-600 mb-4">Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { onDeleteEstimate(deleteTarget); setDeleteTarget(null); }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

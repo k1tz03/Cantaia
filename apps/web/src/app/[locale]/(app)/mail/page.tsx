@@ -29,6 +29,25 @@ import { EmailDetailPanel } from "@/components/app/EmailDetailPanel";
 import { useEmailKeyboardShortcuts } from "@/hooks/useEmailKeyboardShortcuts";
 import { useRouter } from "next/navigation";
 
+function stripSignature(text: string): string {
+  if (!text) return "";
+  const patterns = [
+    /[Mm]eilleures salutations[\s\S]*/,
+    /[Cc]ordialement[\s\S]*/,
+    /[Bb]est regards[\s\S]*/,
+    /[Mm]it freundlichen[\s\S]*/,
+    /[Rr]estant à votre disposition[\s\S]*/,
+    /\n--\n[\s\S]*/,
+    /^(\+41|\+33).*/m,
+  ];
+  let cleaned = text;
+  for (const p of patterns) {
+    const idx = cleaned.search(p);
+    if (idx > 0) cleaned = cleaned.substring(0, idx);
+  }
+  return cleaned.replace(/\s+/g, " ").trim().substring(0, 100);
+}
+
 type TabKey = "inbox" | "processed" | "snoozed";
 
 const TAB_CONFIG: Record<TabKey, { icon: React.ElementType; color: string }> = {
@@ -763,7 +782,7 @@ function EmailListItem({
         {/* Row 3: Preview + badges */}
         <div className="mt-0.5 flex items-center gap-1.5">
           <p className="min-w-0 flex-1 truncate text-xs text-[#9CA3AF]">
-            {email.body_preview || ""}
+            {stripSignature(email.body_preview || "")}
           </p>
           <div className="flex shrink-0 items-center gap-1">
             {email.has_attachments && (

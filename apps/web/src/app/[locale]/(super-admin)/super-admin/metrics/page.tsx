@@ -8,6 +8,8 @@ interface PlatformMetrics {
   totalOrgs: number;
   totalEmails: number;
   totalPlans: number;
+  totalPlanUploaded: number;
+  totalPlanIngested: number;
   totalPvs: number;
   totalTasks: number;
   totalSuppliers: number;
@@ -36,7 +38,7 @@ export default function SuperAdminMetricsPage() {
 
   const cards = [
     { label: "Emails traités", value: metrics?.totalEmails || 0, icon: Mail, color: "blue" },
-    { label: "Plans analysés", value: metrics?.totalPlans || 0, icon: Map, color: "emerald" },
+    { label: `Plans analysés (${metrics?.totalPlanUploaded || 0} UI + ${metrics?.totalPlanIngested || 0} ingérés)`, value: metrics?.totalPlans || 0, icon: Map, color: "emerald" },
     { label: "PVs générés", value: metrics?.totalPvs || 0, icon: FileText, color: "violet" },
     { label: "Tâches créées", value: metrics?.totalTasks || 0, icon: CheckSquare, color: "amber" },
     { label: "Fournisseurs", value: metrics?.totalSuppliers || 0, icon: Truck, color: "rose" },

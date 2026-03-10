@@ -80,7 +80,7 @@ export default function DashboardPage() {
             <Link
               key={stat.href}
               href={stat.href}
-              className="flex items-center gap-4 rounded-xl border border-[#E5E7EB] bg-white p-5 transition-all hover:shadow-md hover:border-gray-300"
+              className="flex items-center gap-4 rounded-xl border border-[#E5E7EB] bg-white p-5 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-blue-200"
             >
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.iconBg}`}>
                 <Icon className={`h-5 w-5 ${stat.iconColor}`} />

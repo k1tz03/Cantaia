@@ -415,8 +415,6 @@ export default function SuppliersPage() {
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("companyName")}</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("specialties")}</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("geoZone")}</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("score")}</th>
-                      <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("responseRate")}</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">{t("status")}</th>
                     </tr>
                   </thead>
@@ -468,15 +466,6 @@ export default function SuppliersPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">{supplier.geo_zone || "\u2014"}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`text-sm font-semibold ${getScoreColor(supplier.overall_score)}`}>
-                              {Math.round(supplier.overall_score)}
-                            </span>
-                            <span className="text-xs text-gray-400">/100</span>
-                          </td>
-                          <td className="px-4 py-3 text-center text-sm text-gray-600">
-                            {Math.round(supplier.response_rate)}%
-                          </td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.color}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dotColor}`} />

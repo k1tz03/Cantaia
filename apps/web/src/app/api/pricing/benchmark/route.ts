@@ -122,6 +122,11 @@ export async function GET(request: Request) {
         };
       }
 
+      // Pick up cfc_subcode from later items if the first was null
+      if (!groups[key].cfc_subcode && li.cfc_subcode) {
+        groups[key].cfc_subcode = li.cfc_subcode;
+      }
+
       const price = Number(li.unit_price);
       if (price > 0) {
         groups[key].prices.push(price);

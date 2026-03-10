@@ -472,7 +472,6 @@ export default function ProjectsPage() {
                 <TableHeader col="emails" label={t("colEmails")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="tasks" label={t("colTasks")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="overdue" label={t("colOverdue")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
-                <th className="hidden lg:table-cell px-3 py-2 font-medium text-gray-500">{t("colNextMeeting")}</th>
               </tr>
             </thead>
             <tbody>
@@ -518,9 +517,6 @@ export default function ProjectsPage() {
                     {project.overdueTasks > 0 && " ⚠"}
                   </td>
                   {/* Next meeting */}
-                  <td className="hidden lg:table-cell px-3 py-2 text-gray-500">
-                    {project.nextMeeting ? formatMeetingDate(project.nextMeeting.meeting_date) : "—"}
-                  </td>
                 </tr>
               ))}
             </tbody>

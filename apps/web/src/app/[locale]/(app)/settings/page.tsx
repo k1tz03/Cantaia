@@ -268,8 +268,8 @@ function ProfileSection() {
           </div>
         </div>
 
-        {/* Job title / Age / Gender */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* Job title */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-1">
           <div>
             <label className="block text-sm font-medium text-gray-700">{t("jobTitle")}</label>
             <input
@@ -279,35 +279,6 @@ function ProfileSection() {
               placeholder={t("jobTitlePlaceholder")}
               className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">{t("ageRange")}</label>
-            <select
-              value={form.data.age_range as string}
-              onChange={(e) => form.update({ age_range: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">{t("selectOption")}</option>
-              <option value="18-25">18-25</option>
-              <option value="26-35">26-35</option>
-              <option value="36-45">36-45</option>
-              <option value="46-55">46-55</option>
-              <option value="56+">56+</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">{t("gender")}</label>
-            <select
-              value={form.data.gender as string}
-              onChange={(e) => form.update({ gender: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">{t("selectOption")}</option>
-              <option value="homme">{t("genderMale")}</option>
-              <option value="femme">{t("genderFemale")}</option>
-              <option value="autre">{t("genderOther")}</option>
-              <option value="non_specifie">{t("genderPreferNot")}</option>
-            </select>
           </div>
         </div>
 

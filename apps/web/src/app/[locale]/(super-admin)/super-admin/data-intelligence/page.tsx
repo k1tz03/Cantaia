@@ -101,9 +101,9 @@ const HEALTH_CONFIG = {
     label: "Pipeline actif",
   },
   warning: {
-    color: "bg-amber-50 text-amber-700",
-    dot: "bg-amber-500",
-    label: "Pipeline lent",
+    color: "bg-yellow-50 text-yellow-700",
+    dot: "bg-yellow-500",
+    label: "Pipeline non configuré — Configurez CRON_SECRET pour activer le traitement automatique",
   },
   error: {
     color: "bg-red-50 text-red-700",

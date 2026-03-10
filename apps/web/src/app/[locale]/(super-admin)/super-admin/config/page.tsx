@@ -15,6 +15,7 @@ interface PlatformConfig {
 export default function SuperAdminConfigPage() {
   const [config, setConfig] = useState<PlatformConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showUrl, setShowUrl] = useState(false);
 
   useEffect(() => {
     fetch("/api/super-admin?action=platform-config")
@@ -73,7 +74,20 @@ export default function SuperAdminConfigPage() {
                 <span className="text-sm font-mono text-gray-700">{check.label}</span>
               </div>
               <span className={`text-xs ${check.ok ? "text-green-600" : "text-red-600"}`}>
-                {check.value}
+                {check.label === "NEXT_PUBLIC_SUPABASE_URL" && check.ok ? (
+                  <span className="flex items-center gap-2">
+                    {showUrl ? check.value : check.value.replace(/\/\/([^.]+)/, "//•••••")}
+                    <button
+                      type="button"
+                      onClick={() => setShowUrl(!showUrl)}
+                      className="text-[10px] text-blue-500 hover:text-blue-700 underline"
+                    >
+                      {showUrl ? "Masquer" : "Afficher"}
+                    </button>
+                  </span>
+                ) : (
+                  check.value
+                )}
               </span>
             </div>
           ))}

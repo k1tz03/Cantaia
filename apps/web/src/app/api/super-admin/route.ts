@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
 
   // ── Platform metrics ──
   if (action === "platform-metrics") {
-    const [users, orgs, emails, pvs, tasks, suppliers, offers] = await Promise.all([
+    const [users, orgs, emails, pvs, tasks, suppliers, offers, plans, ingestedPlans] = await Promise.all([
       (admin as any).from("users").select("id", { count: "exact", head: true }),
       (admin as any).from("organizations").select("id", { count: "exact", head: true }),
       (admin as any).from("email_records").select("id", { count: "exact", head: true }),
@@ -182,14 +182,23 @@ export async function GET(request: NextRequest) {
       (admin as any).from("tasks").select("id", { count: "exact", head: true }),
       (admin as any).from("suppliers").select("id", { count: "exact", head: true }),
       (admin as any).from("supplier_offers").select("id", { count: "exact", head: true }),
+      (admin as any).from("plans").select("id", { count: "exact", head: true }),
+      (admin as any).from("ingested_plan_quantities").select("source_file"),
     ]);
+
+    // Count distinct source_file from ingested_plan_quantities
+    const distinctIngestedFiles = new Set(
+      (ingestedPlans.data || []).map((r: { source_file: string }) => r.source_file)
+    ).size;
 
     return NextResponse.json({
       metrics: {
         totalUsers: users.count || 0,
         totalOrgs: orgs.count || 0,
         totalEmails: emails.count || 0,
-        totalPlans: 0,
+        totalPlans: (plans.count || 0) + distinctIngestedFiles,
+        totalPlanUploaded: plans.count || 0,
+        totalPlanIngested: distinctIngestedFiles,
         totalPvs: pvs.count || 0,
         totalTasks: tasks.count || 0,
         totalSuppliers: suppliers.count || 0,

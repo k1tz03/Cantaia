@@ -141,7 +141,15 @@ export function OnboardingChecklist() {
   const progress = Math.round((completedCount / steps.length) * 100);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-lg">
+    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-lg relative">
+      {/* Close button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
+        className="absolute right-2 top-2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+        title="Fermer"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
       {/* Header */}
       <button
         onClick={() => setOpen((prev) => !prev)}

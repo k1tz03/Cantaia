@@ -99,6 +99,7 @@ export default function PVChantierPage() {
     if (projectFilter !== "all") {
       list = list.filter((m) => m.project_id === projectFilter);
     }
+    list.sort((a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime());
     return list;
   }, [meetings, projectFilter]);
 
@@ -292,7 +293,7 @@ export default function PVChantierPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-600">
-                        {actionsCount > 0 ? actionsCount : "—"}
+                        {actionsCount}
                       </span>
                     </td>
                     <td className="px-4 py-3">

@@ -163,7 +163,11 @@ export function TaskListView({
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-600">
-                  {task.assigned_to_name || "\u2014"}
+                  {task.assigned_to_name && task.assigned_to_name !== "Intervenant non identifié" ? (
+                    <span>{task.assigned_to_name}</span>
+                  ) : (
+                    <span className="text-gray-400">{"\u2014"}</span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
                   {task.due_date ? (

@@ -19,6 +19,7 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
     <div className="space-y-4">
       {lots.map((lot) => {
         const lotItems = items.filter((i) => i.lot_id === lot.id);
+        const hasAnyCodes = lotItems.some((item) => item.code && item.code !== "\u2014" && item.code !== "—");
         const expanded = expandedLots.has(lot.id);
         const awardedSupplier = lot.awarded_supplier_id
           ? suppliers.find((s) => s.id === lot.awarded_supplier_id)
@@ -55,7 +56,7 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-[11px] font-medium text-gray-500 uppercase">
-                      <th className="text-left px-4 py-2 w-16">N°</th>
+                      {hasAnyCodes && <th className="text-left px-4 py-2 w-16">N°</th>}
                       <th className="text-left px-4 py-2">{t("description")}</th>
                       <th className="text-center px-4 py-2 w-16">{t("unit")}</th>
                       <th className="text-right px-4 py-2 w-20">{t("quantity")}</th>
@@ -73,11 +74,13 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
                           : "text-red-500";
                       return (
                         <tr key={item.id} className="hover:bg-gray-50 text-sm">
-                          <td className="px-4 py-2 text-xs font-mono text-gray-500">{item.code}</td>
-                          <td className="px-4 py-2 text-gray-900">
-                            {item.description}
+                          {hasAnyCodes && <td className="px-4 py-2 text-xs font-mono text-gray-500">{item.code}</td>}
+                          <td className="px-4 py-2 text-gray-900 max-w-[500px]">
+                            <span className="block truncate" title={item.description}>
+                              {item.description}
+                            </span>
                             {item.remarks && (
-                              <span className="text-xs text-gray-400 ml-2">({item.remarks})</span>
+                              <span className="block truncate text-xs text-gray-400" title={item.remarks}>({item.remarks})</span>
                             )}
                           </td>
                           <td className="px-4 py-2 text-center text-gray-500 text-xs">{item.unit}</td>

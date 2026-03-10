@@ -482,7 +482,7 @@ export default function NouveauPVPage() {
               >
                 <input
                   type="text"
-                  placeholder={t("participant_name")}
+                  placeholder="Ex: Pierre Lambert"
                   value={p.name}
                   onChange={(e) =>
                     updateParticipant(i, "name", e.target.value)
@@ -491,7 +491,7 @@ export default function NouveauPVPage() {
                 />
                 <input
                   type="text"
-                  placeholder={t("company")}
+                  placeholder="Ex: Implenia"
                   value={p.company}
                   onChange={(e) =>
                     updateParticipant(i, "company", e.target.value)
@@ -500,7 +500,7 @@ export default function NouveauPVPage() {
                 />
                 <input
                   type="text"
-                  placeholder={t("role")}
+                  placeholder="Ex: Chef de projet"
                   value={p.role}
                   onChange={(e) =>
                     updateParticipant(i, "role", e.target.value)
