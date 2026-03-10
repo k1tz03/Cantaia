@@ -710,16 +710,30 @@ async function syncViaProvider(
         provider.refreshToken) {
       try {
         const tokens = await provider.refreshToken(connection as unknown as EmailConnectionConfig);
-        await adminClient
-          .from("email_connections")
-          .update({
-            oauth_access_token: tokens.access_token,
-            oauth_refresh_token: tokens.refresh_token || connection.oauth_refresh_token,
-            oauth_token_expires_at: tokens.expires_in
-              ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-              : connection.oauth_token_expires_at,
-          })
-          .eq("id", connection.id);
+        const newExpiresAt = tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : connection.oauth_token_expires_at;
+        const newRefreshToken = tokens.refresh_token || connection.oauth_refresh_token;
+
+        // Update BOTH tables to keep tokens in sync (prevents desync on rotation)
+        await Promise.all([
+          adminClient
+            .from("email_connections")
+            .update({
+              oauth_access_token: tokens.access_token,
+              oauth_refresh_token: newRefreshToken,
+              oauth_token_expires_at: newExpiresAt,
+            })
+            .eq("id", connection.id),
+          adminClient
+            .from("users")
+            .update({
+              microsoft_access_token: tokens.access_token,
+              microsoft_refresh_token: newRefreshToken,
+              microsoft_token_expires_at: newExpiresAt,
+            })
+            .eq("id", userId),
+        ]);
 
         connection.oauth_access_token = tokens.access_token;
         if (tokens.refresh_token) connection.oauth_refresh_token = tokens.refresh_token;
