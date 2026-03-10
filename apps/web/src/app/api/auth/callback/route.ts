@@ -190,7 +190,7 @@ export async function GET(request: Request) {
               // Store provider tokens on the original user
               const providerToken = data.session?.provider_token;
               const providerRefreshToken = data.session?.provider_refresh_token;
-              if (providerToken && authProvider === "microsoft") {
+              if (providerToken && (authProvider === "microsoft" || authProvider === "google")) {
                 let expiresIn = 3600;
                 try {
                   const parts = providerToken.split(".");
@@ -203,20 +203,24 @@ export async function GET(request: Request) {
                 const expiresAt = new Date();
                 expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-                await adminClient.from("users").update({
-                  microsoft_access_token: providerToken,
-                  microsoft_refresh_token: providerRefreshToken || null,
-                  microsoft_token_expires_at: expiresAt.toISOString(),
-                  outlook_sync_enabled: true,
-                  auth_provider: authProvider,
-                } as any).eq("id", originalUser.id);
+                // Update users table with provider tokens
+                const userUpdate: Record<string, unknown> = { auth_provider: authProvider };
+                if (authProvider === "microsoft") {
+                  userUpdate.microsoft_access_token = providerToken;
+                  userUpdate.microsoft_refresh_token = providerRefreshToken || null;
+                  userUpdate.microsoft_token_expires_at = expiresAt.toISOString();
+                  userUpdate.outlook_sync_enabled = true;
+                }
+                await adminClient.from("users").update(userUpdate as any).eq("id", originalUser.id);
 
                 // Create email_connection under original user
-                const scopes = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
+                const scopes = authProvider === "microsoft"
+                  ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
+                  : "openid profile email gmail.readonly gmail.send gmail.modify";
                 const { data: newConn } = await adminClient.from("email_connections").insert({
                   user_id: originalUser.id,
                   organization_id: linkOrgId,
-                  provider: "microsoft",
+                  provider: authProvider as "microsoft" | "google",
                   oauth_access_token: providerToken,
                   oauth_refresh_token: providerRefreshToken || null,
                   oauth_token_expires_at: expiresAt.toISOString(),
@@ -234,10 +238,8 @@ export async function GET(request: Request) {
                 if (process.env.NODE_ENV === "development") console.log("[auth/callback] Tokens saved under original user", originalUser.id);
               }
 
-              // Clean up: delete the orphaned users row for the new OAuth user (if created)
-              await adminClient.from("users").delete().eq("id", data.user.id).neq("id", originalUser.id);
-              // Also clean up any email_connections under the OAuth user
-              await adminClient.from("email_connections").delete().eq("user_id", data.user.id);
+              // Migrate all data from the orphaned OAuth user to the original user
+              await migrateUserData(adminClient, data.user.id, originalUser.id);
 
               // Redirect — the browser has a session for the OAuth user,
               // but we stored data under the original user. The user will need
