@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
+    "@google/generative-ai": "^0.24.1",
     "@kenjiuno/msgreader": "^1.28.0",
     "@supabase/supabase-js": "latest",
     "dotenv": "^16.4.7",
