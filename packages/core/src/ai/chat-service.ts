@@ -4,6 +4,8 @@
 // Uses SSE-compatible AsyncGenerator pattern
 // ============================================================
 
+import { MODEL_FOR_TASK } from "./ai-utils";
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -22,18 +24,24 @@ export async function* streamChatResponse(
   anthropicApiKey: string,
   systemPrompt: string,
   messages: ChatMessage[],
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.chat,
 ): AsyncGenerator<ChatStreamChunk> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
 
-  const stream = await client.messages.create({
-    model,
-    max_tokens: 2048,
-    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    stream: true,
-  });
+  let stream;
+  try {
+    stream = await client.messages.create({
+      model,
+      max_tokens: 2048,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      stream: true,
+    });
+  } catch (err: any) {
+    console.error("[chat-service] AI error:", err?.message || err);
+    throw err; // propagate to API route for proper HTTP status handling
+  }
 
   let inputTokens = 0;
   let outputTokens = 0;

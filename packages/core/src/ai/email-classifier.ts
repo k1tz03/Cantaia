@@ -12,7 +12,7 @@ import {
   type ClassifyEmailResult,
 } from "../models/email-record";
 import type { ApiUsageCallback } from "../tracking/api-cost-tracker";
-import { callAnthropicWithRetry, cleanEmailForAI } from "./ai-utils";
+import { callAnthropicWithRetry, cleanEmailForAI, MODEL_FOR_TASK, isRetryableAIError } from "./ai-utils";
 
 export interface EmailForClassification {
   sender_email: string;
@@ -60,7 +60,7 @@ export async function classifyEmail(
   anthropicApiKey: string,
   email: EmailForClassification,
   userProjects: ProjectForClassification[],
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.email_classification,
   onUsage?: ApiUsageCallback
 ): Promise<ClassifyEmailResult> {
   if (process.env.NODE_ENV === "development") {
@@ -189,8 +189,9 @@ export async function classifyEmail(
     }
 
     return result;
-  } catch (err) {
-    console.error("[classifyEmail] Error:", err instanceof Error ? err.message : err);
+  } catch (err: any) {
+    console.error("[classifyEmail] AI error:", err?.message || err);
+    if (isRetryableAIError(err)) throw err;
     return DEFAULT_RESULT;
   }
 }

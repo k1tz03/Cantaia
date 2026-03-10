@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPVGeneratePrompt } from "@cantaia/core/ai";
+import { buildPVGeneratePrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
@@ -155,11 +155,18 @@ export async function POST(request: NextRequest) {
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000 });
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8000,
-      messages: [{ role: "user", content: prompt }],
-    });
+    let response;
+    try {
+      response = await client.messages.create({
+        model: MODEL_FOR_TASK.pv_generation,
+        max_tokens: 8000,
+        messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+      });
+    } catch (aiError: any) {
+      console.error("[GeneratePV] AI error:", aiError?.message);
+      const err = classifyAIError(aiError);
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
@@ -191,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     if (process.env.NODE_ENV === "development") console.log("[GeneratePV] Usage:", {
       action: "pv_generate",
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.pv_generation,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
     });

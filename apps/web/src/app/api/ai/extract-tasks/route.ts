@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { extractTasks, cleanEmailForAI } from "@cantaia/core/ai";
+import { extractTasks, cleanEmailForAI, classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
@@ -90,30 +90,37 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const result = await extractTasks(
-    anthropicApiKey,
-    {
-      sender_email: email.sender_email,
-      sender_name: email.sender_name || "",
-      subject: email.subject,
-      body: bodyContent,
-    },
-    projectContext,
-    undefined,
-    (usage) => {
-      trackApiUsage({
-        supabase: adminClient,
-        userId: user.id,
-        organizationId: userOrg?.organization_id ?? "",
-        actionType: "task_extract",
-        apiProvider: "anthropic",
-        model: usage.model,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        metadata: { email_id: body.email_id },
-      });
-    }
-  );
+  let result;
+  try {
+    result = await extractTasks(
+      anthropicApiKey,
+      {
+        sender_email: email.sender_email,
+        sender_name: email.sender_name || "",
+        subject: email.subject,
+        body: bodyContent,
+      },
+      projectContext,
+      undefined,
+      (usage) => {
+        trackApiUsage({
+          supabase: adminClient,
+          userId: user.id,
+          organizationId: userOrg?.organization_id ?? "",
+          actionType: "task_extract",
+          apiProvider: "anthropic",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          metadata: { email_id: body.email_id },
+        });
+      }
+    );
+  } catch (error: any) {
+    console.error("[extract-tasks] AI error:", error?.message);
+    const err = classifyAIError(error);
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
 
   return NextResponse.json({ success: true, tasks: result.tasks });
 }

@@ -28,6 +28,35 @@ export const MODEL_FOR_TASK = {
   pv_generation: AI_MODELS.SONNET,
 } as const;
 
+// ── AI Error Classification ─────────────────────────────────
+
+/**
+ * Check if an error from the Anthropic SDK is a retryable overload/rate-limit.
+ * Used by core functions to rethrow these so API routes return proper HTTP status.
+ */
+export function isRetryableAIError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const status = (err as { status?: number }).status;
+  return status === 429 || status === 503 || status === 529;
+}
+
+/**
+ * Classify an AI error for user-facing messages.
+ * Returns an object that API routes can directly use in Response.json().
+ */
+export function classifyAIError(err: unknown): { message: string; status: number } {
+  const status = err && typeof err === "object" && "status" in err
+    ? (err as { status: number }).status
+    : undefined;
+  if (status === 429) {
+    return { message: "Trop de requêtes. Réessayez dans 30 secondes.", status: 429 };
+  }
+  if (status === 529 || status === 503) {
+    return { message: "Service IA temporairement surchargé. Réessayez dans 1 minute.", status: 503 };
+  }
+  return { message: "Service temporairement indisponible. Réessayez.", status: 500 };
+}
+
 // ── Retry with Exponential Backoff ───────────────────────────
 
 interface RetryOptions {

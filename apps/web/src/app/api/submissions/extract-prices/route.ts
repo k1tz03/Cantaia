@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractPricesFromEmail } from "@cantaia/core/submissions";
+import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
 /**
@@ -110,11 +111,9 @@ export async function POST(request: Request) {
       success: true,
       extraction: result,
     });
-  } catch (error: unknown) {
-    console.error("[extract-prices] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("[extract-prices] Error:", error?.message || error);
+    const aiErr = classifyAIError(error);
+    return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildSupplierSearchPrompt, MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { buildSupplierSearchPrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 
 /**
  * POST /api/suppliers/search
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const response = await anthropic.messages.create({
       model: MODEL_FOR_TASK.supplier_search,
       max_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     const text =
@@ -103,10 +103,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       suggestions: result.suggestions || [],
     });
-  } catch (err: unknown) {
-    console.error("[suppliers/search] AI search error:", err);
+  } catch (err: any) {
+    console.error("[suppliers/search] AI search error:", err?.message || err);
 
-    // Distinguish between JSON parse errors and API errors
     if (err instanceof SyntaxError) {
       return NextResponse.json(
         { error: "Failed to parse AI response", suggestions: [] },
@@ -114,9 +113,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const aiErr = classifyAIError(err);
     return NextResponse.json(
-      { error: "AI supplier search failed", suggestions: [] },
-      { status: 500 }
+      { error: aiErr.message, suggestions: [] },
+      { status: aiErr.status }
     );
   }
 }

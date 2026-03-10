@@ -59,7 +59,7 @@ export async function extractPricesFromEmail(
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     // Fire-and-forget usage callback
@@ -114,8 +114,10 @@ export async function extractPricesFromEmail(
       general_conditions: parsed.conditions_text || parsed.payment_terms || undefined,
       raw_total: parsed.total_amount || undefined,
     };
-  } catch (err) {
-    console.error("[price-extractor] Extraction failed:", err);
+  } catch (err: any) {
+    console.error("[price-extractor] AI error:", err?.message || err);
+    const status = err?.status;
+    if (status === 429 || status === 503 || status === 529) throw err;
     return { prices: [], currency: "CHF" };
   }
 }

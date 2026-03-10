@@ -111,7 +111,7 @@ export async function generateBriefingAI(
     const response = await client.messages.create({
       model,
       max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     // Track usage
@@ -159,8 +159,10 @@ export async function generateBriefingAI(
       stats: rawData.stats,
       global_summary: parsed.global_summary || "",
     };
-  } catch (err) {
-    console.error("[generateBriefingAI] Error:", err instanceof Error ? err.message : err);
+  } catch (err: any) {
+    console.error("[generateBriefingAI] AI error:", err?.message || err);
+    const status = err?.status;
+    if (status === 429 || status === 503 || status === 529) throw err;
     return generateBriefingFallback(rawData);
   }
 }

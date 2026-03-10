@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyEmail, type ProjectForClassification } from "@cantaia/core/ai";
+import { classifyEmail, type ProjectForClassification, classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
@@ -65,31 +65,38 @@ export async function POST(request: NextRequest) {
   }
 
   // Classify with enhanced 3-case classifier
-  const result = await classifyEmail(
-    anthropicApiKey,
-    {
-      sender_email: email.sender_email,
-      sender_name: email.sender_name || "",
-      subject: email.subject,
-      body_preview: email.body_preview || "",
-      received_at: email.received_at,
-    },
-    projects,
-    undefined,
-    (usage) => {
-      trackApiUsage({
-        supabase: adminClient,
-        userId: user.id,
-        organizationId: userData?.organization_id ?? "",
-        actionType: "email_classify",
-        apiProvider: "anthropic",
-        model: usage.model,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        metadata: { email_id: body.email_id },
-      });
-    }
-  );
+  let result;
+  try {
+    result = await classifyEmail(
+      anthropicApiKey,
+      {
+        sender_email: email.sender_email,
+        sender_name: email.sender_name || "",
+        subject: email.subject,
+        body_preview: email.body_preview || "",
+        received_at: email.received_at,
+      },
+      projects,
+      undefined,
+      (usage) => {
+        trackApiUsage({
+          supabase: adminClient,
+          userId: user.id,
+          organizationId: userData?.organization_id ?? "",
+          actionType: "email_classify",
+          apiProvider: "anthropic",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          metadata: { email_id: body.email_id },
+        });
+      }
+    );
+  } catch (error: any) {
+    console.error("[classify-email] AI error:", error?.message);
+    const err = classifyAIError(error);
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
 
   // Build update payload based on match_type
   const confidencePercent = Math.round(result.confidence * 100);

@@ -8,6 +8,7 @@ import {
   buildPlanAnalysisPrompt,
   type PlanAnalysisContext,
 } from "./prompts";
+import { MODEL_FOR_TASK, isRetryableAIError } from "./ai-utils";
 import {
   planAnalysisResultSchema,
   type PlanAnalysisResult,
@@ -45,12 +46,14 @@ export async function analyzePlan(
   fileBase64: string,
   fileMediaType: string,
   context: PlanAnalysisContext,
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.plan_analysis,
   onUsage?: ApiUsageCallback
 ): Promise<PlanAnalysisResult> {
-  console.log(`[analyzePlan] Starting analysis for: "${context.file_name}"`);
-  console.log(`[analyzePlan] Plan: ${context.plan_number} — ${context.plan_title}`);
-  console.log(`[analyzePlan] File type: ${fileMediaType}, base64 size: ${Math.round(fileBase64.length / 1024)} KB`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[analyzePlan] Starting analysis for: "${context.file_name}"`);
+    console.log(`[analyzePlan] Plan: ${context.plan_number} — ${context.plan_title}`);
+    console.log(`[analyzePlan] File type: ${fileMediaType}, base64 size: ${Math.round(fileBase64.length / 1024)} KB`);
+  }
 
   const prompt = buildPlanAnalysisPrompt(context);
 
@@ -80,7 +83,7 @@ export async function analyzePlan(
     return DEFAULT_RESULT;
   }
 
-  contentBlocks.push({ type: "text", text: prompt });
+  contentBlocks.push({ type: "text", text: prompt, cache_control: { type: "ephemeral" } });
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
@@ -162,7 +165,8 @@ export async function analyzePlan(
     console.log(`[analyzePlan] Analysis complete: ${validated.data.plan_type}, ${validated.data.quantities.length} quantities found`);
     return validated.data;
   } catch (error: any) {
-    console.error("[analyzePlan] Error:", error?.message || error);
+    console.error("[analyzePlan] AI error:", error?.message || error);
+    if (isRetryableAIError(error)) throw error;
     return DEFAULT_RESULT;
   }
 }

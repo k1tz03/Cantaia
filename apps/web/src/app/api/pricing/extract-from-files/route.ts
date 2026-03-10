@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 60;
@@ -106,8 +107,9 @@ export async function POST(request: Request) {
       errors,
       files_processed: files.length,
     });
-  } catch (err: unknown) {
-    console.error("[extract-from-files] Error:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Extraction failed" }, { status: 500 });
+  } catch (err: any) {
+    console.error("[extract-from-files] Error:", err?.message || err);
+    const aiErr = classifyAIError(err);
+    return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }

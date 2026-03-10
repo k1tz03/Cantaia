@@ -4,8 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildChatSystemPrompt,
   streamChatResponse,
+  MODEL_FOR_TASK,
   type ChatMessage,
 } from "@cantaia/core/ai";
+import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 60;
@@ -196,10 +198,11 @@ export async function POST(request: NextRequest) {
             );
           }
         }
-      } catch (err) {
+      } catch (err: any) {
+        const aiErr = classifyAIError(err);
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "error", data: "Erreur lors de la génération de la réponse." })}\n\n`,
+            `data: ${JSON.stringify({ type: "error", data: aiErr.message, status: aiErr.status })}\n\n`,
           ),
         );
       } finally {
@@ -213,7 +216,7 @@ export async function POST(request: NextRequest) {
               conversation_id: conversationId,
               role: "assistant",
               content: fullResponse,
-              model: "claude-sonnet-4-5-20250929",
+              model: MODEL_FOR_TASK.chat,
               input_tokens: finalUsage.input_tokens,
               output_tokens: finalUsage.output_tokens,
             })
@@ -225,7 +228,7 @@ export async function POST(request: NextRequest) {
             organizationId: userOrg.organization_id,
             actionType: "chat_message",
             apiProvider: "anthropic",
-            model: "claude-sonnet-4-5-20250929",
+            model: MODEL_FOR_TASK.chat,
             inputTokens: finalUsage.input_tokens,
             outputTokens: finalUsage.output_tokens,
             metadata: { conversation_id: conversationId },

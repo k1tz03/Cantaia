@@ -3,7 +3,7 @@
 // Handles forwarded emails (FW:/TR:) with smart context detection
 // ============================================================
 
-import { callAnthropicWithRetry, cleanEmailForAI } from "./ai-utils";
+import { callAnthropicWithRetry, cleanEmailForAI, MODEL_FOR_TASK, isRetryableAIError } from "./ai-utils";
 
 export interface EmailForReply {
   sender_name: string;
@@ -166,7 +166,7 @@ export async function generateReply(
   email: EmailForReply,
   projectContext: ReplyProjectContext | null,
   userProfile: ReplyUserProfile,
-  model = "claude-sonnet-4-5-20250929",
+  model = MODEL_FOR_TASK.reply_generation,
   onUsage?: ApiUsageCallback
 ): Promise<ReplyResult> {
   if (process.env.NODE_ENV === "development") {
@@ -247,9 +247,9 @@ export async function generateReply(
       console.log(`[generateReply] Result: Generated reply (${text.length} chars)`);
     }
     return { reply_text: text, no_reply_needed: false };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[generateReply] Error:", message);
-    return { reply_text: "", no_reply_needed: false, error: message };
+  } catch (err: any) {
+    console.error("[generateReply] AI error:", err?.message || err);
+    if (isRetryableAIError(err)) throw err;
+    return { reply_text: "", no_reply_needed: false, error: err?.message || "Unknown error" };
   }
 }

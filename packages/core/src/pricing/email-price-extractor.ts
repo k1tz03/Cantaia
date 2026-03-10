@@ -214,7 +214,7 @@ RÈGLES :
               data: input.contentBase64,
             },
           },
-          { type: "text", text: prompt },
+          { type: "text", text: prompt, cache_control: { type: "ephemeral" } },
         ],
       }],
     });
@@ -233,7 +233,9 @@ RÈGLES :
       ...parsed,
     };
   } catch (error: any) {
-    console.error(`[email-price-extractor] PDF extraction error for "${input.attachmentName}":`, error?.message);
+    console.error(`[email-price-extractor] PDF AI error for "${input.attachmentName}":`, error?.message);
+    const status = error?.status;
+    if (status === 429 || status === 503 || status === 529) throw error;
     return {
       emailId: input.emailId,
       source_type: "pdf_attachment",
@@ -264,7 +266,7 @@ async function callExtractionAI(
     const response = await client.messages.create({
       model: AI_MODEL,
       max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     onUsage?.({
@@ -274,7 +276,9 @@ async function callExtractionAI(
 
     return parseAIResponse(response);
   } catch (error: any) {
-    console.error("[email-price-extractor] AI extraction error:", error?.message);
+    console.error("[email-price-extractor] AI error:", error?.message);
+    const status = error?.status;
+    if (status === 429 || status === 503 || status === 529) throw error;
     return {
       has_prices: false,
       supplier_info: buildEmptySupplier(ctx.sender_email, ctx.sender_name),

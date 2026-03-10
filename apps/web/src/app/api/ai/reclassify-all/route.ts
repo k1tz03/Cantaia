@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, cleanEmailForAI, type ProjectForClassification } from "@cantaia/core/ai";
+import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, cleanEmailForAI, isRetryableAIError, type ProjectForClassification } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
@@ -336,6 +336,10 @@ export async function POST() {
           tasksCreated++;
         }
       } catch (err) {
+        if (isRetryableAIError(err)) {
+          console.error(`[reclassify-all] Rate limited / overloaded — aborting batch`);
+          throw err; // Abort the entire batch
+        }
         console.error(`[reclassify-all] AI failed for "${email.subject}":`, err);
         try {
           await adminClient

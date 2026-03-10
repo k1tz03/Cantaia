@@ -262,7 +262,7 @@ Réponds UNIQUEMENT en JSON valide (tableau) :
       model: AI_MODEL,
       max_tokens: 1024,
       temperature: 0,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     const textBlock = response.content.find((b) => b.type === "text");
@@ -290,6 +290,8 @@ Réponds UNIQUEMENT en JSON valide (tableau) :
     return results;
   } catch (err: any) {
     console.error("[ESTIMATOR] Pass 2 CFC normalization error:", err?.message || err);
+    const status = err?.status;
+    if (status === 429 || status === 503 || status === 529) throw err;
     return [];
   }
 }
@@ -345,7 +347,7 @@ async function estimateWithAI(
     const response = await client.messages.create({
       model: AI_MODEL,
       max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     try {
@@ -382,7 +384,9 @@ async function estimateWithAI(
       }
     }
   } catch (error: any) {
-    console.error("[auto-estimator] AI estimation error:", error?.message || error);
+    console.error("[auto-estimator] AI error:", error?.message || error);
+    const status = error?.status;
+    if (status === 429 || status === 503 || status === 529) throw error;
   }
 
   return results;

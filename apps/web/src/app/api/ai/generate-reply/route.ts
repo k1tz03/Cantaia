@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateReply, cleanEmailForAI } from "@cantaia/core/ai";
+import { generateReply, cleanEmailForAI, classifyAIError } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
@@ -110,7 +110,9 @@ export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}`);
 
-  const result = await generateReply(
+  let result;
+  try {
+    result = await generateReply(
     anthropicApiKey,
     {
       sender_name: email.sender_name || "",
@@ -142,7 +144,12 @@ export async function POST(request: NextRequest) {
         metadata: { email_id: body.email_id },
       });
     }
-  );
+    );
+  } catch (error: any) {
+    console.error("[generate-reply] AI error:", error?.message);
+    const err = classifyAIError(error);
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
 
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Result: reply=${result.reply_text.length} chars, no_reply=${result.no_reply_needed}, error=${result.error || "none"}`);
 

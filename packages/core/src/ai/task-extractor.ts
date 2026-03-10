@@ -7,7 +7,7 @@ import {
   extractTasksResultSchema,
   type ExtractTasksResult,
 } from "../models/email-record";
-import { MODEL_FOR_TASK } from "./ai-utils";
+import { MODEL_FOR_TASK, isRetryableAIError } from "./ai-utils";
 
 export interface EmailForTaskExtraction {
   sender_email: string;
@@ -51,7 +51,7 @@ export async function extractTasks(
     const response = await client.messages.create({
       model,
       max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
     // Fire-and-forget usage tracking
@@ -101,8 +101,9 @@ export async function extractTasks(
     }
 
     return validated.data;
-  } catch (err) {
-    console.error("[extractTasks] Error:", err instanceof Error ? err.message : err);
+  } catch (err: any) {
+    console.error("[extractTasks] AI error:", err?.message || err);
+    if (isRetryableAIError(err)) throw err;
     return DEFAULT_RESULT;
   }
 }

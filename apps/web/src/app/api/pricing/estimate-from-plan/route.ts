@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
 /**
@@ -114,8 +115,9 @@ export async function POST(request: Request) {
       estimate: estimateResult,
       estimate_id: savedEstimate?.id || null,
     });
-  } catch (err: unknown) {
-    console.error("[estimate-from-plan] Error:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Estimation failed" }, { status: 500 });
+  } catch (err: any) {
+    console.error("[estimate-from-plan] Error:", err?.message || err);
+    const aiErr = classifyAIError(err);
+    return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }

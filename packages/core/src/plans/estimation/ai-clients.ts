@@ -59,7 +59,7 @@ export async function callClaudeVision<T = Passe2Result>(
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
-      system: systemPrompt,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       messages: [
         {
           role: "user",
@@ -68,6 +68,7 @@ export async function callClaudeVision<T = Passe2Result>(
             {
               type: "text",
               text: userPrompt,
+              cache_control: { type: "ephemeral" },
             },
           ],
         },
@@ -104,9 +105,9 @@ export async function callClaudeText<T>(
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
-      system: systemPrompt,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       messages: [
-        { role: "user", content: userPrompt },
+        { role: "user", content: [{ type: "text", text: userPrompt, cache_control: { type: "ephemeral" } }] },
       ],
     });
 

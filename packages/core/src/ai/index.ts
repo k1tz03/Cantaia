@@ -4,5 +4,5 @@ export * from "./task-extractor";
 export * from "./reply-generator";
 export * from "./plan-analyzer";
 export * from "./chat-service";
-export { callAnthropicWithRetry, cleanEmailForAI, AI_MODELS, MODEL_FOR_TASK, createAnthropicClient } from "./ai-utils";
+export { callAnthropicWithRetry, cleanEmailForAI, AI_MODELS, MODEL_FOR_TASK, createAnthropicClient, classifyAIError, isRetryableAIError } from "./ai-utils";
 export type { AIModel } from "./ai-utils";

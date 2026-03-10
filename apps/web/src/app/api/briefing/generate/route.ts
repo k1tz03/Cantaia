@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { collectBriefingData } from "@cantaia/core/briefing";
 import { generateBriefingAI, generateBriefingFallback } from "@cantaia/core/briefing";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
-import { MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 
 export async function POST() {
   const supabase = await createClient();
@@ -93,23 +93,29 @@ export async function POST() {
   let briefingContent;
 
   if (anthropicApiKey) {
-    briefingContent = await generateBriefingAI(
-      anthropicApiKey,
-      rawData,
-      MODEL_FOR_TASK.briefing,
-      (usage) => {
-        trackApiUsage({
-          supabase: admin,
-          userId: user.id,
-          organizationId: orgId,
-          actionType: "email_summary",
-          apiProvider: "anthropic",
-          model: usage.model,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-        }).catch(() => {});
-      }
-    );
+    try {
+      briefingContent = await generateBriefingAI(
+        anthropicApiKey,
+        rawData,
+        MODEL_FOR_TASK.briefing,
+        (usage) => {
+          trackApiUsage({
+            supabase: admin,
+            userId: user.id,
+            organizationId: orgId,
+            actionType: "email_summary",
+            apiProvider: "anthropic",
+            model: usage.model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+          }).catch(() => {});
+        }
+      );
+    } catch (error: any) {
+      console.error("[briefing/generate] AI error:", error?.message);
+      const err = classifyAIError(error);
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
   } else {
     if (process.env.NODE_ENV === "development") console.log("[briefing/generate] No Anthropic API key, using fallback");
     briefingContent = generateBriefingFallback(rawData);

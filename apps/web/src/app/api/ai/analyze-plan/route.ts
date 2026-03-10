@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { analyzePlan } from "@cantaia/core/ai";
+import { analyzePlan, classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
 interface PlanVersion {
@@ -227,11 +227,9 @@ export async function POST(request: NextRequest) {
       analysis,
       cached: false,
     });
-  } catch (error: unknown) {
-    console.error("[analyze-plan] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("[analyze-plan] Error:", error?.message || error);
+    const err = classifyAIError(error);
+    return NextResponse.json({ error: err.message }, { status: err.status });
   }
 }

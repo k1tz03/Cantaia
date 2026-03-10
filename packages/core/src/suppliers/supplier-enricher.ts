@@ -30,28 +30,30 @@ export async function enrichSupplier(
     existing_data: {},
   });
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  if (onUsage) {
-    try {
-      onUsage({
-        input_tokens: response.usage?.input_tokens || 0,
-        output_tokens: response.usage?.output_tokens || 0,
-      });
-    } catch { /* fire-and-forget */ }
-  }
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const jsonStr = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
   try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+    });
+
+    if (onUsage) {
+      try {
+        onUsage({
+          input_tokens: response.usage?.input_tokens || 0,
+          output_tokens: response.usage?.output_tokens || 0,
+        });
+      } catch { /* fire-and-forget */ }
+    }
+
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const jsonStr = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
     return JSON.parse(jsonStr) as EnrichmentResult;
-  } catch (err) {
-    console.error("[supplier-enricher] Failed to parse AI response:", err);
+  } catch (err: any) {
+    console.error("[supplier-enricher] AI error:", err?.message || err);
+    const status = err?.status;
+    if (status === 429 || status === 503 || status === 529) throw err;
     return {
       website_found: false,
       additional_contacts: [],

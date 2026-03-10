@@ -36,15 +36,38 @@ const CFC_LABELS: Record<string, string> = {
 function normalizeDesc(desc: string): string {
   return desc
     .toLowerCase()
+    // Remove delivery / transport details
     .replace(/franco[- ]chantier/gi, "")
     .replace(/par (semi|camion|3 essieux|5 essieux)[^,.]*/gi, "")
     .replace(/livraison[^,.]*/gi, "")
     .replace(/rendu chantier/gi, "")
-    .replace(/\(s\.\s*SN\s*EN\s*\d+\)/gi, "")
+    .replace(/transport(é)?( compris| inclus)?/gi, "")
+    .replace(/déchargé( sur place)?/gi, "")
+    // Remove norms & standards
+    .replace(/\(s\.\s*SN\s*EN\s*\d+[^)]*\)/gi, "")
     .replace(/\(s\.\s*VSS\s*\d+[^)]*\)/gi, "")
+    .replace(/s\.\s*SN\s*EN\s*\d+[-\d]*/gi, "")
+    .replace(/norme\s+SIA\s*\d*/gi, "")
+    .replace(/EN\s*\d{3,}/gi, "")
+    // Remove abbreviations & qualifiers
     .replace(/GNT/gi, "")
-    .replace(/fourniture( et pose)?( de)?/gi, "")
+    .replace(/fourniture( et pose)?( de| du| des)?/gi, "")
     .replace(/prix (matière )?départ (carrière|usine)/gi, "")
+    .replace(/mise en (place|œuvre|oeuvre)/gi, "")
+    .replace(/y\s*\.\s*c\.\s*/gi, "")
+    // Normalize granulometry: "0/32", "0-32", "0 à 32" → "0/32"
+    .replace(/(\d+)\s*[-àa]\s*(\d+)\s*(mm)?/g, "$1/$2")
+    // Normalize synonyms for common materials
+    .replace(/gravier (concassé|roulé|naturel)/gi, "gravier")
+    .replace(/grave (concassée|recyclée|naturelle)/gi, "grave")
+    .replace(/sable (fin|gros|lavé|naturel)/gi, "sable")
+    .replace(/béton (armé|coffré|maigre|de propreté)/gi, (_, type) => `béton ${type.toLowerCase()}`)
+    .replace(/tout[- ]venant/gi, "tout-venant")
+    .replace(/enrobé (bitumineux )?/gi, "enrobé ")
+    // Remove trailing precision in parentheses: "(env. 30cm)", "(selon plans)"
+    .replace(/\(env\.?\s*[^)]+\)/gi, "")
+    .replace(/\(selon\s+[^)]+\)/gi, "")
+    // Collapse whitespace
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
-import { MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 
 /**
  * POST /api/suppliers/[id]/enrich
@@ -103,8 +103,9 @@ export async function POST(
       enrichment: result,
       updates_applied: Object.keys(updates),
     });
-  } catch (err: unknown) {
-    console.error("[suppliers/enrich] Error:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Enrichment failed" }, { status: 500 });
+  } catch (err: any) {
+    console.error("[suppliers/enrich] Error:", err?.message || err);
+    const aiErr = classifyAIError(err);
+    return NextResponse.json({ error: aiErr.message }, { status: aiErr.status });
   }
 }
