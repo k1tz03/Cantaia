@@ -50,6 +50,37 @@ const TRANSPORT_PER_KM_CHF = 2;
 
 const AI_MODEL = "claude-sonnet-4-5-20250929";
 
+// ---------- Construction Translations (DE/EN → FR) ----------
+
+const CONSTRUCTION_TRANSLATIONS: Record<string, string[]> = {
+  // DE → FR
+  'kies': ['gravier', 'grave'], 'beton': ['béton'], 'schalung': ['coffrage'],
+  'bewehrung': ['ferraillage', 'armature'], 'armierung': ['ferraillage', 'armature'],
+  'fenster': ['fenêtre'], 'tür': ['porte'], 'fassade': ['façade'],
+  'dach': ['toiture', 'toit'], 'abdichtung': ['étanchéité'],
+  'mauerwerk': ['maçonnerie'], 'heizung': ['chauffage'], 'lüftung': ['ventilation'],
+  'sanitär': ['sanitaire'], 'elektro': ['électricité'],
+  'boden': ['sol', 'chape'], 'decke': ['dalle', 'plafond'],
+  'wand': ['mur', 'paroi'], 'stahl': ['acier'], 'holz': ['bois'],
+  'glas': ['verre', 'vitrage'], 'geotextil': ['géotextile'],
+  'kanalisation': ['canalisation'], 'rohre': ['tuyau', 'tube'],
+  'isolierung': ['isolation'], 'putz': ['crépi', 'enduit'],
+  'estrich': ['chape'], 'platten': ['dalle', 'carrelage'],
+  'fundament': ['fondation'], 'aushub': ['terrassement', 'excavation'],
+  'hinterfüllung': ['remblai'], 'schotter': ['gravier', 'ballast'],
+  // EN → FR
+  'concrete': ['béton'], 'formwork': ['coffrage'],
+  'reinforcement': ['ferraillage'], 'window': ['fenêtre'],
+  'door': ['porte'], 'roof': ['toiture'], 'wall': ['mur'],
+  'floor': ['sol', 'dalle'], 'steel': ['acier'], 'wood': ['bois'],
+  'glass': ['verre'], 'gravel': ['gravier', 'grave'], 'sand': ['sable'],
+  'waterproofing': ['étanchéité'], 'insulation': ['isolation'],
+  'painting': ['peinture'], 'tiling': ['carrelage'],
+  'foundation': ['fondation'], 'excavation': ['terrassement'],
+  'drainage': ['drainage'], 'plumbing': ['sanitaire'],
+  'geotextile': ['géotextile'], 'backfill': ['remblai'],
+};
+
 // ---------- Helpers ----------
 
 /**
@@ -91,12 +122,25 @@ function extractSearchTerms(description: string): string[] {
     'the', 'and', 'for', 'bis', 'von', 'und', 'mit', 'aus',
   ]);
 
-  return description
+  const raw = description
     .toLowerCase()
     .replace(/[^a-zàâäéèêëïîôùûüç0-9/.\s-]/g, '')
     .split(/\s+/)
     .filter((w) => w.length > 2 && !stopWords.has(w))
     .slice(0, 5);
+
+  // Auto-translate DE/EN → FR using construction dictionary
+  const translated: string[] = [];
+  for (const term of raw) {
+    translated.push(term);
+    const frTerms = CONSTRUCTION_TRANSLATIONS[term];
+    if (frTerms) {
+      translated.push(...frTerms);
+    }
+  }
+
+  // Deduplicate and limit
+  return [...new Set(translated)].slice(0, 8);
 }
 
 /**
@@ -205,7 +249,8 @@ async function lookupHistoricalPrice(
   supabase: any,
   organizationId: string,
   item: QuantityInput,
-  projectId?: string
+  projectId?: string,
+  anthropicApiKey?: string
 ): Promise<DbPriceMatch | null> {
   const normalized = normalizeDescription(item.item);
   const keywords = extractKeywords(normalized);
@@ -350,6 +395,85 @@ async function lookupHistoricalPrice(
     }
   } catch { /* continue */ }
 
+  // ── Pass 3b: AI-assisted matching from DB candidates ──
+  // Triggered when Pass 3 found nothing OR found a suspect price
+  const SUSPECT_FLOOR: Record<string, number> = { 'm²': 1.0, 'm³': 5.0, 'ml': 1.0, 'h': 30.0 };
+  const floor = SUSPECT_FLOOR[normalizeUnit(item.unit)] ?? 0;
+  const pass3IsSuspect = pass3Result && floor > 0 && pass3Result.median < floor;
+  const needPass3b = !pass3Result || pass3IsSuspect;
+
+  if (needPass3b && anthropicApiKey) {
+    try {
+      const maxPrice = getMaxUnitPrice(item.unit);
+      const terms = extractSearchTerms(item.item);
+      // Get broad candidates: first significant keyword only
+      const broadKeyword = terms.find((t) => !/^\d+[\/\-.]?\d+$/.test(t) && t.length >= 4) ?? terms[0] ?? '';
+
+      const candidates: AiMatchCandidate[] = [];
+
+      // Fetch ~30 rows from ingested_offer_lines with a broad search
+      if (broadKeyword) {
+        const { data: broadData } = await supabase
+          .from("ingested_offer_lines")
+          .select("description, prix_unitaire_ht, unite")
+          .eq("is_forfait", false)
+          .gt("prix_unitaire_ht", 0)
+          .lte("prix_unitaire_ht", maxPrice)
+          .ilike("description", `%${broadKeyword}%`)
+          .order("date_offre", { ascending: false })
+          .limit(30);
+
+        if (broadData) {
+          for (const r of broadData) {
+            candidates.push({
+              description: r.description,
+              prix_unitaire_ht: Number(r.prix_unitaire_ht),
+              unite: r.unite ?? '',
+            });
+          }
+        }
+      }
+
+      // Also fetch from mv_reference_prices if CFC available
+      if (cfcCode) {
+        const cfcPrefix = cfcCode.split('.')[0];
+        const { data: mvRows } = await supabase
+          .from("mv_reference_prices")
+          .select("cfc_code, prix_median, unite")
+          .like("cfc_code", `${cfcPrefix}%`)
+          .order("nb_datapoints", { ascending: false })
+          .limit(5);
+
+        if (mvRows) {
+          for (const r of mvRows) {
+            candidates.push({
+              description: `CFC ${r.cfc_code} (prix agrégé)`,
+              prix_unitaire_ht: Number(r.prix_median),
+              unite: r.unite ?? item.unit,
+            });
+          }
+        }
+      }
+
+      if (candidates.length > 0) {
+        // Deduplicate by description
+        const seen = new Set<string>();
+        const uniqueCandidates = candidates.filter((c) => {
+          const key = `${c.description}::${c.prix_unitaire_ht}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 35);
+
+        console.log(`[ESTIMATOR] Pass 3b: sending ${uniqueCandidates.length} candidates to AI for "${item.item}"`);
+        const aiMatch = await matchPriceWithAI(item.item, item.unit, uniqueCandidates, anthropicApiKey);
+        if (aiMatch) return aiMatch;
+      }
+    } catch (err: any) {
+      console.error(`[ESTIMATOR] Pass 3b error:`, err?.message || err);
+    }
+  }
+
   // ── Pass 4: mv_reference_prices — aggregated view by CFC code ──
   let pass4Result: DbPriceMatch | null = null;
   if (cfcCode) {
@@ -401,9 +525,6 @@ async function lookupHistoricalPrice(
   }
 
   // ── Cross-check: if Pass 3 price is suspiciously low, prefer Pass 4 ──
-  const SUSPECT_FLOOR: Record<string, number> = { 'm²': 1.0, 'm³': 5.0, 'ml': 1.0, 'h': 30.0 };
-  const floor = SUSPECT_FLOOR[normalizeUnit(item.unit)] ?? 0;
-
   if (pass3Result && pass4Result) {
     if (pass3Result.median < floor && pass4Result.median >= floor) {
       console.log(`[ESTIMATOR] "${item.item}" → Pass 3 suspect (${pass3Result.median} CHF/${item.unit}), using Pass 4 (${pass4Result.median} CHF/${item.unit})`);
@@ -522,6 +643,100 @@ function buildPriceMatch(
     median: med,
     cfc_code: cfc,
   };
+}
+
+// ---------- AI Price Matcher (Pass 3b) ----------
+
+interface AiMatchCandidate {
+  description: string;
+  prix_unitaire_ht: number;
+  unite: string;
+}
+
+/**
+ * Use Claude to find the best price match from DB candidates.
+ * Unlike the batch AI estimation (Pass 5) which invents prices,
+ * this function only SELECTS from real DB prices.
+ * Cost: ~$0.002 per call (200 output tokens).
+ */
+async function matchPriceWithAI(
+  description: string,
+  unit: string,
+  candidates: AiMatchCandidate[],
+  anthropicApiKey: string
+): Promise<DbPriceMatch | null> {
+  if (candidates.length === 0) return null;
+
+  const candidateList = candidates
+    .map((c, i) => `${i + 1}. "${c.description}" — ${c.prix_unitaire_ht} CHF/${c.unite}`)
+    .join('\n');
+
+  const prompt = `Tu es un métreur suisse expérimenté (CFC/CRB).
+Je cherche le prix unitaire pour : "${description}" (unité: ${unit})
+
+Voici les prix disponibles dans ma base de données :
+${candidateList}
+
+Quel est le meilleur match ? Réponds UNIQUEMENT en JSON valide :
+{"match_index":number ou null,"prix_adapte":number,"justification":"string courte"}
+
+RÈGLES STRICTES :
+- match_index est 1-based (1 = première ligne) ou null si aucun match pertinent
+- Ne choisis un match que si le produit est RÉELLEMENT similaire (même matériau, même usage)
+- Si l'unité est différente, convertis : 1 m³ grave ≈ 1.8 t, 1 ml ≈ 1 m
+- prix_adapte = le prix du candidat choisi, converti dans l'unité ${unit} si nécessaire
+- Si aucun match n'est pertinent, retourne {"match_index":null,"prix_adapte":0,"justification":"aucun match"}
+- Ne PAS inventer de prix — uniquement choisir parmi la liste
+- La description peut être en FR, DE ou EN. Les candidats sont en FR.
+  Fais le matching CROSS-LANGUE (Kies=Gravier, Beton=Béton, etc.)`;
+
+  try {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 15_000 });
+
+    const response = await client.messages.create({
+      model: AI_MODEL,
+      max_tokens: 150,
+      temperature: 0,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") return null;
+
+    let jsonStr = textBlock.text.trim();
+    const codeBlock = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlock) jsonStr = codeBlock[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
+
+    if (parsed.match_index == null || parsed.prix_adapte <= 0) {
+      console.log(`[ESTIMATOR] Pass 3b: AI found no match for "${description}"`);
+      return null;
+    }
+
+    const idx = parsed.match_index - 1; // 1-based → 0-based
+    if (idx < 0 || idx >= candidates.length) return null;
+
+    const matched = candidates[idx];
+    const prix = Number(parsed.prix_adapte);
+    const maxPrice = getMaxUnitPrice(unit);
+    if (prix <= 0 || prix > maxPrice) return null;
+
+    console.log(`[ESTIMATOR] Pass 3b: AI matched "${description}" → "${matched.description}" at ${prix} CHF/${unit} (${parsed.justification})`);
+
+    return {
+      unit_price: prix,
+      count: 1,
+      min: prix,
+      max: prix,
+      median: prix,
+      cfc_code: undefined,
+    };
+  } catch (err: any) {
+    console.error(`[ESTIMATOR] Pass 3b error for "${description}":`, err?.message || err);
+    return null;
+  }
 }
 
 // ---------- AI Batch Estimation ----------
@@ -706,7 +921,7 @@ export async function estimateFromPlanAnalysis(
     const q = filteredQuantities[i];
 
     try {
-      const dbMatch = await lookupHistoricalPrice(supabase, organizationId, q, projectId);
+      const dbMatch = await lookupHistoricalPrice(supabase, organizationId, q, projectId, anthropicApiKey);
 
       if (dbMatch && dbMatch.count >= 1) {
         const basePrice = dbMatch.median;
