@@ -161,7 +161,7 @@ export async function ingestOffers() {
 
         // Appeler Gemini Flash pour extraction (Claude Haiku en fallback)
         let response: string | null = null;
-        let usedModel = 'gemini-2.0-flash';
+        let usedModel = 'gemini-2.0-flash-001';
 
         try {
           response = await extractWithGemini(SYSTEM_PROMPT_EXTRACT_OFFER, userPrompt);
@@ -183,7 +183,7 @@ export async function ingestOffers() {
         let extraction = safeParseJSON<OfferExtraction>(response);
 
         // Si JSON invalide depuis Gemini, retry avec Claude Haiku
-        if (!extraction && usedModel === 'gemini-2.0-flash') {
+        if (!extraction && usedModel === 'gemini-2.0-flash-001') {
           console.log(`  ⚠ JSON invalide (Gemini) → fallback Claude Haiku`);
           usedModel = 'claude-haiku-4-5-20251001';
           response = await callClaude({
