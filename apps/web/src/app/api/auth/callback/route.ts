@@ -36,14 +36,14 @@ export async function GET(request: Request) {
   // link_user is the ID of the user who initiated the connection (may differ from OAuth user)
   const linkUserId = searchParams.get("link_user");
 
-  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Received callback:", {
+  // Always log in production to diagnose split-identity issues
+  console.log("[auth/callback] Received callback:", {
     hasCode: !!code,
     error: errorParam,
-    errorDesc,
-    origin,
     next,
-    linkOrgId,
-    linkUserId,
+    linkOrgId: linkOrgId || "NONE",
+    linkUserId: linkUserId || "NONE",
+    fullUrl: request.url.replace(/code=[^&]+/, "code=REDACTED"),
   });
 
   // Detect locale from the URL path or referrer (defaults to "fr")
@@ -105,9 +105,15 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (linkOrgId) {
-          // Check 2: Settings flow — user connected email provider from within the app.
-          // The user may already exist under a DIFFERENT auth ID (email identity vs OAuth identity).
-          // We must save tokens under the ORIGINAL user to prevent split-identity issues.
+          // PRIORITY CHECK: Settings flow — user connected email provider from within the app.
+          console.log("[auth/callback] Settings flow detected:", {
+            linkOrgId,
+            linkUserId: linkUserId || "NONE",
+            oauthUserId: data.user.id,
+            oauthEmail: data.user.email,
+            isSplit: linkUserId && linkUserId !== data.user.id,
+          });
+
           const { data: linkedOrg } = await adminClient
             .from("organizations")
             .select("id")
@@ -144,10 +150,17 @@ export async function GET(request: Request) {
               }
             }
 
+            console.log("[auth/callback] originalUser resolution:", {
+              found: !!originalUser,
+              originalId: originalUser?.id || "NONE",
+              oauthId: data.user.id,
+              willMigrate: !!(originalUser && originalUser.id !== data.user.id),
+            });
+
             if (originalUser && originalUser.id !== data.user.id) {
               // Identity was NOT linked (fallback signInWithOAuth created a new auth user).
               // Save tokens under the ORIGINAL user instead of the new OAuth user.
-              if (process.env.NODE_ENV === "development") console.log("[auth/callback] Settings flow: found original user", originalUser.id, "— will save tokens under their ID, not", data.user.id);
+              console.log("[auth/callback] SPLIT IDENTITY DETECTED — migrating from", data.user.id, "to", originalUser.id);
 
               // Store provider tokens on the original user
               const providerToken = data.session?.provider_token;
