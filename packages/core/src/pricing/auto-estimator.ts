@@ -172,27 +172,87 @@ async function normalizeCFCWithAI(
 
   const prompt = `Tu es un métreur suisse expert en codes CFC (Classification des Frais de Construction, norme CRB suisse).
 
-Attribue à chaque poste le code CFC le plus approprié.
+Attribue le code CFC le plus PRÉCIS possible à chaque poste.
+Ne mets PAS un code générique (211, 215) quand un code spécifique existe.
 La description peut être en français, allemand ou anglais — traduis mentalement.
+
+GUIDE DE CLASSIFICATION :
+
+Terrassement / Fouilles :
+  211.0 — Fouilles, excavation, remblayage, évacuation matériaux
+  211.0 — Grave, gravier, sable, GNT (fourniture et mise en place)
+
+Béton :
+  214.0 — Béton maigre, béton de propreté, béton non armé
+  215.0 — Béton armé, coffrage, ferraillage, béton projeté/gunite
+
+Maçonnerie :
+  216.0 — Maçonnerie, blocs, briques
+
+Fenêtres / Portes extérieures :
+  221.0 — Fenêtres, portes-fenêtres, vitrages
+
+Serrurerie / Métal :
+  222.0 — Garde-corps, main courantes, structures métalliques
+  222.0 — Bornes, poteaux métalliques
+
+Isolation :
+  224.0 — Isolation thermique, EPS, laine de roche
+
+Étanchéité :
+  225.0 — Étanchéité murs, drainage vertical, nappes à plots
+
+Toiture :
+  227.0 — Étanchéité toiture, membranes, drainage toiture
+  227.0 — Géotextile, nattes filtrantes, nattes de protection
+  227.0 — Toiture végétalisée, substrat toiture
+  227.0 — STRATEX, ZinCo (produits toiture)
+
+Électricité :
+  232.0 — Installations électriques, armoires, câblage, éclairage
+
+CVC :
+  241.0 — Chauffage / 242.0 — Ventilation
+
+Sanitaire :
+  251.0 — Installations sanitaires, fontaines, canalisations
+
+Chapes :
+  271.0 — Chapes ciment, chapes anhydrite
+
+Revêtements :
+  273.0 — Carrelage / 274.0 — Parquet / 275.0 — Peinture
+
+Aménagements extérieurs :
+  421.0 — Plantations, arbres, arbustes, gazon
+  422.0 — Mobilier urbain, jeux, bancs, abris vélos, clôtures
+
+Essais :
+  291.0 — Essais, contrôles, laboratoire
+
+Transport :
+  151.0 — Transport, grue, levage
+
+Autres codes courants :
+  111 Démolition / 113 Échafaudages / 117 Installations de chantier
+  162 Canalisations / 212 Travaux spéciaux de fondation
+  243 Climatisation / 261 Ascenseurs
+  276 Plâtrerie / 281 Menuiserie intérieure
+
+EXEMPLES CONCRETS :
+- 'Natte géotextile STRATEX NT 200' → 227.0 (PAS 211 ni 421)
+- 'Béton projeté gunite' → 215.0 (PAS 214)
+- 'Béton de propreté' → 214.0
+- 'Béton armé C30/37' → 215.0
+- 'Grave 0/45' → 211.0
+- 'Fondations en béton type A' → 215.0 (c'est du béton armé)
+- 'Gravier rond lavé' → 211.0
+- 'Garde-corps inox' → 222.0
 
 ${itemList}
 
 Réponds UNIQUEMENT en JSON valide (tableau) :
-[{"index":1,"cfc_code":"215.0","cfc_description":"Béton armé"},...]
-
-Codes CFC courants :
-111 Démolition / 113 Échafaudages / 117 Installations de chantier
-151 Transport / 162 Canalisations
-211 Terrassement / 212 Travaux spéciaux de fondation
-214 Béton maigre, fondations / 215 Béton armé / 216 Maçonnerie
-221 Fenêtres / 222 Serrurerie / 224 Isolation thermique
-225 Étanchéité / 227 Couverture de toiture
-232 Électricité / 241 Chauffage / 242 Ventilation / 243 Climatisation
-251 Sanitaire / 261 Ascenseurs
-271 Chapes / 273 Carrelage / 274 Parquet / 275 Peinture
-276 Plâtrerie / 281 Menuiserie intérieure
-291 Essais / 421 Plantations / 422 Aménagements extérieurs
-281.0 Géotextiles et nattes / 211.1 Remblais et graves`;
+[{"index":1,"cfc_code":"227.0","cfc_description":"géotextile = toiture"},...]`;
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
@@ -226,7 +286,7 @@ Codes CFC courants :
       }
     }
 
-    console.log(`[ESTIMATOR] Pass 2: AI assigned CFC codes to ${results.length}/${items.length} items`);
+    console.log(`[ESTIMATOR] Pass 2 CFC normalization: ${JSON.stringify(results)}`);
     return results;
   } catch (err: any) {
     console.error("[ESTIMATOR] Pass 2 CFC normalization error:", err?.message || err);
@@ -444,7 +504,7 @@ export async function estimateFromPlanAnalysis(
             cfc_code: assignment.cfc_code,
             margin_applied: round2(marginAmount),
           });
-          console.log(`[ESTIMATOR] Pass 2: "${q.item}" → CFC ${assignment.cfc_code} → ${result.prix} CHF/${q.unit}`);
+          console.log(`[ESTIMATOR] "${q.item}" → CFC ${assignment.cfc_code} → ${result.prix} CHF/${q.unit} (${result.source_detail})`);
           continue;
         }
       }
