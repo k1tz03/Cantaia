@@ -5,7 +5,6 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
-import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "@cantaia/ui";
 import {
   ArrowLeft,
@@ -69,13 +68,12 @@ export default function ProjectDetailPage() {
   const { project, loading: projectLoading } = useProject(params.id as string);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
-  const [submissions, setSubmissions] = useState<{ id: string; title: string; reference: string; status: string; estimated_total?: number; deadline?: string }[]>([]);
+  // submissions now fetched directly by ProjectSubmissionsTab
   const [plans, setPlans] = useState<any[]>([]);
   const [benchmark, setBenchmark] = useState<any[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
-    const supabase = createClient();
     const projectId = params.id as string;
 
     fetch(`/api/tasks?project_id=${projectId}`)
@@ -92,13 +90,7 @@ export default function ProjectDetailPage() {
       })
       .catch((err) => console.error("Failed to load meetings:", err));
 
-    (supabase.from("submissions") as any)
-      .select("id, title, reference, status, estimated_total, deadline")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false })
-      .then(({ data }: { data: any[] | null }) => {
-        if (data) setSubmissions(data);
-      });
+    // Submissions loaded by ProjectSubmissionsTab directly
 
     fetch(`/api/plans?project_id=${projectId}`)
       .then((res) => res.json())
@@ -253,7 +245,7 @@ export default function ProjectDetailPage() {
         {activeTab === "visits" && <ProjectVisitsTab />}
 
         {activeTab === "submissions" && (
-          <ProjectSubmissionsTab submissions={submissions} />
+          <ProjectSubmissionsTab projectId={params.id as string} />
         )}
 
         {activeTab === "plans" && <ProjectPlansTab plans={plans} />}

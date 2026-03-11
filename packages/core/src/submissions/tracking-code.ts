@@ -157,3 +157,14 @@ export async function validateAndResolvePriceRequest(
 
   return null;
 }
+
+/**
+ * Extract SUB-xxx tracking codes from text.
+ * Format: SUB-XXXX-slug-YYYYYY
+ * Used by the outlook sync pipeline to detect submission price responses.
+ */
+export function extractSubmissionTrackingCodes(text: string): string[] {
+  const regex = /SUB-[A-Z0-9]{4}-[a-z0-9-]+-[A-Z0-9]{6}/g;
+  const matches = text.match(regex);
+  return matches ? [...new Set(matches)] : [];
+}

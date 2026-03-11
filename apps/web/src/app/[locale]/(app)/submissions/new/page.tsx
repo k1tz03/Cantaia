@@ -1,307 +1,296 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import {
   ArrowLeft,
   Upload,
   FileSpreadsheet,
-  Clipboard,
+  FileText,
   Loader2,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
+  Plus,
 } from "lucide-react";
-import { mockParseSubmission, getConfidenceStats, type ParsedSubmission } from "@cantaia/core/submissions";
 
-// Data will come from Supabase — empty arrays until wired
-const mockProjects: any[] = [];
-
-type ImportStep = "upload" | "parsing" | "validation";
+interface ProjectOption {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string;
+}
 
 export default function NewSubmissionPage() {
-  const t = useTranslations("submissions");
   const router = useRouter();
-  const [step, setStep] = useState<ImportStep>("upload");
-  const [projectId, setProjectId] = useState("");
-  const [title, setTitle] = useState("");
-  const [reference, setReference] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [pasteText, setPasteText] = useState("");
-  const [parsed, setParsed] = useState<ParsedSubmission | null>(null);
-  const [expandedLots, setExpandedLots] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      if (!title) setTitle(file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "));
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectId, setProjectId] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [city, setCity] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createNewProject, setCreateNewProject] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/projects/list")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.projects) {
+          setProjects(
+            json.projects
+              .filter((p: ProjectOption) => p.status !== "archived" && p.status !== "completed")
+              .sort((a: ProjectOption, b: ProjectOption) => a.name.localeCompare(b.name))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProjects(false));
+  }, []);
+
+  const handleFile = useCallback((f: File) => {
+    const ext = f.name.toLowerCase().split(".").pop();
+    if (!ext || !["pdf", "xlsx", "xls"].includes(ext)) {
+      setError("Format non supporté. Utilisez PDF, XLSX ou XLS.");
+      return;
     }
-  }, [title]);
+    if (f.size > 20 * 1024 * 1024) {
+      setError("Fichier trop volumineux (20 Mo max).");
+      return;
+    }
+    setFile(f);
+    setError(null);
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      if (!title) setTitle(file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "));
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  }, [handleFile]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!file) return;
+    if (!projectId && !newProjectName) {
+      setError("Sélectionnez un projet ou créez-en un nouveau.");
+      return;
     }
-  }, [title]);
+    setSubmitting(true);
+    setError(null);
 
-  const handleParse = useCallback(() => {
-    if (!projectId || (!fileName && !pasteText)) return;
-    setStep("parsing");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (projectId) {
+        formData.append("project_id", projectId);
+      } else {
+        formData.append("project_name", newProjectName);
+        if (clientName) formData.append("client_name", clientName);
+        if (city) formData.append("city", city);
+      }
 
-    // Simulate parsing delay
-    setTimeout(() => {
-      const result = mockParseSubmission(fileName || "soumission");
-      setParsed(result);
-      // Expand all lots by default
-      const allLotIds = new Set(result.lots.map((_, i) => `lot-${i}`));
-      setExpandedLots(allLotIds);
-      setStep("validation");
-    }, 2000);
-  }, [projectId, fileName, pasteText]);
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        body: formData,
+      });
 
-  const handleValidate = useCallback(() => {
-    console.log("Submission validated:", { projectId, title, reference, parsed });
-    router.push("/submissions");
-  }, [projectId, title, reference, parsed, router]);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de la création");
+      }
 
-  const confidenceStats = parsed ? getConfidenceStats(parsed) : null;
+      const submissionId = json.submission.id;
 
-  function toggleLot(lotKey: string) {
-    setExpandedLots((prev) => {
-      const next = new Set(prev);
-      if (next.has(lotKey)) next.delete(lotKey);
-      else next.add(lotKey);
-      return next;
-    });
-  }
+      // Trigger analysis in background
+      fetch(`/api/submissions/${submissionId}/analyze`, { method: "POST" }).catch(() => {});
 
-  const confidenceColor = (c: string) => {
-    if (c === "high") return "bg-green-100 text-green-700";
-    if (c === "medium") return "bg-amber-100 text-amber-700";
-    return "bg-red-100 text-red-700";
-  };
+      // Redirect to detail page
+      router.push(`/submissions/${submissionId}`);
+    } catch (err: any) {
+      setError(err.message || "Erreur inattendue");
+      setSubmitting(false);
+    }
+  }, [file, projectId, newProjectName, clientName, city, router]);
+
+  const isValid = file && (projectId || newProjectName);
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-4xl mx-auto overflow-auto h-full">
+    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto overflow-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/submissions" className="p-1 hover:bg-gray-100 rounded">
           <ArrowLeft className="h-4 w-4 text-gray-500" />
         </Link>
-        <h1 className="text-xl font-bold text-gray-900">{t("newSubmission")}</h1>
+        <h1 className="text-xl font-bold text-gray-900">Nouvelle soumission</h1>
       </div>
 
-      {step === "upload" && (
-        <div className="space-y-6">
-          {/* Project & basic info */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="space-y-6">
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700 float-right">&times;</button>
+          </div>
+        )}
+
+        {/* Project selection */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-900">Projet</h2>
+
+          {!createNewProject ? (
+            <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t("filterProject")} *</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Projet existant
+                </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
-                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  disabled={loadingProjects}
                 >
-                  <option value="">{t("allProjects")}</option>
-                  {mockProjects.filter((p) => p.status === "active" || p.status === "planning").map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                  <option value="">
+                    {loadingProjects ? "Chargement..." : "Sélectionner un projet"}
+                  </option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.code ? `(${p.code})` : ""}
+                    </option>
                   ))}
                 </select>
               </div>
+              <button
+                onClick={() => { setCreateNewProject(true); setProjectId(""); }}
+                className="text-xs text-brand hover:text-brand/80 flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" /> Créer un nouveau projet
+              </button>
+            </>
+          ) : (
+            <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t("reference")}</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Nom du projet *
+                </label>
                 <input
                   type="text"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="CED-2026-GO-001"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Les Cèdres — Gros-œuvre"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
                 />
               </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t("title")} *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Soumission Gros-œuvre Cèdres"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
-                required
-              />
-            </div>
-          </div>
-
-          {/* File upload */}
-          <div
-            className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-            onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
-          >
-            <input
-              type="file"
-              accept=".pdf,.xlsx,.xls,.docx,.doc,.txt,.csv"
-              onChange={handleFileUpload}
-              className="hidden"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-700">{t("dragDropZone")}</p>
-              <p className="text-xs text-gray-400 mt-1">{t("dragDropFormats")}</p>
-              {fileName && (
-                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {fileName}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Maître d'ouvrage
+                  </label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="SA Immobilière"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  />
                 </div>
-              )}
-            </label>
-          </div>
-
-          {/* Paste zone */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Clipboard className="h-4 w-4 inline mr-1" />
-              {t("pasteZone")}
-            </label>
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white resize-y font-mono"
-              placeholder="1.1.1  Béton C30/37 XC3  m³  360&#10;1.1.2  Béton C25/30 XC2  m³  520&#10;..."
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Link href="/submissions" className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-              {t("title") === "Soumissions" ? "Annuler" : "Cancel"}
-            </Link>
-            <button
-              onClick={handleParse}
-              disabled={!projectId || (!fileName && !pasteText)}
-              className="px-6 py-2 bg-gold text-white rounded-md text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t("parsing").replace("...", "")} IA
-            </button>
-          </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Ville
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Lausanne"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => { setCreateNewProject(false); setNewProjectName(""); }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Utiliser un projet existant
+              </button>
+            </>
+          )}
         </div>
-      )}
 
-      {step === "parsing" && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="h-10 w-10 text-gold animate-spin mb-4" />
-          <h2 className="text-lg font-medium text-gray-900">{t("parsing")}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t("parsingDesc")}</p>
-          <div className="w-64 h-1.5 bg-gray-200 rounded-full mt-6 overflow-hidden">
-            <div className="h-full bg-gold rounded-full animate-pulse" style={{ width: "60%" }} />
-          </div>
-        </div>
-      )}
-
-      {step === "validation" && parsed && confidenceStats && (
-        <div className="space-y-6">
-          {/* AI confidence summary */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">
-                {t("aiParsed")} — {parsed.total_items} {t("items")} · {parsed.lots.length} {t("lots")}
-              </span>
-              <span className="ml-auto text-xs text-blue-600">
-                {t("aiConfidence")} : {Math.round(parsed.overall_confidence * 100)}%
-              </span>
-            </div>
-            <div className="flex gap-4 text-xs">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                {t("confidenceHigh")} : {confidenceStats.high}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                {t("confidenceMedium")} : {confidenceStats.medium}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-                {t("confidenceLow")} : {confidenceStats.low}
-              </span>
-            </div>
-          </div>
-
-          {/* Parsed lots */}
-          {parsed.lots.map((lot, lotIdx) => {
-            const lotKey = `lot-${lotIdx}`;
-            const expanded = expandedLots.has(lotKey);
-            return (
-              <div key={lotKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleLot(lotKey)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    {expanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                    <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">CFC {lot.cfc_code}</span>
-                    <span className="text-sm font-medium text-gray-900">{lot.name}</span>
-                    <span className="text-xs text-gray-400">{lot.chapters.reduce((acc, ch) => acc + ch.items.length, 0)} {t("items")}</span>
-                  </div>
-                </button>
-                {expanded && (
-                  <div className="border-t border-gray-200">
-                    {lot.chapters.map((ch, chIdx) => (
-                      <div key={chIdx}>
-                        <div className="bg-gray-50 px-4 py-2 text-xs font-medium text-gray-600 border-b border-gray-100">
-                          {ch.code} — {ch.name}
-                        </div>
-                        <div className="overflow-x-auto">
-                        <table className="w-full min-w-[500px]">
-                          <tbody className="divide-y divide-gray-50">
-                            {ch.items.map((item, itemIdx) => (
-                              <tr key={itemIdx} className="hover:bg-gray-50 text-sm">
-                                <td className="px-4 py-2 w-16 text-xs font-mono text-gray-500">{item.code}</td>
-                                <td className="px-4 py-2 text-gray-900">{item.description}</td>
-                                <td className="px-4 py-2 w-16 text-center text-xs text-gray-500">{item.unit}</td>
-                                <td className="px-4 py-2 w-20 text-right text-gray-600">{item.quantity?.toLocaleString("fr-CH") || "—"}</td>
-                                <td className="px-4 py-2 w-24 text-right">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${confidenceColor(item.confidence)}`}>
-                                    {item.confidence === "high" ? t("confidenceHigh") : item.confidence === "medium" ? t("confidenceMedium") : t("confidenceLow")}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        {/* File upload */}
+        <div
+          className={`bg-white border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+            dragOver ? "border-brand bg-brand/5" :
+            file ? "border-green-300 bg-green-50" :
+            "border-gray-300 hover:border-brand/50"
+          }`}
+          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onClick={() => !submitting && fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.xlsx,.xls"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+            className="hidden"
+          />
+          {file ? (
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-3">
+                {file.name.toLowerCase().endsWith(".pdf") ? (
+                  <FileText className="h-6 w-6 text-red-500" />
+                ) : (
+                  <FileSpreadsheet className="h-6 w-6 text-green-600" />
                 )}
               </div>
-            );
-          })}
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3">
-            <button onClick={() => setStep("upload")} className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 sm:w-auto">
-              ← Modifier
-            </button>
-            <button
-              onClick={handleValidate}
-              className="w-full px-6 py-2 bg-gold text-white rounded-md text-sm font-medium hover:bg-gold-dark sm:w-auto"
-            >
-              {t("validateAll")}
-            </button>
-          </div>
+              <p className="text-sm font-medium text-gray-900">{file.name}</p>
+              <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(0)} KB</p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="text-xs text-gray-400 hover:text-red-500 mt-2"
+              >
+                Supprimer
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6 text-gray-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">
+                Glissez un descriptif ici ou cliquez pour parcourir
+              </p>
+              <p className="text-xs text-gray-400 mt-1">PDF, XLSX, XLS — 20 Mo max</p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Submit */}
+        <div className="flex justify-end gap-3">
+          <Link
+            href="/submissions"
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Annuler
+          </Link>
+          <button
+            onClick={handleSubmit}
+            disabled={!isValid || submitting}
+            className="px-6 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? "Envoi..." : "Importer et analyser"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

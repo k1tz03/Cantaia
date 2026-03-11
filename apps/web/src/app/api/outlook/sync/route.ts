@@ -277,6 +277,50 @@ export async function POST(request: Request) {
           console.warn("[sync] Level 0 detection error:", l0Err);
           // Level 0 failure must never block the rest of the pipeline
         }
+
+        // ── Level 0b: SUB- tracking code detection (new submissions module) ──
+        try {
+          const { extractSubmissionTrackingCodes: extractTrackingCodes } = await import("@cantaia/core/submissions");
+          const emailText = `${email.subject || ""} ${email.body_preview || ""}`;
+          const subCodes = extractTrackingCodes(emailText);
+
+          if (subCodes.length > 0) {
+            const trackingCode = subCodes[0];
+            const { data: priceRequest } = await (adminClient as any)
+              .from("submission_price_requests")
+              .select("id, submission_id, project_id, supplier_id")
+              .eq("tracking_code", trackingCode)
+              .maybeSingle();
+
+            if (priceRequest) {
+              // Classify email as action_required and link to project
+              await (adminClient as any)
+                .from("email_records")
+                .update({
+                  classification: "action_required",
+                  project_id: priceRequest.project_id || null,
+                  classification_status: "auto_classified",
+                  email_category: "project",
+                  ai_reasoning: `Level 0b: Submission tracking code detected (${trackingCode})`,
+                  is_processed: true,
+                  price_extracted: false,
+                })
+                .eq("id", email.id);
+
+              // Update price request status
+              await (adminClient as any)
+                .from("submission_price_requests")
+                .update({ status: "responded" })
+                .eq("id", priceRequest.id);
+
+              console.log(`[sync] Level 0b: Linked email "${email.subject}" to submission price request via ${trackingCode}`);
+              emailsClassified++;
+              continue;
+            }
+          }
+        } catch (l0bErr) {
+          // Level 0b failure must never block the rest of the pipeline
+        }
       }
 
       // ═══════════════════════════════════════════════════════════

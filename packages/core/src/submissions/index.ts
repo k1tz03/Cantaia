@@ -25,6 +25,7 @@ export {
 export {
   generateTrackingCode,
   extractTrackingCode,
+  extractSubmissionTrackingCodes,
   validateAndResolvePriceRequest,
   type TrackingCodeParts,
 } from "./tracking-code";

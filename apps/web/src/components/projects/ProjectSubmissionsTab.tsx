@@ -1,73 +1,89 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useState, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
-import { FileSpreadsheet, Clock, Plus } from "lucide-react";
-import { formatDate, formatCurrency } from "@/lib/mock-data";
+import { FileSpreadsheet, FileText, Plus, Loader2, ChevronRight } from "lucide-react";
 
-export function ProjectSubmissionsTab({
-  submissions,
-}: {
-  submissions: { id: string; title: string; reference: string; status: string; estimated_total?: number; deadline?: string }[];
-}) {
-  const t = useTranslations("projects");
+interface SubmissionRow {
+  id: string;
+  file_name: string | null;
+  file_type: string | null;
+  analysis_status: string;
+  created_at: string;
+}
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  pending: { label: "En attente", className: "bg-gray-100 text-gray-600" },
+  analyzing: { label: "Analyse...", className: "bg-purple-100 text-purple-700" },
+  done: { label: "Analysé", className: "bg-green-100 text-green-700" },
+  error: { label: "Erreur", className: "bg-red-100 text-red-700" },
+};
+
+export function ProjectSubmissionsTab({ projectId }: { projectId: string }) {
+  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/submissions?project_id=${projectId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setSubmissions(json.submissions || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 text-brand animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          {submissions.length} {submissions.length === 1 ? "soumission" : "soumissions"}
+          {submissions.length} soumission{submissions.length !== 1 ? "s" : ""}
         </p>
         <Link
           href="/submissions/new"
           className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90"
         >
           <Plus className="h-3.5 w-3.5" />
-          {t("newTask")}
+          Nouvelle soumission
         </Link>
       </div>
       {submissions.length > 0 ? (
         <div className="space-y-2">
           {submissions.map((sub) => {
-            const lots: unknown[] = [];
-            const statusColors: Record<string, string> = {
-              draft: "bg-gray-100 text-gray-700",
-              published: "bg-blue-100 text-blue-700",
-              received: "bg-indigo-100 text-indigo-700",
-              comparing: "bg-amber-100 text-amber-700",
-              awarded: "bg-green-100 text-green-700",
-              cancelled: "bg-red-100 text-red-700",
-            };
+            const sc = statusConfig[sub.analysis_status] || statusConfig.pending;
             return (
               <Link
                 key={sub.id}
                 href={`/submissions/${sub.id}`}
-                className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50"
+                className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50 group"
               >
-                <FileSpreadsheet className="h-5 w-5 flex-shrink-0 text-slate-400" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-slate-800 truncate">{sub.title}</p>
-                    <span className="flex-shrink-0 text-xs text-slate-400 font-mono">{sub.reference}</span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-                    <span>{lots.length} lot{lots.length !== 1 ? "s" : ""}</span>
-                    {sub.estimated_total && (
-                      <span className="font-medium text-slate-700">
-                        {formatCurrency(sub.estimated_total, "CHF")}
-                      </span>
-                    )}
-                    {sub.deadline && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(sub.deadline)}
-                      </span>
-                    )}
-                  </div>
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                  {sub.file_type === "pdf" ? (
+                    <FileText className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  )}
                 </div>
-                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[sub.status] || "bg-gray-100 text-gray-700"}`}>
-                  {sub.status}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800 truncate">
+                    {sub.file_name || "Sans nom"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {new Date(sub.created_at).toLocaleDateString("fr-CH")}
+                  </p>
+                </div>
+                <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${sc.className}`}>
+                  {sc.label}
                 </span>
+                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 shrink-0" />
               </Link>
             );
           })}
@@ -76,7 +92,8 @@ export function ProjectSubmissionsTab({
         <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white">
           <div className="text-center">
             <FileSpreadsheet className="mx-auto h-10 w-10 text-slate-300" />
-            <p className="mt-3 text-sm font-medium text-slate-500">{t("comingSoon")}</p>
+            <p className="mt-3 text-sm font-medium text-slate-500">Aucune soumission</p>
+            <p className="text-xs text-slate-400 mt-1">Importez un descriptif pour commencer</p>
           </div>
         </div>
       )}
