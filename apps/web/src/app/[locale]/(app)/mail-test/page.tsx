@@ -9,6 +9,7 @@ import {
   TrendingDown,
   RefreshCw,
   ChevronDown,
+  ChevronRight,
   Send,
   Eye,
   Users,
@@ -25,6 +26,7 @@ import {
   ThumbsDown,
   Forward,
   RotateCcw,
+  Sparkles,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════
@@ -75,6 +77,18 @@ interface OrgMember {
   email: string;
 }
 
+interface ThreadMessage {
+  id: string;
+  subject: string;
+  from: { name: string; email: string };
+  to: { name: string; email: string }[];
+  cc: { name: string; email: string }[];
+  receivedDateTime: string;
+  body: { content: string; contentType: string };
+  bodyPreview: string;
+  isCurrentMessage: boolean;
+}
+
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
@@ -99,6 +113,27 @@ function formatDate(): string {
 function formatFullDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function getInitials(name: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name: string, isCurrentUser: boolean): string {
+  if (isCurrentUser) return "#2563EB";
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const colors = ["#6B7280", "#8B5CF6", "#059669", "#D97706", "#DC2626", "#7C3AED", "#0891B2"];
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function formatThreadDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })
+    + " " + d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
 }
 
 /** FIX 5 — Lock body scroll when a popup is open */
@@ -131,6 +166,8 @@ export default function MailTestPage() {
   const [decisionsToday, setDecisionsToday] = useState(0);
   const [isAloneInOrg, setIsAloneInOrg] = useState(true);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+  const [generatingSummaries, setGeneratingSummaries] = useState(false);
+  const [summaryToast, setSummaryToast] = useState<string | null>(null);
 
   // Modal states
   const [modalEmail, setModalEmail] = useState<DecisionEmail | null>(null);
@@ -296,7 +333,35 @@ export default function MailTestPage() {
       {/* Info section below decisions */}
       {activeFilter !== "info" && filteredInfo.length > 0 && (
         <div className="max-w-[860px] mx-auto px-4 pb-12">
-          <h2 className="text-lg font-semibold text-gray-700 mb-3">Emails non lus</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-700">Emails non lus</h2>
+            <button
+              onClick={async () => {
+                setGeneratingSummaries(true);
+                setSummaryToast(null);
+                try {
+                  const res = await fetch("/api/mail-test/generate-summaries", { method: "POST" });
+                  const json = await res.json();
+                  if (json.success) {
+                    setSummaryToast(`${json.updated} résumé${json.updated !== 1 ? "s" : ""} généré${json.updated !== 1 ? "s" : ""}`);
+                    if (json.updated > 0) fetchData();
+                  }
+                } catch {}
+                setGeneratingSummaries(false);
+                setTimeout(() => setSummaryToast(null), 4000);
+              }}
+              disabled={generatingSummaries}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+            >
+              {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              Générer les résumés
+            </button>
+          </div>
+          {summaryToast && (
+            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
+              <Check className="w-4 h-4" />{summaryToast}
+            </div>
+          )}
           <InfoSection
             emails={filteredInfo.slice(0, 10)}
             onArchive={(id) => dismissCard(id, "archive")}
@@ -421,37 +486,51 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
   onArchive: () => void;
   isAloneInOrg: boolean;
 }) {
-  const [emailBody, setEmailBody] = useState("");
-  const [bodyLoading, setBodyLoading] = useState(true);
-  const [isHtml, setIsHtml] = useState(false);
+  const [thread, setThread] = useState<ThreadMessage[] | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [fallbackBody, setFallbackBody] = useState<string>("");
+  const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
 
+  // Load fallback body immediately, then fetch thread
   useEffect(() => {
-    async function loadBody() {
-      if (!email.outlook_message_id) {
-        setEmailBody(email.body_preview || "");
-        setBodyLoading(false);
-        return;
-      }
+    // Immediate fallback: show body_preview
+    setFallbackBody(email.body_preview || "");
+
+    // Load full body as fallback (fast)
+    async function loadFallback() {
+      if (!email.outlook_message_id) return;
       try {
         const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
         if (res.ok) {
           const data = await res.json();
           const body = data.body || "";
-          if (body.includes("<") && body.includes(">") && (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table"))) {
-            setIsHtml(true);
-            setEmailBody(body);
-          } else {
-            setEmailBody(body || email.body_preview || "");
+          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+            setFallbackIsHtml(true);
           }
-        } else {
-          setEmailBody(email.body_preview || "");
+          setFallbackBody(body || email.body_preview || "");
+        }
+      } catch {}
+    }
+
+    // Load thread (may be slower)
+    async function loadThread() {
+      try {
+        const res = await fetch(`/api/mail-test/emails/${email.id}/thread`);
+        const data = await res.json();
+        if (data.thread && data.thread.length > 0) {
+          setThread(data.thread);
+        } else if (data.error) {
+          setThreadError(data.error);
         }
       } catch {
-        setEmailBody(email.body_preview || "");
+        setThreadError("Conversation complète indisponible");
       }
-      setBodyLoading(false);
+      setThreadLoading(false);
     }
-    loadBody();
+
+    loadFallback();
+    loadThread();
   }, [email]);
 
   useEffect(() => {
@@ -470,17 +549,15 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
 
   return (
     <>
-      {/* Backdrop — overflow hidden to prevent background scroll */}
       <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
 
-      {/* Modal — flex column layout */}
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
           className="bg-white rounded-2xl shadow-2xl flex flex-col"
           style={{ width: "70vw", maxWidth: "960px", height: "80vh", maxHeight: "800px" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header — fixed height */}
+          {/* Header */}
           <div className="flex-shrink-0 px-6 py-4" style={{ background: "#1E3A5F" }}>
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0 mr-4">
@@ -489,6 +566,11 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">{email.project_name}</span>
                   )}
                   <span className={`px-2 py-0.5 rounded text-xs font-bold ${priorityBadge.cls}`}>{priorityBadge.label}</span>
+                  {thread && thread.length > 1 && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">
+                      {thread.length} messages
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-lg font-semibold text-white truncate">{email.subject}</h2>
                 <div className="flex items-center gap-2 mt-1 text-sm text-[#93C5FD]">
@@ -503,7 +585,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
             </div>
           </div>
 
-          {/* Body — flex-1, min-h-0 for proper scroll, onWheel stopPropagation */}
+          {/* Body */}
           <div
             className="flex-1 min-h-0 overflow-y-auto px-6 py-6"
             onWheel={(e) => e.stopPropagation()}
@@ -519,32 +601,39 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
                 </div>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">Contenu de l&apos;email</span>
+                  <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">
+                    {thread && thread.length > 1 ? "Fil de conversation" : "Contenu de l'email"}
+                  </span>
                   <div className="flex-1 h-px bg-gray-200" />
                 </div>
               </>
             )}
 
-            {/* Email body — never truncated */}
-            {bodyLoading ? (
-              <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
-                <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
+            {threadError && !thread && (
+              <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5" />{threadError}
               </div>
+            )}
+
+            {/* Thread or single email */}
+            {thread && thread.length > 0 ? (
+              <ThreadView thread={thread} currentUserEmail={email.sender_email} />
             ) : (
               <div className="bg-[#F9FAFB] rounded-lg p-4">
-                {isHtml ? (
-                  <div
-                    className="prose prose-sm max-w-none text-gray-700 email-content"
-                    dangerouslySetInnerHTML={{ __html: emailBody }}
-                  />
+                {threadLoading && !fallbackBody ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+                    <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
+                  </div>
+                ) : fallbackIsHtml ? (
+                  <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
                 ) : (
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{emailBody}</div>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{fallbackBody}</div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Footer — fixed height */}
+          {/* Footer */}
           <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
             <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
               <Send className="w-3.5 h-3.5" />Répondre avec IA
@@ -568,6 +657,123 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
         </div>
       </div>
     </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THREAD VIEW (reusable conversation thread component)
+   ═══════════════════════════════════════════════════════════ */
+
+function ThreadView({ thread, currentUserEmail }: {
+  thread: ThreadMessage[];
+  currentUserEmail?: string;
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    // Last message is always expanded
+    if (thread.length === 0) return new Set<string>();
+    return new Set([thread[thread.length - 1].id]);
+  });
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {thread.map((msg, idx) => {
+        const isExpanded = expandedIds.has(msg.id);
+        const isLast = idx === thread.length - 1;
+        const isCurrentUser = currentUserEmail ? msg.from.email.toLowerCase() === currentUserEmail.toLowerCase() : false;
+        const avatarColor = getAvatarColor(msg.from.name || msg.from.email, isCurrentUser);
+        const initials = getInitials(msg.from.name || msg.from.email);
+        const isHtml = msg.body.contentType?.toLowerCase() === "html";
+
+        return (
+          <div key={msg.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+            {/* Message header — clickable to expand/collapse */}
+            <button
+              onClick={() => toggleExpand(msg.id)}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+            >
+              {/* Avatar */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                style={{ background: avatarColor }}
+              >
+                {initials}
+              </div>
+
+              {/* Sender info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900 truncate">
+                    {msg.from.name || msg.from.email}
+                  </span>
+                  {msg.isCurrentMessage && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">Message principal</span>
+                  )}
+                </div>
+                {!isExpanded && (
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{msg.bodyPreview}</p>
+                )}
+              </div>
+
+              {/* Date + chevron */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-gray-400">{formatThreadDate(msg.receivedDateTime)}</span>
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </button>
+
+            {/* Expanded body */}
+            {isExpanded && (
+              <div className="border-t border-gray-100">
+                {/* Recipients line */}
+                <div className="px-4 py-2 text-xs text-gray-500 space-y-0.5 bg-gray-50/50">
+                  <p>De : {msg.from.name} &lt;{msg.from.email}&gt;</p>
+                  {msg.to.length > 0 && (
+                    <p>À : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
+                  )}
+                  {msg.cc.length > 0 && (
+                    <p>CC : {msg.cc.map((r) => r.name || r.email).join(", ")}</p>
+                  )}
+                </div>
+
+                {/* Body content */}
+                <div className="px-4 py-4">
+                  {isHtml ? (
+                    <div
+                      className="prose prose-sm max-w-none text-gray-700 email-content"
+                      dangerouslySetInnerHTML={{ __html: msg.body.content }}
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body.content}</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Separator label between messages */}
+            {!isLast && idx < thread.length - 1 && (
+              <div className="px-4 pb-1">
+                <span className="text-[10px] text-gray-400">
+                  Réponse · il y a {timeAgo(thread[idx + 1].receivedDateTime)}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -853,9 +1059,6 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
     setTimeout(action, 300);
   };
 
-  const summaryText = email.ai_summary
-    || (email.body_preview ? (email.body_preview.length > 120 ? email.body_preview.slice(0, 120) + "..." : email.body_preview) : "");
-
   return (
     <div
       className={`bg-white rounded-xl border border-gray-100 border-l-[3px] border-l-gray-300 shadow-sm transition-all duration-300 ${exiting ? "opacity-0 -translate-x-6" : "opacity-100 translate-x-0"}`}
@@ -876,19 +1079,24 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
         {/* Sender */}
         <p className="text-xs text-gray-400 mb-2">De : {email.sender_name || email.sender_email}</p>
 
-        {/* FIX 1 — AI Summary block */}
-        <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
-          <div className="px-3 py-2.5">
-            {email.ai_summary ? (
-              <>
-                <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ Résumé IA</div>
-                <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
-              </>
-            ) : (
-              <p className="text-xs leading-relaxed text-gray-500">{summaryText}</p>
-            )}
+        {/* Summary / preview block */}
+        {email.ai_summary ? (
+          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ RÉSUMÉ IA</div>
+              <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #9CA3AF", background: "#F3F4F6" }}>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-gray-400 mb-1">APERÇU</div>
+              <p className="text-xs leading-relaxed text-gray-500">
+                {email.body_preview ? (email.body_preview.length > 150 ? email.body_preview.slice(0, 150) + "..." : email.body_preview) : ""}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Actions — FIX 1: added reply button */}
         <div className="flex items-center gap-2">
@@ -940,51 +1148,67 @@ function ReplyModal({ email, onClose, onDone }: {
 }) {
   const [replyText, setReplyText] = useState("");
   const [replyLoading, setReplyLoading] = useState(false);
-  const [emailBody, setEmailBody] = useState("");
-  const [bodyLoading, setBodyLoading] = useState(true);
-  const [isHtml, setIsHtml] = useState(false);
+  const [thread, setThread] = useState<ThreadMessage[] | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [fallbackBody, setFallbackBody] = useState("");
+  const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
   const [sending, setSending] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const replyRef = useRef<HTMLTextAreaElement>(null);
+  const threadContextRef = useRef<string>("");
 
-  // Load email body
+  // Load fallback body + thread
   useEffect(() => {
-    async function loadBody() {
-      if (!email.outlook_message_id) {
-        setEmailBody(email.body_preview || "");
-        setBodyLoading(false);
-        return;
-      }
+    setFallbackBody(email.body_preview || "");
+
+    async function loadFallback() {
+      if (!email.outlook_message_id) return;
       try {
         const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
         if (res.ok) {
           const data = await res.json();
           const body = data.body || "";
-          if (body.includes("<") && body.includes(">") && (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table"))) {
-            setIsHtml(true);
+          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+            setFallbackIsHtml(true);
           }
-          setEmailBody(body || email.body_preview || "");
-        } else {
-          setEmailBody(email.body_preview || "");
+          setFallbackBody(body || email.body_preview || "");
         }
-      } catch {
-        setEmailBody(email.body_preview || "");
-      }
-      setBodyLoading(false);
+      } catch {}
     }
-    loadBody();
+
+    async function loadThread() {
+      try {
+        const res = await fetch(`/api/mail-test/emails/${email.id}/thread`);
+        const data = await res.json();
+        if (data.thread && data.thread.length > 0) {
+          setThread(data.thread);
+          // Build thread context for AI
+          threadContextRef.current = data.thread.map((msg: ThreadMessage) =>
+            `[${msg.receivedDateTime}] De: ${msg.from.name} <${msg.from.email}>\nObjet: ${msg.subject}\n${msg.bodyPreview || ""}`
+          ).join("\n\n---\n\n");
+        }
+      } catch {}
+      setThreadLoading(false);
+    }
+
+    loadFallback();
+    loadThread();
   }, [email]);
 
-  // Generate AI reply
+  // Generate AI reply — includes thread context
   const generateReply = useCallback(async () => {
     setReplyLoading(true);
     try {
+      const payload: Record<string, unknown> = { email_id: email.id };
+      if (threadContextRef.current) {
+        payload.thread_context = threadContextRef.current;
+      }
       const res = await fetch("/api/ai/generate-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_id: email.id }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
@@ -994,9 +1218,12 @@ function ReplyModal({ email, onClose, onDone }: {
     setReplyLoading(false);
   }, [email.id]);
 
+  // Wait for thread to load before generating reply (for context)
   useEffect(() => {
-    generateReply();
-  }, [generateReply]);
+    if (!threadLoading) {
+      generateReply();
+    }
+  }, [threadLoading, generateReply]);
 
   // Auto-expand textarea
   useEffect(() => {
@@ -1065,26 +1292,34 @@ function ReplyModal({ email, onClose, onDone }: {
 
           {/* Body — 2 columns */}
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-            {/* Left: original email (40%) */}
+            {/* Left: conversation thread (40%) */}
             <div className="md:w-[40%] border-r border-gray-200 flex flex-col min-h-0">
-              <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0">
-                <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">Email original</span>
+              <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
+                <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">
+                  {thread && thread.length > 1 ? `Conversation (${thread.length})` : "Email original"}
+                </span>
               </div>
               <div
                 className="flex-1 min-h-0 overflow-y-auto p-4"
-                style={{ background: "#F3F4F6", borderLeft: "3px solid #9CA3AF" }}
+                style={{ background: "#F9FAFB" }}
                 onWheel={(e) => e.stopPropagation()}
               >
-                <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
-                <div className="text-xs text-gray-500 mb-3">De : {email.sender_name || email.sender_email}</div>
-                {bodyLoading ? (
-                  <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                    <Loader2 className="w-4 h-4 animate-spin" />Chargement...
-                  </div>
-                ) : isHtml ? (
-                  <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: emailBody }} />
+                {thread && thread.length > 0 ? (
+                  <ThreadView thread={thread} currentUserEmail={email.sender_email} />
                 ) : (
-                  <div className="text-sm text-gray-600 whitespace-pre-wrap">{emailBody}</div>
+                  <>
+                    <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
+                    <div className="text-xs text-gray-500 mb-3">De : {email.sender_name || email.sender_email}</div>
+                    {threadLoading && !fallbackBody ? (
+                      <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                        <Loader2 className="w-4 h-4 animate-spin" />Chargement...
+                      </div>
+                    ) : fallbackIsHtml ? (
+                      <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
+                    ) : (
+                      <div className="text-sm text-gray-600 whitespace-pre-wrap">{fallbackBody}</div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

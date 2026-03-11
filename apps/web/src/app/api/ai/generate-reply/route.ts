@@ -107,8 +107,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // If thread_context is provided, prepend it to bodyFull for richer AI context
+  if (body.thread_context && typeof body.thread_context === "string") {
+    const threadPrefix = `--- FIL DE CONVERSATION COMPLET ---\n${body.thread_context}\n--- FIN DU FIL ---\n\nDernier message (à répondre) :\n`;
+    bodyFull = threadPrefix + (bodyFull || email.body_preview || "");
+  }
+
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
-  if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}`);
+  if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}, Has thread: ${!!body.thread_context}`);
 
   let result;
   try {
