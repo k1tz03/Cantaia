@@ -12,6 +12,13 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Eye,
+  Plus,
+  Clock,
+  RotateCcw,
+  CheckCircle2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 
 // ── Local types matching API response ────────────────────────
@@ -58,6 +65,9 @@ interface PriceRequestData {
   items_requested: any[];
   sent_at: string | null;
   status: string;
+  deadline: string | null;
+  relance_count: number;
+  last_relance_at: string | null;
   suppliers?: {
     id: string;
     company_name: string;
@@ -462,6 +472,14 @@ function RequestsTabContent({
     d.setDate(d.getDate() + 14);
     return d.toISOString().split("T")[0];
   });
+  const [relancing, setRelancing] = useState<string | null>(null);
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ company_name: "", email: "", contact_name: "", phone: "" });
+  const [saveToDb, setSaveToDb] = useState(true);
+  const [addingSupplier, setAddingSupplier] = useState(false);
+  const [previewData, setPreviewData] = useState<{ subject: string; body: string; to: string; supplier_name: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewSupplier, setPreviewSupplier] = useState<string>("");
 
   // Load org suppliers
   useEffect(() => {
@@ -473,7 +491,6 @@ function RequestsTabContent({
       })
       .catch(() => {});
   }, []);
-
 
   function toggleSupplier(group: string, supplierId: string) {
     setSelectedSuppliers((prev) => {
@@ -509,6 +526,7 @@ function RequestsTabContent({
       if (json.success) {
         setSelectedSuppliers({});
         setShowSendModal(false);
+        setPreviewData(null);
         onRefresh();
       }
     } catch (err: any) {
@@ -518,12 +536,87 @@ function RequestsTabContent({
     }
   }
 
+  async function handleRelance(requestId: string) {
+    setRelancing(requestId);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/relance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: requestId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        onRefresh();
+      }
+    } catch {}
+    setRelancing(null);
+  }
+
+  async function handleAddSupplier() {
+    if (!newSupplier.company_name || !newSupplier.email) return;
+    setAddingSupplier(true);
+    try {
+      if (saveToDb) {
+        const res = await fetch("/api/suppliers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newSupplier),
+        });
+        const json = await res.json();
+        if (json.id || json.supplier) {
+          const created = json.supplier || json;
+          setSuppliers((prev) => [...prev, { id: created.id, ...newSupplier }]);
+        }
+      } else {
+        // Add locally only (temporary supplier)
+        const tempId = `temp-${Date.now()}`;
+        setSuppliers((prev) => [...prev, { id: tempId, ...newSupplier, _manual: true }]);
+      }
+      setNewSupplier({ company_name: "", email: "", contact_name: "", phone: "" });
+      setShowAddSupplier(false);
+    } catch {}
+    setAddingSupplier(false);
+  }
+
+  async function loadPreview(group: string, supplierId: string) {
+    setPreviewLoading(true);
+    try {
+      const params = new URLSearchParams({ group, supplier_id: supplierId, deadline });
+      const res = await fetch(`/api/submissions/${submissionId}/preview-email?${params}`);
+      const json = await res.json();
+      if (json.success) {
+        setPreviewData({ subject: json.subject, body: json.body, to: json.to, supplier_name: json.supplier_name });
+        setPreviewSupplier(supplierId);
+      }
+    } catch {}
+    setPreviewLoading(false);
+  }
+
+  function getRequestStatus(pr: PriceRequestData): { label: string; className: string; icon: React.ElementType } {
+    if (pr.status === "responded") {
+      return { label: "Répondu", className: "bg-green-100 text-green-700", icon: CheckCircle2 };
+    }
+    if (pr.deadline) {
+      const deadlineDate = new Date(pr.deadline);
+      const now = new Date();
+      if (deadlineDate < now) {
+        return { label: "En retard", className: "bg-red-100 text-red-700", icon: AlertTriangle };
+      }
+    }
+    return { label: "En attente", className: "bg-amber-100 text-amber-700", icon: Clock };
+  }
+
   // Group existing requests by material_group
   const requestsByGroup: Record<string, PriceRequestData[]> = {};
   for (const pr of priceRequests) {
     if (!requestsByGroup[pr.material_group]) requestsByGroup[pr.material_group] = [];
     requestsByGroup[pr.material_group].push(pr);
   }
+
+  // Collect all selected (group, supplierId) pairs for preview selector
+  const allSelected = Object.entries(selectedSuppliers).flatMap(([group, ids]) =>
+    ids.map((sid) => ({ group, supplierId: sid }))
+  );
 
   return (
     <div className="space-y-6">
@@ -562,37 +655,78 @@ function RequestsTabContent({
               )}
             </div>
 
-            {/* Existing requests */}
+            {/* Tracking section — existing requests with status + relance */}
             {existingRequests.length > 0 && (
               <div className="border-b border-gray-100 px-4 py-3 space-y-2">
-                {existingRequests.map((pr) => (
-                  <div
-                    key={pr.id}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
-                      pr.status === "responded" ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"
-                    }`}
-                  >
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        {pr.suppliers?.company_name || "Fournisseur"}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-2">
-                        {pr.tracking_code}
-                      </span>
+                {existingRequests.map((pr) => {
+                  const status = getRequestStatus(pr);
+                  const StatusIcon = status.icon;
+                  return (
+                    <div
+                      key={pr.id}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm bg-white border border-gray-200"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <StatusIcon className={`h-4 w-4 shrink-0 ${
+                          pr.status === "responded" ? "text-green-600" :
+                          status.label === "En retard" ? "text-red-600" : "text-amber-500"
+                        }`} />
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900">
+                            {pr.suppliers?.company_name || "Fournisseur"}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-2 font-mono">
+                            {pr.tracking_code}
+                          </span>
+                          {pr.deadline && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              Deadline: {new Date(pr.deadline).toLocaleDateString("fr-CH")}
+                            </span>
+                          )}
+                          {(pr.relance_count || 0) > 0 && (
+                            <span className="text-xs text-orange-500 ml-2">
+                              {pr.relance_count} relance{(pr.relance_count || 0) > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.className}`}>
+                          {status.label}
+                        </span>
+                        {pr.status !== "responded" && (
+                          <button
+                            onClick={() => handleRelance(pr.id)}
+                            disabled={relancing === pr.id}
+                            className="text-xs px-2.5 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {relancing === pr.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3 w-3" />
+                            )}
+                            Relancer
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      pr.status === "responded" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                    }`}>
-                      {pr.status === "responded" ? "Répondu" : "En attente"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             {/* Supplier selection */}
             <div className="px-4 py-3">
-              <p className="text-xs font-medium text-gray-600 mb-2">Sélectionner des fournisseurs :</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-gray-600">Sélectionner des fournisseurs :</p>
+                <button
+                  onClick={() => setShowAddSupplier(true)}
+                  className="text-xs px-2 py-1 text-brand hover:bg-brand/5 rounded flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Ajouter un fournisseur
+                </button>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {suppliers.map((supplier: any) => {
                   const isSelected = (selectedSuppliers[group] || []).includes(supplier.id);
@@ -608,7 +742,12 @@ function RequestsTabContent({
                         "bg-white border-gray-200 text-gray-700 hover:border-brand/30"
                       }`}
                     >
-                      <span className="font-medium block truncate">{supplier.company_name}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium block truncate">{supplier.company_name}</span>
+                        {supplier._manual && (
+                          <span className="text-[10px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded shrink-0">Manuel</span>
+                        )}
+                      </div>
                       {supplier.email && (
                         <span className="text-gray-400 block truncate">{supplier.email}</span>
                       )}
@@ -619,7 +758,10 @@ function RequestsTabContent({
               </div>
               {suppliers.length === 0 && (
                 <p className="text-xs text-gray-400 py-2">
-                  Aucun fournisseur. <Link href="/suppliers" className="text-brand hover:underline">Ajouter des fournisseurs</Link>
+                  Aucun fournisseur.{" "}
+                  <button onClick={() => setShowAddSupplier(true)} className="text-brand hover:underline">
+                    Ajouter un fournisseur
+                  </button>
                 </p>
               )}
             </div>
@@ -630,25 +772,25 @@ function RequestsTabContent({
       {materialGroups.length === 0 && (
         <div className="text-center py-16">
           <Send className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Analysez d'abord le descriptif pour grouper les postes</p>
+          <p className="text-sm text-gray-500">Analysez d&apos;abord le descriptif pour grouper les postes</p>
         </div>
       )}
 
-      {/* Send modal */}
+      {/* Send modal with preview */}
       {showSendModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Confirmer l'envoi</h3>
-              <button onClick={() => setShowSendModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="text-lg font-bold text-gray-900">Confirmer l&apos;envoi</h3>
+              <button onClick={() => { setShowSendModal(false); setPreviewData(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Délai de réponse</label>
                 <input
                   type="date"
                   value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
+                  onChange={(e) => { setDeadline(e.target.value); setPreviewData(null); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 />
               </div>
@@ -671,13 +813,64 @@ function RequestsTabContent({
                     </div>
                   ))}
               </div>
+
+              {/* Email preview */}
+              <div className="border border-gray-200 rounded-lg">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Eye className="h-4 w-4" />
+                    Aperçu de l&apos;email
+                  </div>
+                  {allSelected.length > 0 && (
+                    <select
+                      value={previewSupplier}
+                      onChange={(e) => {
+                        const pair = allSelected.find((p) => p.supplierId === e.target.value);
+                        if (pair) loadPreview(pair.group, pair.supplierId);
+                      }}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                    >
+                      <option value="">Choisir un destinataire...</option>
+                      {allSelected.map((pair) => {
+                        const s = suppliers.find((sup: any) => sup.id === pair.supplierId);
+                        return (
+                          <option key={`${pair.group}-${pair.supplierId}`} value={pair.supplierId}>
+                            {s?.company_name || pair.supplierId} — {pair.group}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+                {previewLoading ? (
+                  <div className="p-6 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 text-brand animate-spin" />
+                  </div>
+                ) : previewData ? (
+                  <div className="p-4 space-y-3">
+                    <div className="text-xs space-y-1">
+                      <p><span className="text-gray-500">À :</span> <span className="text-gray-900">{previewData.to}</span></p>
+                      <p><span className="text-gray-500">Objet :</span> <span className="font-medium text-gray-900">{previewData.subject}</span></p>
+                    </div>
+                    <div
+                      className="border border-gray-200 rounded-lg p-3 text-xs text-gray-700 max-h-60 overflow-y-auto bg-white"
+                      dangerouslySetInnerHTML={{ __html: previewData.body }}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-xs text-gray-400">
+                    Sélectionnez un destinataire pour voir l&apos;aperçu
+                  </div>
+                )}
+              </div>
+
               {sendResult?.error && (
                 <p className="text-sm text-red-600">{sendResult.error}</p>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
               <button
-                onClick={() => setShowSendModal(false)}
+                onClick={() => { setShowSendModal(false); setPreviewData(null); }}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
               >
                 Annuler
@@ -689,6 +882,93 @@ function RequestsTabContent({
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {sending ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add supplier modal */}
+      {showAddSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Ajouter un fournisseur</h3>
+              <button onClick={() => setShowAddSupplier(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Nom de l&apos;entreprise <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newSupplier.company_name}
+                  onChange={(e) => setNewSupplier((prev) => ({ ...prev, company_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="Ex: Holcim Suisse SA"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newSupplier.email}
+                  onChange={(e) => setNewSupplier((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="offres@holcim.ch"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Contact</label>
+                  <input
+                    type="text"
+                    value={newSupplier.contact_name}
+                    onChange={(e) => setNewSupplier((prev) => ({ ...prev, contact_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="Jean Dupont"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={newSupplier.phone}
+                    onChange={(e) => setNewSupplier((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="+41 21 000 00 00"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveToDb}
+                  onChange={(e) => setSaveToDb(e.target.checked)}
+                  className="rounded border-gray-300 text-brand focus:ring-brand"
+                />
+                <span className="text-xs text-gray-600">Sauvegarder dans la base fournisseurs</span>
+              </label>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddSupplier(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAddSupplier}
+                disabled={addingSupplier || !newSupplier.company_name || !newSupplier.email}
+                className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {addingSupplier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Ajouter
               </button>
             </div>
           </div>
@@ -825,6 +1105,7 @@ function SummaryTabContent({
   materialGroups: string[];
   priceRequests: PriceRequestData[];
 }) {
+  const sentCount = priceRequests.filter((pr) => pr.sent_at).length;
   const respondedCount = priceRequests.filter((pr) => pr.status === "responded").length;
   const quotedItems = items.filter((i) => i.status === "quoted").length;
 
@@ -841,7 +1122,7 @@ function SummaryTabContent({
           <div className="text-xs text-gray-500 mt-1">Groupes</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-blue-600">{priceRequests.length}</div>
+          <div className="text-2xl font-bold text-blue-600">{sentCount}</div>
           <div className="text-xs text-gray-500 mt-1">Demandes envoyées</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
@@ -851,7 +1132,7 @@ function SummaryTabContent({
       </div>
 
       {/* Progress */}
-      {priceRequests.length > 0 && (
+      {sentCount > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <h3 className="text-sm font-medium text-gray-900 mb-3">Avancement</h3>
           <div className="space-y-3">
@@ -867,10 +1148,10 @@ function SummaryTabContent({
             <div>
               <div className="flex justify-between text-xs text-gray-600 mb-1">
                 <span>Fournisseurs répondus</span>
-                <span>{respondedCount}/{priceRequests.length}</span>
+                <span>{respondedCount}/{sentCount}</span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${priceRequests.length > 0 ? (respondedCount / priceRequests.length) * 100 : 0}%` }} />
+                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${sentCount > 0 ? (respondedCount / sentCount) * 100 : 0}%` }} />
               </div>
             </div>
           </div>

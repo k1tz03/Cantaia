@@ -127,6 +127,7 @@ export async function POST(
               quantity: i.quantity,
             })),
             attachments: body.attachment_urls || [],
+            deadline: body.deadline || null,
             sent_at: new Date().toISOString(),
             status: "sent",
           });
