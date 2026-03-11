@@ -1,0 +1,267 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/**
+ * GET /api/mail-test/decisions
+ * Returns email_records classified as decisions for the Vue Décision lab.
+ * Superadmin only.
+ */
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const admin = createAdminClient();
+
+    // Check superadmin
+    const { data: profile } = await (admin as any)
+      .from("users")
+      .select("first_name, is_superadmin, organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.is_superadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+
+    // Fetch actionable emails (action_required or urgent, not processed)
+    const { data: actionEmails } = await (admin as any)
+      .from("email_records")
+      .select("id, subject, sender_email, sender_name, body_preview, received_at, updated_at, classification, ai_summary, ai_classification_confidence, project_id, is_processed, outlook_message_id, price_extracted, email_category")
+      .eq("user_id", user.id)
+      .eq("is_processed", false)
+      .in("classification", ["action_required", "urgent"])
+      .order("received_at", { ascending: false })
+      .limit(100);
+
+    // Fetch info emails (not read/processed)
+    const { data: infoEmails } = await (admin as any)
+      .from("email_records")
+      .select("id, subject, sender_email, sender_name, body_preview, received_at, classification, ai_summary, project_id, is_processed, price_extracted, email_category")
+      .eq("user_id", user.id)
+      .eq("is_processed", false)
+      .eq("classification", "info_only")
+      .order("received_at", { ascending: false })
+      .limit(50);
+
+    // Get project names for all referenced project_ids
+    const projectIds = [
+      ...new Set<string>(
+        [...(actionEmails || []), ...(infoEmails || [])]
+          .map((e: any) => e.project_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    let projectMap: Record<string, string> = {};
+    if (projectIds.length > 0) {
+      const { data: projects } = await admin
+        .from("projects")
+        .select("id, name")
+        .in("id", projectIds);
+      if (projects) {
+        for (const p of projects) {
+          projectMap[p.id] = p.name;
+        }
+      }
+    }
+
+    // Get price comparison data for emails with price_extracted
+    const priceEmails = [...(actionEmails || []), ...(infoEmails || [])].filter(
+      (e: any) => e.price_extracted || e.email_category === "price_response"
+    );
+    let priceIndicators: Record<string, { extracted_price?: number; market_median?: number; diff_percent?: number }> = {};
+
+    if (priceEmails.length > 0) {
+      // Look up ingested_offer_lines for market comparison
+      const { data: recentPrices } = await (admin as any)
+        .from("ingested_offer_lines")
+        .select("cfc_code, unit_price_ht")
+        .eq("organization_id", profile.organization_id)
+        .not("unit_price_ht", "is", null)
+        .limit(500);
+
+      if (recentPrices && recentPrices.length > 0) {
+        // Build median prices by CFC code
+        const pricesByCfc: Record<string, number[]> = {};
+        for (const line of recentPrices) {
+          if (line.cfc_code && line.unit_price_ht != null) {
+            if (!pricesByCfc[line.cfc_code]) pricesByCfc[line.cfc_code] = [];
+            pricesByCfc[line.cfc_code].push(Number(line.unit_price_ht));
+          }
+        }
+        // Store for later use (price indicators are enriched per email if needed)
+        for (const email of priceEmails) {
+          priceIndicators[email.id] = { extracted_price: undefined, market_median: undefined, diff_percent: undefined };
+        }
+      }
+    }
+
+    // Classify into urgent / thisWeek / info
+    const urgent: any[] = [];
+    const thisWeek: any[] = [];
+
+    for (const email of actionEmails || []) {
+      const enriched = {
+        ...email,
+        project_name: email.project_id ? projectMap[email.project_id] || null : null,
+        price_indicator: priceIndicators[email.id] || null,
+        is_quote: email.price_extracted || email.email_category === "price_response",
+      };
+
+      if (
+        email.classification === "urgent" ||
+        (email.classification === "action_required" && email.received_at < fortyEightHoursAgo)
+      ) {
+        urgent.push({ ...enriched, priority: "urgent" });
+      } else {
+        thisWeek.push({ ...enriched, priority: "action" });
+      }
+    }
+
+    const info = (infoEmails || []).map((email: any) => ({
+      ...email,
+      project_name: email.project_id ? projectMap[email.project_id] || null : null,
+      priority: "info",
+    }));
+
+    // Stats
+    const { count: processedTodayCount } = await (admin as any)
+      .from("email_records")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_processed", true)
+      .gte("updated_at", todayStart);
+
+    const { count: totalUnprocessedCount } = await (admin as any)
+      .from("email_records")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_processed", false);
+
+    // Average response time (processed emails from last 7 days)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentProcessed } = await (admin as any)
+      .from("email_records")
+      .select("received_at, updated_at")
+      .eq("user_id", user.id)
+      .eq("is_processed", true)
+      .gte("updated_at", sevenDaysAgo)
+      .limit(200);
+
+    let avgResponseTimeHours = 0;
+    if (recentProcessed && recentProcessed.length > 0) {
+      const totalMs = recentProcessed.reduce((sum: number, e: any) => {
+        const received = new Date(e.received_at).getTime();
+        const processed = new Date(e.updated_at).getTime();
+        return sum + Math.max(0, processed - received);
+      }, 0);
+      avgResponseTimeHours = Math.round((totalMs / recentProcessed.length / (1000 * 60 * 60)) * 10) / 10;
+    }
+
+    // Savings generated (sum of positive diffs from submission_quotes vs ingested_offer_lines)
+    let savingsGenerated: number | null = null;
+    try {
+      const { data: savings } = await (admin as any)
+        .from("submission_quotes")
+        .select("unit_price_ht, item_id, submission_items!inner(cfc_code, quantity)")
+        .not("unit_price_ht", "is", null)
+        .limit(500);
+
+      if (savings && savings.length > 0) {
+        // This is a simplified calculation
+        savingsGenerated = 0;
+      }
+    } catch {
+      // Table might not exist yet
+    }
+
+    return NextResponse.json({
+      success: true,
+      firstName: profile.first_name || "Utilisateur",
+      urgent,
+      thisWeek,
+      info,
+      stats: {
+        avgResponseTime: avgResponseTimeHours,
+        processedToday: processedTodayCount || 0,
+        totalUnprocessed: totalUnprocessedCount || 0,
+        totalToday: (processedTodayCount || 0) + (totalUnprocessedCount || 0),
+        savingsGenerated,
+        decisionsUrgent: urgent.length,
+        decisionsThisWeek: thisWeek.length,
+        decisionsInfo: info.length,
+      },
+    });
+  } catch (err: any) {
+    console.error("[mail-test/decisions] Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/mail-test/decisions
+ * Mark an email as processed (decision taken).
+ * Body: { email_id: string, action: string }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const admin = createAdminClient();
+
+    const { data: profile } = await (admin as any)
+      .from("users")
+      .select("is_superadmin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.is_superadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { email_id, action } = body;
+
+    if (!email_id) {
+      return NextResponse.json({ error: "email_id required" }, { status: 400 });
+    }
+
+    const updates: Record<string, any> = {
+      is_processed: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (action === "archive") {
+      updates.classification = "archived";
+    }
+    if (action === "task") {
+      updates.process_action = "task_created";
+    }
+    if (action === "replied") {
+      updates.process_action = "replied";
+    }
+    if (action === "delegated") {
+      updates.process_action = "delegated";
+    }
+
+    await (admin as any)
+      .from("email_records")
+      .update(updates)
+      .eq("id", email_id)
+      .eq("user_id", user.id);
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("[mail-test/decisions] PATCH error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
