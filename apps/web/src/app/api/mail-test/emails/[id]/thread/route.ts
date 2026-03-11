@@ -34,7 +34,7 @@ export async function GET(
     // Get the email record
     const { data: emailRecord } = await (admin as any)
       .from("email_records")
-      .select("id, outlook_message_id, subject, sender_email, sender_name, body_preview, body_text, body_html, received_at")
+      .select("id, outlook_message_id, subject, sender_email, sender_name, body_preview, body_text, body_html, received_at, ai_summary")
       .eq("id", emailId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -54,6 +54,7 @@ export async function GET(
           body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
           bodyPreview: emailRecord.body_preview || "",
           receivedDateTime: emailRecord.received_at,
+          ai_summary: emailRecord.ai_summary || null,
         },
       });
     }
@@ -70,6 +71,7 @@ export async function GET(
           body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
           bodyPreview: emailRecord.body_preview || "",
           receivedDateTime: emailRecord.received_at,
+          ai_summary: emailRecord.ai_summary || null,
         },
       });
     }
@@ -93,6 +95,7 @@ export async function GET(
           body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
           bodyPreview: emailRecord.body_preview || "",
           receivedDateTime: emailRecord.received_at,
+          ai_summary: emailRecord.ai_summary || null,
         },
       });
     }
@@ -110,6 +113,7 @@ export async function GET(
           body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
           bodyPreview: emailRecord.body_preview || "",
           receivedDateTime: emailRecord.received_at,
+          ai_summary: emailRecord.ai_summary || null,
         },
       });
     }
@@ -131,6 +135,7 @@ export async function GET(
           body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
           bodyPreview: emailRecord.body_preview || "",
           receivedDateTime: emailRecord.received_at,
+          ai_summary: emailRecord.ai_summary || null,
         },
       });
     }

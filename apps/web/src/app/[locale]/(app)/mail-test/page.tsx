@@ -492,44 +492,36 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
   const [fallbackBody, setFallbackBody] = useState<string>("");
   const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
 
-  // Load fallback body immediately, then fetch thread
+  // Load thread from our API — uses Graph if possible, DB fallback otherwise
   useEffect(() => {
-    // Immediate fallback: show body_preview
+    // Immediate fallback: show body_preview while loading
     setFallbackBody(email.body_preview || "");
 
-    // Load full body as fallback (fast)
-    async function loadFallback() {
-      if (!email.outlook_message_id) return;
-      try {
-        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const body = data.body || "";
-          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
-            setFallbackIsHtml(true);
-          }
-          setFallbackBody(body || email.body_preview || "");
-        }
-      } catch {}
-    }
-
-    // Load thread (may be slower)
     async function loadThread() {
       try {
         const res = await fetch(`/api/mail-test/emails/${email.id}/thread`);
         const data = await res.json();
         if (data.thread && data.thread.length > 0) {
           setThread(data.thread);
-        } else if (data.error) {
-          setThreadError(data.error);
+        } else {
+          // No thread from Graph — use fallback from DB
+          if (data.fallback) {
+            const body = data.fallback.body || email.body_preview || "";
+            if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+              setFallbackIsHtml(true);
+            }
+            setFallbackBody(body);
+          }
+          if (data.error) {
+            setThreadError("Conversation complète indisponible — affichage du dernier message");
+          }
         }
       } catch {
-        setThreadError("Conversation complète indisponible");
+        setThreadError("Conversation complète indisponible — affichage du dernier message");
       }
       setThreadLoading(false);
     }
 
-    loadFallback();
     loadThread();
   }, [email]);
 
@@ -610,8 +602,8 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
             )}
 
             {threadError && !thread && (
-              <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5" />{threadError}
+              <div className="mb-4 px-3 py-1.5 text-xs text-gray-400 flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3" />{threadError}
               </div>
             )}
 
@@ -1159,24 +1151,9 @@ function ReplyModal({ email, onClose, onDone }: {
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const threadContextRef = useRef<string>("");
 
-  // Load fallback body + thread
+  // Load thread from our API — uses Graph if possible, DB fallback otherwise
   useEffect(() => {
     setFallbackBody(email.body_preview || "");
-
-    async function loadFallback() {
-      if (!email.outlook_message_id) return;
-      try {
-        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const body = data.body || "";
-          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
-            setFallbackIsHtml(true);
-          }
-          setFallbackBody(body || email.body_preview || "");
-        }
-      } catch {}
-    }
 
     async function loadThread() {
       try {
@@ -1188,12 +1165,18 @@ function ReplyModal({ email, onClose, onDone }: {
           threadContextRef.current = data.thread.map((msg: ThreadMessage) =>
             `[${msg.receivedDateTime}] De: ${msg.from.name} <${msg.from.email}>\nObjet: ${msg.subject}\n${msg.bodyPreview || ""}`
           ).join("\n\n---\n\n");
+        } else if (data.fallback) {
+          // No thread from Graph — use fallback from DB
+          const body = data.fallback.body || email.body_preview || "";
+          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+            setFallbackIsHtml(true);
+          }
+          setFallbackBody(body);
         }
       } catch {}
       setThreadLoading(false);
     }
 
-    loadFallback();
     loadThread();
   }, [email]);
 

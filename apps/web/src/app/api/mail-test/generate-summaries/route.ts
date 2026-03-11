@@ -26,17 +26,23 @@ export async function POST() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch emails without ai_summary
+    // Fetch emails without ai_summary — use body_text OR body_preview from DB only (no Graph)
     const { data: emails } = await (admin as any)
       .from("email_records")
       .select("id, subject, sender_name, sender_email, body_preview, body_text")
       .eq("user_id", user.id)
       .is("ai_summary", null)
-      .not("body_preview", "is", null)
       .order("received_at", { ascending: false })
       .limit(10);
 
-    if (!emails || emails.length === 0) {
+    // Filter out emails with no usable body content
+    const emailsWithBody = (emails || []).filter(
+      (e: any) => (e.body_text && e.body_text.trim()) || (e.body_preview && e.body_preview.trim())
+    );
+
+    console.log(`[SUMMARY] Found ${emails?.length || 0} emails without summary, ${emailsWithBody.length} with body content`);
+
+    if (emailsWithBody.length === 0) {
       return NextResponse.json({ success: true, updated: 0 });
     }
 
@@ -51,22 +57,23 @@ export async function POST() {
 
     let updated = 0;
 
-    for (const email of emails) {
+    for (const email of emailsWithBody) {
       try {
         const bodyText = email.body_text || email.body_preview || "";
-        if (!bodyText.trim()) continue;
 
         // Truncate to avoid token overuse
         const truncated = bodyText.length > 2000 ? bodyText.slice(0, 2000) + "..." : bodyText;
 
+        console.log(`[SUMMARY] Processing email ${email.id}: "${email.subject}" (${truncated.length} chars)`);
+
         const response = await client.messages.create({
           model: "claude-sonnet-4-5-20250929",
           max_tokens: 150,
-          system: "Tu es un assistant de gestion de chantier. Résume cet email en 1-2 phrases maximum, en français. Sois factuel et concis. Ne commence pas par 'Cet email' ou 'L'email'.",
+          system: "Résume cet email en 1-2 phrases maximum, en français, de façon neutre et factuelle. Ne commence pas par 'Cet email' ou 'L'email'.",
           messages: [
             {
               role: "user",
-              content: `Objet: ${email.subject}\nDe: ${email.sender_name || email.sender_email}\n\n${truncated}`,
+              content: `Sujet : ${email.subject}\nCorps : ${truncated}`,
             },
           ],
         });
@@ -78,13 +85,15 @@ export async function POST() {
             .update({ ai_summary: summary })
             .eq("id", email.id);
           updated++;
+          console.log(`[SUMMARY] Généré pour: ${email.id} → "${summary.slice(0, 80)}..."`);
         }
-      } catch (err) {
-        console.error(`[generate-summaries] Error for email ${email.id}:`, err);
+      } catch (err: any) {
+        console.error(`[SUMMARY] Error for email ${email.id}:`, err?.message || err);
         // Continue with next email
       }
     }
 
+    console.log(`[SUMMARY] Done. Updated ${updated}/${emailsWithBody.length}`);
     return NextResponse.json({ success: true, updated });
   } catch (err: any) {
     console.error("[generate-summaries] Error:", err);
