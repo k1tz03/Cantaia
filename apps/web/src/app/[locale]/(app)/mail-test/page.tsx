@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   ThumbsUp,
   ThumbsDown,
+  Forward,
+  RotateCcw,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════
@@ -66,8 +68,8 @@ interface Stats {
   decisionsInfo: number;
 }
 
-interface ProjectMember {
-  user_id: string;
+interface OrgMember {
+  id: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -99,6 +101,18 @@ function formatFullDate(dateStr: string): string {
   return d.toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+/** FIX 5 — Lock body scroll when a popup is open */
+function useBodyScrollLock(locked: boolean) {
+  useEffect(() => {
+    if (locked) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [locked]);
+}
+
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
@@ -115,13 +129,18 @@ export default function MailTestPage() {
   const [activeFilter, setActiveFilter] = useState<"all" | "urgent" | "thisWeek" | "info">("all");
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [decisionsToday, setDecisionsToday] = useState(0);
+  const [isAloneInOrg, setIsAloneInOrg] = useState(true);
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
 
-  // Drawer state
-  const [drawerEmail, setDrawerEmail] = useState<DecisionEmail | null>(null);
-  const [drawerMode, setDrawerMode] = useState<"reply" | "delegate" | "negotiate" | null>(null);
-
-  // Email detail modal state
+  // Modal states
   const [modalEmail, setModalEmail] = useState<DecisionEmail | null>(null);
+  const [replyEmail, setReplyEmail] = useState<DecisionEmail | null>(null);
+  const [delegateEmail, setDelegateEmail] = useState<DecisionEmail | null>(null);
+  const [transferEmail, setTransferEmail] = useState<DecisionEmail | null>(null);
+
+  // FIX 5 — Lock body scroll when any popup is open
+  const anyPopupOpen = !!(modalEmail || replyEmail || delegateEmail || transferEmail);
+  useBodyScrollLock(anyPopupOpen);
 
   const fetchData = useCallback(async () => {
     try {
@@ -142,6 +161,8 @@ export default function MailTestPage() {
       setThisWeek(data.thisWeek);
       setInfo(data.info);
       setStats(data.stats);
+      setIsAloneInOrg(data.isAloneInOrg ?? true);
+      setOrgMembers(data.orgMembers || []);
     } catch {
       router.replace("/dashboard");
     } finally {
@@ -153,7 +174,6 @@ export default function MailTestPage() {
     fetchData();
   }, [fetchData]);
 
-  // Dismiss a card (mark processed)
   const dismissCard = useCallback(async (emailId: string, action: string) => {
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setDecisionsToday((d) => d + 1);
@@ -166,12 +186,9 @@ export default function MailTestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_id: emailId, action }),
       });
-    } catch {
-      // Non-blocking
-    }
+    } catch { /* non-blocking */ }
   }, []);
 
-  // Snooze
   const snoozeCard = useCallback(async (emailId: string) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -249,6 +266,7 @@ export default function MailTestPage() {
             onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
             onView={(email) => setModalEmail(email)}
             onCreateTask={(id) => dismissCard(id, "task")}
+            onReply={(email) => setReplyEmail(email)}
           />
         ) : isEmpty ? (
           <EmptyState firstName={firstName} onRefresh={fetchData} />
@@ -258,14 +276,16 @@ export default function MailTestPage() {
               <DecisionCard
                 key={email.id}
                 email={email}
-                onReply={() => { setDrawerEmail(email); setDrawerMode("reply"); }}
+                isAloneInOrg={isAloneInOrg}
+                onReply={() => setReplyEmail(email)}
                 onView={() => setModalEmail(email)}
-                onDelegate={() => { setDrawerEmail(email); setDrawerMode("delegate"); }}
+                onDelegate={() => setDelegateEmail(email)}
+                onTransfer={() => setTransferEmail(email)}
                 onCreateTask={() => dismissCard(email.id, "task")}
                 onArchive={() => dismissCard(email.id, "archive")}
                 onSnooze={() => snoozeCard(email.id)}
                 onAccept={() => dismissCard(email.id, "accept")}
-                onNegotiate={() => { setDrawerEmail(email); setDrawerMode("negotiate"); }}
+                onNegotiate={() => setReplyEmail(email)}
                 onRefuse={() => dismissCard(email.id, "refuse")}
               />
             ))}
@@ -283,32 +303,58 @@ export default function MailTestPage() {
             onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
             onView={(email) => setModalEmail(email)}
             onCreateTask={(id) => dismissCard(id, "task")}
+            onReply={(email) => setReplyEmail(email)}
           />
         </div>
       )}
 
-      {/* Email Detail Modal (FIX 1) */}
+      {/* Email Detail Modal (FIX 2) */}
       {modalEmail && (
         <EmailDetailModal
           email={modalEmail}
           onClose={() => setModalEmail(null)}
-          onReply={() => { setModalEmail(null); setDrawerEmail(modalEmail); setDrawerMode("reply"); }}
-          onDelegate={() => { setModalEmail(null); setDrawerEmail(modalEmail); setDrawerMode("delegate"); }}
+          onReply={() => { const e = modalEmail; setModalEmail(null); setReplyEmail(e); }}
+          onDelegate={() => { const e = modalEmail; setModalEmail(null); setDelegateEmail(e); }}
+          onTransfer={() => { const e = modalEmail; setModalEmail(null); setTransferEmail(e); }}
           onCreateTask={() => { setModalEmail(null); dismissCard(modalEmail.id, "task"); }}
           onArchive={() => { setModalEmail(null); dismissCard(modalEmail.id, "archive"); }}
+          isAloneInOrg={isAloneInOrg}
         />
       )}
 
-      {/* Drawer */}
-      {drawerEmail && drawerMode && (
-        <Drawer
-          email={drawerEmail}
-          mode={drawerMode}
-          onClose={() => { setDrawerEmail(null); setDrawerMode(null); }}
+      {/* Reply Modal (FIX 3 — replaces drawer) */}
+      {replyEmail && (
+        <ReplyModal
+          email={replyEmail}
+          onClose={() => setReplyEmail(null)}
           onDone={(emailId) => {
-            setDrawerEmail(null);
-            setDrawerMode(null);
-            dismissCard(emailId, drawerMode === "reply" ? "replied" : drawerMode === "delegate" ? "delegated" : "negotiated");
+            setReplyEmail(null);
+            dismissCard(emailId, "replied");
+          }}
+        />
+      )}
+
+      {/* Delegate Modal (FIX 4) */}
+      {delegateEmail && (
+        <DelegateModal
+          email={delegateEmail}
+          orgMembers={orgMembers}
+          onClose={() => setDelegateEmail(null)}
+          onDone={(emailId) => {
+            setDelegateEmail(null);
+            dismissCard(emailId, "delegated");
+          }}
+        />
+      )}
+
+      {/* Transfer Modal (FIX 4) */}
+      {transferEmail && (
+        <TransferModal
+          email={transferEmail}
+          onClose={() => setTransferEmail(null)}
+          onDone={(emailId) => {
+            setTransferEmail(null);
+            dismissCard(emailId, "delegated");
           }}
         />
       )}
@@ -362,22 +408,23 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EMAIL DETAIL MODAL (reusable — dark header, AI summary, styled body)
+   EMAIL DETAIL MODAL (FIX 2 — proper scroll, no truncation)
    ═══════════════════════════════════════════════════════════ */
 
-function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, onArchive }: {
+function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onCreateTask, onArchive, isAloneInOrg }: {
   email: DecisionEmail;
   onClose: () => void;
   onReply: () => void;
   onDelegate: () => void;
+  onTransfer: () => void;
   onCreateTask: () => void;
   onArchive: () => void;
+  isAloneInOrg: boolean;
 }) {
   const [emailBody, setEmailBody] = useState("");
   const [bodyLoading, setBodyLoading] = useState(true);
   const [isHtml, setIsHtml] = useState(false);
 
-  // Load full body
   useEffect(() => {
     async function loadBody() {
       if (!email.outlook_message_id) {
@@ -407,7 +454,6 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
     loadBody();
   }, [email]);
 
-  // Close on Escape
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -424,17 +470,17 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+      {/* Backdrop — overflow hidden to prevent background scroll */}
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
+      {/* Modal — flex column layout */}
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl flex flex-col"
           style={{ width: "70vw", maxWidth: "960px", height: "80vh", maxHeight: "800px" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header — dark Cantaia blue */}
+          {/* Header — fixed height */}
           <div className="flex-shrink-0 px-6 py-4" style={{ background: "#1E3A5F" }}>
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0 mr-4">
@@ -457,8 +503,11 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
             </div>
           </div>
 
-          {/* Body — scrollable */}
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          {/* Body — flex-1, min-h-0 for proper scroll, onWheel stopPropagation */}
+          <div
+            className="flex-1 min-h-0 overflow-y-auto px-6 py-6"
+            onWheel={(e) => e.stopPropagation()}
+          >
             {/* AI Summary block */}
             {email.ai_summary && (
               <>
@@ -476,7 +525,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
               </>
             )}
 
-            {/* Email body */}
+            {/* Email body — never truncated */}
             {bodyLoading ? (
               <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
                 <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
@@ -489,20 +538,26 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
                     dangerouslySetInnerHTML={{ __html: emailBody }}
                   />
                 ) : (
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap" style={{ fontSize: "14px" }}>{emailBody}</div>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{emailBody}</div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Footer — actions */}
+          {/* Footer — fixed height */}
           <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
             <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
               <Send className="w-3.5 h-3.5" />Répondre avec IA
             </button>
-            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-              <Users className="w-3.5 h-3.5" />Déléguer
-            </button>
+            {isAloneInOrg ? (
+              <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+                <Forward className="w-3.5 h-3.5" />Transférer
+              </button>
+            ) : (
+              <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+                <Users className="w-3.5 h-3.5" />Déléguer
+              </button>
+            )}
             <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
               <ListTodo className="w-3.5 h-3.5" />Créer une tâche
             </button>
@@ -517,14 +572,16 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DECISION CARD (FIX 2 — z-index + overflow + upward dropdown)
+   DECISION CARD (z-index + overflow + upward dropdown)
    ═══════════════════════════════════════════════════════════ */
 
-function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse }: {
+function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse }: {
   email: DecisionEmail;
+  isAloneInOrg: boolean;
   onReply: () => void;
   onView: () => void;
   onDelegate: () => void;
+  onTransfer: () => void;
   onCreateTask: () => void;
   onArchive: () => void;
   onSnooze: () => void;
@@ -538,7 +595,6 @@ function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArch
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close menu on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
@@ -547,7 +603,6 @@ function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArch
     return () => document.removeEventListener("mousedown", handleClick);
   }, [menuOpen]);
 
-  // Detect if dropdown should open upward
   const toggleMenu = useCallback(() => {
     if (!menuOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -652,11 +707,17 @@ function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArch
           <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
             <Eye className="w-3.5 h-3.5" />Voir l&apos;email
           </button>
-          <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-            <Users className="w-3.5 h-3.5" />Déléguer
-          </button>
+          {isAloneInOrg ? (
+            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <Forward className="w-3.5 h-3.5" />Transférer
+            </button>
+          ) : (
+            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <Users className="w-3.5 h-3.5" />Déléguer
+            </button>
+          )}
 
-          {/* More menu (FIX 2) */}
+          {/* More menu */}
           <div className="relative ml-auto" ref={menuRef}>
             <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
               <ChevronDown className="w-4 h-4" />
@@ -665,6 +726,11 @@ function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArch
               <div
                 className={`absolute right-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
               >
+                {!isAloneInOrg && (
+                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <Forward className="w-4 h-4" />Transférer
+                  </button>
+                )}
                 <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                   <ListTodo className="w-4 h-4" />Créer une tâche
                 </button>
@@ -687,15 +753,16 @@ function DecisionCard({ email, onReply, onView, onDelegate, onCreateTask, onArch
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INFO SECTION (FIX 4 — interactive cards grouped by project)
+   INFO SECTION (cards grouped by project)
    ═══════════════════════════════════════════════════════════ */
 
-function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask }: {
+function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, onReply }: {
   emails: DecisionEmail[];
   onArchive: (id: string) => void;
   onArchiveAll: () => void;
   onView: (email: DecisionEmail) => void;
   onCreateTask: (id: string) => void;
+  onReply: (email: DecisionEmail) => void;
 }) {
   const [confirmArchiveAll, setConfirmArchiveAll] = useState(false);
   const [dismissedLocal, setDismissedLocal] = useState<Set<string>>(new Set());
@@ -704,7 +771,6 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask }: 
 
   const visible = emails.filter((e) => !dismissedLocal.has(e.id));
 
-  // Group by project_name
   const groups: Record<string, DecisionEmail[]> = {};
   for (const email of visible) {
     const key = email.project_name || "Sans projet";
@@ -748,6 +814,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask }: 
                 onView={() => onView(email)}
                 onCreateTask={() => { setDismissedLocal((p) => new Set(p).add(email.id)); onCreateTask(email.id); }}
                 onArchive={() => handleArchive(email.id)}
+                onReply={() => onReply(email)}
               />
             ))}
           </div>
@@ -768,11 +835,16 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask }: 
   );
 }
 
-function InfoCard({ email, onView, onCreateTask, onArchive }: {
+/* ═══════════════════════════════════════════════════════════
+   INFO CARD (FIX 1 — AI summary + reply button)
+   ═══════════════════════════════════════════════════════════ */
+
+function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
   email: DecisionEmail;
   onView: () => void;
   onCreateTask: () => void;
   onArchive: () => void;
+  onReply: () => void;
 }) {
   const [exiting, setExiting] = useState(false);
 
@@ -780,6 +852,9 @@ function InfoCard({ email, onView, onCreateTask, onArchive }: {
     setExiting(true);
     setTimeout(action, 300);
   };
+
+  const summaryText = email.ai_summary
+    || (email.body_preview ? (email.body_preview.length > 120 ? email.body_preview.slice(0, 120) + "..." : email.body_preview) : "");
 
   return (
     <div
@@ -799,15 +874,27 @@ function InfoCard({ email, onView, onCreateTask, onArchive }: {
         </p>
 
         {/* Sender */}
-        <p className="text-xs text-gray-400 mb-1.5">De : {email.sender_name || email.sender_email}</p>
+        <p className="text-xs text-gray-400 mb-2">De : {email.sender_name || email.sender_email}</p>
 
-        {/* Summary */}
-        <p className="text-sm text-gray-500 line-clamp-2 mb-3">
-          {email.ai_summary || (email.body_preview ? (email.body_preview.length > 120 ? email.body_preview.slice(0, 120) + "..." : email.body_preview) : "")}
-        </p>
+        {/* FIX 1 — AI Summary block */}
+        <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+          <div className="px-3 py-2.5">
+            {email.ai_summary ? (
+              <>
+                <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ Résumé IA</div>
+                <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
+              </>
+            ) : (
+              <p className="text-xs leading-relaxed text-gray-500">{summaryText}</p>
+            )}
+          </div>
+        </div>
 
-        {/* Actions */}
+        {/* Actions — FIX 1: added reply button */}
         <div className="flex items-center gap-2">
+          <button onClick={onReply} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-md transition-colors">
+            <Send className="w-3 h-3" />Répondre avec IA
+          </button>
           <button onClick={onView} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
             <Eye className="w-3 h-3" />Lire l&apos;email
           </button>
@@ -843,12 +930,11 @@ function EmptyState({ firstName, onRefresh }: { firstName: string; onRefresh: ()
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DRAWER — Reply / Delegate / Negotiate (FIX 3)
+   REPLY MODAL (FIX 3 — centered popup, 2 columns, CC/CCI)
    ═══════════════════════════════════════════════════════════ */
 
-function Drawer({ email, mode, onClose, onDone }: {
+function ReplyModal({ email, onClose, onDone }: {
   email: DecisionEmail;
-  mode: "reply" | "delegate" | "negotiate";
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
@@ -858,13 +944,12 @@ function Drawer({ email, mode, onClose, onDone }: {
   const [bodyLoading, setBodyLoading] = useState(true);
   const [isHtml, setIsHtml] = useState(false);
   const [sending, setSending] = useState(false);
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [selectedMember, setSelectedMember] = useState("");
-  const [delegateMessage, setDelegateMessage] = useState("");
-  const [editable, setEditable] = useState(false);
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load email body (full HTML)
+  // Load email body
   useEffect(() => {
     async function loadBody() {
       if (!email.outlook_message_id) {
@@ -893,42 +978,27 @@ function Drawer({ email, mode, onClose, onDone }: {
   }, [email]);
 
   // Generate AI reply
+  const generateReply = useCallback(async () => {
+    setReplyLoading(true);
+    try {
+      const res = await fetch("/api/ai/generate-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_id: email.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReplyText(data.reply_text || "");
+      }
+    } catch { /* ignore */ }
+    setReplyLoading(false);
+  }, [email.id]);
+
   useEffect(() => {
-    if (mode !== "reply" && mode !== "negotiate") return;
-    async function generateReply() {
-      setReplyLoading(true);
-      try {
-        const res = await fetch("/api/ai/generate-reply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email_id: email.id }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setReplyText(data.reply_text || "");
-        }
-      } catch { /* ignore */ }
-      setReplyLoading(false);
-    }
     generateReply();
-  }, [email.id, mode]);
+  }, [generateReply]);
 
-  // Load project members for delegate
-  useEffect(() => {
-    if (mode !== "delegate" || !email.project_id) return;
-    async function loadMembers() {
-      try {
-        const res = await fetch(`/api/projects/${email.project_id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.project?.members) setMembers(data.project.members);
-        }
-      } catch { /* ignore */ }
-    }
-    loadMembers();
-  }, [email.project_id, mode]);
-
-  // Auto-expand reply textarea
+  // Auto-expand textarea
   useEffect(() => {
     if (replyRef.current) {
       replyRef.current.style.height = "auto";
@@ -936,22 +1006,33 @@ function Drawer({ email, mode, onClose, onDone }: {
     }
   }, [replyText]);
 
-  const handleSendReply = async () => {
+  // Close on Escape
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleSend = async () => {
     if (!replyText.trim()) return;
     setSending(true);
     try {
-      if (email.outlook_message_id) {
-        await fetch("/api/email/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: [email.sender_email],
-            subject: `Re: ${email.subject}`,
-            body: replyText.replace(/\n/g, "<br>"),
-            reply_to_id: email.outlook_message_id,
-          }),
-        });
-      }
+      const payload: Record<string, any> = {
+        to: [email.sender_email],
+        subject: `Re: ${email.subject}`,
+        body: replyText.replace(/\n/g, "<br>"),
+        reply_to_id: email.outlook_message_id,
+      };
+      if (cc.trim()) payload.cc = cc.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (bcc.trim()) payload.bcc = bcc.split(",").map((s: string) => s.trim()).filter(Boolean);
+
+      await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       onDone(email.id);
     } catch {
       alert("Erreur lors de l'envoi");
@@ -959,22 +1040,228 @@ function Drawer({ email, mode, onClose, onDone }: {
     setSending(false);
   };
 
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          style={{ width: "75vw", maxWidth: "1100px", height: "85vh", maxHeight: "900px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                Répondre à {email.sender_name || email.sender_email}
+              </h2>
+              <p className="text-sm text-[#93C5FD] truncate mt-0.5">{email.subject}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors flex-shrink-0">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body — 2 columns */}
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+            {/* Left: original email (40%) */}
+            <div className="md:w-[40%] border-r border-gray-200 flex flex-col min-h-0">
+              <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0">
+                <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">Email original</span>
+              </div>
+              <div
+                className="flex-1 min-h-0 overflow-y-auto p-4"
+                style={{ background: "#F3F4F6", borderLeft: "3px solid #9CA3AF" }}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
+                <div className="text-xs text-gray-500 mb-3">De : {email.sender_name || email.sender_email}</div>
+                {bodyLoading ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />Chargement...
+                  </div>
+                ) : isHtml ? (
+                  <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: emailBody }} />
+                ) : (
+                  <div className="text-sm text-gray-600 whitespace-pre-wrap">{emailBody}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: reply (60%) */}
+            <div className="md:w-[60%] flex flex-col min-h-0">
+              {/* Recipients */}
+              <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-[#F9FAFB] space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500 w-8 text-right">À :</span>
+                  <span className="text-gray-900 font-medium">{email.sender_email}</span>
+                </div>
+                {showCcBcc ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-500 w-8 text-right">CC :</span>
+                      <input
+                        type="text"
+                        value={cc}
+                        onChange={(e) => setCc(e.target.value)}
+                        placeholder="email1@ex.com, email2@ex.com"
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-500 w-8 text-right">CCI :</span>
+                      <input
+                        type="text"
+                        value={bcc}
+                        onChange={(e) => setBcc(e.target.value)}
+                        placeholder="email@ex.com"
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowCcBcc(true)}
+                    className="text-xs text-blue-600 hover:underline ml-10"
+                  >
+                    + Ajouter CC/CCI
+                  </button>
+                )}
+              </div>
+
+              {/* AI reply */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto p-4"
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <div className="rounded-lg overflow-hidden" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs uppercase font-semibold tracking-wide text-[#2563EB]">Réponse IA suggérée</span>
+                      {!replyLoading && (
+                        <button
+                          onClick={generateReply}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" />Régénérer
+                        </button>
+                      )}
+                    </div>
+                    {replyLoading ? (
+                      <div className="flex items-center gap-2 text-blue-400 text-sm py-8">
+                        <Loader2 className="w-4 h-4 animate-spin" />Génération en cours...
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={replyRef}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        className="w-full p-3 text-sm rounded-lg resize-none border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        style={{ minHeight: "200px" }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-3">
+            <button
+              onClick={handleSend}
+              disabled={sending || replyLoading || !replyText.trim()}
+              className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Envoyer
+            </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DELEGATE MODAL (FIX 4 — org members + task creation)
+   ═══════════════════════════════════════════════════════════ */
+
+function DelegateModal({ email, orgMembers, onClose, onDone }: {
+  email: DecisionEmail;
+  orgMembers: OrgMember[];
+  onClose: () => void;
+  onDone: (emailId: string) => void;
+}) {
+  const [selectedMember, setSelectedMember] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [emailBody, setEmailBody] = useState("");
+
+  useEffect(() => {
+    async function loadBody() {
+      if (!email.outlook_message_id) {
+        setEmailBody(email.body_preview || "");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmailBody(data.body || email.body_preview || "");
+        }
+      } catch {
+        setEmailBody(email.body_preview || "");
+      }
+    }
+    loadBody();
+  }, [email]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleDelegate = async () => {
     if (!selectedMember) return;
     setSending(true);
     try {
-      const member = members.find((m) => m.user_id === selectedMember);
+      const member = orgMembers.find((m) => m.id === selectedMember);
       if (member) {
+        // Forward email
         await fetch("/api/email/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: [member.email],
             subject: `Fwd: ${email.subject}`,
-            body: `${delegateMessage ? `<p>${delegateMessage}</p><hr>` : ""}${emailBody}`,
+            body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
             forward_id: email.outlook_message_id,
           }),
         });
+
+        // Create task assigned to this member
+        try {
+          await fetch("/api/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: `Délégué: ${email.subject}`,
+              description: message || `Email transféré de ${email.sender_name || email.sender_email}`,
+              assigned_to: member.id,
+              project_id: email.project_id,
+              source: "email",
+              priority: email.priority === "urgent" ? "high" : "medium",
+            }),
+          });
+        } catch { /* non-blocking */ }
       }
       onDone(email.id);
     } catch {
@@ -983,154 +1270,195 @@ function Drawer({ email, mode, onClose, onDone }: {
     setSending(false);
   };
 
-  const title = mode === "reply" ? "Réponse suggérée" : mode === "negotiate" ? "Contre-proposition" : "Déléguer";
-
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <h2 className="text-lg font-semibold text-white">Déléguer à un collègue</h2>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-      {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right">
-        {/* Header — fixed */}
-        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          <div className="p-6 space-y-4">
+            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
+              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+            </div>
 
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Original email block (FIX 3a+3b) */}
-          <div className="mx-6 mt-4 mb-4 rounded-lg overflow-hidden border border-gray-200" style={{ borderLeftWidth: "3px", borderLeftColor: "#9CA3AF" }}>
-            <div className="bg-[#F3F4F6] px-4 py-3">
-              <div className="text-xs uppercase font-semibold tracking-wide text-[#6B7280] mb-2">Email original</div>
-              <div className="text-sm font-medium text-gray-800 mb-0.5">{email.subject}</div>
-              <div className="text-xs text-gray-500 mb-2">De : {email.sender_name || email.sender_email}</div>
-              <div className="overflow-y-auto" style={{ maxHeight: "35vh" }}>
-                {bodyLoading ? (
-                  <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                    <Loader2 className="w-4 h-4 animate-spin" />Chargement...
-                  </div>
-                ) : isHtml ? (
-                  <div
-                    className="prose prose-sm max-w-none text-gray-600"
-                    dangerouslySetInnerHTML={{ __html: emailBody }}
-                  />
-                ) : (
-                  <div className="text-sm text-gray-600 whitespace-pre-wrap">{emailBody}</div>
-                )}
-              </div>
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Déléguer à</label>
+              {orgMembers.length > 0 ? (
+                <select
+                  value={selectedMember}
+                  onChange={(e) => setSelectedMember(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Choisir un membre...</option>
+                  {orgMembers.map((m) => (
+                    <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-gray-500">Aucun autre membre dans votre organisation.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ajouter un message au transfert..."
+                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
 
-          {/* Reply / Negotiate block (FIX 3b) */}
-          {(mode === "reply" || mode === "negotiate") && (
-            <div className="mx-6 mb-4 rounded-lg overflow-hidden border border-blue-200" style={{ borderLeftWidth: "3px", borderLeftColor: "#2563EB" }}>
-              <div className="bg-[#EFF6FF] px-4 py-3">
-                <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-2">
-                  {mode === "negotiate" ? "Contre-proposition IA suggérée" : "Réponse IA suggérée"}
-                </div>
-                {replyLoading ? (
-                  <div className="flex items-center gap-2 text-blue-400 text-sm py-8">
-                    <Loader2 className="w-4 h-4 animate-spin" />Génération en cours...
-                  </div>
-                ) : (
-                  <textarea
-                    ref={replyRef}
-                    value={replyText}
-                    onChange={(e) => { setReplyText(e.target.value); setEditable(true); }}
-                    readOnly={!editable}
-                    onClick={() => { if (!editable) setEditable(true); }}
-                    className={`w-full p-3 text-sm rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 ${editable ? "border border-blue-300 bg-white" : "border border-transparent bg-white/80 cursor-pointer"}`}
-                    style={{ minHeight: "200px" }}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Delegate */}
-          {mode === "delegate" && (
-            <div className="px-6 pb-4 space-y-4">
-              <div>
-                <label className="block text-xs text-gray-400 uppercase font-medium mb-2">Transférer à</label>
-                {members.length > 0 ? (
-                  <select
-                    value={selectedMember}
-                    onChange={(e) => setSelectedMember(e.target.value)}
-                    className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Choisir un membre...</option>
-                    {members.map((m) => (
-                      <option key={m.user_id} value={m.user_id}>{m.first_name} {m.last_name} ({m.email})</option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="text-sm text-gray-500">Aucun membre trouvé pour ce projet.</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 uppercase font-medium mb-2">Message (optionnel)</label>
-                <textarea
-                  value={delegateMessage}
-                  onChange={(e) => setDelegateMessage(e.target.value)}
-                  placeholder="Ajouter un message au transfert..."
-                  className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer — fixed */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 flex items-center gap-3">
-          {(mode === "reply" || mode === "negotiate") && (
-            <>
-              <button
-                onClick={handleSendReply}
-                disabled={sending || replyLoading || !replyText.trim()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Envoyer
-              </button>
-              {!editable && (
-                <button
-                  onClick={() => setEditable(true)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Modifier puis envoyer
-                </button>
-              )}
-            </>
-          )}
-          {mode === "delegate" && (
+          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 flex items-center gap-3">
             <button
               onClick={handleDelegate}
               disabled={sending || !selectedMember}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-              Transférer
+              Déléguer
             </button>
-          )}
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
-            Annuler
-          </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              Annuler
+            </button>
+          </div>
         </div>
       </div>
+    </>
+  );
+}
 
-      <style jsx global>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
+/* ═══════════════════════════════════════════════════════════
+   TRANSFER MODAL (FIX 4 — free email input, no task)
+   ═══════════════════════════════════════════════════════════ */
+
+function TransferModal({ email, onClose, onDone }: {
+  email: DecisionEmail;
+  onClose: () => void;
+  onDone: (emailId: string) => void;
+}) {
+  const [toEmail, setToEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [emailBody, setEmailBody] = useState("");
+
+  useEffect(() => {
+    async function loadBody() {
+      if (!email.outlook_message_id) {
+        setEmailBody(email.body_preview || "");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmailBody(data.body || email.body_preview || "");
         }
-        .animate-slide-in-right {
-          animation: slideInRight 0.25s ease-out;
-        }
-      `}</style>
+      } catch {
+        setEmailBody(email.body_preview || "");
+      }
+    }
+    loadBody();
+  }, [email]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleTransfer = async () => {
+    if (!toEmail.trim()) return;
+    setSending(true);
+    try {
+      await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [toEmail.trim()],
+          subject: `Fwd: ${email.subject}`,
+          body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
+          forward_id: email.outlook_message_id,
+        }),
+      });
+      onDone(email.id);
+    } catch {
+      alert("Erreur lors du transfert");
+    }
+    setSending(false);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <h2 className="text-lg font-semibold text-white">Transférer l&apos;email</h2>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
+              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Transférer à</label>
+              <input
+                type="email"
+                value={toEmail}
+                onChange={(e) => setToEmail(e.target.value)}
+                placeholder="destinataire@example.com"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ajouter un message au transfert..."
+                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 flex items-center gap-3">
+            <button
+              onClick={handleTransfer}
+              disabled={sending || !toEmail.trim()}
+              className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
+              Transférer
+            </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

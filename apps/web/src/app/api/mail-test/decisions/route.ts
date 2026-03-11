@@ -182,9 +182,20 @@ export async function GET() {
       // Table might not exist yet
     }
 
+    // Check if user is alone in org + get org members for delegation
+    const { data: orgMembers } = await (admin as any)
+      .from("users")
+      .select("id, first_name, last_name, email")
+      .eq("organization_id", profile.organization_id)
+      .neq("id", user.id);
+
+    const isAloneInOrg = !orgMembers || orgMembers.length === 0;
+
     return NextResponse.json({
       success: true,
       firstName: profile.first_name || "Utilisateur",
+      isAloneInOrg,
+      orgMembers: orgMembers || [],
       urgent,
       thisWeek,
       info,
