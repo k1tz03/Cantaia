@@ -168,6 +168,8 @@ export default function MailTestPage() {
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [generatingSummaries, setGeneratingSummaries] = useState(false);
   const [summaryToast, setSummaryToast] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillToast, setBackfillToast] = useState<string | null>(null);
 
   // Modal states
   const [modalEmail, setModalEmail] = useState<DecisionEmail | null>(null);
@@ -335,31 +337,56 @@ export default function MailTestPage() {
         <div className="max-w-[860px] mx-auto px-4 pb-12">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-700">Emails non lus</h2>
-            <button
-              onClick={async () => {
-                setGeneratingSummaries(true);
-                setSummaryToast(null);
-                try {
-                  const res = await fetch("/api/mail-test/generate-summaries", { method: "POST" });
-                  const json = await res.json();
-                  if (json.success) {
-                    setSummaryToast(`${json.updated} résumé${json.updated !== 1 ? "s" : ""} généré${json.updated !== 1 ? "s" : ""}`);
-                    if (json.updated > 0) fetchData();
-                  }
-                } catch {}
-                setGeneratingSummaries(false);
-                setTimeout(() => setSummaryToast(null), 4000);
-              }}
-              disabled={generatingSummaries}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
-            >
-              {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              Générer les résumés
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  setBackfilling(true);
+                  setBackfillToast(null);
+                  try {
+                    const res = await fetch("/api/mail-test/backfill-bodies", { method: "POST" });
+                    const json = await res.json();
+                    if (json.success) {
+                      setBackfillToast(`${json.updated}/${json.total} corps chargés${json.errors ? ` (${json.errors} erreurs)` : ""}`);
+                      if (json.updated > 0) fetchData();
+                    } else {
+                      setBackfillToast(json.error || "Erreur");
+                    }
+                  } catch {}
+                  setBackfilling(false);
+                  setTimeout(() => setBackfillToast(null), 5000);
+                }}
+                disabled={backfilling}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                Charger les corps
+              </button>
+              <button
+                onClick={async () => {
+                  setGeneratingSummaries(true);
+                  setSummaryToast(null);
+                  try {
+                    const res = await fetch("/api/mail-test/generate-summaries", { method: "POST" });
+                    const json = await res.json();
+                    if (json.success) {
+                      setSummaryToast(`${json.updated} résumé${json.updated !== 1 ? "s" : ""} généré${json.updated !== 1 ? "s" : ""}`);
+                      if (json.updated > 0) fetchData();
+                    }
+                  } catch {}
+                  setGeneratingSummaries(false);
+                  setTimeout(() => setSummaryToast(null), 4000);
+                }}
+                disabled={generatingSummaries}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+              >
+                {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Générer les résumés
+              </button>
+            </div>
           </div>
-          {summaryToast && (
+          {(summaryToast || backfillToast) && (
             <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
-              <Check className="w-4 h-4" />{summaryToast}
+              <Check className="w-4 h-4" />{backfillToast || summaryToast}
             </div>
           )}
           <InfoSection

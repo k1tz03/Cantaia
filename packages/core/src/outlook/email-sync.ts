@@ -27,6 +27,8 @@ export interface EmailInsertData {
   recipients: string[];
   received_at: string;
   body_preview: string | null;
+  body_html?: string | null;
+  body_text?: string | null;
   has_attachments: boolean;
   is_processed: boolean;
 }
@@ -92,7 +94,10 @@ export async function syncUserEmails(
         ...(email.ccRecipients || []).map((r) => r.emailAddress.address),
       ];
 
-      // Insert new email
+      // Insert new email — save full body from Graph API
+      const bodyHtml = email.body?.contentType === "html" ? email.body.content : null;
+      const bodyText = email.body?.contentType === "text" ? email.body.content : null;
+
       await deps.insertEmail({
         user_id: userId,
         outlook_message_id: email.id,
@@ -102,6 +107,8 @@ export async function syncUserEmails(
         recipients,
         received_at: email.receivedDateTime,
         body_preview: email.bodyPreview || null,
+        body_html: bodyHtml || null,
+        body_text: bodyText || null,
         has_attachments: email.hasAttachments || false,
         is_processed: false,
       });

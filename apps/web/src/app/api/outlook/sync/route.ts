@@ -819,8 +819,7 @@ async function syncViaProvider(
         }
       }
 
-      // Prepare batch of new emails to insert
-      // NOTE: Only use columns that exist in email_records (migration 019 not applied)
+      // Prepare batch of new emails to insert — save full body alongside preview
       const toInsert = [];
       for (const raw of rawEmails) {
         if (existingIds.has(raw.externalId)) {
@@ -828,8 +827,8 @@ async function syncViaProvider(
           continue;
         }
 
-        const bodyText = raw.bodyText || (raw.bodyHtml ? stripHtml(raw.bodyHtml) : null);
-        const bodyPreview = bodyText ? bodyText.substring(0, 500) : null;
+        const plainText = raw.bodyText || (raw.bodyHtml ? stripHtml(raw.bodyHtml) : null);
+        const bodyPreview = plainText ? plainText.substring(0, 500) : null;
 
         toInsert.push({
           user_id: userId,
@@ -839,6 +838,8 @@ async function syncViaProvider(
           recipients: [...raw.to, ...(raw.cc || [])],
           received_at: raw.date.toISOString(),
           body_preview: bodyPreview,
+          body_html: raw.bodyHtml || null,
+          body_text: plainText || null,
           has_attachments: raw.hasAttachments || false,
           is_processed: false,
           subject: raw.subject || "(Sans objet)",
