@@ -64,12 +64,14 @@ export async function POST(
     }).eq("id", id);
 
     try {
+      console.time("[ANALYZE] total");
+
       // Resolve file URL — migration 012 uses source_file_url, migration 049 uses file_url
       const fileUrl = submission.file_url || submission.source_file_url;
       const fileName = submission.file_name || submission.source_file_name;
 
       if (!fileUrl) {
-        console.error("[analyze] No file URL found for submission", id, { file_url: submission.file_url, source_file_url: submission.source_file_url });
+        console.error("[ANALYZE] No file URL found for submission", id, { file_url: submission.file_url, source_file_url: submission.source_file_url });
         await (admin as any).from("submissions").update({
           analysis_status: "error",
           analysis_error: "Fichier non trouvé — veuillez re-télécharger le document",
@@ -80,27 +82,35 @@ export async function POST(
 
       // Determine file type — fallback to extension if file_type column is missing
       const fileType = submission.file_type || (fileName?.toLowerCase().endsWith(".pdf") ? "pdf" : "excel");
+      console.log(`[ANALYZE] File: ${fileName} (${fileType}), URL: ${fileUrl}`);
 
       let textContent: string;
 
+      console.time("[ANALYZE] download + parse");
       if (fileType === "pdf") {
         textContent = await extractPdfText(admin, fileUrl);
       } else {
         textContent = await extractExcelText(admin, fileUrl);
       }
+      console.timeEnd("[ANALYZE] download + parse");
+      console.log(`[ANALYZE] Extracted text: ${textContent.length} chars`);
 
       if (!textContent || textContent.length < 50) {
-        console.error("[analyze] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
+        console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
         await (admin as any).from("submissions").update({
           analysis_status: "error",
           analysis_error: "Document vide ou illisible",
           updated_at: new Date().toISOString(),
         }).eq("id", id);
+        console.timeEnd("[ANALYZE] total");
         return NextResponse.json({ error: "Document vide ou illisible" }, { status: 400 });
       }
 
       // Call Claude for extraction
-      const items = await analyzeWithClaude(textContent, fileType === "pdf" ? submission : null);
+      console.time("[ANALYZE] claude call");
+      const items = await analyzeWithClaude(textContent);
+      console.timeEnd("[ANALYZE] claude call");
+      console.log(`[ANALYZE] Claude returned ${items.length} items`);
 
       if (!items || items.length === 0) {
         await (admin as any).from("submissions").update({
@@ -108,10 +118,12 @@ export async function POST(
           analysis_error: "Aucun poste détecté dans le document",
           updated_at: new Date().toISOString(),
         }).eq("id", id);
+        console.timeEnd("[ANALYZE] total");
         return NextResponse.json({ error: "No items detected" }, { status: 400 });
       }
 
       // Delete existing items (re-analysis)
+      console.time("[ANALYZE] db insert");
       await (admin as any).from("submission_items").delete().eq("submission_id", id);
 
       // Insert items
@@ -128,13 +140,16 @@ export async function POST(
       }));
 
       const { error: insertError } = await (admin.from("submission_items") as any).insert(rows);
+      console.timeEnd("[ANALYZE] db insert");
+
       if (insertError) {
-        console.error("[analyze] Insert error:", insertError);
+        console.error("[ANALYZE] Insert error:", insertError);
         await (admin as any).from("submissions").update({
           analysis_status: "error",
           analysis_error: insertError.message,
           updated_at: new Date().toISOString(),
         }).eq("id", id);
+        console.timeEnd("[ANALYZE] total");
         return NextResponse.json({ error: insertError.message }, { status: 500 });
       }
 
@@ -144,6 +159,9 @@ export async function POST(
         analysis_error: null,
         updated_at: new Date().toISOString(),
       }).eq("id", id);
+
+      console.timeEnd("[ANALYZE] total");
+      console.log(`[ANALYZE] Success: ${items.length} items, ${[...new Set(items.map((i: any) => i.material_group))].length} groups`);
 
       return NextResponse.json({
         success: true,
@@ -177,13 +195,16 @@ export async function POST(
 }
 
 async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  console.time("[ANALYZE] storage download");
   const { data, error } = await admin.storage.from("submissions").download(fileUrl);
+  console.timeEnd("[ANALYZE] storage download");
   if (error) {
-    console.error("[analyze] PDF download failed:", { fileUrl, error: error.message });
+    console.error("[ANALYZE] PDF download failed:", { fileUrl, error: error.message });
     return "";
   }
   if (!data) return "";
   const buffer = Buffer.from(await data.arrayBuffer());
+  console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
   const pdfParseModule = await import("pdf-parse");
   const pdfParse = (pdfParseModule as any).default || pdfParseModule;
   const pdf = await pdfParse(buffer);
@@ -191,14 +212,17 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
 }
 
 async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  console.time("[ANALYZE] storage download");
   const { data, error } = await admin.storage.from("submissions").download(fileUrl);
+  console.timeEnd("[ANALYZE] storage download");
   if (error) {
-    console.error("[analyze] Excel download failed:", { fileUrl, error: error.message });
+    console.error("[ANALYZE] Excel download failed:", { fileUrl, error: error.message });
     return "";
   }
   if (!data) return "";
 
   const buffer = Buffer.from(await data.arrayBuffer());
+  console.log(`[ANALYZE] Excel buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const parts: string[] = [];
@@ -231,33 +255,36 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
   }
 
   if (parts.length === 0) {
-    console.warn("[analyze] Excel file has no non-empty sheets:", { fileUrl, sheetNames: workbook.SheetNames });
+    console.warn("[ANALYZE] Excel file has no non-empty sheets:", { fileUrl, sheetNames: workbook.SheetNames });
   }
 
   return parts.join("\n\n");
 }
 
-async function analyzeWithClaude(textContent: string, _pdfSubmission: any | null): Promise<any[]> {
+async function analyzeWithClaude(textContent: string): Promise<any[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey, timeout: 120_000 });
+  const client = new Anthropic({ apiKey, timeout: 60_000 });
 
-  // For PDFs stored in Supabase, use text extraction result
-  // For very large documents, truncate to avoid token limits
-  const truncated = textContent.length > 100_000
-    ? textContent.slice(0, 100_000) + "\n\n[Document tronqué à 100k caractères]"
+  // Truncate to max 40k chars (~10k tokens) to stay within limits and keep speed
+  const truncated = textContent.length > 40_000
+    ? textContent.slice(0, 40_000) + "\n\n[Document tronqué à 40k caractères]"
     : textContent;
+
+  const estimatedTokens = Math.round(truncated.length / 4);
+  console.log(`[ANALYZE] tokens estimés: ${estimatedTokens} (${truncated.length} chars)`);
 
   // 55s timeout — leaves 5s margin for Vercel's 60s limit
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("Timeout: l'analyse a pris trop de temps (>55s). Réessayez ou réduisez la taille du document.")), 55_000)
   );
 
+  // Haiku is 3x faster than Sonnet for structured data extraction
   const response = await Promise.race([
     client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 16384,
       system: ANALYSIS_PROMPT,
       messages: [
@@ -272,6 +299,8 @@ async function analyzeWithClaude(textContent: string, _pdfSubmission: any | null
 
   const text = response.content.find((c: any) => c.type === "text");
   if (!text || text.type !== "text") throw new Error("No text response from Claude");
+
+  console.log(`[ANALYZE] Claude response: ${text.text.length} chars`);
 
   return parseJsonResponse(text.text);
 }
@@ -313,7 +342,7 @@ function parseJsonResponse(text: string): any[] {
     }
 
     if (items.length === 0) throw new Error("Failed to parse AI response");
-    console.log(`[analyze] Repaired truncated JSON: ${items.length} items`);
+    console.log(`[ANALYZE] Repaired truncated JSON: ${items.length} items`);
     return items;
   }
 }
