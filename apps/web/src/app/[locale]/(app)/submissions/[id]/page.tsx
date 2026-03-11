@@ -59,7 +59,7 @@ interface SubmissionItem {
 interface PriceRequestData {
   id: string;
   submission_id: string;
-  supplier_id: string;
+  supplier_id: string | null;
   tracking_code: string;
   material_group: string;
   items_requested: any[];
@@ -126,11 +126,21 @@ export default function SubmissionDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // Poll during analysis
+  // Poll during analysis — with 90s client-side timeout
   useEffect(() => {
     if (!submission || (submission.analysis_status !== "analyzing" && submission.analysis_status !== "pending")) return;
     setAnalyzing(true);
+    const startTime = Date.now();
     const interval = setInterval(async () => {
+      // Client-side 90s timeout
+      if (Date.now() - startTime > 90_000) {
+        setAnalyzing(false);
+        setSubmission((prev) =>
+          prev ? { ...prev, analysis_status: "error", analysis_error: "L'analyse a pris trop de temps. Cliquez sur « Ré-analyser » pour réessayer." } : prev
+        );
+        clearInterval(interval);
+        return;
+      }
       try {
         const res = await fetch(`/api/submissions/${id}`);
         const json = await res.json();
@@ -521,9 +531,20 @@ function RequestsTabContent({
           supplier_ids: ids,
         }));
 
+      // Collect manual supplier info for temp IDs
+      const manualSuppliers = suppliers
+        .filter((s: any) => s._manual && s.id.startsWith("temp-"))
+        .map((s: any) => ({
+          id: s.id,
+          company_name: s.company_name,
+          email: s.email,
+          contact_name: s.contact_name || undefined,
+        }));
+
       const payload: Record<string, unknown> = { groups, deadline };
       if (editSubject) payload.custom_subject = editSubject;
       if (editBody) payload.custom_body = editBody;
+      if (manualSuppliers.length > 0) payload.manual_suppliers = manualSuppliers;
 
       const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
         method: "POST",
@@ -604,11 +625,20 @@ function RequestsTabContent({
         });
         const json = await res.json();
         if (json.id || json.supplier) {
-          const created = json.supplier || json;
-          setSuppliers((prev) => [...prev, { id: created.id, ...newSupplier }]);
+          // Refetch full supplier list to get the new supplier with all fields
+          try {
+            const listRes = await fetch("/api/suppliers");
+            const listJson = await listRes.json();
+            if (listJson.suppliers) setSuppliers(listJson.suppliers);
+            else if (Array.isArray(listJson)) setSuppliers(listJson);
+          } catch {
+            // Fallback: add locally
+            const created = json.supplier || json;
+            setSuppliers((prev) => [...prev, { id: created.id, ...newSupplier }]);
+          }
         }
       } else {
-        // Add locally only (temporary supplier)
+        // Add locally only (temporary supplier) — stays visible with "Manuel" badge
         const tempId = `temp-${Date.now()}`;
         setSuppliers((prev) => [...prev, { id: tempId, ...newSupplier, _manual: true }]);
       }
@@ -622,6 +652,15 @@ function RequestsTabContent({
     setPreviewLoading(true);
     try {
       const params = new URLSearchParams({ group, supplier_id: supplierId, deadline });
+      // For manual suppliers, pass their info as query params
+      if (supplierId.startsWith("temp-")) {
+        const manual = suppliers.find((s: any) => s.id === supplierId);
+        if (manual) {
+          params.set("manual_name", manual.company_name || "");
+          params.set("manual_email", manual.email || "");
+          if (manual.contact_name) params.set("manual_contact", manual.contact_name);
+        }
+      }
       const res = await fetch(`/api/submissions/${submissionId}/preview-email?${params}`);
       const json = await res.json();
       if (json.success) {
@@ -801,7 +840,10 @@ function RequestsTabContent({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {suppliers.map((supplier: any) => {
                   const isSelected = (selectedSuppliers[group] || []).includes(supplier.id);
-                  const alreadySent = existingRequests.some((pr) => pr.supplier_id === supplier.id);
+                  const alreadySent = existingRequests.some((pr) =>
+                    pr.supplier_id === supplier.id ||
+                    (supplier.email && pr.suppliers?.email === supplier.email)
+                  );
                   return (
                     <button
                       key={supplier.id}
@@ -816,7 +858,7 @@ function RequestsTabContent({
                       <div className="flex items-center gap-1">
                         <span className="font-medium block truncate">{supplier.company_name}</span>
                         {supplier._manual && (
-                          <span className="text-[10px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded shrink-0">Manuel</span>
+                          <span className="text-[10px] bg-orange-100 text-orange-600 px-1 py-0.5 rounded shrink-0">Manuel</span>
                         )}
                       </div>
                       {supplier.email && (

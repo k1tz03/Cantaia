@@ -4,6 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { randomBytes } from "crypto";
 
+interface ManualSupplierInfo {
+  id: string;
+  company_name: string;
+  email: string;
+  contact_name?: string;
+}
+
 interface SendRequest {
   groups: Array<{
     material_group: string;
@@ -14,6 +21,7 @@ interface SendRequest {
   attachment_urls?: string[];
   custom_subject?: string;
   custom_body?: string;
+  manual_suppliers?: ManualSupplierInfo[];
 }
 
 export async function POST(
@@ -111,14 +119,45 @@ export async function POST(
         const random = randomBytes(3).toString("hex").toUpperCase();
         const trackingCode = `SUB-${shortId}-${groupSlug}-${random}`;
 
-        // Get supplier info
-        const { data: supplier } = await admin
-          .from("suppliers")
-          .select("company_name, contact_name, email")
-          .eq("id", supplierId)
-          .maybeSingle();
+        // Check if this is a manual (temp) supplier
+        const isManual = supplierId.startsWith("temp-");
+        const manualInfo = isManual
+          ? (body.manual_suppliers || []).find((m) => m.id === supplierId)
+          : null;
 
-        if (!supplier?.email) {
+        // Get supplier info — from DB or manual data
+        let supplierEmail: string | null = null;
+        let supplierCompanyName = "";
+        let supplierContactName: string | null = null;
+
+        if (isManual && manualInfo) {
+          supplierEmail = manualInfo.email;
+          supplierCompanyName = manualInfo.company_name;
+          supplierContactName = manualInfo.contact_name || null;
+          console.log("[SEND] Manual supplier:", supplierCompanyName, supplierEmail);
+        } else {
+          const { data: supplier } = await admin
+            .from("suppliers")
+            .select("company_name, contact_name, email")
+            .eq("id", supplierId)
+            .maybeSingle();
+
+          if (!supplier?.email) {
+            results.push({
+              material_group: group.material_group,
+              supplier_id: supplierId,
+              tracking_code: trackingCode,
+              status: "saved",
+              error: "Supplier has no email",
+            });
+            continue;
+          }
+          supplierEmail = supplier.email;
+          supplierCompanyName = supplier.company_name;
+          supplierContactName = supplier.contact_name;
+        }
+
+        if (!supplierEmail) {
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
@@ -130,26 +169,36 @@ export async function POST(
         }
 
         // Create price request record
+        const insertData: Record<string, unknown> = {
+          submission_id: submissionId,
+          project_id: submission.project_id,
+          tracking_code: trackingCode,
+          material_group: group.material_group,
+          items_requested: groupItems.map((i: any) => ({
+            id: i.id,
+            item_number: i.item_number,
+            description: i.description,
+            unit: i.unit,
+            quantity: i.quantity,
+          })),
+          attachments: body.attachment_urls || [],
+          deadline: body.deadline || null,
+          sent_at: new Date().toISOString(),
+          status: "sent",
+        };
+
+        if (isManual) {
+          // Manual supplier — no FK, store name/email directly
+          insertData.supplier_id = null;
+          insertData.supplier_name_manual = supplierCompanyName;
+          insertData.supplier_email_manual = supplierEmail;
+        } else {
+          insertData.supplier_id = supplierId;
+        }
+
         const { error: insertError } = await (admin as any)
           .from("submission_price_requests")
-          .insert({
-            submission_id: submissionId,
-            project_id: submission.project_id,
-            supplier_id: supplierId,
-            tracking_code: trackingCode,
-            material_group: group.material_group,
-            items_requested: groupItems.map((i: any) => ({
-              id: i.id,
-              item_number: i.item_number,
-              description: i.description,
-              unit: i.unit,
-              quantity: i.quantity,
-            })),
-            attachments: body.attachment_urls || [],
-            deadline: body.deadline || null,
-            sent_at: new Date().toISOString(),
-            status: "sent",
-          });
+          .insert(insertData);
 
         if (insertError) {
           results.push({
@@ -175,11 +224,11 @@ export async function POST(
               subject = body.custom_subject || `Demande de prix — ${projectName} — ${group.material_group}`;
               const itemsTableHtml = generateItemsTableHtml(groupItems);
               htmlContent = customBodyToHtml(body.custom_body, itemsTableHtml, trackingCode);
-              console.log("[SEND] Using custom email body for supplier:", supplier.email);
+              console.log("[SEND] Using custom email body for supplier:", supplierEmail);
             } else {
               const emailBody = generatePriceRequestEmail({
-                supplierName: supplier.company_name,
-                contactName: supplier.contact_name,
+                supplierName: supplierCompanyName,
+                contactName: supplierContactName,
                 projectName,
                 materialGroup: group.material_group,
                 items: groupItems,
@@ -194,16 +243,16 @@ export async function POST(
               htmlContent = emailBody.html;
             }
 
-            console.log("[SEND] Sending email to:", supplier.email, "subject:", subject);
+            console.log("[SEND] Sending email to:", supplierEmail, "subject:", subject);
             await sendEmailViaGraph(
               tokenResult.accessToken,
-              supplier.email,
+              supplierEmail,
               subject,
               htmlContent,
               userProfile.email,
               body.attachment_urls
             );
-            console.log("[SEND] Email sent successfully to:", supplier.email);
+            console.log("[SEND] Email sent successfully to:", supplierEmail);
 
             results.push({
               material_group: group.material_group,
@@ -212,7 +261,7 @@ export async function POST(
               status: "sent",
             });
           } catch (emailError: any) {
-            console.error("[SEND] Email error for supplier:", supplier.email, "error:", emailError.message, "stack:", emailError.stack);
+            console.error("[SEND] Email error for supplier:", supplierEmail, "error:", emailError.message, "stack:", emailError.stack);
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
@@ -222,7 +271,7 @@ export async function POST(
             });
           }
         } else {
-          console.warn("[SEND] Skipping email (no Microsoft token) for supplier:", supplier.email);
+          console.warn("[SEND] Skipping email (no Microsoft token) for supplier:", supplierEmail);
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
@@ -336,11 +385,19 @@ function customBodyToHtml(text: string, itemsTableHtml: string, trackingCode: st
   const TABLE_MARKER = "[TABLEAU AUTOMATIQUE]";
   const paragraphs = text.split("\n\n");
 
+  // Detect text table: starts with "N°" header line and contains "---" separator
+  function isTextTable(block: string): boolean {
+    const lines = block.trim().split("\n");
+    if (lines.length < 3) return false;
+    return (lines[0].includes("N°") && lines[0].includes("Description") && lines[1].startsWith("---"));
+  }
+
   const htmlParts = paragraphs
     .map((p) => {
       const trimmed = p.trim();
       if (!trimmed) return "";
       if (trimmed === TABLE_MARKER) return itemsTableHtml;
+      if (isTextTable(trimmed)) return itemsTableHtml;
       const content = trimmed.replace(/\n/g, "<br/>");
       return `<p>${content}</p>`;
     })

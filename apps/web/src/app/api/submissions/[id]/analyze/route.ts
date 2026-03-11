@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Allow up to 60s on Vercel serverless
+export const maxDuration = 60;
+
 const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (CFC / NPK).
 
 Analyse ce document et extrais TOUS les postes du descriptif/soumission.
@@ -35,8 +38,8 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -159,7 +162,16 @@ export async function POST(
     }
 
   } catch (err: any) {
-    console.error("[analyze] Error:", err);
+    console.error("[analyze] Fatal error:", err);
+    // Attempt to set error status so client polling stops
+    try {
+      const adminFallback = createAdminClient();
+      await (adminFallback as any).from("submissions").update({
+        analysis_status: "error",
+        analysis_error: err.message || "Erreur inattendue",
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+    } catch { /* best effort */ }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -238,17 +250,25 @@ async function analyzeWithClaude(textContent: string, _pdfSubmission: any | null
     ? textContent.slice(0, 100_000) + "\n\n[Document tronqué à 100k caractères]"
     : textContent;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 16384,
-    system: ANALYSIS_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Analyse ce document de soumission et extrais tous les postes :\n\n${truncated}`,
-      },
-    ],
-  });
+  // 55s timeout — leaves 5s margin for Vercel's 60s limit
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Timeout: l'analyse a pris trop de temps (>55s). Réessayez ou réduisez la taille du document.")), 55_000)
+  );
+
+  const response = await Promise.race([
+    client.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 16384,
+      system: ANALYSIS_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Analyse ce document de soumission et extrais tous les postes :\n\n${truncated}`,
+        },
+      ],
+    }),
+    timeoutPromise,
+  ]);
 
   const text = response.content.find((c: any) => c.type === "text");
   if (!text || text.type !== "text") throw new Error("No text response from Claude");

@@ -32,12 +32,28 @@ export async function GET(
       .eq("submission_id", id)
       .order("item_number", { ascending: true });
 
-    // Fetch price requests with supplier info
-    const { data: priceRequests } = await (admin as any)
+    // Fetch price requests with supplier info (supplier_id can be null for manual suppliers)
+    const { data: rawPriceRequests } = await (admin as any)
       .from("submission_price_requests")
       .select("*, suppliers(id, company_name, contact_name, email)")
       .eq("submission_id", id)
       .order("created_at", { ascending: false });
+
+    // Normalize: for manual suppliers (supplier_id=null), populate suppliers from manual fields
+    const priceRequests = (rawPriceRequests || []).map((pr: any) => {
+      if (!pr.suppliers && (pr.supplier_name_manual || pr.supplier_email_manual)) {
+        return {
+          ...pr,
+          suppliers: {
+            id: pr.id,
+            company_name: pr.supplier_name_manual || "Fournisseur manuel",
+            contact_name: null,
+            email: pr.supplier_email_manual || null,
+          },
+        };
+      }
+      return pr;
+    });
 
     // Fetch quotes
     const { data: quotes } = await (admin as any)

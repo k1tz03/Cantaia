@@ -21,6 +21,10 @@ export async function GET(
     const group = request.nextUrl.searchParams.get("group");
     const supplierId = request.nextUrl.searchParams.get("supplier_id");
     const deadline = request.nextUrl.searchParams.get("deadline");
+    // Manual supplier data passed as query params when supplier is temp
+    const manualName = request.nextUrl.searchParams.get("manual_name");
+    const manualEmail = request.nextUrl.searchParams.get("manual_email");
+    const manualContact = request.nextUrl.searchParams.get("manual_contact");
 
     if (!group || !supplierId) {
       return NextResponse.json({ error: "group and supplier_id required" }, { status: 400 });
@@ -35,14 +39,26 @@ export async function GET(
 
     if (!submission) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
 
-    // Get supplier
-    const { data: supplier } = await admin
-      .from("suppliers")
-      .select("company_name, contact_name, email")
-      .eq("id", supplierId)
-      .maybeSingle();
+    // Get supplier — from DB or manual params
+    const isManual = supplierId.startsWith("temp-");
+    let supplier: { company_name: string; contact_name: string | null; email: string | null };
 
-    if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+    if (isManual) {
+      supplier = {
+        company_name: manualName || "Fournisseur",
+        contact_name: manualContact || null,
+        email: manualEmail || null,
+      };
+    } else {
+      const { data: dbSupplier } = await admin
+        .from("suppliers")
+        .select("company_name, contact_name, email")
+        .eq("id", supplierId)
+        .maybeSingle();
+
+      if (!dbSupplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+      supplier = dbSupplier;
+    }
 
     // Get user profile
     const { data: userProfile } = await (admin as any)
@@ -121,11 +137,29 @@ export async function GET(
 ${org?.name || ""}</p>
 `.trim();
 
+    // Generate plain text table for editable textarea
+    const colWidths = { num: 6, desc: 40, unit: 8, qty: 10 };
+    const pad = (s: string, w: number) => s.length >= w ? s.slice(0, w) : s + " ".repeat(w - s.length);
+    const padR = (s: string, w: number) => s.length >= w ? s.slice(0, w) : " ".repeat(w - s.length) + s;
+    const separator = "-".repeat(colWidths.num + colWidths.desc + colWidths.unit + colWidths.qty + 9);
+    const textTableLines = [
+      `${pad("N°", colWidths.num)} | ${pad("Description", colWidths.desc)} | ${pad("Unité", colWidths.unit)} | ${padR("Quantité", colWidths.qty)}`,
+      separator,
+      ...groupItems.map((i: any) => {
+        const num = (i.item_number || "-").slice(0, colWidths.num);
+        const desc = (i.description || "").slice(0, colWidths.desc);
+        const unit = (i.unit || "-").slice(0, colWidths.unit);
+        const qty = i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-";
+        return `${pad(num, colWidths.num)} | ${pad(desc, colWidths.desc)} | ${pad(unit, colWidths.unit)} | ${padR(qty, colWidths.qty)}`;
+      }),
+    ];
+    const textTable = textTableLines.join("\n");
+
     // Generate plain text version for editable textarea
     const bodyText = [
       `${greeting},`,
       `Dans le cadre du projet ${projectName}, nous vous sollicitons pour une offre de prix concernant les postes suivants (${group}) :`,
-      `[TABLEAU AUTOMATIQUE]`,
+      textTable,
       `Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, avant le ${deadlineStr}.`,
       `Nous restons à votre disposition pour tout renseignement complémentaire.`,
       `Cordialement,\n${senderName}${userProfile?.job_title ? `\n${userProfile.job_title}` : ""}\n${org?.name || ""}`,
