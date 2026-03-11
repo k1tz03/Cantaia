@@ -480,6 +480,12 @@ function RequestsTabContent({
   const [previewData, setPreviewData] = useState<{ subject: string; body: string; to: string; supplier_name: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewSupplier, setPreviewSupplier] = useState<string>("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [showRelanceModal, setShowRelanceModal] = useState(false);
+  const [relanceRequest, setRelanceRequest] = useState<PriceRequestData | null>(null);
+  const [relanceSubject, setRelanceSubject] = useState("");
+  const [relanceBody, setRelanceBody] = useState("");
 
   // Load org suppliers
   useEffect(() => {
@@ -515,10 +521,14 @@ function RequestsTabContent({
           supplier_ids: ids,
         }));
 
+      const payload: Record<string, unknown> = { groups, deadline };
+      if (editSubject) payload.custom_subject = editSubject;
+      if (editBody) payload.custom_body = editBody;
+
       const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groups, deadline }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -527,6 +537,8 @@ function RequestsTabContent({
         setSelectedSuppliers({});
         setShowSendModal(false);
         setPreviewData(null);
+        setEditSubject("");
+        setEditBody("");
         onRefresh();
       }
     } catch (err: any) {
@@ -536,16 +548,44 @@ function RequestsTabContent({
     }
   }
 
-  async function handleRelance(requestId: string) {
-    setRelancing(requestId);
+  function openRelanceModal(pr: PriceRequestData) {
+    setRelanceRequest(pr);
+    const contactFirstName = pr.suppliers?.contact_name?.split(/\s+/)[0] || null;
+    const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
+    const deadlineStr = pr.deadline
+      ? new Date(pr.deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+
+    setRelanceSubject(`Relance — Demande de prix — ${pr.material_group}`);
+    setRelanceBody(
+      [
+        `${greeting},`,
+        `Nous nous permettons de revenir vers vous concernant notre demande de prix pour le groupe ${pr.material_group}.`,
+        ...(deadlineStr ? [`Pour rappel, le délai de réponse souhaité était fixé au ${deadlineStr}.`] : []),
+        `Nous vous serions reconnaissants de bien vouloir nous faire parvenir votre offre dans les meilleurs délais.`,
+        `Cordialement`,
+      ].join("\n\n")
+    );
+    setShowRelanceModal(true);
+  }
+
+  async function handleRelanceSend() {
+    if (!relanceRequest) return;
+    setRelancing(relanceRequest.id);
     try {
       const res = await fetch(`/api/submissions/${submissionId}/relance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request_id: requestId }),
+        body: JSON.stringify({
+          request_id: relanceRequest.id,
+          custom_subject: relanceSubject,
+          custom_body: relanceBody,
+        }),
       });
       const json = await res.json();
       if (json.success) {
+        setShowRelanceModal(false);
+        setRelanceRequest(null);
         onRefresh();
       }
     } catch {}
@@ -587,6 +627,8 @@ function RequestsTabContent({
       if (json.success) {
         setPreviewData({ subject: json.subject, body: json.body, to: json.to, supplier_name: json.supplier_name });
         setPreviewSupplier(supplierId);
+        setEditSubject(json.subject);
+        setEditBody(json.body_text || json.subject);
       }
     } catch {}
     setPreviewLoading(false);
@@ -655,50 +697,79 @@ function RequestsTabContent({
               )}
             </div>
 
-            {/* Tracking section — existing requests with status + relance */}
-            {existingRequests.length > 0 && (
+            {/* Tracking section — existing requests with full status + relance */}
+            {existingRequests.filter(pr => pr.sent_at).length > 0 && (
               <div className="border-b border-gray-100 px-4 py-3 space-y-2">
-                {existingRequests.map((pr) => {
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Suivi des demandes</p>
+                {existingRequests.filter(pr => pr.sent_at).map((pr) => {
                   const status = getRequestStatus(pr);
                   const StatusIcon = status.icon;
+                  const sentDate = pr.sent_at ? new Date(pr.sent_at) : null;
+                  const deadlineDate = pr.deadline ? new Date(pr.deadline) : null;
+                  const now = new Date();
+                  const daysSinceSent = sentDate ? Math.floor((now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                  const canRelance = pr.status !== "responded" && (
+                    (deadlineDate && deadlineDate < now) ||
+                    daysSinceSent >= 7
+                  );
+
                   return (
                     <div
                       key={pr.id}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm bg-white border border-gray-200"
+                      className="px-3 py-3 rounded-lg text-sm bg-white border border-gray-200 space-y-2"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <StatusIcon className={`h-4 w-4 shrink-0 ${
-                          pr.status === "responded" ? "text-green-600" :
-                          status.label === "En retard" ? "text-red-600" : "text-amber-500"
-                        }`} />
-                        <div className="min-w-0">
-                          <span className="font-medium text-gray-900">
-                            {pr.suppliers?.company_name || "Fournisseur"}
-                          </span>
-                          <span className="text-xs text-gray-400 ml-2 font-mono">
-                            {pr.tracking_code}
-                          </span>
-                          {pr.deadline && (
-                            <span className="text-xs text-gray-400 ml-2">
-                              Deadline: {new Date(pr.deadline).toLocaleDateString("fr-CH")}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <StatusIcon className={`h-4 w-4 shrink-0 ${
+                            pr.status === "responded" ? "text-green-600" :
+                            status.label === "En retard" ? "text-red-600" : "text-amber-500"
+                          }`} />
+                          <div className="min-w-0">
+                            <span className="font-medium text-gray-900">
+                              {pr.suppliers?.company_name || "Fournisseur"}
                             </span>
-                          )}
-                          {(pr.relance_count || 0) > 0 && (
-                            <span className="text-xs text-orange-500 ml-2">
-                              {pr.relance_count} relance{(pr.relance_count || 0) > 1 ? "s" : ""}
-                            </span>
-                          )}
+                            {pr.suppliers?.email && (
+                              <span className="text-xs text-gray-400 ml-2">{pr.suppliers.email}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.className}`}>
                           {status.label}
                         </span>
-                        {pr.status !== "responded" && (
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 pl-7">
+                        <span className="font-mono text-gray-400">{pr.tracking_code}</span>
+                        {sentDate && (
+                          <span>Envoyé le {sentDate.toLocaleDateString("fr-CH")}</span>
+                        )}
+                        {deadlineDate && (
+                          <span className="flex items-center gap-1">
+                            <span className={`inline-block w-2 h-2 rounded-full ${
+                              pr.status === "responded" ? "bg-green-500" :
+                              deadlineDate < now ? "bg-red-500" :
+                              deadlineDate.getTime() - now.getTime() < 3 * 24 * 60 * 60 * 1000 ? "bg-amber-500" :
+                              "bg-green-500"
+                            }`} />
+                            Deadline: {deadlineDate.toLocaleDateString("fr-CH")}
+                          </span>
+                        )}
+                        {(pr.relance_count || 0) > 0 && (
+                          <span className="text-orange-600 font-medium">
+                            {pr.relance_count} relance{(pr.relance_count || 0) > 1 ? "s" : ""}
+                            {pr.last_relance_at && (
+                              <span className="text-gray-400 font-normal ml-1">
+                                (dernière: {new Date(pr.last_relance_at).toLocaleDateString("fr-CH")})
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {canRelance && (
+                        <div className="pl-7">
                           <button
-                            onClick={() => handleRelance(pr.id)}
+                            onClick={() => openRelanceModal(pr)}
                             disabled={relancing === pr.id}
-                            className="text-xs px-2.5 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50 flex items-center gap-1"
+                            className="text-xs px-3 py-1.5 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50 flex items-center gap-1.5"
                           >
                             {relancing === pr.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -707,8 +778,8 @@ function RequestsTabContent({
                             )}
                             Relancer
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -814,7 +885,7 @@ function RequestsTabContent({
                   ))}
               </div>
 
-              {/* Email preview */}
+              {/* Email preview — editable */}
               <div className="border border-gray-200 rounded-lg">
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -848,14 +919,30 @@ function RequestsTabContent({
                   </div>
                 ) : previewData ? (
                   <div className="p-4 space-y-3">
-                    <div className="text-xs space-y-1">
-                      <p><span className="text-gray-500">À :</span> <span className="text-gray-900">{previewData.to}</span></p>
-                      <p><span className="text-gray-500">Objet :</span> <span className="font-medium text-gray-900">{previewData.subject}</span></p>
+                    <div className="text-xs">
+                      <p className="text-gray-500 mb-1">À : <span className="text-gray-900">{previewData.to}</span></p>
                     </div>
-                    <div
-                      className="border border-gray-200 rounded-lg p-3 text-xs text-gray-700 max-h-60 overflow-y-auto bg-white"
-                      dangerouslySetInnerHTML={{ __html: previewData.body }}
-                    />
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Objet</label>
+                      <input
+                        type="text"
+                        value={editSubject}
+                        onChange={(e) => setEditSubject(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-brand focus:border-brand"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Corps du message</label>
+                      <textarea
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                        style={{ minHeight: "300px" }}
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Le marqueur [TABLEAU AUTOMATIQUE] sera remplacé par le tableau des postes. Le code de suivi est ajouté automatiquement.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div className="p-6 text-center text-xs text-gray-400">
@@ -864,8 +951,20 @@ function RequestsTabContent({
                 )}
               </div>
 
-              {sendResult?.error && (
-                <p className="text-sm text-red-600">{sendResult.error}</p>
+              {/* Error display */}
+              {(sendResult?.error || sendResult?.microsoft_error) && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-700">
+                    {sendResult.microsoft_error && (
+                      <p className="font-medium">{sendResult.microsoft_error}</p>
+                    )}
+                    {sendResult.error && <p>{sendResult.error}</p>}
+                    {sendResult.results?.filter((r: any) => r.error).map((r: any, i: number) => (
+                      <p key={i} className="text-xs mt-1 text-red-600">{r.error}</p>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
@@ -882,6 +981,60 @@ function RequestsTabContent({
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {sending ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relance modal with editable preview */}
+      {showRelanceModal && relanceRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Relancer le fournisseur</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {relanceRequest.suppliers?.company_name} — {relanceRequest.tracking_code}
+                </p>
+              </div>
+              <button onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Objet</label>
+                <input
+                  type="text"
+                  value={relanceSubject}
+                  onChange={(e) => setRelanceSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-brand focus:border-brand"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Message</label>
+                <textarea
+                  value={relanceBody}
+                  onChange={(e) => setRelanceBody(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                  style={{ minHeight: "220px" }}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Le code de suivi ({relanceRequest.tracking_code}) est ajouté automatiquement.</p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleRelanceSend}
+                disabled={relancing === relanceRequest.id}
+                className="px-5 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {relancing === relanceRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Envoyer la relance
               </button>
             </div>
           </div>

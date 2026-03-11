@@ -76,9 +76,8 @@ export async function GET(
     const trackingCode = `SUB-${shortId}-${groupSlug}-XXXXXX`;
 
     const projectName = (submission as any).projects?.name || "Projet";
-    const greeting = supplier.contact_name
-      ? `Madame, Monsieur ${supplier.contact_name}`
-      : "Madame, Monsieur";
+    const contactFirstName = supplier.contact_name?.split(/\s+/)[0] || null;
+    const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
     const deadlineStr = deadline
       ? new Date(deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
       : "dans les meilleurs délais";
@@ -122,10 +121,21 @@ export async function GET(
 ${org?.name || ""}</p>
 `.trim();
 
+    // Generate plain text version for editable textarea
+    const bodyText = [
+      `${greeting},`,
+      `Dans le cadre du projet ${projectName}, nous vous sollicitons pour une offre de prix concernant les postes suivants (${group}) :`,
+      `[TABLEAU AUTOMATIQUE]`,
+      `Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, avant le ${deadlineStr}.`,
+      `Nous restons à votre disposition pour tout renseignement complémentaire.`,
+      `Cordialement,\n${senderName}${userProfile?.job_title ? `\n${userProfile.job_title}` : ""}\n${org?.name || ""}`,
+    ].join("\n\n").trim();
+
     return NextResponse.json({
       success: true,
       subject,
       body: html,
+      body_text: bodyText,
       to: supplier.email,
       supplier_name: supplier.company_name,
       tracking_code: trackingCode,

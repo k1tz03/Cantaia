@@ -12,6 +12,8 @@ interface SendRequest {
   deadline?: string;
   language?: "fr" | "en" | "de";
   attachment_urls?: string[];
+  custom_subject?: string;
+  custom_body?: string;
 }
 
 export async function POST(
@@ -20,12 +22,16 @@ export async function POST(
 ) {
   try {
     const { id: submissionId } = await params;
+    console.log("[SEND] Starting send-price-requests for submission:", submissionId);
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.log("[SEND] User ID:", user.id);
 
     const admin = createAdminClient();
     const body: SendRequest = await request.json();
+    console.log("[SEND] Request body:", { groups: body.groups.length, deadline: body.deadline, hasCustomSubject: !!body.custom_subject, hasCustomBody: !!body.custom_body });
 
     // Get submission with project info
     const { data: submission } = await admin
@@ -35,6 +41,7 @@ export async function POST(
       .maybeSingle();
 
     if (!submission) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+    console.log("[SEND] Submission found:", submission.id, "project:", (submission as any).projects?.name);
 
     // Get user profile for email signature (cast: job_title from migration 041)
     const { data: userProfile } = await (admin as any)
@@ -44,6 +51,7 @@ export async function POST(
       .maybeSingle();
 
     if (!userProfile) return NextResponse.json({ error: "User profile not found" }, { status: 400 });
+    console.log("[SEND] User profile:", userProfile.email, "org:", userProfile.organization_id);
 
     // Get org name
     const { data: org } = await admin
@@ -64,10 +72,21 @@ export async function POST(
       if (!itemsByGroup[group]) itemsByGroup[group] = [];
       itemsByGroup[group].push(item);
     }
+    console.log("[SEND] Items by group:", Object.entries(itemsByGroup).map(([g, items]) => `${g}: ${items.length}`).join(", "));
 
     // Get Microsoft token for sending emails
+    console.log("[SEND] Fetching Microsoft token for user:", user.id);
     const tokenResult = await getValidMicrosoftToken(user.id);
     const canSendEmail = !("error" in tokenResult);
+    let microsoftError: string | null = null;
+
+    if (!canSendEmail) {
+      const errorMsg = "error" in tokenResult ? tokenResult.error : "Unknown token error";
+      console.error("[SEND] Microsoft token error:", errorMsg);
+      microsoftError = "Connexion Microsoft requise — reconnectez votre compte dans Paramètres → Intégrations";
+    } else {
+      console.log("[SEND] Microsoft token OK, token expires:", (tokenResult as any).expiresAt || "unknown");
+    }
 
     const results: Array<{
       material_group: string;
@@ -147,28 +166,44 @@ export async function POST(
         if (canSendEmail) {
           try {
             const projectName = (submission as any).projects?.name || "Projet";
-            const emailBody = generatePriceRequestEmail({
-              supplierName: supplier.company_name,
-              contactName: supplier.contact_name,
-              projectName,
-              materialGroup: group.material_group,
-              items: groupItems,
-              trackingCode,
-              deadline: body.deadline,
-              senderName: `${userProfile.first_name} ${userProfile.last_name}`,
-              senderCompany: org?.name || "",
-              senderTitle: userProfile.job_title,
-              language: body.language || "fr",
-            });
 
+            let subject: string;
+            let htmlContent: string;
+
+            if (body.custom_body) {
+              // Use custom content from editable preview
+              subject = body.custom_subject || `Demande de prix — ${projectName} — ${group.material_group}`;
+              const itemsTableHtml = generateItemsTableHtml(groupItems);
+              htmlContent = customBodyToHtml(body.custom_body, itemsTableHtml, trackingCode);
+              console.log("[SEND] Using custom email body for supplier:", supplier.email);
+            } else {
+              const emailBody = generatePriceRequestEmail({
+                supplierName: supplier.company_name,
+                contactName: supplier.contact_name,
+                projectName,
+                materialGroup: group.material_group,
+                items: groupItems,
+                trackingCode,
+                deadline: body.deadline,
+                senderName: `${userProfile.first_name} ${userProfile.last_name}`,
+                senderCompany: org?.name || "",
+                senderTitle: userProfile.job_title,
+                language: body.language || "fr",
+              });
+              subject = body.custom_subject || emailBody.subject;
+              htmlContent = emailBody.html;
+            }
+
+            console.log("[SEND] Sending email to:", supplier.email, "subject:", subject);
             await sendEmailViaGraph(
               tokenResult.accessToken,
               supplier.email,
-              emailBody.subject,
-              emailBody.html,
+              subject,
+              htmlContent,
               userProfile.email,
               body.attachment_urls
             );
+            console.log("[SEND] Email sent successfully to:", supplier.email);
 
             results.push({
               material_group: group.material_group,
@@ -177,22 +212,23 @@ export async function POST(
               status: "sent",
             });
           } catch (emailError: any) {
-            console.error("[send-price-requests] Email error:", emailError);
+            console.error("[SEND] Email error for supplier:", supplier.email, "error:", emailError.message, "stack:", emailError.stack);
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
               tracking_code: trackingCode,
               status: "saved",
-              error: `Email failed: ${emailError.message}`,
+              error: `Échec d'envoi: ${emailError.message}`,
             });
           }
         } else {
+          console.warn("[SEND] Skipping email (no Microsoft token) for supplier:", supplier.email);
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
             tracking_code: trackingCode,
             status: "saved",
-            error: "Microsoft not connected — request saved but not emailed",
+            error: microsoftError || "Microsoft non connecté — demande enregistrée mais non envoyée",
           });
         }
       }
@@ -200,16 +236,18 @@ export async function POST(
 
     const sentCount = results.filter((r) => r.status === "sent").length;
     const savedCount = results.filter((r) => r.status === "saved").length;
+    console.log("[SEND] Done. Sent:", sentCount, "Saved:", savedCount);
 
     return NextResponse.json({
       success: true,
       sent: sentCount,
       saved: savedCount,
       results,
+      ...(microsoftError ? { microsoft_error: microsoftError } : {}),
     });
 
   } catch (err: any) {
-    console.error("[send-price-requests] Error:", err);
+    console.error("[SEND] Fatal error:", err.message, "stack:", err.stack);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -227,7 +265,8 @@ function generatePriceRequestEmail(opts: {
   senderTitle: string | null;
   language: "fr" | "en" | "de";
 }) {
-  const greeting = opts.contactName ? `Madame, Monsieur ${opts.contactName}` : "Madame, Monsieur";
+  const contactFirstName = opts.contactName?.split(/\s+/)[0] || null;
+  const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
   const deadlineStr = opts.deadline
     ? new Date(opts.deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
     : "dans les meilleurs délais";
@@ -271,6 +310,48 @@ ${opts.senderCompany}</p>
 `.trim();
 
   return { subject, html };
+}
+
+function generateItemsTableHtml(items: any[]): string {
+  const rows = items
+    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${i.description}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
+    .join("\n");
+
+  return `<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
+  <thead>
+    <tr style="background:#f3f4f6;">
+      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">N°</th>
+      <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;">Description</th>
+      <th style="padding:6px 8px;border:1px solid #ddd;text-align:center;">Unité</th>
+      <th style="padding:6px 8px;border:1px solid #ddd;text-align:right;">Quantité</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows}
+  </tbody>
+</table>`;
+}
+
+function customBodyToHtml(text: string, itemsTableHtml: string, trackingCode: string): string {
+  const TABLE_MARKER = "[TABLEAU AUTOMATIQUE]";
+  const paragraphs = text.split("\n\n");
+
+  const htmlParts = paragraphs
+    .map((p) => {
+      const trimmed = p.trim();
+      if (!trimmed) return "";
+      if (trimmed === TABLE_MARKER) return itemsTableHtml;
+      const content = trimmed.replace(/\n/g, "<br/>");
+      return `<p>${content}</p>`;
+    })
+    .filter(Boolean);
+
+  // Auto-append tracking code box
+  htmlParts.push(
+    `<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;"><strong>Important :</strong> Merci de mentionner le code <strong>${trackingCode}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.</p>`
+  );
+
+  return htmlParts.join("\n\n");
 }
 
 async function sendEmailViaGraph(

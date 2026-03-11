@@ -20,7 +20,7 @@ export async function POST(
 
     const admin = createAdminClient();
     const body = await request.json();
-    const { request_id } = body;
+    const { request_id, custom_subject, custom_body } = body;
 
     if (!request_id) {
       return NextResponse.json({ error: "request_id required" }, { status: 400 });
@@ -71,19 +71,40 @@ export async function POST(
 
     // Generate relance email
     const relanceNum = (priceRequest.relance_count || 0) + 1;
-    const greeting = priceRequest.suppliers?.contact_name
-      ? `Madame, Monsieur ${priceRequest.suppliers.contact_name}`
-      : "Madame, Monsieur";
+    const contactFirstName = priceRequest.suppliers?.contact_name?.split(/\s+/)[0] || null;
+    const defaultGreeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
     const senderName = `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim();
 
     const deadlineStr = priceRequest.deadline
       ? new Date(priceRequest.deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
       : null;
 
-    const subject = `Relance${relanceNum > 1 ? ` n°${relanceNum}` : ""} — Demande de prix — ${projectName} — ${priceRequest.material_group}`;
+    let subject: string;
+    let html: string;
 
-    const html = `
-<p>${greeting},</p>
+    if (custom_body) {
+      // Use custom content from editable relance modal
+      subject = custom_subject || `Relance${relanceNum > 1 ? ` n°${relanceNum}` : ""} — Demande de prix — ${projectName} — ${priceRequest.material_group}`;
+      const paragraphs = custom_body.split("\n\n");
+      const bodyHtml = paragraphs
+        .map((p: string) => {
+          const trimmed = p.trim();
+          if (!trimmed) return "";
+          return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
+        })
+        .filter(Boolean)
+        .join("\n\n");
+
+      html = `${bodyHtml}
+
+<p style="background:#fef3c7;padding:12px;border-radius:6px;border-left:4px solid #f59e0b;margin:16px 0;">
+  <strong>Référence :</strong> ${priceRequest.tracking_code}<br/>
+  Merci de mentionner ce code dans votre réponse.
+</p>`.trim();
+    } else {
+      subject = `Relance${relanceNum > 1 ? ` n°${relanceNum}` : ""} — Demande de prix — ${projectName} — ${priceRequest.material_group}`;
+      html = `
+<p>${defaultGreeting},</p>
 
 <p>Nous nous permettons de revenir vers vous concernant notre demande de prix pour le projet <strong>${projectName}</strong>, groupe <strong>${priceRequest.material_group}</strong>.</p>
 
@@ -100,6 +121,7 @@ ${deadlineStr ? `<p>Pour rappel, le délai de réponse souhaité était fixé au
 <strong>${senderName}</strong>${userProfile?.job_title ? `<br/>${userProfile.job_title}` : ""}<br/>
 ${org?.name || ""}</p>
 `.trim();
+    }
 
     // Send via Graph API
     const tokenResult = await getValidMicrosoftToken(user.id);
