@@ -256,7 +256,6 @@ export async function POST(request: Request) {
                 classification_status: "auto_classified",
                 email_category: "project",
                 ai_reasoning: `Level 0: Linked to price request via ${priceMatch.matchMethod}${priceMatch.trackingCode ? ` (${priceMatch.trackingCode})` : ""}`,
-                is_processed: true,
               })
               .eq("id", email.id);
 
@@ -302,7 +301,6 @@ export async function POST(request: Request) {
                   classification_status: "auto_classified",
                   email_category: "project",
                   ai_reasoning: `Level 0b: Submission tracking code detected (${trackingCode})`,
-                  is_processed: true,
                   price_extracted: false,
                 })
                 .eq("id", email.id);
@@ -340,7 +338,6 @@ export async function POST(request: Request) {
               ai_reasoning: "Classified by learned local rule (no AI call)",
               classification_status: "auto_classified",
               email_category: "project",
-              is_processed: true,
             })
             .eq("id", email.id);
           emailsClassified++;
@@ -371,7 +368,6 @@ export async function POST(request: Request) {
             ai_classification_confidence: Math.round(spamCheck.confidence * 100),
             ai_reasoning: spamCheck.reason,
             classification_status: "auto_classified",
-            is_processed: true,
           })
           .eq("id", email.id);
         emailsClassified++;
@@ -406,7 +402,6 @@ export async function POST(request: Request) {
               classification_status: "auto_classified",
               email_category: "project",
               ai_reasoning: `Local keyword match: ${keywordMatch.reasons.join(", ")}`,
-              is_processed: true,
             })
             .eq("id", email.id);
           emailsClassified++;
@@ -419,7 +414,7 @@ export async function POST(request: Request) {
         if (process.env.NODE_ENV === "development") console.log(`[sync] SKIP AI: "${email.subject}" — first segment is unknown project`);
         await (adminClient as any)
           .from("email_records")
-          .update({ is_processed: true })
+          .update({ classification_status: "auto_classified" })
           .eq("id", email.id);
         continue;
       }
@@ -432,7 +427,6 @@ export async function POST(request: Request) {
         await (adminClient as any)
           .from("email_records")
           .update({
-            is_processed: true,
             classification_status: "unprocessed",
           })
           .eq("id", email.id);
@@ -494,7 +488,6 @@ export async function POST(request: Request) {
             classification_status: isAutoClassified ? "auto_classified" : "suggested",
             email_category: "project",
             ai_reasoning: result.reasoning || null,
-            is_processed: true,
           })
           .eq("id", email.id);
 
@@ -511,7 +504,6 @@ export async function POST(request: Request) {
             email_category: "project",
             suggested_project_data: result.suggested_project || null,
             ai_reasoning: result.reasoning || null,
-            is_processed: true,
           })
           .eq("id", email.id);
         newProjectsSuggested++;
@@ -530,7 +522,6 @@ export async function POST(request: Request) {
             classification_status: isLowConfidence ? "unprocessed" : "classified_no_project",
             email_category: result.email_category || "personal",
             ai_reasoning: result.reasoning || null,
-            is_processed: true,
           })
           .eq("id", email.id);
       }
@@ -661,7 +652,7 @@ export async function POST(request: Request) {
       console.error(`[sync] Failed to classify email ${email.id} ("${email.subject}"):`, err);
       await (adminClient as any)
         .from("email_records")
-        .update({ is_processed: true, classification_status: "unprocessed" })
+        .update({ classification_status: "unprocessed" })
         .eq("id", email.id);
     }
   }
