@@ -18,6 +18,7 @@ interface ThreadMessage {
 /**
  * GET /api/mail-test/emails/[id]/thread
  * Fetches the full conversation thread from Microsoft Graph.
+ * On-demand backfill: if body_html/body_text are missing, fetches and saves them.
  */
 export async function GET(
   _request: Request,
@@ -43,40 +44,76 @@ export async function GET(
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
 
-    if (!emailRecord.outlook_message_id) {
-      // No Outlook ID — can't fetch thread, return fallback
-      return NextResponse.json({
-        thread: null,
-        error: "Pas d'identifiant Outlook — conversation indisponible",
-        fallback: {
-          subject: emailRecord.subject,
-          from: { name: emailRecord.sender_name || "", email: emailRecord.sender_email },
-          body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
-          bodyPreview: emailRecord.body_preview || "",
-          receivedDateTime: emailRecord.received_at,
-          ai_summary: emailRecord.ai_summary || null,
-        },
-      });
+    // Helper: build fallback from current emailRecord state
+    function buildFallback(record: typeof emailRecord) {
+      return {
+        subject: record.subject,
+        from: { name: record.sender_name || "", email: record.sender_email },
+        body: record.body_html || record.body_text || record.body_preview || "",
+        bodyPreview: record.body_preview || "",
+        receivedDateTime: record.received_at,
+        ai_summary: record.ai_summary || null,
+      };
     }
 
-    // Get Microsoft token
-    const tokenResult = await getValidMicrosoftToken(user.id);
-    if ("error" in tokenResult) {
-      return NextResponse.json({
-        thread: null,
-        error: "Impossible de charger la conversation — reconnectez Microsoft",
-        fallback: {
-          subject: emailRecord.subject,
-          from: { name: emailRecord.sender_name || "", email: emailRecord.sender_email },
-          body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
-          bodyPreview: emailRecord.body_preview || "",
-          receivedDateTime: emailRecord.received_at,
-          ai_summary: emailRecord.ai_summary || null,
-        },
-      });
+    // On-demand backfill: if we have an outlook_message_id but no full body,
+    // try to fetch it from Graph and save it to DB
+    const needsBodyBackfill = emailRecord.outlook_message_id && !emailRecord.body_html && !emailRecord.body_text;
+
+    // Get Microsoft token (needed for both thread and backfill)
+    let accessToken: string | null = null;
+    if (emailRecord.outlook_message_id) {
+      const tokenResult = await getValidMicrosoftToken(user.id);
+      if (!("error" in tokenResult)) {
+        accessToken = tokenResult.accessToken;
+      }
     }
 
-    const accessToken = tokenResult.accessToken;
+    // Backfill body if needed and we have a token
+    if (needsBodyBackfill && accessToken) {
+      try {
+        const bodyRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${emailRecord.outlook_message_id}?$select=body`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (bodyRes.ok) {
+          const bodyData = await bodyRes.json();
+          const body = bodyData.body;
+          if (body?.content) {
+            const updatePayload: Record<string, string> = {};
+            if (body.contentType === "html" || body.contentType === "HTML") {
+              updatePayload.body_html = body.content;
+              updatePayload.body_text = stripHtml(body.content);
+            } else {
+              updatePayload.body_text = body.content;
+            }
+            await (admin as any)
+              .from("email_records")
+              .update(updatePayload)
+              .eq("id", emailRecord.id);
+
+            // Update local record for the response
+            emailRecord.body_html = updatePayload.body_html || null;
+            emailRecord.body_text = updatePayload.body_text || null;
+            console.log(`[thread] Backfilled body for ${emailRecord.id}: ${Object.keys(updatePayload).join(", ")}`);
+          }
+        } else {
+          console.warn(`[thread] Body backfill failed for ${emailRecord.id}: ${bodyRes.status}`);
+        }
+      } catch (err: any) {
+        console.warn(`[thread] Body backfill error for ${emailRecord.id}:`, err?.message);
+      }
+    }
+
+    if (!emailRecord.outlook_message_id || !accessToken) {
+      return NextResponse.json({
+        thread: null,
+        error: !emailRecord.outlook_message_id
+          ? "Pas d'identifiant Outlook — conversation indisponible"
+          : "Connexion Microsoft requise",
+        fallback: buildFallback(emailRecord),
+      });
+    }
 
     // Step 1: Get conversationId from the message
     const msgRes = await fetch(
@@ -85,18 +122,11 @@ export async function GET(
     );
 
     if (!msgRes.ok) {
-      console.error("[thread] Failed to fetch message:", msgRes.status, await msgRes.text());
+      console.warn("[thread] Graph message fetch failed:", msgRes.status);
       return NextResponse.json({
         thread: null,
-        error: "Impossible de charger la conversation",
-        fallback: {
-          subject: emailRecord.subject,
-          from: { name: emailRecord.sender_name || "", email: emailRecord.sender_email },
-          body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
-          bodyPreview: emailRecord.body_preview || "",
-          receivedDateTime: emailRecord.received_at,
-          ai_summary: emailRecord.ai_summary || null,
-        },
+        error: "Conversation complète indisponible",
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -107,14 +137,7 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Pas de conversationId trouvé",
-        fallback: {
-          subject: emailRecord.subject,
-          from: { name: emailRecord.sender_name || "", email: emailRecord.sender_email },
-          body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
-          bodyPreview: emailRecord.body_preview || "",
-          receivedDateTime: emailRecord.received_at,
-          ai_summary: emailRecord.ai_summary || null,
-        },
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -125,18 +148,11 @@ export async function GET(
     );
 
     if (!threadRes.ok) {
-      console.error("[thread] Failed to fetch thread:", threadRes.status, await threadRes.text());
+      console.warn("[thread] Graph thread fetch failed:", threadRes.status);
       return NextResponse.json({
         thread: null,
-        error: "Impossible de charger la conversation",
-        fallback: {
-          subject: emailRecord.subject,
-          from: { name: emailRecord.sender_name || "", email: emailRecord.sender_email },
-          body: emailRecord.body_html || emailRecord.body_text || emailRecord.body_preview || "",
-          bodyPreview: emailRecord.body_preview || "",
-          receivedDateTime: emailRecord.received_at,
-          ai_summary: emailRecord.ai_summary || null,
-        },
+        error: "Conversation complète indisponible",
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -175,4 +191,19 @@ export async function GET(
     console.error("[mail-test/thread] Error:", err);
     return NextResponse.json({ thread: null, error: err.message }, { status: 500 });
   }
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
