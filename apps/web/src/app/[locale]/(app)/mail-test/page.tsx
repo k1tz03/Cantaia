@@ -276,7 +276,7 @@ export default function MailTestPage() {
       {/* Info section below decisions */}
       {activeFilter !== "info" && filteredInfo.length > 0 && (
         <div className="max-w-[860px] mx-auto px-4 pb-12">
-          <h2 className="text-lg font-semibold text-gray-700 mb-3">Infos du jour</h2>
+          <h2 className="text-lg font-semibold text-gray-700 mb-3">Emails non lus</h2>
           <InfoSection
             emails={filteredInfo.slice(0, 10)}
             onArchive={(id) => dismissCard(id, "archive")}
@@ -362,7 +362,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EMAIL DETAIL MODAL (FIX 1 — reusable)
+   EMAIL DETAIL MODAL (reusable — dark header, AI summary, styled body)
    ═══════════════════════════════════════════════════════════ */
 
 function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, onArchive }: {
@@ -390,7 +390,6 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
         if (res.ok) {
           const data = await res.json();
           const body = data.body || "";
-          // Detect if HTML
           if (body.includes("<") && body.includes(">") && (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table"))) {
             setIsHtml(true);
             setEmailBody(body);
@@ -417,6 +416,12 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const priorityBadge = email.priority === "urgent"
+    ? { label: "URGENT", cls: "bg-red-500/20 text-red-200" }
+    : email.priority === "action"
+    ? { label: "ACTION", cls: "bg-amber-500/20 text-amber-200" }
+    : { label: "INFO", cls: "bg-white/15 text-blue-200" };
+
   return (
     <>
       {/* Backdrop */}
@@ -425,48 +430,73 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
       {/* Modal */}
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           style={{ width: "70vw", maxWidth: "960px", height: "80vh", maxHeight: "800px" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-100">
+          {/* Header — dark Cantaia blue */}
+          <div className="flex-shrink-0 px-6 py-4" style={{ background: "#1E3A5F" }}>
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0 mr-4">
-                <h2 className="text-lg font-semibold text-gray-900 truncate">{email.subject}</h2>
-                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                  <span>De : {email.sender_name || email.sender_email} &lt;{email.sender_email}&gt;</span>
+                <div className="flex items-center gap-2 mb-1.5">
+                  {email.project_name && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">{email.project_name}</span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${priorityBadge.cls}`}>{priorityBadge.label}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
-                  {email.project_name && <span className="font-medium text-gray-500">{email.project_name}</span>}
-                  {email.project_name && <span>·</span>}
+                <h2 className="text-lg font-semibold text-white truncate">{email.subject}</h2>
+                <div className="flex items-center gap-2 mt-1 text-sm text-[#93C5FD]">
+                  <span>De : {email.sender_name || email.sender_email} &lt;{email.sender_email}&gt;</span>
+                  <span className="text-blue-300/50">·</span>
                   <span>{formatFullDate(email.received_at)}</span>
                 </div>
               </div>
-              <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0">
+              <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors flex-shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
           {/* Body — scrollable */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            {/* AI Summary block */}
+            {email.ai_summary && (
+              <>
+                <div className="rounded-lg overflow-hidden mb-5" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                  <div className="px-4 py-3">
+                    <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-1.5">Résumé IA</div>
+                    <p className="text-sm leading-relaxed" style={{ color: "#1E3A5F" }}>{email.ai_summary}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">Contenu de l&apos;email</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              </>
+            )}
+
+            {/* Email body */}
             {bodyLoading ? (
               <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
                 <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
               </div>
-            ) : isHtml ? (
-              <div
-                className="prose prose-sm max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: emailBody }}
-              />
             ) : (
-              <div className="text-sm text-gray-700 whitespace-pre-wrap">{emailBody}</div>
+              <div className="bg-[#F9FAFB] rounded-lg p-4">
+                {isHtml ? (
+                  <div
+                    className="prose prose-sm max-w-none text-gray-700 email-content"
+                    dangerouslySetInnerHTML={{ __html: emailBody }}
+                  />
+                ) : (
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap" style={{ fontSize: "14px" }}>{emailBody}</div>
+                )}
+              </div>
             )}
           </div>
 
           {/* Footer — actions */}
-          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 flex items-center gap-2">
+          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
             <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
               <Send className="w-3.5 h-3.5" />Répondre avec IA
             </button>
@@ -476,7 +506,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onCreateTask, o
             <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
               <ListTodo className="w-3.5 h-3.5" />Créer une tâche
             </button>
-            <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white hover:bg-red-50 border border-red-200 rounded-lg transition-colors">
               <Archive className="w-3.5 h-3.5" />Archiver
             </button>
           </div>
