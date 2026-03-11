@@ -5,7 +5,7 @@ import { scanDirectory } from '../utils/file-scanner';
 import { extractTextFromPDF } from '../utils/pdf-parser';
 import { extractFromExcel } from '../utils/excel-parser';
 import { parseMsg } from '../utils/msg-parser';
-import { callClaude, safeParseJSON } from '../utils/ai-extractor';
+import { safeParseJSON } from '../utils/ai-extractor';
 import { extractWithGemini } from '../utils/gemini-extractor';
 import { normalizeCFC, normalizeUnit, hashSupplierName, detectRegion, dateToQuarter } from '../utils/normalizer';
 import { IngestionLogger } from '../utils/logger';
@@ -159,41 +159,16 @@ export async function ingestOffers() {
           userPrompt = buildUserPrompt(content, filename);
         }
 
-        // Appeler Gemini Flash pour extraction (Claude Haiku en fallback)
-        let response: string | null = null;
-        let usedModel = 'gemini-2.5-flash';
-
-        try {
-          response = await extractWithGemini(SYSTEM_PROMPT_EXTRACT_OFFER, userPrompt);
-        } catch (geminiError: any) {
-          console.log(`  ⚠ Gemini échoué (${geminiError.message}) → fallback Claude Haiku`);
-          usedModel = 'claude-haiku-4-5-20251001';
-          response = await callClaude({
-            systemPrompt: SYSTEM_PROMPT_EXTRACT_OFFER,
-            userPrompt,
-          });
-        }
+        // Appeler Gemini 2.5 Flash pour extraction (pas de fallback Claude)
+        const response = await extractWithGemini(SYSTEM_PROMPT_EXTRACT_OFFER, userPrompt);
 
         if (!response) {
-          logger.failure(filename, 'Pas de réponse IA');
+          logger.failure(filename, 'Gemini indisponible après 3 tentatives — fichier skippé');
           moveToFailed(filePath);
           continue;
         }
 
-        let extraction = safeParseJSON<OfferExtraction>(response);
-
-        // Si JSON invalide depuis Gemini, retry avec Claude Haiku
-        if (!extraction && usedModel === 'gemini-2.5-flash') {
-          console.log(`  ⚠ JSON invalide (Gemini) → fallback Claude Haiku`);
-          usedModel = 'claude-haiku-4-5-20251001';
-          response = await callClaude({
-            systemPrompt: SYSTEM_PROMPT_EXTRACT_OFFER,
-            userPrompt,
-          });
-          if (response) {
-            extraction = safeParseJSON<OfferExtraction>(response);
-          }
-        }
+        const extraction = safeParseJSON<OfferExtraction>(response);
 
         if (!extraction) {
           logger.failure(filename, 'JSON invalide dans la réponse');
@@ -265,7 +240,7 @@ export async function ingestOffers() {
 
         totalLignes += linesToInsert.length;
         totalFichiers++;
-        logger.success(filename, `${linesToInsert.length} lignes de prix extraites (${usedModel})`);
+        logger.success(filename, `${linesToInsert.length} lignes de prix extraites (gemini-2.5-flash)`);
         moveToProcessed(filePath);
 
       } catch (error: any) {
