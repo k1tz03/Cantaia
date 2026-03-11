@@ -72,15 +72,16 @@ export async function DELETE(
 
     const admin = createAdminClient();
 
-    // Delete file from storage (cast: migration 049 tables)
+    // Delete file from storage — handle both schema versions
     const { data: submission } = await (admin as any)
       .from("submissions")
-      .select("file_url")
+      .select("*")
       .eq("id", id)
       .maybeSingle();
 
-    if (submission?.file_url) {
-      await admin.storage.from("submissions").remove([submission.file_url]);
+    const storedFileUrl = submission?.file_url || submission?.source_file_url;
+    if (storedFileUrl) {
+      await admin.storage.from("submissions").remove([storedFileUrl]);
     }
 
     // Cascade delete handles items, requests, quotes

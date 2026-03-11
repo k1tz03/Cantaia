@@ -61,15 +61,33 @@ export async function POST(
     }).eq("id", id);
 
     try {
+      // Resolve file URL — migration 012 uses source_file_url, migration 049 uses file_url
+      const fileUrl = submission.file_url || submission.source_file_url;
+      const fileName = submission.file_name || submission.source_file_name;
+
+      if (!fileUrl) {
+        console.error("[analyze] No file URL found for submission", id, { file_url: submission.file_url, source_file_url: submission.source_file_url });
+        await (admin as any).from("submissions").update({
+          analysis_status: "error",
+          analysis_error: "Fichier non trouvé — veuillez re-télécharger le document",
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+        return NextResponse.json({ error: "Fichier non trouvé" }, { status: 400 });
+      }
+
+      // Determine file type — fallback to extension if file_type column is missing
+      const fileType = submission.file_type || (fileName?.toLowerCase().endsWith(".pdf") ? "pdf" : "excel");
+
       let textContent: string;
 
-      if (submission.file_type === "pdf") {
-        textContent = await extractPdfText(admin, submission);
+      if (fileType === "pdf") {
+        textContent = await extractPdfText(admin, fileUrl);
       } else {
-        textContent = await extractExcelText(admin, submission);
+        textContent = await extractExcelText(admin, fileUrl);
       }
 
       if (!textContent || textContent.length < 50) {
+        console.error("[analyze] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
         await (admin as any).from("submissions").update({
           analysis_status: "error",
           analysis_error: "Document vide ou illisible",
@@ -79,7 +97,7 @@ export async function POST(
       }
 
       // Call Claude for extraction
-      const items = await analyzeWithClaude(textContent, submission.file_type === "pdf" ? submission : null);
+      const items = await analyzeWithClaude(textContent, fileType === "pdf" ? submission : null);
 
       if (!items || items.length === 0) {
         await (admin as any).from("submissions").update({
@@ -146,43 +164,65 @@ export async function POST(
   }
 }
 
-async function extractPdfText(admin: ReturnType<typeof createAdminClient>, submission: any): Promise<string> {
-  // If file is in storage, download it
-  if (submission.file_url) {
-    const { data, error } = await admin.storage.from("submissions").download(submission.file_url);
-    if (!error && data) {
-      const buffer = Buffer.from(await data.arrayBuffer());
-      const pdfParseModule = await import("pdf-parse");
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-      const pdf = await pdfParse(buffer);
-      return pdf.text;
-    }
+async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  const { data, error } = await admin.storage.from("submissions").download(fileUrl);
+  if (error) {
+    console.error("[analyze] PDF download failed:", { fileUrl, error: error.message });
+    return "";
   }
-  return "";
+  if (!data) return "";
+  const buffer = Buffer.from(await data.arrayBuffer());
+  const pdfParseModule = await import("pdf-parse");
+  const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+  const pdf = await pdfParse(buffer);
+  return pdf.text;
 }
 
-async function extractExcelText(admin: ReturnType<typeof createAdminClient>, submission: any): Promise<string> {
-  if (submission.file_url) {
-    const { data, error } = await admin.storage.from("submissions").download(submission.file_url);
-    if (!error && data) {
-      const buffer = Buffer.from(await data.arrayBuffer());
-      const XLSX = await import("xlsx");
-      const workbook = XLSX.read(buffer, { type: "buffer" });
-      const parts: string[] = [];
-      for (const name of workbook.SheetNames) {
-        const sheet = workbook.Sheets[name];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
-        if (rows.length === 0) continue;
-        const headers = Object.keys(rows[0] as Record<string, unknown>);
+async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  const { data, error } = await admin.storage.from("submissions").download(fileUrl);
+  if (error) {
+    console.error("[analyze] Excel download failed:", { fileUrl, error: error.message });
+    return "";
+  }
+  if (!data) return "";
+
+  const buffer = Buffer.from(await data.arrayBuffer());
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const parts: string[] = [];
+
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name];
+    // Try structured parsing first (first row = headers)
+    let rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+    // If structured parsing yields nothing, try raw row-based parsing
+    // (handles sheets where first row isn't a clean header)
+    if (rows.length === 0) {
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+      // Filter out completely empty rows
+      const nonEmpty = rawRows.filter((r: any[]) => r.some((c: any) => c !== null && c !== ""));
+      if (nonEmpty.length > 0) {
         parts.push(
-          `Feuille: ${name}\nColonnes: ${headers.join(" | ")}\n` +
-          rows.map((r: any) => Object.values(r).join(" | ")).join("\n")
+          `Feuille: ${name}\n` +
+          nonEmpty.map((r: any[]) => r.join(" | ")).join("\n")
         );
       }
-      return parts.join("\n\n");
+      continue;
     }
+
+    const headers = Object.keys(rows[0] as Record<string, unknown>);
+    parts.push(
+      `Feuille: ${name}\nColonnes: ${headers.join(" | ")}\n` +
+      rows.map((r: any) => Object.values(r).join(" | ")).join("\n")
+    );
   }
-  return "";
+
+  if (parts.length === 0) {
+    console.warn("[analyze] Excel file has no non-empty sheets:", { fileUrl, sheetNames: workbook.SheetNames });
+  }
+
+  return parts.join("\n\n");
 }
 
 async function analyzeWithClaude(textContent: string, _pdfSubmission: any | null): Promise<any[]> {
