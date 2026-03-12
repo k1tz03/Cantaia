@@ -19,9 +19,16 @@ export async function GET(
 
     const admin = createAdminClient();
 
+    // Verify user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { data: meeting } = await admin
       .from("meetings")
-      .select("*, projects(name, code)")
+      .select("*, projects(name, code, organization_id)")
       .eq("id", id)
       .maybeSingle();
 
@@ -30,6 +37,12 @@ export async function GET(
         { error: "Meeting or PV not found" },
         { status: 404 }
       );
+    }
+
+    // Verify meeting's project belongs to user's org
+    const proj = (meeting as any).projects;
+    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const pv = meeting.pv_content as any;

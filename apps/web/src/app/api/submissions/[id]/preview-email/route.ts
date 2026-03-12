@@ -33,11 +33,13 @@ export async function GET(
     // Get submission with project info
     const { data: submission } = await admin
       .from("submissions")
-      .select("*, projects(id, name, code, client_name, city)")
+      .select("*, projects(id, name, code, client_name, city, organization_id)")
       .eq("id", submissionId)
       .maybeSingle();
 
     if (!submission) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+
+    // Verify submission's project belongs to user's org (checked after userProfile fetch below)
 
     // Get supplier — from DB or manual params
     const isManual = supplierId.startsWith("temp-");
@@ -66,6 +68,12 @@ export async function GET(
       .select("first_name, last_name, email, organization_id, job_title")
       .eq("id", user.id)
       .maybeSingle();
+
+    // Verify submission's project belongs to user's org
+    const proj = (submission as any).projects;
+    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Get org name
     const { data: org } = await admin

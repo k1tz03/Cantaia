@@ -30,7 +30,9 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // Validate next parameter to prevent open redirect attacks
+  const rawNext = searchParams.get("next") ?? "/dashboard";
+  const next = (rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : "/dashboard";
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
   // link_user is the ID of the user who initiated the connection (may differ from OAuth user)

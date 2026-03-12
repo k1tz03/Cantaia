@@ -1,20 +1,22 @@
 {
-  "name": "Cantaia",
+  "name": "Cantaia — Gestion de chantier IA",
   "short_name": "Cantaia",
-  "description": "KI-gestützte Bauprojektverwaltung — AI-powered construction management",
-  "start_url": "/",
+  "description": "Logiciel de gestion de chantier augmente par IA. Soumissions CFC, triage email, PV automatiques, estimation de prix.",
+  "start_url": "/fr/mail",
   "display": "standalone",
   "background_color": "#F5F2EB",
   "theme_color": "#0A1F30",
+  "lang": "fr",
+  "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/icon",
+      "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
+      "src": "/apple-icon",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]

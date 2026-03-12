@@ -46,6 +46,17 @@ export async function POST(
 
     const admin = createAdminClient();
 
+    // Verify user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
     // Get submission (cast to any — migration 049 schema differs from TS types)
     const { data: submissionRow } = await admin
       .from("submissions")
@@ -55,6 +66,18 @@ export async function POST(
 
     if (!submissionRow) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     const submission = submissionRow as any;
+
+    // Verify submission's project belongs to user's org
+    if (submission.project_id) {
+      const { data: projCheck } = await (admin as any)
+        .from("projects")
+        .select("organization_id")
+        .eq("id", submission.project_id)
+        .maybeSingle();
+      if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
 
     // Mark as analyzing
     await (admin as any).from("submissions").update({

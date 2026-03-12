@@ -31,48 +31,101 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Cantaia — L'IA au service du chantier",
-    template: "%s | Cantaia",
-  },
-  description:
-    "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse. Soumissions, plans, PV, emails — tout centralisé.",
-  metadataBase: new URL("https://cantaia.ch"),
-  openGraph: {
+const BASE_URL = "https://cantaia.ch";
+
+const seoData: Record<string, { title: string; description: string; ogLocale: string }> = {
+  fr: {
     title: "Cantaia — L'IA au service du chantier",
     description:
-      "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse.",
-    url: "https://cantaia.ch",
-    siteName: "Cantaia",
-    type: "website",
-    locale: "fr_CH",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Cantaia — AI-powered construction management",
-      },
-    ],
+      "Logiciel de gestion de chantier augmenté par IA pour les chefs de projet construction en Suisse. Soumissions CFC, plans, PV de séance, triage email Outlook, estimation de prix — tout centralisé.",
+    ogLocale: "fr_CH",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Cantaia — L'IA au service du chantier",
+  en: {
+    title: "Cantaia — AI-Powered Construction Management",
     description:
-      "Gestion de chantier augmentée par IA pour les chefs de projet construction en Suisse.",
+      "AI-powered construction project management software for Swiss builders. CFC submissions, plans, meeting minutes, Outlook email triage, price estimation — all in one platform.",
+    ogLocale: "en_US",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
-  manifest: "/manifest.json",
-  other: {
-    "theme-color": "#0A1F30",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  de: {
+    title: "Cantaia — KI-gestützte Baustellenverwaltung",
+    description:
+      "KI-gestützte Bauprojekt-Management-Software für Schweizer Bauleiter. CFC-Ausschreibungen, Pläne, Sitzungsprotokolle, Outlook-E-Mail-Triage, Preisschätzung — alles zentral.",
+    ogLocale: "de_CH",
   },
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const seo = seoData[locale] || seoData.fr;
+
+  return {
+    title: {
+      default: seo.title,
+      template: "%s | Cantaia",
+    },
+    description: seo.description,
+    metadataBase: new URL(BASE_URL),
+    alternates: {
+      canonical: `${BASE_URL}/${locale}`,
+      languages: {
+        "fr": `${BASE_URL}/fr`,
+        "en": `${BASE_URL}/en`,
+        "de": `${BASE_URL}/de`,
+        "x-default": `${BASE_URL}/fr`,
+      },
+    },
+    openGraph: {
+      title: seo.title,
+      description: seo.description,
+      url: `${BASE_URL}/${locale}`,
+      siteName: "Cantaia",
+      type: "website",
+      locale: seo.ogLocale,
+      alternateLocale: ["fr_CH", "en_US", "de_CH"].filter((l) => l !== seo.ogLocale),
+      images: [
+        {
+          url: "/og-image.png",
+          width: 1200,
+          height: 630,
+          alt: "Cantaia — AI-powered construction management",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.title,
+      description: seo.description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    manifest: "/manifest.json",
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "32x32" },
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      ],
+      apple: "/apple-icon.png",
+    },
+    other: {
+      "theme-color": "#0A1F30",
+      "apple-mobile-web-app-capable": "yes",
+      "apple-mobile-web-app-status-bar-style": "black-translucent",
+    },
+  };
+}
 
 export default async function LocaleLayout({
   children,

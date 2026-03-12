@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   const confidencePercent = Math.round(result.confidence * 100);
 
   if (result.match_type === "existing_project") {
-    const isAutoClassified = result.confidence >= 0.92;
+    const isAutoClassified = result.confidence >= 0.85;
     await adminClient
       .from("email_records")
       .update({

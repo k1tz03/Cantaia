@@ -220,7 +220,8 @@ export async function POST(request: NextRequest) {
               input_tokens: finalUsage.input_tokens,
               output_tokens: finalUsage.output_tokens,
             })
-            .then(() => {});
+            .then(() => {})
+            .catch((e: any) => console.error("[chat] Failed to save assistant message:", e));
 
           trackApiUsage({
             supabase: admin,
@@ -240,7 +241,8 @@ export async function POST(request: NextRequest) {
           .from("chat_conversations")
           .update({ updated_at: new Date().toISOString() })
           .eq("id", conversationId)
-          .then(() => {});
+          .then(() => {})
+          .catch((e: any) => console.error("[chat] Failed to update conversation timestamp:", e));
       }
     },
   });

@@ -7,6 +7,38 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   transpilePackages: ["@cantaia/ui", "@cantaia/core", "@cantaia/database"],
   serverExternalPackages: ["ffmpeg-static", "pdf-parse"],
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
+  async redirects() {
+    return [
+      // Redirect alternate domains to canonical (cantaia.ch)
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "cantaia.com" }],
+        destination: "https://cantaia.ch/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.cantaia.com" }],
+        destination: "https://cantaia.ch/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "cantaia.app" }],
+        destination: "https://cantaia.ch/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.cantaia.ch" }],
+        destination: "https://cantaia.ch/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

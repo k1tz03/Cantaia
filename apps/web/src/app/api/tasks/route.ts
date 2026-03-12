@@ -40,6 +40,27 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient();
 
+    // Verify project belongs to user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { data: projectCheck } = await (admin as any)
+      .from("projects")
+      .select("organization_id")
+      .eq("id", project_id)
+      .maybeSingle();
+
+    if (!projectCheck || projectCheck.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Project not found or forbidden" }, { status: 403 });
+    }
+
     // Build insert object with only base columns first
     const insertData: Record<string, unknown> = {
       project_id,

@@ -988,15 +988,69 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | SUB.FIX3 | Soumissions analyze | Pas de chunking — documents >40K chars tronqués, perte de postes | Chunking par 80K chars (~20K tokens) avec traitement séquentiel et merge des résultats |
 | SUB.FIX4 | Soumissions client | Polling timeout client 90s trop court pour le nouveau timeout serveur | Polling timeout 90s→180s |
 
+### Corrigés — Audit Sécurité (2026-03-12)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC.FIX1 | CRITIQUE | `/api/tasks/[id]` | IDOR — PATCH/DELETE sans vérification d'organisation. Tout utilisateur authentifié pouvait modifier/supprimer les tâches d'autres orgs | Ajouté vérification org via project → organization_id avant update/delete |
+| SEC.FIX2 | CRITIQUE | `/api/tasks` POST | IDOR — Création de tâches sans vérifier que le project_id appartient à l'org de l'utilisateur | Ajouté vérification project.organization_id === user.organization_id |
+| SEC.FIX3 | CRITIQUE | `/api/email/sync/cron` | Injection SQL — `.or(\`provider_message_id.in.(\${externalIds.join(",")})\`)` interpolait des IDs externes non sanitisés | Remplacé par 2 requêtes `.in()` séparées (safe parameterized) |
+| SEC.FIX4 | HAUTE | `/api/outlook/webhook` PUT | Pas de vérification d'auth — n'importe qui pouvait créer des subscriptions webhook | Ajouté auth Supabase + vérification userId === user.id |
+| SEC.FIX5 | HAUTE | `/api/auth/callback` | Open redirect — paramètre `next` non validé, permettait redirection vers sites externes | Validé : doit commencer par `/` et ne pas commencer par `//` |
+| SEC.FIX6 | HAUTE | `/api/chat` | Promises non catchées (fire-and-forget sans .catch) — crash silencieux Node | Ajouté `.catch()` sur insert chat_messages et update chat_conversations |
+| SEC.FIX7 | MOYENNE | `/api/ai/classify-email` | Seuil classification 0.92 vs 0.85 dans sync route — incohérence | Standardisé à 0.85 (même que sync route) |
+| SEC.FIX8 | HAUTE | `/api/plans/estimate-v2` | Pas de `maxDuration` — timeout Vercel default 60s pour pipeline multi-modèle 4 passes | Ajouté `maxDuration = 300` |
+| SEC.FIX9 | CRITIQUE | `/api/submissions/[id]/analyze` | IDOR — pas de vérification que la soumission appartient à l'org | Ajouté vérification org via project → organization_id |
+| SEC.FIX10 | CRITIQUE | `/api/pv/[id]` GET | IDOR — accès à n'importe quel PV sans vérification d'organisation | Ajouté vérification meeting.project.organization_id |
+| SEC.FIX11 | CRITIQUE | `/api/pv/[id]` PUT | IDOR — modification de n'importe quel PV | Ajouté vérification org avant update |
+| SEC.FIX12 | CRITIQUE | `/api/pv/[id]/export-pdf` | IDOR — export PDF de n'importe quel PV | Ajouté vérification meeting.project.organization_id |
+| SEC.FIX13 | CRITIQUE | `/api/submissions/[id]` GET | IDOR — accès complet aux données de soumission (items, quotes, prix) d'autres orgs | Ajouté vérification submission.project.organization_id |
+| SEC.FIX14 | CRITIQUE | `/api/submissions/[id]` DELETE | IDOR — suppression de soumissions d'autres orgs + leurs fichiers Storage | Ajouté vérification org + check existence avant delete |
+| SEC.FIX15 | CRITIQUE | `/api/submissions/[id]/preview-email` | IDOR — génération d'emails de prix pour soumissions d'autres orgs | Ajouté vérification org après fetch userProfile |
+| SEC.FIX16 | CRITIQUE | `/api/submissions/[id]/price-alerts` | IDOR — accès aux alertes prix de soumissions d'autres orgs | Ajouté vérification submission ownership via project.organization_id |
+
 ### Non corrigés (à investiguer)
 
 | ID | Sévérité | Module | Description | Impact |
 |----|----------|--------|-------------|--------|
 | MAIL.1 | Moyenne | `/api/mail/decisions` | `priceIndicators` toujours undefined — le calcul d'indicateurs prix est incomplet dans la route decisions | Badge prix non affiché |
-| EMAIL.6 | Haute | `/api/email/sync/cron` | Potentielle injection SQL dans la requête de déduplication (interpolation de string) | Sécurité |
 | OUTLOOK.1 | Moyenne | `/api/outlook/sync` | Désync possible entre `email_connections` et `users` pour les tokens (pas de transaction) | Token stale possible |
-| OUTLOOK.6 | Basse | `/api/outlook/webhook` | Validation `clientState` silencieusement ignorée si le secret n'est pas défini | Sécurité webhook |
-| OUTLOOK.7 | Moyenne | `/api/outlook/webhook` | Handler PUT (subscribe) n'a pas de vérification d'auth | Sécurité webhook |
+| OUTLOOK.6 | Basse | `/api/outlook/webhook` POST | Validation `clientState` silencieusement ignorée si `OUTLOOK_WEBHOOK_SECRET` n'est pas défini (skip silencieux) | Sécurité webhook dégradée |
+
+### Corrigés — Optimisation SEO (2026-03-12)
+
+| ID | Catégorie | Fichier | Description | Fix |
+|----|-----------|---------|-------------|-----|
+| SEO.FIX1 | CRITIQUE | `[locale]/layout.tsx` | Metadata FR-only, pas de hreflang, pas d'alternates, pas de canonical, metadataBase fixe | Converti `metadata` statique → `generateMetadata()` dynamique par locale (FR/EN/DE). Ajouté hreflang `alternates.languages`, canonical, `googleBot` directives `max-image-preview: large` |
+| SEO.FIX2 | CRITIQUE | `sitemap.ts` | Seulement 3 URLs, pas de locales, pas de pages légales, pas d'alternates | 24 URLs (8 pages × 3 locales) avec `alternates.languages` par entrée. Ajouté: login, register, CGV, mentions, privacy |
+| SEO.FIX3 | HAUTE | `robots.ts` | Manquait disallow pour toutes les routes app protégées (/dashboard, /mail, /projects, etc.) | Ajouté disallow pour ~20 routes app (*/dashboard, */mail, */projects, */tasks, */onboarding, etc.) |
+| SEO.FIX4 | CRITIQUE | `(marketing)/page.tsx` | Aucune metadata sur la homepage. Pas de keywords. Pas de JSON-LD | Ajouté `generateMetadata()` 3 langues avec title/description/keywords optimisés SEO construction suisse. Ajouté JSON-LD `@graph`: Organization + SoftwareApplication + WebSite |
+| SEO.FIX5 | HAUTE | `(marketing)/pricing/page.tsx` | Aucune metadata sur la page tarifs | Ajouté `generateMetadata()` 3 langues + JSON-LD Product schema (CHF 99, availability) |
+| SEO.FIX6 | HAUTE | `(marketing)/about/page.tsx` | Aucune metadata sur la page à propos | Ajouté `generateMetadata()` 3 langues avec descriptions SEO |
+| SEO.FIX7 | HAUTE | `(auth)/layout.tsx` | Pages login/register/forgot-password indexables par Google | Ajouté `robots: { index: false, follow: false }` dans le layout auth (couvre toutes les pages auth) |
+| SEO.FIX8 | MOYENNE | `legal/{cgv,mentions,privacy}/page.tsx` | Aucune metadata sur les 3 pages légales | Ajouté `metadata` avec title, description, canonical + alternates hreflang |
+| SEO.FIX9 | CRITIQUE | OG Image | `/og-image.png` référencé dans metadata mais fichier inexistant — aperçu social cassé | Créé `opengraph-image.tsx` dynamique (Next.js ImageResponse) avec branding Cantaia, tagline, feature pills, gradient bleu |
+| SEO.FIX10 | HAUTE | Favicon | Aucun favicon, aucun apple-icon. Onglet navigateur sans icône | Créé `icon.tsx` (32×32) et `apple-icon.tsx` (180×180) dynamiques avec lettre "C" + gradient brand |
+| SEO.FIX11 | HAUTE | `next.config.ts` | Pas de redirects domaines alternatifs → contenu dupliqué | Ajouté 301 redirects: cantaia.com, www.cantaia.com, cantaia.app, www.cantaia.ch → cantaia.ch. Ajouté `images.formats: ["avif", "webp"]` |
+| SEO.FIX12 | MOYENNE | `(marketing)/layout.tsx` | Pas de données structurées Organization | Ajouté JSON-LD Organization schema (name, url, logo, foundingDate, knowsAbout) dans le layout marketing |
+| SEO.FIX13 | BASSE | `manifest.json` | Description mixte DE/EN incohérente. Icons manquants. start_url "/" au lieu de post-login | Corrigé description FR, start_url `/fr/mail`, lang `fr`, categories `business/productivity`, icons pointent vers les routes dynamiques |
+
+### Résumé SEO technique
+
+| Aspect | Avant | Après |
+|--------|-------|-------|
+| **Hreflang** | Aucun | FR/EN/DE + x-default sur toutes les pages |
+| **Canonical** | Aucun | Généré par locale + page |
+| **Sitemap** | 3 URLs (FR only) | 24 URLs (8 pages × 3 locales + alternates) |
+| **Robots** | 3 disallow | 23 disallow (toutes routes app protégées) |
+| **OG Image** | Fichier manquant | Généré dynamiquement (1200×630) |
+| **Favicon** | Aucun | 32×32 + Apple 180×180 dynamiques |
+| **JSON-LD** | Aucun | Organization + SoftwareApplication + WebSite + Product |
+| **Keywords** | Aucun | 10-12 mots-clés par langue, optimisés construction CH |
+| **Metadata pages** | 1 (root layout FR) | 9 pages avec metadata locale-aware |
+| **Auth noindex** | Non | Oui (layout auth) |
+| **Domain redirects** | Aucun | 4 redirects 301 → cantaia.ch |
+| **GoogleBot** | Défaut | max-image-preview: large, max-snippet: -1 |
 
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
@@ -1007,3 +1061,6 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 6. Définir `CRON_SECRET` sur Vercel
 7. Définir `GEMINI_API_KEY` sur Vercel
 8. Vérifier `OPENAI_API_KEY` (déjà utilisé pour Whisper)
+9. Configurer DNS: cantaia.com et cantaia.app doivent pointer vers Vercel pour que les redirects 301 fonctionnent
+10. Soumettre sitemap dans Google Search Console: `https://cantaia.ch/sitemap.xml`
+11. Vérifier la propriété cantaia.ch dans Google Search Console (si pas déjà fait)

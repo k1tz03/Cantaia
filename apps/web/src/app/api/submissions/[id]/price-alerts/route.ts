@@ -27,6 +27,28 @@ export async function GET(
 
     const admin = createAdminClient();
 
+    // Get user's org for scoping
+    const { data: profile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    // Verify submission belongs to user's org
+    const { data: submissionCheck } = await (admin as any)
+      .from("submissions")
+      .select("project_id, projects(organization_id)")
+      .eq("id", submissionId)
+      .maybeSingle();
+
+    if (!submissionCheck) {
+      return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+    }
+    const proj = (submissionCheck as any).projects;
+    if (proj && profile?.organization_id && proj.organization_id !== profile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Get submission items with quotes (cast: migration 049 tables not in TS types)
     const { data: items } = await (admin as any)
       .from("submission_items")
@@ -46,13 +68,6 @@ export async function GET(
     if (!quotes || quotes.length === 0) {
       return NextResponse.json({ success: true, alerts: [] });
     }
-
-    // Get user's org for scoping
-    const { data: profile } = await admin
-      .from("users")
-      .select("organization_id")
-      .eq("id", user.id)
-      .maybeSingle();
 
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);

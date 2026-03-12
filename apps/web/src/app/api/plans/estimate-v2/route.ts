@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runEstimationPipeline } from "@cantaia/core/plans/estimation/pipeline";
 
+// Multi-model 4-pass pipeline can take several minutes
+export const maxDuration = 300;
+
 /**
  * POST /api/plans/estimate-v2
  * Lance le pipeline d'estimation multi-modèle 4 passes

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -68,10 +69,22 @@ export async function POST(request: NextRequest) {
  * Create a webhook subscription for a user's mailbox.
  */
 export async function PUT(request: NextRequest) {
+  // Auth check — only authenticated users can create webhook subscriptions
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { userId, accessToken } = await request.json();
 
   if (!userId || !accessToken) {
     return NextResponse.json({ error: "Missing userId or accessToken" }, { status: 400 });
+  }
+
+  // Ensure user can only create subscriptions for themselves
+  if (userId !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/outlook/webhook`;

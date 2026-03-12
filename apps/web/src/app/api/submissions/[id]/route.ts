@@ -15,14 +15,27 @@ export async function GET(
 
     const admin = createAdminClient();
 
+    // Verify user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { data: submission, error } = await admin
       .from("submissions")
-      .select("*, projects(id, name, code, color, client_name, city, address)")
+      .select("*, projects(id, name, code, color, client_name, city, address, organization_id)")
       .eq("id", id)
       .maybeSingle();
 
     if (error || !submission) {
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+    }
+
+    // Verify submission's project belongs to user's org
+    const proj = (submission as any).projects;
+    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Fetch items (cast: migration 049 tables not in TS types)
@@ -88,12 +101,29 @@ export async function DELETE(
 
     const admin = createAdminClient();
 
+    // Verify user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     // Delete file from storage — handle both schema versions
     const { data: submission } = await (admin as any)
       .from("submissions")
-      .select("*")
+      .select("*, projects(organization_id)")
       .eq("id", id)
       .maybeSingle();
+
+    if (!submission) {
+      return NextResponse.json({ error: "Submission not found" }, { status: 404 });
+    }
+
+    // Verify submission's project belongs to user's org
+    const proj = (submission as any).projects;
+    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const storedFileUrl = submission?.file_url || submission?.source_file_url;
     if (storedFileUrl) {

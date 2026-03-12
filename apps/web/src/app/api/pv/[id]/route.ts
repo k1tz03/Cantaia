@@ -21,9 +21,16 @@ export async function GET(
 
     const admin = createAdminClient();
 
+    // Verify user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { data: meeting, error } = await admin
       .from("meetings")
-      .select("*, projects(id, name, code, color, address, city)")
+      .select("*, projects(id, name, code, color, address, city, organization_id)")
       .eq("id", id)
       .maybeSingle();
 
@@ -32,6 +39,12 @@ export async function GET(
         { error: "Meeting not found" },
         { status: 404 }
       );
+    }
+
+    // Verify meeting's project belongs to user's org
+    const proj = (meeting as any).projects;
+    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json({ success: true, meeting });
@@ -69,6 +82,30 @@ export async function PUT(
     }
 
     const admin = createAdminClient();
+
+    // Verify meeting's project belongs to user's org
+    const { data: userOrg } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const { data: meetingCheck } = await (admin as any)
+      .from("meetings")
+      .select("project_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (meetingCheck?.project_id && userOrg?.organization_id) {
+      const { data: projCheck } = await (admin as any)
+        .from("projects")
+        .select("organization_id")
+        .eq("id", meetingCheck.project_id)
+        .maybeSingle();
+      if (projCheck && projCheck.organization_id !== userOrg.organization_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
 
     // Build update object with only allowed fields
     const updateData: Record<string, any> = {};

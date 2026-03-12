@@ -22,6 +22,37 @@ export async function PATCH(
 
     const admin = createAdminClient();
 
+    // Verify task belongs to user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { data: existingTask } = await (admin as any)
+      .from("tasks")
+      .select("id, project_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const { data: project } = await (admin as any)
+      .from("projects")
+      .select("organization_id")
+      .eq("id", existingTask.project_id)
+      .maybeSingle();
+
+    if (!project || project.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Build update object from allowed fields
     const allowedFields = [
       "title",
@@ -118,6 +149,37 @@ export async function DELETE(
 
     const { id } = await params;
     const admin = createAdminClient();
+
+    // Verify task belongs to user's organization
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { data: existingTask } = await (admin as any)
+      .from("tasks")
+      .select("id, project_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const { data: project } = await (admin as any)
+      .from("projects")
+      .select("organization_id")
+      .eq("id", existingTask.project_id)
+      .maybeSingle();
+
+    if (!project || project.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const { error } = await (admin as any)
       .from("tasks")

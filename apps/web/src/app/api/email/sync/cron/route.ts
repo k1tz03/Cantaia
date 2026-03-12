@@ -61,11 +61,18 @@ export async function POST(request: NextRequest) {
         // Insert new emails (dedup by provider_message_id)
         if (emails.length > 0) {
           const externalIds = emails.map(e => e.externalId);
-          const { data: existing } = await (admin as any)
+          // Query in two safe calls to avoid SQL injection via .or() string interpolation
+          const { data: existingByProvider } = await (admin as any)
             .from("email_records")
             .select("provider_message_id, outlook_message_id")
             .eq("user_id", connection.user_id)
-            .or(`provider_message_id.in.(${externalIds.join(",")}),outlook_message_id.in.(${externalIds.join(",")})`);
+            .in("provider_message_id", externalIds);
+          const { data: existingByOutlook } = await (admin as any)
+            .from("email_records")
+            .select("provider_message_id, outlook_message_id")
+            .eq("user_id", connection.user_id)
+            .in("outlook_message_id", externalIds);
+          const existing = [...(existingByProvider || []), ...(existingByOutlook || [])];
 
           const existingSet = new Set<string>();
           for (const row of existing || []) {

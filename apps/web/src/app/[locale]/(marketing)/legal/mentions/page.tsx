@@ -1,4 +1,14 @@
+import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
+
+export const metadata: Metadata = {
+  title: "Mentions Legales",
+  description: "Mentions legales de Cantaia SA, editeur du logiciel de gestion de chantier IA Cantaia.",
+  alternates: {
+    canonical: "https://cantaia.ch/fr/legal/mentions",
+    languages: { fr: "https://cantaia.ch/fr/legal/mentions", en: "https://cantaia.ch/en/legal/mentions", de: "https://cantaia.ch/de/legal/mentions" },
+  },
+};
 
 export default function MentionsPage() {
   const t = useTranslations("legal");
