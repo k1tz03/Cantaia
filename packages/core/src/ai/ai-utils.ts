@@ -44,17 +44,36 @@ export function isRetryableAIError(err: unknown): boolean {
  * Classify an AI error for user-facing messages.
  * Returns an object that API routes can directly use in Response.json().
  */
-export function classifyAIError(err: unknown): { message: string; status: number } {
+const aiErrorMessages: Record<string, Record<string, string>> = {
+  rateLimit: {
+    fr: "Trop de requêtes. Réessayez dans 30 secondes.",
+    en: "Too many requests. Please retry in 30 seconds.",
+    de: "Zu viele Anfragen. Bitte in 30 Sekunden erneut versuchen.",
+  },
+  overloaded: {
+    fr: "Service IA temporairement surchargé. Réessayez dans 1 minute.",
+    en: "AI service temporarily overloaded. Please retry in 1 minute.",
+    de: "KI-Dienst vorübergehend überlastet. Bitte in 1 Minute erneut versuchen.",
+  },
+  unavailable: {
+    fr: "Service temporairement indisponible. Réessayez.",
+    en: "Service temporarily unavailable. Please retry.",
+    de: "Dienst vorübergehend nicht verfügbar. Bitte erneut versuchen.",
+  },
+};
+
+export function classifyAIError(err: unknown, locale: string = "fr"): { message: string; status: number } {
+  const lang = (locale in (aiErrorMessages.rateLimit)) ? locale : "fr";
   const status = err && typeof err === "object" && "status" in err
     ? (err as { status: number }).status
     : undefined;
   if (status === 429) {
-    return { message: "Trop de requêtes. Réessayez dans 30 secondes.", status: 429 };
+    return { message: aiErrorMessages.rateLimit[lang], status: 429 };
   }
   if (status === 529 || status === 503) {
-    return { message: "Service IA temporairement surchargé. Réessayez dans 1 minute.", status: 503 };
+    return { message: aiErrorMessages.overloaded[lang], status: 503 };
   }
-  return { message: "Service temporairement indisponible. Réessayez.", status: 500 };
+  return { message: aiErrorMessages.unavailable[lang], status: 500 };
 }
 
 // ── Retry with Exponential Backoff ───────────────────────────

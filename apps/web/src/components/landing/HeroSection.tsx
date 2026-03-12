@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 
 function CheckIcon() {
   return (
@@ -88,7 +89,7 @@ function DashboardMockup() {
             </div>
             <p className="text-[10px] text-gray-500 mt-0.5">RE: Offre garde-corps</p>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[9px] font-medium text-[#F59E0B]">EMS L'Orée</span>
+              <span className="rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[9px] font-medium text-[#F59E0B]">EMS L&apos;Orée</span>
               <span className="text-[9px] font-medium text-[#F59E0B]">72%</span>
             </div>
           </div>
@@ -132,6 +133,8 @@ const fadeUp = (delay: number) => ({
 });
 
 export function HeroSection() {
+  const t = useTranslations("landing.hero");
+
   return (
     <section className="bg-[#FAFAFA] overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-6 py-16 lg:py-24">
@@ -139,7 +142,7 @@ export function HeroSection() {
           <div className="lg:col-span-7">
             <motion.div {...fadeUp(stagger.badge.delay)}>
               <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#2563EB]">
-                <span>🇨🇭</span> Conçu en Suisse pour la construction
+                {t("badge")}
               </div>
             </motion.div>
 
@@ -147,31 +150,31 @@ export function HeroSection() {
               {...fadeUp(stagger.title.delay)}
               className="mt-6 font-display text-4xl font-bold leading-[1.1] text-[#111827] sm:text-5xl lg:text-[52px]"
             >
-              Vos emails triés.<br />
-              Vos PV rédigés.<br />
-              Vos prix vérifiés.
+              {t("titleLine1")}<br />
+              {t("titleLine2")}<br />
+              {t("titleLine3")}
             </motion.h1>
 
             <motion.p
               {...fadeUp(stagger.subtitle.delay)}
               className="mt-6 max-w-[520px] text-lg leading-relaxed text-[#6B7280]"
             >
-              Connectez Outlook. CANTAIA classe vos emails par chantier, rédige vos PV de séance et vérifie vos prix contre 2&apos;500 offres réelles. Résultat : 2 heures gagnées par jour.
+              {t("subtitle")}
             </motion.p>
 
             <motion.div {...fadeUp(stagger.buttons.delay)} className="mt-8 flex flex-wrap items-center gap-4">
               <Link href="/register" className="rounded-lg bg-[#2563EB] px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]">
-                Essai gratuit — 14 jours
+                {t("cta")}
               </Link>
               <a href="#features" className="rounded-lg border border-[#E5E7EB] px-6 py-3.5 text-base font-semibold text-[#111827] transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
-                Voir la démo
+                {t("ctaSecondary")}
               </a>
             </motion.div>
 
             <motion.div {...fadeUp(stagger.trust.delay)} className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[#6B7280]">
-              <span className="flex items-center gap-1.5"><CheckIcon /> Normes SIA</span>
-              <span className="flex items-center gap-1.5"><CheckIcon /> Données en Europe</span>
-              <span className="flex items-center gap-1.5"><CheckIcon /> Sans carte bancaire</span>
+              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust1")}</span>
+              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust2")}</span>
+              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust3")}</span>
             </motion.div>
           </div>
 

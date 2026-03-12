@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
 function EstimationMockup() {
@@ -79,9 +80,9 @@ function EstimationMockup() {
         <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-[#111827]">TOTAL ESTIMÉ</span>
-            <div className="text-[10px] text-[#6B7280] mt-0.5">Fourchette : 1'250'000 — 1'720'000 CHF</div>
+            <div className="text-[10px] text-[#6B7280] mt-0.5">Fourchette : 1&apos;250&apos;000 — 1&apos;720&apos;000 CHF</div>
           </div>
-          <span className="text-lg font-bold text-[#111827] font-mono">1'480'000 <span className="text-xs font-normal text-[#6B7280]">CHF</span></span>
+          <span className="text-lg font-bold text-[#111827] font-mono">1&apos;480&apos;000 <span className="text-xs font-normal text-[#6B7280]">CHF</span></span>
         </div>
       </div>
     </div>
@@ -89,6 +90,8 @@ function EstimationMockup() {
 }
 
 export function FeaturePrixSection() {
+  const t = useTranslations("landing.features");
+
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
@@ -97,24 +100,24 @@ export function FeaturePrixSection() {
           <AnimatedSection>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Vos estimations vérifiées contre 2'500 offres réelles
+                {t("priceTitle")}
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                Chaque prix est comparé à notre base de données du marché suisse. Vous voyez d'où vient chaque chiffre — fini les estimations au doigt mouillé.
+                {t("priceSubtitle")}
               </p>
 
               <div className="mt-8 space-y-4">
                 <div className="flex items-start gap-3">
                   <span className="text-lg">📊</span>
-                  <span className="text-[#6B7280]">Prix médians par code CFC et par région</span>
+                  <span className="text-[#6B7280]">{t("priceBullet1")}</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-lg">🟢</span>
-                  <span className="text-[#6B7280]">Badge "Données réelles" sur chaque ligne vérifiée</span>
+                  <span className="text-[#6B7280]">{t("priceBullet2")}</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-lg">📈</span>
-                  <span className="text-[#6B7280]">Score de fiabilité transparent (pas de boîte noire)</span>
+                  <span className="text-[#6B7280]">{t("priceBullet3")}</span>
                 </div>
               </div>
             </div>

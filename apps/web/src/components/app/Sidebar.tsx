@@ -243,10 +243,10 @@ export function Sidebar() {
                     : "text-[#9CA3AF] hover:bg-red-50/50 hover:text-red-600",
                   collapsed && "justify-center px-0"
                 )}
-                title={collapsed ? "Admin" : undefined}
+                title={collapsed ? t("admin") : undefined}
               >
                 <Shield className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span className="flex-1">Admin</span>}
+                {!collapsed && <span className="flex-1">{t("admin")}</span>}
               </Link>
             </div>
           )}

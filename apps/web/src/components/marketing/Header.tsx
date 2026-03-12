@@ -4,10 +4,12 @@ import { Link } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 export function MarketingHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const t = useTranslations("landing.nav");
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -16,9 +18,9 @@ export function MarketingHeader() {
   }, []);
 
   const navLinks = [
-    { href: "/#features", label: "Fonctionnalités" },
-    { href: "/#pricing", label: "Tarifs" },
-    { href: "/about", label: "À propos" },
+    { href: "/#features", label: t("features") },
+    { href: "/#pricing", label: t("pricing") },
+    { href: "/about", label: t("about") },
   ];
 
   return (
@@ -59,13 +61,13 @@ export function MarketingHeader() {
             href="/login"
             className="px-3 py-2 text-sm text-[#6B7280] transition-colors hover:text-[#111827]"
           >
-            Connexion
+            {t("login")}
           </Link>
           <Link
             href="/register"
             className="rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1D4ED8] hover:shadow-md"
           >
-            Essai gratuit
+            {t("freeTrial")}
           </Link>
         </div>
 
@@ -108,13 +110,13 @@ export function MarketingHeader() {
                 href="/login"
                 className="rounded-lg px-4 py-3 text-sm font-medium text-[#6B7280] transition-colors hover:bg-[#FAFAFA] hover:text-[#111827]"
               >
-                Connexion
+                {t("login")}
               </Link>
               <Link
                 href="/register"
                 className="mt-1 rounded-lg bg-[#2563EB] px-5 py-3 text-center text-sm font-semibold text-white shadow-sm"
               >
-                Essai gratuit
+                {t("freeTrial")}
               </Link>
             </div>
           </motion.div>

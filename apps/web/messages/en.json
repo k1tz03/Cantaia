@@ -504,10 +504,8 @@
     "source": "Source",
     "noTasks": "No tasks found.",
     "noTasksInColumn": "No tasks",
-
     "viewList": "List",
     "viewKanban": "Kanban",
-
     "allProjects": "All projects",
     "allPriorities": "All priorities",
     "allSources": "All sources",
@@ -515,40 +513,33 @@
     "filterActive": "Active",
     "filterAll": "All",
     "searchPlaceholder": "Search...",
-
     "colTask": "Task",
     "colProject": "Project",
     "colAssigned": "Assigned to",
     "colDeadline": "Deadline",
     "colPriority": "Priority",
     "colSource": "Source",
-
     "statusTodo": "To do",
     "statusInProgress": "In progress",
     "statusWaiting": "Waiting",
     "statusDone": "Done",
     "statusCancelled": "Cancelled",
-
     "priorityUrgent": "Urgent",
     "priorityHigh": "High",
     "priorityMedium": "Medium",
     "priorityLow": "Low",
-
     "sourceEmail": "Email",
     "sourceMeeting": "Minutes",
     "sourceManual": "Manual",
     "sourceReserve": "Deficiency",
-
     "overdue": "Overdue",
     "today": "Today",
     "thisWeek": "This week",
     "later": "Later",
-
     "selected": "selected",
     "changeStatus": "Change status",
     "changePriority": "Change priority",
     "clearSelection": "Clear",
-
     "createTask": "Create task",
     "editTask": "Edit task",
     "deleteTask": "Delete",
@@ -557,7 +548,6 @@
     "bulkDeleteDescription": "Delete {count} tasks? This action cannot be undone.",
     "markDone": "Mark as done",
     "reopen": "Reopen",
-
     "taskTitle": "Title",
     "taskDescription": "Description",
     "taskProject": "Project",
@@ -596,14 +586,12 @@
     "meetingSingular": "meeting",
     "meetingPlural": "meetings",
     "allProjects": "All projects",
-
     "colTitle": "Title",
     "colProject": "Project",
     "colDate": "Date",
     "colParticipants": "Participants",
     "colStatus": "Status",
     "colActions": "Actions",
-
     "statusScheduled": "Scheduled",
     "statusRecording": "Recording",
     "statusTranscribing": "Transcribing",
@@ -611,7 +599,6 @@
     "statusDraft": "Draft",
     "statusFinalized": "Finalized",
     "statusSent": "Sent",
-
     "record": "Record",
     "stopRecording": "Stop recording",
     "pauseRecording": "Pause",
@@ -624,11 +611,9 @@
     "saveDraft": "Save draft",
     "previewPDF": "Preview PDF",
     "downloadPDF": "Download PDF",
-
     "emptyTitle": "No meetings recorded",
     "emptyDescription": "Create your first meeting to start generating minutes automatically.",
     "noMeetings": "No meetings recorded for this project.",
-
     "projectLabel": "Project",
     "titleLabel": "Title",
     "dateLabel": "Date",
@@ -647,7 +632,6 @@
     "absent": "Absent",
     "createMeeting": "Create meeting",
     "createAndRecord": "Create and start recording",
-
     "recordingTitle": "Recording in progress",
     "recordingDuration": "Duration",
     "recordingStopped": "Recording complete",
@@ -662,11 +646,9 @@
     "tip2": "Do not cover the microphone",
     "tip3": "Ask participants to speak one at a time",
     "browserNotSupported": "Your browser does not support audio recording.",
-
     "transcribing": "Transcription in progress...",
     "transcribingDesc": "This may take 2-5 minutes depending on recording length.",
     "transcriptionComplete": "Transcription complete",
-
     "pvEditor": "Minutes editor",
     "pvHeader": "Header",
     "pvPoints": "Points discussed",
@@ -685,7 +667,6 @@
     "deadline": "Deadline",
     "transcriptionPanel": "Original transcription",
     "autoSaved": "Auto-saved",
-
     "finalizeConfirm": "Are you sure? The minutes cannot be edited after finalization.",
     "finalizeDescription": "This action cannot be undone. The minutes will be locked and can no longer be edited.",
     "sendToParticipants": "Send minutes to participants?",
@@ -696,12 +677,10 @@
     "addRecipient": "Add a recipient",
     "emailMessage": "Message",
     "attachment": "Attachment",
-
     "audioRetention": "The audio recording will be automatically deleted in 7 days.",
     "downloadAudio": "Download audio",
     "keepAudioPremium": "Keep (Premium)",
     "keepAudioPremiumDesc": "Available with the Pro plan",
-
     "minutes": "min",
     "hours": "h",
     "pvActions": "PV Actions",
@@ -837,17 +816,20 @@
       "pricing": "Pricing",
       "about": "About",
       "login": "Login",
-      "demo": "Request a demo"
+      "demo": "Request a demo",
+      "freeTrial": "Free trial"
     },
     "hero": {
-      "badge": "New: Cross-Project Pricing Intelligence",
-      "title": "Your AI assistant to manage your construction sites",
-      "subtitle": "Cantaia analyzes your emails, writes your meeting minutes, compares bids and anticipates budget overruns. Works with Outlook, Gmail and IMAP.",
-      "cta": "Request a demo",
-      "ctaSecondary": "Discover features",
-      "trust1": "Swiss SIA standards",
-      "trust2": "Data hosted in Switzerland",
-      "trust3": "GDPR compliant"
+      "badge": "🇨🇭 Made in Switzerland for construction",
+      "titleLine1": "Your emails sorted.",
+      "titleLine2": "Your minutes written.",
+      "titleLine3": "Your prices verified.",
+      "subtitle": "Connect Outlook. CANTAIA classifies your emails by project, writes your meeting minutes and checks your prices against 2,500 real bids. Result: 2 hours saved per day.",
+      "cta": "Free trial — 14 days",
+      "ctaSecondary": "See the demo",
+      "trust1": "SIA standards",
+      "trust2": "Data in Europe",
+      "trust3": "No credit card"
     },
     "bento": {
       "emailTitle": "Smart triage",
@@ -898,17 +880,14 @@
       "plansCount": "3/8 plans validated"
     },
     "problem": {
-      "title": "What slows you down every day",
-      "stat": "15",
-      "statUnit": "h/week",
-      "statLabel": "lost on administrative tasks",
-      "statDescription": "A construction project manager spends on average 15 hours per week on repetitive administrative tasks.",
-      "painPoint1Title": "150+ emails/day",
-      "painPoint1Desc": "Emails from 12 projects mixed in one inbox. Every unread email is a risk.",
+      "title": "You spend more time sorting emails than managing your projects",
+      "subtitle": "And every unprocessed email is a slipping decision, an expiring bid, a derailing deadline.",
+      "painPoint1Title": "150+ emails / day",
+      "painPoint1Desc": "12 projects in one inbox. Urgent matters drown in newsletters. You spend more time sorting than deciding.",
       "painPoint2Title": "2h per meeting minutes",
-      "painPoint2Desc": "Write, format, send. Always late. Decisions get lost between meetings.",
-      "painPoint3Title": "No overview",
-      "painPoint3Desc": "Juggling 5+ projects without a dashboard. Budget overruns are discovered too late."
+      "painPoint2Desc": "Write, format, send. Decisions get lost between meetings.",
+      "painPoint3Title": "No overview at all",
+      "painPoint3Desc": "Budgets, deadlines, suppliers — everything is scattered between Excel, Outlook and WhatsApp."
     },
     "features": {
       "title": "A complete AI platform for construction",
@@ -943,7 +922,18 @@
       "f12Title": "Scored supplier directory",
       "f12Desc": "Automatic scoring: response rate, price competitiveness, reliability. No more bad surprises.",
       "f13Title": "Multi-tenant & subdomains",
-      "f13Desc": "Each company has its own space. Custom branding, member management."
+      "f13Desc": "Each company has its own space. Custom branding, member management.",
+      "emailTitle": "No more 150 emails mixed in one inbox",
+      "emailSubtitle": "Connect Outlook or Gmail. In 2 minutes, CANTAIA sorts your emails by project with 87% accuracy. Spam disappears. Urgent matters rise to the top.",
+      "emailBullet1": "Automatic classification by project (87% accuracy)",
+      "emailBullet2": "Spam and newsletters filtered effortlessly",
+      "emailBullet3": "Tasks extracted directly from your emails",
+      "emailCta": "See how it works",
+      "priceTitle": "Your estimates verified against 2,500 real bids",
+      "priceSubtitle": "Every price is compared to our Swiss market database. You see where every figure comes from — no more guesswork.",
+      "priceBullet1": "Median prices by CFC code and region",
+      "priceBullet2": "\"Real data\" badge on every verified line",
+      "priceBullet3": "Transparent reliability score (no black box)"
     },
     "spotlight": {
       "badge": "The game-changing feature",
@@ -954,34 +944,41 @@
       "col2Title": "Predictive estimates",
       "col2Desc": "When you import new specifications, prices are pre-filled from your history.",
       "col3Title": "Cumulative advantage",
-      "col3Desc": "The more projects you have, the richer your price database. An advantage impossible to replicate."
+      "col3Desc": "The more projects you have, the richer your price database. An advantage impossible to replicate.",
+      "pvTitle": "Record the meeting. Minutes ready in 5 minutes.",
+      "pvSubtitle": "No more note-taking during meetings. CANTAIA transcribes, identifies decisions and actions, and sends structured minutes to participants.",
+      "pvBullet1": "Automatic transcription (French, German, English)",
+      "pvBullet2": "SIA structure with decisions and actions",
+      "pvBullet3": "Sent to participants in one click"
     },
     "howItWorks": {
       "title": "Up and running in 5 minutes",
-      "subtitle": "No data migration. No complex training.",
-      "step1Title": "We create your space",
-      "step1Desc": "Your custom subdomain (yourcompany.cantaia.ch) with your colors and logo.",
-      "step2Title": "You connect your email",
-      "step2Desc": "Outlook, Gmail or IMAP — one click is all it takes. Your emails are analyzed automatically.",
-      "step3Title": "AI works, you manage",
-      "step3Desc": "Email classification, plan detection, smart alerts. You keep full control."
+      "step1Title": "Connect Outlook",
+      "step1Desc": "OAuth in 2 clicks. No installation needed.",
+      "step2Title": "Create your first project",
+      "step2Desc": "Give it a name. CANTAIA scans your emails.",
+      "step3Title": "You’re all set",
+      "step3Desc": "Emails classified, tasks created, briefing tomorrow morning."
     },
     "proof": {
       "title": "Built by and for construction project managers",
-      "card1Title": "Built for Switzerland",
-      "card1Desc": "CFC nomenclature, SIA standards, multilingual FR/DE/EN, prices in CHF. Not an adapted American tool.",
-      "card2Title": "Born on the field",
-      "card2Desc": "Developed by a project manager who manages 5+ sites simultaneously. Every feature solves a real problem.",
-      "card3Title": "Your data stays in Switzerland",
+      "card1Emoji": "🇨🇭",
+      "card1Title": "Designed for Switzerland",
+      "card1Desc": "CFC codes, SIA standards, multilingual FR/DE/EN, prices in CHF.",
+      "card2Emoji": "🏗️",
+      "card2Title": "Born in the field",
+      "card2Desc": "Developed by a project manager handling 5+ simultaneous projects. Every feature solves a real problem.",
+      "card3Emoji": "🔒",
+      "card3Title": "Your data stays in Europe",
       "card3Desc": "European hosting. End-to-end encryption. GDPR and Swiss law compliant.",
-      "stat1": "13+",
-      "stat1Label": "integrated modules",
-      "stat2": "3",
-      "stat2Label": "languages",
-      "stat3": "5 min",
-      "stat3Label": "to get started",
-      "stat4": "100%",
-      "stat4Label": "Swiss"
+      "stat1Value": "2,500+",
+      "stat1Label": "real prices",
+      "stat2Value": "60+",
+      "stat2Label": "suppliers",
+      "stat3Value": "3",
+      "stat3Label": "languages",
+      "stat4Value": "5 min",
+      "stat4Label": "to get started"
     },
     "pricing": {
       "title": "Pricing that fits your team",
@@ -1031,7 +1028,20 @@
         "customIntegrations": "Custom integrations",
         "dedicatedSupport": "Dedicated support + guaranteed SLA",
         "training": "On-site training"
-      }
+      },
+      "singleTitle": "One plan. Everything included.",
+      "singleSubtitle": "No hidden paid modules.",
+      "planName": "CANTAIA Founder",
+      "priceCurrency": "CHF / month",
+      "priceNote": "Price locked for 12 months for early users",
+      "feature1": "Smart email triage",
+      "feature2": "Automatic meeting minutes",
+      "feature3": "AI task management",
+      "feature4": "Daily briefing",
+      "feature5": "Price estimation on real data",
+      "feature6": "Priority support",
+      "cta": "Free trial — 14 days",
+      "noCommitment": "No commitment. No credit card."
     },
     "faq": {
       "title": "Frequently asked questions",
@@ -1061,10 +1071,10 @@
       "a12": "Scoring takes into account response rate, price competitiveness, delivery reliability and your team's evaluations."
     },
     "finalCta": {
-      "title": "Ready to take back control of your projects?",
-      "subtitle": "Join the project managers who save 15 hours per week.",
-      "ctaPrimary": "Schedule a demo",
-      "ctaSecondary": "Contact us",
+      "title": "Ready to save 2 hours a day?",
+      "subtitle": "Join the project managers who transformed their site management.",
+      "ctaPrimary": "Free trial — 14 days",
+      "ctaSecondary": "Request a demo",
       "formName": "Full name",
       "formEmail": "Professional email",
       "formCompany": "Company",
@@ -1079,7 +1089,7 @@
       "contactPhone": "+41 XX XXX XX XX"
     },
     "footer": {
-      "description": "AI assistant for construction project managers in Switzerland.",
+      "description": "AI-powered construction management. Made in Switzerland for construction professionals.",
       "product": "Product",
       "features": "Features",
       "intelligence": "Pricing Intelligence",
@@ -1096,7 +1106,8 @@
       "mentions": "Legal Notice",
       "madeIn": "Made in Switzerland",
       "comingSoon": "Coming soon",
-      "copyright": "© {year} Cantaia. All rights reserved."
+      "copyright": "© {year} CANTAIA — Made in Switzerland 🇨🇭",
+      "support": "Support"
     }
   },
   "direction": {
@@ -1140,25 +1151,28 @@
     "reservesAll": "All lifted"
   },
   "pricing": {
-    "title": "Simple, transparent pricing",
-    "monthly": "per month",
-    "perUser": "per user",
-    "trial": "14-day free trial",
-    "starter": {
-      "name": "Starter",
-      "price": "79",
-      "description": "For freelancers and small teams"
-    },
-    "pro": {
-      "name": "Pro",
-      "price": "149",
-      "description": "For engineering and architecture firms"
-    },
-    "enterprise": {
-      "name": "Enterprise",
-      "price": "Custom",
-      "description": "For large construction companies"
-    }
+    "title": "Pricing Intelligence",
+    "subtitle": "Data: {prices} prices · {projects} projects · {suppliers} suppliers",
+    "searchItem": "Search an item...",
+    "activeAlerts": "Active alerts",
+    "benchmark": "Benchmark by item",
+    "topSuppliers": "Top suppliers",
+    "min": "Min",
+    "median": "Median",
+    "max": "Max",
+    "trend": "Trend",
+    "perSixMonths": "/6 months",
+    "noAlerts": "No active alerts",
+    "noAlertsDesc": "Alerts will appear here when price discrepancies are detected across your projects.",
+    "priceEvolution": "Price evolution",
+    "priceRange": "Price range",
+    "byTrade": "By trade",
+    "byCFC": "By CFC code",
+    "estimatedPrice": "Estimated price",
+    "confidence": "Confidence",
+    "crossProjectAvg": "Cross-project average",
+    "supplierHistory": "Supplier history",
+    "manualEstimate": "Manual estimate"
   },
   "settings": {
     "title": "Settings",
@@ -1181,7 +1195,6 @@
     "genderFemale": "Female",
     "genderOther": "Other",
     "genderPreferNot": "Prefer not to say",
-
     "tab_profile": "Profile",
     "tab_language": "Language & Region",
     "tab_notifications": "Notifications",
@@ -1192,11 +1205,9 @@
     "tab_data_sharing": "Data Sharing",
     "tab_organisation": "Organisation",
     "tab_subscription": "Subscription",
-
     "languageTitle": "Language and regional settings",
     "dateFormat": "Date format",
     "timezone": "Timezone",
-
     "securityPassword": "Password",
     "securityPasswordDesc": "Change your password by receiving a reset email.",
     "securityChangePassword": "Send reset email",
@@ -1207,7 +1218,6 @@
     "securityCurrentSession": "Current session",
     "securityBrowserSession": "Web browser — connected now",
     "dangerZoneDesc": "Deleting your account is irreversible. All your data will be lost.",
-
     "notifications": "Notifications",
     "emailNotifications": "Email notifications",
     "emailNotifDesc": "Receive a summary of pending actions by email.",
@@ -1219,7 +1229,6 @@
     "weeklyReportDesc": "Automatic weekly summary sent Monday morning.",
     "notificationsDesc": "Configure how and when Cantaia notifies you.",
     "notificationsComingSoon": "Notification preferences will be available soon.",
-
     "briefingPrefsTitle": "Daily AI briefing",
     "briefingPrefsDesc": "Configure your intelligent morning briefing.",
     "briefingEnable": "Enable daily briefing",
@@ -1229,7 +1238,6 @@
     "briefingEmailToggle": "Send by email",
     "briefingEmailDesc": "Also receive the briefing in your mailbox.",
     "saveBriefingPrefs": "Save preferences",
-
     "outlookIntegration": "Outlook Integration",
     "outlookAutoArchive": "Auto-archive",
     "outlookAutoArchiveDesc": "Move classified emails to the corresponding Outlook folders.",
@@ -1261,7 +1269,6 @@
     "connectBenefit3": "Archive to Outlook folders",
     "connectOutlookCTA": "Connect Microsoft Outlook",
     "comingSoonIntegrations": "Coming soon",
-
     "displayMode": "Display mode",
     "multiProjectMode": "Multi-project",
     "multiProjectModeDesc": "Emails classified by project. Ideal for managing multiple sites in parallel.",
@@ -1269,7 +1276,6 @@
     "monoProjectModeDesc": "Emails classified by lot / trade (CFC). Ideal for managing one large project.",
     "themeTitle": "Theme and density",
     "themeComingSoon": "Theme and display density options will be available soon.",
-
     "companyName": "Company name",
     "teamMembers": "Team members",
     "membersCount": "member(s) in the organization",
@@ -1281,7 +1287,6 @@
     "rolesDescription": "Available roles: Admin (full access), Project manager, Site manager, Read-only.",
     "inviteComingSoon": "Coming soon — this feature is included with the Pro plan.",
     "understood": "Got it",
-
     "currentPlan": "Current plan",
     "trialPlan": "Free trial",
     "trialDaysRemaining": "{days} days remaining",
@@ -1308,7 +1313,6 @@
     "planEnterpriseF2": "Unlimited projects",
     "planEnterpriseF3": "Custom integrations",
     "planEnterpriseF4": "Dedicated support + SLA",
-
     "brandingTitle": "Visual identity",
     "brandingEnable": "Enable branding",
     "brandingLocked": "Customization locked",
@@ -1333,7 +1337,6 @@
     "brandingPreviewBtn": "Action",
     "brandingPreviewLink": "Secondary",
     "brandingSave": "Save branding",
-
     "classificationAutoTitle": "Automatic classification",
     "classificationAutoClassify": "Automatically classify emails",
     "classificationAutoClassifyDesc": "Automatically classify when confidence exceeds the defined threshold.",
@@ -1355,7 +1358,6 @@
     "classificationMappedProjectPlaceholder": "Project name",
     "classificationAddMapping": "Add a mapping",
     "classificationSaved": "Settings saved",
-
     "emailConnectTitle": "Email connection",
     "emailConnectDesc": "Connect your email account to sync emails with Cantaia.",
     "emailOtherImap": "Other (IMAP)",
@@ -1373,7 +1375,6 @@
     "emailConnectionSuccess": "Connection successful!",
     "emailsSynced": "Emails synced",
     "back": "Back",
-
     "emailPrefs_outlookTitle": "Outlook Organization",
     "emailPrefs_outlookDesc": "Configure automatic filing of your emails in Outlook.",
     "emailPrefs_autoMoveOutlook": "Auto-move in Outlook",
@@ -1399,7 +1400,6 @@
     "emailPrefs_archiveEnabledDesc": "Archive classified emails to local disk (desktop only).",
     "emailPrefs_archivePath": "Archive path",
     "emailPrefs_archivePathDesc": "Root folder for archiving (e.g., C:\\Projects).",
-
     "dangerZone": "Danger zone",
     "deleteAccount": "Delete account"
   },
@@ -2060,30 +2060,6 @@
     "reasonLocal": "Local",
     "noRecommendations": "No matching suppliers found"
   },
-  "pricing": {
-    "title": "Pricing Intelligence",
-    "subtitle": "Data: {prices} prices · {projects} projects · {suppliers} suppliers",
-    "searchItem": "Search an item...",
-    "activeAlerts": "Active alerts",
-    "benchmark": "Benchmark by item",
-    "topSuppliers": "Top suppliers",
-    "min": "Min",
-    "median": "Median",
-    "max": "Max",
-    "trend": "Trend",
-    "perSixMonths": "/6 months",
-    "noAlerts": "No active alerts",
-    "noAlertsDesc": "Alerts will appear here when price discrepancies are detected across your projects.",
-    "priceEvolution": "Price evolution",
-    "priceRange": "Price range",
-    "byTrade": "By trade",
-    "byCFC": "By CFC code",
-    "estimatedPrice": "Estimated price",
-    "confidence": "Confidence",
-    "crossProjectAvg": "Cross-project average",
-    "supplierHistory": "Supplier history",
-    "manualEstimate": "Manual estimate"
-  },
   "classification": {
     "toProcess": "To process",
     "suggestion": "Suggestion:",
@@ -2302,7 +2278,6 @@
     "visitReport": "Visit report",
     "prospect": "Prospect",
     "existingClient": "Existing client",
-
     "startRecording": "Start recording",
     "startRecordingDesc": "Press to start voice recording of the visit",
     "recordingInProgress": "Recording in progress...",
@@ -2318,7 +2293,6 @@
     "recordingTip1": "Place your phone on the table between you and the client",
     "recordingTip2": "Speak clearly and naturally",
     "recordingTip3": "Mention dimensions out loud when measuring",
-
     "clientName": "Client name",
     "clientCompany": "Company",
     "clientPhone": "Phone",
@@ -2331,7 +2305,6 @@
     "preVisitNotes": "Pre-visit notes",
     "skipToRecording": "Skip and start recording",
     "saveAndRecord": "Save and start recording",
-
     "transcribing": "Transcribing...",
     "transcriptionComplete": "Transcription complete",
     "generatingReport": "Generating report...",
@@ -2339,12 +2312,10 @@
     "transcribeAndGenerate": "Transcribe and generate report",
     "saveWithoutTranscribing": "Save without transcribing",
     "transcriptionWarning": "Transcription takes about 2-5 minutes. You will receive a notification when the report is ready.",
-
     "tabReport": "Report",
     "tabTranscription": "Transcription",
     "tabTasks": "Tasks",
     "tabDocuments": "Documents",
-
     "summary": "Summary",
     "clientRequests": "Client requests",
     "measurements": "Measurements",
@@ -2360,7 +2331,6 @@
     "sentimentNeutral": "Neutral",
     "sentimentHesitant": "Hesitant",
     "sentimentNegative": "Negative",
-
     "highPriority": "High priority",
     "mediumPriority": "Medium priority",
     "lowPriority": "Low priority",
@@ -2378,7 +2348,6 @@
     "urgencyModerate": "Moderate",
     "urgencyHigh": "High",
     "urgencyCritical": "Critical",
-
     "statusRecording": "Recording",
     "statusTranscribing": "Transcribing",
     "statusReportReady": "Report ready",
@@ -2387,34 +2356,28 @@
     "statusWon": "Won",
     "statusLost": "Lost",
     "statusArchived": "Archived",
-
     "markQuoted": "Mark quote sent",
     "markWon": "Mark as won",
     "markLost": "Mark as lost",
     "viewReport": "View report",
     "exportPdf": "Export PDF",
     "deleteVisit": "Delete",
-
     "statsVisits": "visits",
     "statsQuotesSent": "quotes sent",
     "statsSigned": "signed",
     "statsConversionRate": "Conversion rate",
-
     "filterAll": "All",
     "filterRecording": "Recording",
     "filterReportReady": "Report ready",
     "filterQuoted": "Quote sent",
     "filterWon": "Won",
     "filterLost": "Lost",
-
     "noVisits": "No client visits",
     "noVisitsDesc": "Record your first client visit to get started.",
-
     "quoteTaskTitle": "Prepare quote",
     "followupTaskTitle": "Client visit follow-up",
     "createProject": "Create a project for this visit?",
     "createProjectDesc": "A project will be created with information extracted from the report.",
-
     "audioFile": "Audio file",
     "reportPdf": "Report PDF",
     "reportDocument": "Visit report",

@@ -1,18 +1,21 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
 export function ProblemSection() {
+  const t = useTranslations("landing.problem");
+
   return (
     <section className="bg-[#FAFAFA]">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
         <AnimatedSection>
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-              Vous passez plus de temps à trier vos emails qu'à piloter vos chantiers
+              {t("title")}
             </h2>
             <p className="mt-4 text-lg text-[#6B7280]">
-              Et chaque email non traité est une décision qui glisse, une offre qui expire, un délai qui dérape.
+              {t("subtitle")}
             </p>
           </div>
         </AnimatedSection>
@@ -27,10 +30,10 @@ export function ProblemSection() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="font-display text-xl font-bold text-[#111827]">150+ emails / jour</h3>
+                <h3 className="font-display text-xl font-bold text-[#111827]">{t("painPoint1Title")}</h3>
               </div>
               <p className="text-[#6B7280] leading-relaxed">
-                12 chantiers dans une seule boîte de réception. Les urgences se noient dans les newsletters. Vous passez plus de temps à trier qu'à décider.
+                {t("painPoint1Desc")}
               </p>
             </div>
           </AnimatedSection>
@@ -45,10 +48,10 @@ export function ProblemSection() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="font-display text-lg font-bold text-[#111827]">2h par PV de séance</h3>
+                  <h3 className="font-display text-lg font-bold text-[#111827]">{t("painPoint2Title")}</h3>
                 </div>
                 <p className="text-sm text-[#6B7280] leading-relaxed">
-                  Rédiger, formater, envoyer. Les décisions se perdent entre deux réunions.
+                  {t("painPoint2Desc")}
                 </p>
               </div>
             </AnimatedSection>
@@ -61,10 +64,10 @@ export function ProblemSection() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h3 className="font-display text-lg font-bold text-[#111827]">Aucune vue d'ensemble</h3>
+                  <h3 className="font-display text-lg font-bold text-[#111827]">{t("painPoint3Title")}</h3>
                 </div>
                 <p className="text-sm text-[#6B7280] leading-relaxed">
-                  Budgets, délais, fournisseurs — tout est éclaté entre Excel, Outlook et WhatsApp.
+                  {t("painPoint3Desc")}
                 </p>
               </div>
             </AnimatedSection>

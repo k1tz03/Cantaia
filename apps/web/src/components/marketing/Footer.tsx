@@ -2,12 +2,13 @@
 
 import { Link } from "@/i18n/navigation";
 import { useRouter, usePathname } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 export function MarketingFooter() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = useLocale();
+  const t = useTranslations("landing.footer");
 
   const switchLocale = (newLocale: string) => {
     router.replace(pathname, { locale: newLocale });
@@ -30,7 +31,7 @@ export function MarketingFooter() {
               </span>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-400">
-              Gestion de chantier augmentée par IA. Conçu en Suisse pour les professionnels de la construction.
+              {t("description")}
             </p>
             {/* Language switcher */}
             <div className="mt-6 flex items-center gap-2">
@@ -53,37 +54,37 @@ export function MarketingFooter() {
           {/* Produit */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Produit
+              {t("product")}
             </h4>
             <ul className="mt-4 space-y-3">
-              <li><a href="/#features" className="text-sm text-gray-500 transition-colors hover:text-white">Fonctionnalités</a></li>
-              <li><a href="/#pricing" className="text-sm text-gray-500 transition-colors hover:text-white">Tarifs</a></li>
-              <li><span className="text-sm text-gray-600">Changelog <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">Bientôt</span></span></li>
+              <li><a href="/#features" className="text-sm text-gray-500 transition-colors hover:text-white">{t("features")}</a></li>
+              <li><a href="/#pricing" className="text-sm text-gray-500 transition-colors hover:text-white">{t("pricing")}</a></li>
+              <li><span className="text-sm text-gray-600">{t("changelog")} <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">{t("comingSoon")}</span></span></li>
             </ul>
           </div>
 
           {/* Ressources */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Ressources
+              {t("resources")}
             </h4>
             <ul className="mt-4 space-y-3">
-              <li><Link href="/about" className="text-sm text-gray-500 transition-colors hover:text-white">À propos</Link></li>
-              <li><span className="text-sm text-gray-600">Blog <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">Bientôt</span></span></li>
-              <li><span className="text-sm text-gray-600">Documentation <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">Bientôt</span></span></li>
-              <li><a href="mailto:support@cantaia.ch" className="text-sm text-gray-500 transition-colors hover:text-white">Support</a></li>
+              <li><Link href="/about" className="text-sm text-gray-500 transition-colors hover:text-white">{t("about")}</Link></li>
+              <li><span className="text-sm text-gray-600">{t("blog")} <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">{t("comingSoon")}</span></span></li>
+              <li><span className="text-sm text-gray-600">{t("docs")} <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">{t("comingSoon")}</span></span></li>
+              <li><a href="mailto:support@cantaia.ch" className="text-sm text-gray-500 transition-colors hover:text-white">{t("support")}</a></li>
             </ul>
           </div>
 
           {/* Légal */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Légal
+              {t("legal")}
             </h4>
             <ul className="mt-4 space-y-3">
-              <li><Link href="/legal/cgv" className="text-sm text-gray-500 transition-colors hover:text-white">CGV</Link></li>
-              <li><Link href="/legal/privacy" className="text-sm text-gray-500 transition-colors hover:text-white">Politique de confidentialité</Link></li>
-              <li><Link href="/legal/mentions" className="text-sm text-gray-500 transition-colors hover:text-white">Mentions légales</Link></li>
+              <li><Link href="/legal/cgv" className="text-sm text-gray-500 transition-colors hover:text-white">{t("cgv")}</Link></li>
+              <li><Link href="/legal/privacy" className="text-sm text-gray-500 transition-colors hover:text-white">{t("privacy")}</Link></li>
+              <li><Link href="/legal/mentions" className="text-sm text-gray-500 transition-colors hover:text-white">{t("mentions")}</Link></li>
             </ul>
           </div>
         </div>
@@ -91,7 +92,7 @@ export function MarketingFooter() {
         {/* Bottom */}
         <div className="mt-14 border-t border-white/10 pt-8">
           <p className="text-center text-xs text-gray-600">
-            &copy; {new Date().getFullYear()} CANTAIA — Conçu en Suisse 🇨🇭
+            {t("copyright", { year: new Date().getFullYear() })}
           </p>
         </div>
       </div>

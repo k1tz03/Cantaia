@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
 function PVMockup() {
@@ -64,7 +65,7 @@ function PVMockup() {
               <span className="font-medium text-[#111827]">3.1</span> Le béton du radier sera coulé semaine 15. Pompage confirmé par Holcim.
             </p>
             <p>
-              <span className="font-medium text-[#111827]">3.2</span> Les plans façade rév. C sont approuvés. Distribution par l'architecte d'ici vendredi.
+              <span className="font-medium text-[#111827]">3.2</span> Les plans façade rév. C sont approuvés. Distribution par l&apos;architecte d&apos;ici vendredi.
             </p>
           </div>
         </div>
@@ -74,6 +75,8 @@ function PVMockup() {
 }
 
 export function SpotlightSection() {
+  const t = useTranslations("landing.spotlight");
+
   return (
     <section className="bg-[#FAFAFA]">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
@@ -87,24 +90,24 @@ export function SpotlightSection() {
           <AnimatedSection delay={0.2}>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Enregistrez la réunion. Le PV est prêt en 5 minutes.
+                {t("pvTitle")}
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                Plus besoin de prendre des notes pendant la séance. CANTAIA transcrit, identifie les décisions et actions, et envoie le procès-verbal structuré aux participants.
+                {t("pvSubtitle")}
               </p>
 
               <div className="mt-8 space-y-4">
                 <div className="flex items-start gap-3">
                   <span className="text-lg">🎙️</span>
-                  <span className="text-[#6B7280]">Transcription automatique (français, allemand, anglais)</span>
+                  <span className="text-[#6B7280]">{t("pvBullet1")}</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-lg">📋</span>
-                  <span className="text-[#6B7280]">Structure SIA avec décisions et actions</span>
+                  <span className="text-[#6B7280]">{t("pvBullet2")}</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-lg">📧</span>
-                  <span className="text-[#6B7280]">Envoyé aux participants en un clic</span>
+                  <span className="text-[#6B7280]">{t("pvBullet3")}</span>
                 </div>
               </div>
             </div>

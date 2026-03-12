@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
 function InboxMockup() {
@@ -65,7 +66,7 @@ function InboxMockup() {
           </div>
           <p className="text-[10px] text-gray-500 mt-0.5">RE: Offre garde-corps</p>
           <div className="flex items-center gap-2 mt-2">
-            <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-0.5 text-[9px] font-semibold text-[#F59E0B]">EMS L'Orée</span>
+            <span className="rounded-full bg-[#F59E0B]/10 px-2.5 py-0.5 text-[9px] font-semibold text-[#F59E0B]">EMS L&apos;Orée</span>
             <span className="rounded-full bg-[#F59E0B]/10 px-2 py-0.5 text-[9px] font-medium text-[#F59E0B]">72%</span>
           </div>
         </div>
@@ -86,6 +87,8 @@ function BulletPoint({ children }: { children: React.ReactNode }) {
 }
 
 export function FeaturesSection() {
+  const t = useTranslations("landing.features");
+
   return (
     <section id="features" className="bg-white">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
@@ -94,20 +97,20 @@ export function FeaturesSection() {
           <AnimatedSection>
             <div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-                Fini les 150 emails mélangés dans une seule boîte
+                {t("emailTitle")}
               </h2>
               <p className="mt-4 text-lg text-[#6B7280] leading-relaxed">
-                Connectez Outlook ou Gmail. En 2 minutes, CANTAIA trie vos emails par projet avec 87% de précision. Le spam disparaît. Les urgences remontent.
+                {t("emailSubtitle")}
               </p>
 
               <div className="mt-8 space-y-4">
-                <BulletPoint>Classification automatique par projet (87% de précision)</BulletPoint>
-                <BulletPoint>Spam et newsletters filtrés sans effort</BulletPoint>
-                <BulletPoint>Tâches extraites directement depuis vos emails</BulletPoint>
+                <BulletPoint>{t("emailBullet1")}</BulletPoint>
+                <BulletPoint>{t("emailBullet2")}</BulletPoint>
+                <BulletPoint>{t("emailBullet3")}</BulletPoint>
               </div>
 
               <a href="#how-it-works" className="group mt-8 inline-flex items-center gap-1 text-[#2563EB] font-medium hover:underline">
-                Voir comment ça marche
+                {t("emailCta")}
                 <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>
             </div>

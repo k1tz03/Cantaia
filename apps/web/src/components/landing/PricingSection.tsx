@@ -1,28 +1,31 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
-const features = [
-  "Triage intelligent des emails",
-  "PV de séance automatiques",
-  "Gestion des tâches IA",
-  "Briefing quotidien",
-  "Estimation de prix sur données réelles",
-  "Support prioritaire",
-];
-
 export function PricingSection() {
+  const t = useTranslations("landing.pricing");
+
+  const features = [
+    t("feature1"),
+    t("feature2"),
+    t("feature3"),
+    t("feature4"),
+    t("feature5"),
+    t("feature6"),
+  ];
+
   return (
     <section id="pricing" className="bg-white">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
         <AnimatedSection>
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-              Un seul plan. Tout inclus.
+              {t("singleTitle")}
             </h2>
             <p className="mt-3 text-lg text-[#6B7280]">
-              Pas de modules payants cachés.
+              {t("singleSubtitle")}
             </p>
           </div>
         </AnimatedSection>
@@ -32,13 +35,13 @@ export function PricingSection() {
             <div className="rounded-2xl border border-gray-200 bg-white shadow-xl border-t-4 border-t-[#2563EB] overflow-hidden transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(37,99,235,0.1)]">
               <div className="p-8">
                 <div className="text-center">
-                  <h3 className="font-display text-xl font-bold text-[#111827]">CANTAIA Fondateur</h3>
+                  <h3 className="font-display text-xl font-bold text-[#111827]">{t("planName")}</h3>
                   <div className="mt-4 flex items-baseline justify-center gap-1">
-                    <span className="font-display text-5xl font-extrabold text-[#111827]">99</span>
-                    <span className="text-xl text-[#6B7280]">CHF / mois</span>
+                    <span className="font-display text-5xl font-extrabold text-[#111827]">{t("price")}</span>
+                    <span className="text-xl text-[#6B7280]">{t("priceCurrency")}</span>
                   </div>
                   <p className="mt-2 text-sm text-[#2563EB] font-medium">
-                    Prix bloqué 12 mois pour les premiers utilisateurs
+                    {t("priceNote")}
                   </p>
                 </div>
 
@@ -57,11 +60,11 @@ export function PricingSection() {
                   href="/register"
                   className="mt-8 block w-full rounded-lg bg-[#2563EB] py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Essai gratuit — 14 jours
+                  {t("cta")}
                 </Link>
 
                 <p className="mt-3 text-center text-sm text-[#6B7280]">
-                  Sans engagement. Sans carte bancaire.
+                  {t("noCommitment")}
                 </p>
               </div>
             </div>

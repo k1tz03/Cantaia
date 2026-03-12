@@ -1052,6 +1052,58 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | **Domain redirects** | Aucun | 4 redirects 301 → cantaia.ch |
 | **GoogleBot** | Défaut | max-image-preview: large, max-snippet: -1 |
 
+---
+
+## 15. Internationalisation (i18n) — Audit & Corrections (Mars 2026)
+
+### Fichiers de traduction
+- `apps/web/messages/fr.json` — 2 532+ clés
+- `apps/web/messages/en.json` — 2 532+ clés
+- `apps/web/messages/de.json` — 2 532+ clés
+- **Parité 100%** entre les 3 locales (aucune clé manquante)
+
+### Corrections appliquées
+
+#### Landing page (11 composants convertis à `useTranslations()`)
+| Composant | Strings corrigées | Section i18n |
+|-----------|-------------------|--------------|
+| `HeroSection.tsx` | badge, titre 3 lignes, sous-titre, CTA, trust badges | `landing.hero` |
+| `ProblemSection.tsx` | titre, sous-titre, 3 pain points | `landing.problem` |
+| `FeaturesSection.tsx` | titre email, sous-titre, 3 bullets, CTA | `landing.features.email*` |
+| `SpotlightSection.tsx` | titre PV, sous-titre, 3 bullets | `landing.spotlight.pv*` |
+| `BentoGrid.tsx` (FeaturePrixSection) | titre prix, sous-titre, 3 bullets | `landing.features.price*` |
+| `HowItWorksSection.tsx` | titre, 3 étapes (titre + desc) | `landing.howItWorks` |
+| `FAQSection.tsx` (TrustSection) | titre, 3 cards, 4 stats | `landing.proof` |
+| `PricingSection.tsx` | titre, sous-titre, nom plan, prix, 6 features, CTA, note | `landing.pricing` |
+| `FinalCTASection.tsx` | titre, sous-titre, 2 CTA | `landing.finalCta` |
+| `Header.tsx` (marketing) | nav links, login, essai gratuit | `landing.nav` |
+| `Footer.tsx` (marketing) | description, sections, links, copyright | `landing.footer` |
+
+#### Sidebar (1 correction)
+- `Sidebar.tsx` : "Admin" hardcodé → `t("admin")` via `useTranslations("nav")`
+
+#### AI error messages (multilingue)
+- `packages/core/src/ai/ai-utils.ts` : `classifyAIError()` accepte un paramètre `locale` (fr/en/de)
+- 3 messages d'erreur traduits en FR/EN/DE (rate limit, overload, unavailable)
+
+### Points non corrigés (impact mineur, refactoring lourd)
+| Élément | Fichiers | Raison |
+|---------|----------|--------|
+| `"(Sans objet)"` (défaut sujet email) | 7 fichiers (sync, providers) | Utilisé profondément dans le pipeline sync, nécessiterait de passer le locale à travers toute la chaîne |
+| `"Divers"` (dossier archivage) | `email-archiver.ts` (6 occurrences) | Noms de dossiers Outlook créés côté serveur |
+| `"Non classé"` (contexte classification) | `extract-tasks/route.ts` | Valeur par défaut interne pour le prompt IA |
+| Mockups landing (contenu démo) | HeroSection, FeaturesSection, SpotlightSection, BentoGrid | Texte illustratif dans les mockups UI (noms, emails fictifs) — ne nécessite pas de traduction |
+| Erreurs extraction prix | `file-price-extractor.ts`, `extract-from-files/route.ts` | 6 messages d'erreur FR dans le pipeline d'extraction prix |
+| Erreurs analyse soumission | `submissions/[id]/analyze/route.ts` | 5 messages d'erreur FR dans l'analyse IA de soumissions |
+
+### Pattern i18n
+- **Landing/marketing** : `useTranslations("landing.section")` dans chaque composant client
+- **App (sidebar, etc.)** : `useTranslations("nav")` déjà en place
+- **API errors** : `classifyAIError(err, locale)` pour les erreurs IA
+- **Traductions** : Toutes dans `apps/web/messages/{fr,en,de}.json`, section `landing` = 12 sous-sections
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
 2. Créer bucket Storage "plans" (public, 50MB max)
