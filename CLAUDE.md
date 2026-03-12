@@ -1127,12 +1127,29 @@ L'analyse de soumissions Excel (même petites, ex: 46 Ko) échouait avec "L'anal
 - **Timeout client 300s** (au lieu de 180s) : Aligné avec `maxDuration` serveur.
 - **Vérification finale avant timeout** : Un dernier fetch au serveur avant de déclarer "trop de temps", au cas où l'analyse a terminé juste avant.
 
+### Fix 2 — "Failed to parse AI response" (12 mars 2026)
+
+#### Problème
+Même après le fix timeout, l'analyse échouait avec "Failed to parse AI response". Claude retournait du JSON mal formé ou avec du texte autour que le parser ne gérait pas.
+
+#### Cause racine
+1. **Pas de prefill** : Sans contrainte, Claude ajoutait du texte avant/après le JSON (preamble, explications)
+2. **Parser trop fragile** : Un seul `JSON.parse` + un repair à depth=0 qui ne trouvait jamais les items individuels (depth=2 dans `{"items":[{...}]}`)
+3. **Pas de gestion des trailing commas** : Les LLM génèrent souvent `[{...}, {...},]` (virgule finale invalide en JSON)
+
+#### Fix appliqué
+- **Assistant prefill** : Message assistant pré-rempli `{"items": [` force Claude à continuer en JSON pur, sans preamble
+- **Parser 4 stratégies** : (1) JSON.parse direct, (2) fix trailing commas + close truncated, (3) extraction objets à depth=1/2, (4) regex fallback
+- **String-aware depth tracking** : Le parser respecte les `{` `}` à l'intérieur des strings JSON
+- **Logging détaillé** : Preview de la réponse Claude logguée, erreur avec le contenu pour debug
+
 ### Ce qui n'a PAS fonctionné (historique des tentatives)
 | Tentative | Pourquoi ça ne marchait pas |
 |-----------|---------------------------|
 | `Promise.race` avec timeout 120s | Le `setTimeout` dangling empêchait le garbage collection en serverless ; si Vercel tuait la fn, le catch ne s'exécutait pas |
 | Augmenter le timeout client à 180s | Ne résolvait pas le problème serveur — la fn était tuée avant |
 | Retry côté client | Le serveur restait bloqué en "analyzing", les retries étaient ignorés |
+| Parser JSON simple (`JSON.parse` + repair depth=0) | Ne gérait pas le preamble Claude, les trailing commas, ni les objets à depth > 0 |
 
 ---
 

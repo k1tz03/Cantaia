@@ -194,8 +194,11 @@ async function performAnalysis(id: string, submission: any) {
     console.log(`[ANALYZE] Success: ${items.length} items, ${[...new Set(items.map((i: any) => i.material_group))].length} groups`);
 
   } catch (err: any) {
-    console.error("[ANALYZE] Analysis failed:", err);
-    await setAnalysisError(admin, id, err.message || "Analysis failed").catch(() => {});
+    console.error("[ANALYZE] Analysis failed:", err?.message, err?.stack);
+    const userMessage = err.message === "Failed to parse AI response"
+      ? "Erreur de parsing — l'IA n'a pas retourné un format exploitable. Réessayez."
+      : (err.message || "Analysis failed");
+    await setAnalysisError(admin, id, userMessage).catch(() => {});
   }
 }
 
@@ -359,8 +362,7 @@ async function analyzeChunk(
     ? `\n\n[Partie ${chunkIndex}/${totalChunks} du document]`
     : "";
 
-  // No custom setTimeout — rely on the SDK's own timeout (180s).
-  // The dangling setTimeout was causing issues on serverless.
+  // Use assistant prefill to force JSON output — most reliable technique
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 16384,
@@ -370,55 +372,125 @@ async function analyzeChunk(
         role: "user",
         content: `Analyse ce document de soumission et extrais tous les postes :\n\n${text}${chunkNote}`,
       },
+      {
+        role: "assistant",
+        content: '{"items": [',
+      },
     ],
   });
 
   const textBlock = response.content.find((c: any) => c.type === "text");
   if (!textBlock || textBlock.type !== "text") throw new Error("No text response from Claude");
 
-  console.log(`[ANALYZE] Claude response${chunkLabel}: ${textBlock.text.length} chars`);
+  // Reconstruct full JSON: prefill + continuation
+  const fullJson = '{"items": [' + textBlock.text;
+  console.log(`[ANALYZE] Claude response${chunkLabel}: ${fullJson.length} chars, stop_reason=${response.stop_reason}`);
+  console.log(`[ANALYZE] Response preview${chunkLabel}: ${fullJson.substring(0, 300)}...`);
 
-  return parseJsonResponse(textBlock.text);
+  return parseJsonResponse(fullJson);
 }
 
 function parseJsonResponse(text: string): any[] {
   let jsonStr = text.trim();
 
-  // Remove markdown code blocks
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) jsonStr = jsonMatch[1].trim();
+  // Remove markdown code blocks if present
+  const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim();
 
-  // Extract JSON object
-  const objectMatch = jsonStr.match(/\{[\s\S]*/);
-  if (objectMatch) jsonStr = objectMatch[0];
+  // Remove any leading text before the first {
+  const firstBrace = jsonStr.indexOf("{");
+  if (firstBrace > 0) jsonStr = jsonStr.substring(firstBrace);
 
+  // ── Strategy 1: Direct JSON.parse ──
   try {
     const parsed = JSON.parse(jsonStr);
-    return parsed.items || parsed.positions || [];
+    const items = parsed.items || parsed.positions || (Array.isArray(parsed) ? parsed : []);
+    if (items.length > 0) {
+      console.log(`[ANALYZE] Parsed JSON directly: ${items.length} items`);
+      return items;
+    }
   } catch {
-    // Try to repair truncated JSON — extract complete objects
-    const items: any[] = [];
-    let depth = 0;
-    let objectStart = -1;
+    console.log("[ANALYZE] Direct JSON.parse failed, trying repairs...");
+  }
 
-    for (let i = 0; i < jsonStr.length; i++) {
-      if (jsonStr[i] === "{") {
-        if (depth === 0) objectStart = i;
-        depth++;
-      } else if (jsonStr[i] === "}") {
-        depth--;
-        if (depth === 0 && objectStart >= 0) {
-          try {
-            const obj = JSON.parse(jsonStr.substring(objectStart, i + 1));
-            if (obj.description || obj.item_number) items.push(obj);
-          } catch { /* skip malformed */ }
-          objectStart = -1;
-        }
+  // ── Strategy 2: Fix trailing commas + close truncated JSON ──
+  try {
+    let repaired = jsonStr;
+    // Remove trailing commas before ] or }
+    repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+    // If truncated, try closing the array and object
+    if (!repaired.endsWith("}")) {
+      // Find if we're inside the items array — close it
+      repaired = repaired.replace(/,?\s*$/, "") + "]}";
+    }
+    const parsed = JSON.parse(repaired);
+    const items = parsed.items || parsed.positions || (Array.isArray(parsed) ? parsed : []);
+    if (items.length > 0) {
+      console.log(`[ANALYZE] Parsed with trailing-comma/close fix: ${items.length} items`);
+      return items;
+    }
+  } catch {
+    console.log("[ANALYZE] Trailing-comma fix failed, trying object extraction...");
+  }
+
+  // ── Strategy 3: Extract individual item objects (depth=1 inside items array) ──
+  const items: any[] = [];
+  let depth = 0;
+  let objectStart = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const ch = jsonStr[i];
+
+    // Track string boundaries (skip { } inside strings)
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+
+    if (ch === "{") {
+      depth++;
+      // Capture objects at depth 2 (inside {"items": [HERE]})
+      // OR at depth 1 if the outer wrapper is missing
+      if ((depth === 2) || (depth === 1 && i > 0)) {
+        objectStart = i;
+      }
+    } else if (ch === "}") {
+      depth--;
+      if ((depth === 1 || depth === 0) && objectStart >= 0) {
+        try {
+          const obj = JSON.parse(jsonStr.substring(objectStart, i + 1));
+          if (obj.description || obj.item_number) {
+            items.push(obj);
+          }
+        } catch { /* skip malformed object */ }
+        objectStart = -1;
       }
     }
+  }
 
-    if (items.length === 0) throw new Error("Failed to parse AI response");
-    console.log(`[ANALYZE] Repaired truncated JSON: ${items.length} items`);
+  if (items.length > 0) {
+    console.log(`[ANALYZE] Extracted individual objects: ${items.length} items`);
     return items;
   }
+
+  // ── Strategy 4: Regex extraction as last resort ──
+  const objectRegex = /\{[^{}]*"(?:item_number|description)"[^{}]*\}/g;
+  let match;
+  while ((match = objectRegex.exec(jsonStr)) !== null) {
+    try {
+      const obj = JSON.parse(match[0]);
+      if (obj.description || obj.item_number) items.push(obj);
+    } catch { /* skip */ }
+  }
+
+  if (items.length > 0) {
+    console.log(`[ANALYZE] Regex-extracted objects: ${items.length} items`);
+    return items;
+  }
+
+  // Log what we received for debugging
+  console.error("[ANALYZE] Failed to parse. Response preview:", jsonStr.substring(0, 500));
+  throw new Error("Failed to parse AI response");
 }
