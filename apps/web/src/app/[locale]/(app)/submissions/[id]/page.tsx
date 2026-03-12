@@ -132,8 +132,8 @@ export default function SubmissionDetailPage() {
     setAnalyzing(true);
     const startTime = Date.now();
     const interval = setInterval(async () => {
-      // Client-side 90s timeout
-      if (Date.now() - startTime > 90_000) {
+      // Client-side 180s timeout (server allows up to 300s with chunking)
+      if (Date.now() - startTime > 180_000) {
         setAnalyzing(false);
         setSubmission((prev) =>
           prev ? { ...prev, analysis_status: "error", analysis_error: "L'analyse a pris trop de temps. Cliquez sur « Ré-analyser » pour réessayer." } : prev

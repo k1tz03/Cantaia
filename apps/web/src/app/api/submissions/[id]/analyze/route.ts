@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Allow up to 60s on Vercel serverless
-export const maxDuration = 60;
+// Allow up to 300s on Vercel serverless (Pro plan) — 60s for Hobby
+export const maxDuration = 300;
 
 const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (CFC / NPK).
 
@@ -229,36 +229,67 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
 
   for (const name of workbook.SheetNames) {
     const sheet = workbook.Sheets[name];
-    // Try structured parsing first (first row = headers)
-    let rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-    // If structured parsing yields nothing, try raw row-based parsing
-    // (handles sheets where first row isn't a clean header)
+    // Try structured parsing first (first row = headers)
+    let rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
     if (rows.length === 0) {
-      const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-      // Filter out completely empty rows
+      // Fallback: raw row-based parsing
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
       const nonEmpty = rawRows.filter((r: any[]) => r.some((c: any) => c !== null && c !== ""));
       if (nonEmpty.length > 0) {
-        parts.push(
-          `Feuille: ${name}\n` +
-          nonEmpty.map((r: any[]) => r.join(" | ")).join("\n")
-        );
+        // Compact: strip empty trailing cells, skip rows with only nulls
+        const compacted = nonEmpty.map((r: any[]) => {
+          // Trim trailing empty cells
+          let lastNonEmpty = r.length - 1;
+          while (lastNonEmpty >= 0 && (r[lastNonEmpty] === null || r[lastNonEmpty] === "")) lastNonEmpty--;
+          return r.slice(0, lastNonEmpty + 1).map(c => c ?? "").join(" | ");
+        }).filter(line => line.trim().length > 0);
+
+        if (compacted.length > 0) {
+          parts.push(`Feuille: ${name}\n${compacted.join("\n")}`);
+        }
       }
       continue;
     }
 
+    // Structured parsing: drop columns that are mostly empty (>80% null/empty)
     const headers = Object.keys(rows[0] as Record<string, unknown>);
-    parts.push(
-      `Feuille: ${name}\nColonnes: ${headers.join(" | ")}\n` +
-      rows.map((r: any) => Object.values(r).join(" | ")).join("\n")
-    );
+    const usefulHeaders = headers.filter(h => {
+      const nonEmpty = rows.filter(r => {
+        const v = (r as Record<string, unknown>)[h];
+        return v !== null && v !== undefined && v !== "";
+      });
+      return nonEmpty.length > rows.length * 0.2; // Keep columns with >20% fill rate
+    });
+
+    // Use useful headers or all if filtering removed everything
+    const finalHeaders = usefulHeaders.length > 0 ? usefulHeaders : headers;
+
+    const compactRows = rows.map((r: any) => {
+      return finalHeaders.map(h => {
+        const v = (r as Record<string, unknown>)[h];
+        return v !== null && v !== undefined && v !== "" ? String(v) : "";
+      }).join(" | ");
+    }).filter(line => {
+      // Skip rows where all values are empty
+      return line.replace(/\s*\|\s*/g, "").trim().length > 0;
+    });
+
+    if (compactRows.length > 0) {
+      parts.push(
+        `Feuille: ${name}\nColonnes: ${finalHeaders.join(" | ")}\n${compactRows.join("\n")}`
+      );
+    }
   }
 
   if (parts.length === 0) {
     console.warn("[ANALYZE] Excel file has no non-empty sheets:", { fileUrl, sheetNames: workbook.SheetNames });
   }
 
-  return parts.join("\n\n");
+  const result = parts.join("\n\n");
+  console.log(`[ANALYZE] Excel text: ${result.length} chars from ${workbook.SheetNames.length} sheets`);
+  return result;
 }
 
 async function analyzeWithClaude(textContent: string): Promise<any[]> {
@@ -266,22 +297,62 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey, timeout: 60_000 });
+  const client = new Anthropic({ apiKey, timeout: 120_000 });
 
-  // Truncate to max 40k chars (~10k tokens) to stay within limits and keep speed
-  const truncated = textContent.length > 40_000
-    ? textContent.slice(0, 40_000) + "\n\n[Document tronqué à 40k caractères]"
-    : textContent;
+  const MAX_CHUNK_CHARS = 80_000; // ~20K tokens — Haiku handles this well within timeout
 
-  const estimatedTokens = Math.round(truncated.length / 4);
-  console.log(`[ANALYZE] tokens estimés: ${estimatedTokens} (${truncated.length} chars)`);
+  // If document fits in one chunk, process directly
+  if (textContent.length <= MAX_CHUNK_CHARS) {
+    return analyzeChunk(client, textContent);
+  }
 
-  // 55s timeout — leaves 5s margin for Vercel's 60s limit
+  // Split into chunks by lines, respecting sheet boundaries
+  console.log(`[ANALYZE] Large document (${textContent.length} chars), splitting into chunks`);
+  const chunks: string[] = [];
+  const lines = textContent.split("\n");
+  let current = "";
+
+  for (const line of lines) {
+    if ((current.length + line.length + 1) > MAX_CHUNK_CHARS && current.length > 0) {
+      chunks.push(current);
+      current = "";
+    }
+    current += (current ? "\n" : "") + line;
+  }
+  if (current.length > 0) chunks.push(current);
+
+  console.log(`[ANALYZE] Split into ${chunks.length} chunks: ${chunks.map(c => c.length).join(", ")} chars`);
+
+  // Process chunks sequentially (avoid API rate limits)
+  const allItems: any[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`[ANALYZE] Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+    const items = await analyzeChunk(client, chunks[i], i + 1, chunks.length);
+    allItems.push(...items);
+  }
+
+  return allItems;
+}
+
+async function analyzeChunk(
+  client: InstanceType<typeof import("@anthropic-ai/sdk").default>,
+  text: string,
+  chunkIndex?: number,
+  totalChunks?: number
+): Promise<any[]> {
+  const estimatedTokens = Math.round(text.length / 4);
+  const chunkLabel = chunkIndex ? ` (chunk ${chunkIndex}/${totalChunks})` : "";
+  console.log(`[ANALYZE] tokens estimés${chunkLabel}: ${estimatedTokens} (${text.length} chars)`);
+
+  // 120s timeout — works with maxDuration=300
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Timeout: l'analyse a pris trop de temps (>55s). Réessayez ou réduisez la taille du document.")), 55_000)
+    setTimeout(() => reject(new Error("Timeout: l'analyse a pris trop de temps (>120s). Réessayez ou réduisez la taille du document.")), 120_000)
   );
 
-  // Haiku is 3x faster than Sonnet for structured data extraction
+  const chunkNote = totalChunks && totalChunks > 1
+    ? `\n\n[Partie ${chunkIndex}/${totalChunks} du document]`
+    : "";
+
   const response = await Promise.race([
     client.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -290,19 +361,19 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
       messages: [
         {
           role: "user",
-          content: `Analyse ce document de soumission et extrais tous les postes :\n\n${truncated}`,
+          content: `Analyse ce document de soumission et extrais tous les postes :\n\n${text}${chunkNote}`,
         },
       ],
     }),
     timeoutPromise,
   ]);
 
-  const text = response.content.find((c: any) => c.type === "text");
-  if (!text || text.type !== "text") throw new Error("No text response from Claude");
+  const textBlock = response.content.find((c: any) => c.type === "text");
+  if (!textBlock || textBlock.type !== "text") throw new Error("No text response from Claude");
 
-  console.log(`[ANALYZE] Claude response: ${text.text.length} chars`);
+  console.log(`[ANALYZE] Claude response${chunkLabel}: ${textBlock.text.length} chars`);
 
-  return parseJsonResponse(text.text);
+  return parseJsonResponse(textBlock.text);
 }
 
 function parseJsonResponse(text: string): any[] {

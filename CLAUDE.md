@@ -983,6 +983,10 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | MAIL.FIX6 | Thread API | Images `cid:` cassées dans les threads — références non résolues | Thread route résout les `cid:` en base64 data URIs via Graph attachments API (pour chaque message du thread + fallback DB) |
 | MAIL.FIX7 | Mail page | XSS — HTML email injecté via `dangerouslySetInnerHTML` sans sanitisation | Ajouté `DOMPurify.sanitize()` avec config permissive (images, tables, styles) sur toutes les 3 insertions HTML |
 | MAIL.FIX8 | CSS | Images email débordent du conteneur, pas de max-width | Ajouté styles `.email-content img { max-width: 100%; height: auto }` + word-break dans globals.css |
+| SUB.FIX1 | Soumissions analyze | Timeout 55s trop court pour Excel 46KB+ — Claude Haiku prend 40-55s sur 10K+ tokens de texte brut | `maxDuration` 60→300, timeout interne 55s→120s, Anthropic SDK timeout 60s→120s |
+| SUB.FIX2 | Soumissions analyze | Excel text extraction bloated — colonnes vides, lignes vides, données inutiles envoyées à Claude | Filtrage colonnes <20% remplissage, suppression lignes vides, trim trailing empty cells |
+| SUB.FIX3 | Soumissions analyze | Pas de chunking — documents >40K chars tronqués, perte de postes | Chunking par 80K chars (~20K tokens) avec traitement séquentiel et merge des résultats |
+| SUB.FIX4 | Soumissions client | Polling timeout client 90s trop court pour le nouveau timeout serveur | Polling timeout 90s→180s |
 
 ### Non corrigés (à investiguer)
 
