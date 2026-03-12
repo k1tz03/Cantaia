@@ -4,9 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
- * POST /api/mail-test/backfill-bodies
+ * POST /api/mail/backfill-bodies
  * Fetches full email bodies from Microsoft Graph for emails that only have body_preview.
- * Superadmin only. Processes up to 20 emails per call.
+ * Processes up to 20 emails per call.
  */
 export async function POST() {
   try {
@@ -15,17 +15,6 @@ export async function POST() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
-
-    // Check superadmin
-    const { data: profile } = await (admin as any)
-      .from("users")
-      .select("is_superadmin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!profile?.is_superadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     // Get Microsoft token
     const tokenResult = await getValidMicrosoftToken(user.id);

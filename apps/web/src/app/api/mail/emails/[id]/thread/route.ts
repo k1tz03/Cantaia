@@ -16,7 +16,7 @@ interface ThreadMessage {
 }
 
 /**
- * GET /api/mail-test/emails/[id]/thread
+ * GET /api/mail/emails/[id]/thread
  * Fetches the full conversation thread from Microsoft Graph.
  * On-demand backfill: if body_html/body_text are missing, fetches and saves them.
  */
@@ -188,7 +188,7 @@ export async function GET(
       totalMessages: thread.length,
     });
   } catch (err: any) {
-    console.error("[mail-test/thread] Error:", err);
+    console.error("[mail/thread] Error:", err);
     return NextResponse.json({ thread: null, error: err.message }, { status: 500 });
   }
 }

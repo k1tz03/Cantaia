@@ -28,7 +28,6 @@ const protectedPaths = [
   "/plans",
   "/visits",
   "/onboarding",
-  "/mail-test",
 ];
 
 function isProtectedPath(pathname: string): boolean {

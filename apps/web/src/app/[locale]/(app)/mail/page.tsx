@@ -1,704 +1,834 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useTranslations, useLocale } from "next-intl";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEmailContext } from "@/lib/contexts/email-context";
-import { cn } from "@cantaia/ui";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Mail,
-  Inbox,
-  CheckCircle2,
   Clock,
-  AlertTriangle,
-  Search,
+  Mail,
+  CheckCircle2,
+  TrendingDown,
   RefreshCw,
-  Loader2,
-  Filter,
   ChevronDown,
   ChevronRight,
-  Paperclip,
+  Send,
+  Eye,
+  Users,
+  ListTodo,
+  Archive,
+  AlarmClock,
+  ExternalLink,
+  X,
+  Loader2,
+  Check,
+  MessageSquare,
+  AlertTriangle,
+  ThumbsUp,
+  ThumbsDown,
+  Forward,
+  RotateCcw,
   Sparkles,
-  MailX,
-  ArrowUpDown,
-  Link2,
-  Settings,
 } from "lucide-react";
-import type { EmailRecord, Project } from "@cantaia/database";
-import { EmailDetailPanel } from "@/components/app/EmailDetailPanel";
-import { useEmailKeyboardShortcuts } from "@/hooks/useEmailKeyboardShortcuts";
-import { useRouter } from "next/navigation";
 
-function stripSignature(text: string): string {
-  if (!text) return "";
-  const patterns = [
-    /[Mm]eilleures salutations[\s\S]*/,
-    /[Cc]ordialement[\s\S]*/,
-    /[Bb]est regards[\s\S]*/,
-    /[Mm]it freundlichen[\s\S]*/,
-    /[Rr]estant à votre disposition[\s\S]*/,
-    /\n--\n[\s\S]*/,
-    /^(\+41|\+33).*/m,
-  ];
-  let cleaned = text;
-  for (const p of patterns) {
-    const idx = cleaned.search(p);
-    if (idx > 0) cleaned = cleaned.substring(0, idx);
-  }
-  return cleaned.replace(/\s+/g, " ").trim().substring(0, 100);
+/* ═══════════════════════════════════════════════════════════
+   TYPES
+   ═══════════════════════════════════════════════════════════ */
+
+interface DecisionEmail {
+  id: string;
+  subject: string;
+  sender_email: string;
+  sender_name: string;
+  body_preview: string;
+  received_at: string;
+  updated_at?: string;
+  classification: string;
+  ai_summary: string | null;
+  ai_classification_confidence: number | null;
+  project_id: string | null;
+  project_name: string | null;
+  is_processed: boolean;
+  outlook_message_id: string | null;
+  price_extracted: boolean;
+  email_category: string | null;
+  priority: "urgent" | "action" | "info";
+  is_quote: boolean;
+  price_indicator: {
+    extracted_price?: number;
+    market_median?: number;
+    diff_percent?: number;
+  } | null;
 }
 
-type TabKey = "inbox" | "processed" | "snoozed";
+interface Stats {
+  avgResponseTime: number;
+  processedToday: number;
+  totalUnprocessed: number;
+  totalToday: number;
+  savingsGenerated: number | null;
+  decisionsUrgent: number;
+  decisionsThisWeek: number;
+  decisionsInfo: number;
+}
 
-const TAB_CONFIG: Record<TabKey, { icon: React.ElementType; color: string }> = {
-  inbox: { icon: Inbox, color: "text-[#2563EB]" },
-  processed: { icon: CheckCircle2, color: "text-green-600" },
-  snoozed: { icon: Clock, color: "text-amber-600" },
-};
+interface OrgMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
 
-function formatRelativeDate(dateStr: string, locale: string = "fr"): string {
-  const date = new Date(dateStr);
+interface ThreadMessage {
+  id: string;
+  subject: string;
+  from: { name: string; email: string };
+  to: { name: string; email: string }[];
+  cc: { name: string; email: string }[];
+  receivedDateTime: string;
+  body: { content: string; contentType: string };
+  bodyPreview: string;
+  isCurrentMessage: boolean;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}j`;
+}
+
+function formatDate(): string {
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHrs = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  const labels: Record<string, { now: string; min: string; h: string; d: string }> = {
-    fr: { now: "maintenant", min: "min", h: "h", d: "j" },
-    en: { now: "now", min: "min", h: "h", d: "d" },
-    de: { now: "jetzt", min: "Min", h: "Std", d: "T" },
-  };
-  const l = labels[locale] || labels.fr;
-  const localeStr = locale === "de" ? "de-CH" : locale === "en" ? "en-GB" : "fr-CH";
-
-  if (diffMin < 1) return l.now;
-  if (diffMin < 60) return `${diffMin}${l.min}`;
-  if (diffHrs < 24) return `${diffHrs}${l.h}`;
-  if (diffDays < 7) return `${diffDays}${l.d}`;
-  return date.toLocaleDateString(localeStr, { day: "numeric", month: "short" });
+  const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  return `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
 }
 
-function getClassificationBadge(email: EmailRecord) {
-  if (email.classification === "urgent" || email.importance === "high") {
-    return { label: "Urgent", color: "bg-red-100 text-red-700", icon: AlertTriangle };
-  }
-  if (email.classification === "action_required") {
-    return { label: "Action", color: "bg-orange-100 text-orange-700", icon: AlertTriangle };
-  }
-  if (email.classification === "waiting_response") {
-    return { label: "Attente", color: "bg-blue-100 text-blue-700", icon: Clock };
-  }
-  return null;
+function formatFullDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+
+function getInitials(name: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name: string, isCurrentUser: boolean): string {
+  if (isCurrentUser) return "#2563EB";
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const colors = ["#6B7280", "#8B5CF6", "#059669", "#D97706", "#DC2626", "#7C3AED", "#0891B2"];
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function formatThreadDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })
+    + " " + d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** FIX 5 — Lock body scroll when a popup is open */
+function useBodyScrollLock(locked: boolean) {
+  useEffect(() => {
+    if (locked) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [locked]);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════════════ */
 
 export default function MailPage() {
-  const t = useTranslations("mail");
-  const locale = useLocale();
   const router = useRouter();
-  const { emails, loading, syncing, hasRealData, syncEmails, refetch, readIds, markAsRead } = useEmailContext();
-  const [activeTab, setActiveTab] = useState<TabKey>("inbox");
-  const [selectedEmail, setSelectedEmail] = useState<EmailRecord | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<EmailRecord[] | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
-  const [listWidth, setListWidth] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("cantaia_mail_list_width");
-      return saved ? parseInt(saved, 10) : 420;
-    }
-    return 420;
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [urgent, setUrgent] = useState<DecisionEmail[]>([]);
+  const [thisWeek, setThisWeek] = useState<DecisionEmail[]>([]);
+  const [info, setInfo] = useState<DecisionEmail[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [activeFilter, setActiveFilter] = useState<"all" | "urgent" | "thisWeek" | "info">("all");
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [decisionsToday, setDecisionsToday] = useState(0);
+  const [isAloneInOrg, setIsAloneInOrg] = useState(true);
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+  const [generatingSummaries, setGeneratingSummaries] = useState(false);
+  const [summaryToast, setSummaryToast] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillToast, setBackfillToast] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
-  // Drag handle for resizing list/detail panel
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
+  // Modal states
+  const [modalEmail, setModalEmail] = useState<DecisionEmail | null>(null);
+  const [replyEmail, setReplyEmail] = useState<DecisionEmail | null>(null);
+  const [delegateEmail, setDelegateEmail] = useState<DecisionEmail | null>(null);
+  const [transferEmail, setTransferEmail] = useState<DecisionEmail | null>(null);
 
-  useEffect(() => {
-    if (!isDragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const newWidth = e.clientX - rect.left;
-      const maxWidth = rect.width * 0.65;
-      const clamped = Math.max(300, Math.min(maxWidth, newWidth));
-      setListWidth(clamped);
-    };
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      localStorage.setItem("cantaia_mail_list_width", String(Math.round(listWidth)));
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging, listWidth]);
+  // FIX 5 — Lock body scroll when any popup is open
+  const anyPopupOpen = !!(modalEmail || replyEmail || delegateEmail || transferEmail);
+  useBodyScrollLock(anyPopupOpen);
 
-  // Fetch projects
-  useEffect(() => {
-    fetch("/api/projects/list")
-      .then((r) => r.json())
-      .then((d) => setProjects(d.projects || []))
-      .catch(() => {});
-  }, []);
-
-  // Filter emails by tab
-  const tabEmails = useMemo(() => {
-    const source = searchResults || emails;
-    return source.filter((e) => {
-      const triage = e.triage_status || "unprocessed";
-      switch (activeTab) {
-        case "inbox":
-          return triage === "unprocessed" || triage === "pending_classification";
-        case "processed":
-          return triage === "processed";
-        case "snoozed":
-          return triage === "snoozed";
-        default:
-          return true;
-      }
-    });
-  }, [emails, searchResults, activeTab]);
-
-  // Apply project filter
-  const filteredEmails = useMemo(() => {
-    let result = tabEmails;
-    if (filterProjectId) {
-      result = result.filter((e) => e.project_id === filterProjectId);
-    }
-    return result.sort((a, b) => {
-      const da = new Date(a.received_at).getTime();
-      const db = new Date(b.received_at).getTime();
-      return sortOrder === "desc" ? db - da : da - db;
-    });
-  }, [tabEmails, filterProjectId, sortOrder]);
-
-  // Group emails by project
-  const groupedByProject = useMemo(() => {
-    const groups = new Map<string, { project: Project | null; emails: EmailRecord[] }>();
-    // "Unclassified" group
-    const unclassifiedKey = "__unclassified__";
-    groups.set(unclassifiedKey, { project: null, emails: [] });
-
-    for (const project of projects) {
-      groups.set(project.id, { project, emails: [] });
-    }
-
-    for (const email of filteredEmails) {
-      const key = email.project_id || unclassifiedKey;
-      const group = groups.get(key);
-      if (group) {
-        group.emails.push(email);
-      } else {
-        // Project not in list, add to unclassified
-        groups.get(unclassifiedKey)!.emails.push(email);
-      }
-    }
-
-    // Return only groups with emails, sorted by project name
-    return Array.from(groups.entries())
-      .filter(([, g]) => g.emails.length > 0)
-      .sort(([keyA, a], [keyB, b]) => {
-        if (keyA === unclassifiedKey) return 1;
-        if (keyB === unclassifiedKey) return -1;
-        return (a.project?.name || "").localeCompare(b.project?.name || "");
-      });
-  }, [filteredEmails, projects]);
-
-  // Tab counts
-  const tabCounts = useMemo(() => {
-    const source = searchResults || emails;
-    return {
-      inbox: source.filter((e) => !e.triage_status || e.triage_status === "unprocessed" || e.triage_status === "pending_classification").length,
-      processed: source.filter((e) => e.triage_status === "processed").length,
-      snoozed: source.filter((e) => e.triage_status === "snoozed").length,
-    };
-  }, [emails, searchResults]);
-
-  const toggleProjectCollapse = useCallback((projectId: string) => {
-    setCollapsedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(projectId)) next.delete(projectId);
-      else next.add(projectId);
-      return next;
-    });
-  }, []);
-
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      return;
-    }
-    setSearching(true);
+  const fetchData = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ q: searchQuery, limit: "100" });
-      if (filterProjectId) params.set("project_id", filterProjectId);
-      const res = await fetch(`/api/email/search?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.results || []);
+      const res = await fetch("/api/mail/decisions");
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+      if (!data.success) {
+        router.replace("/login");
+        return;
+      }
+      setAuthorized(true);
+      setFirstName(data.firstName);
+      setUrgent(data.urgent);
+      setThisWeek(data.thisWeek);
+      setInfo(data.info);
+      setStats(data.stats);
+      setIsAloneInOrg(data.isAloneInOrg ?? true);
+      setOrgMembers(data.orgMembers || []);
+    } catch {
+      router.replace("/dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const syncEmails = useCallback(async () => {
+    setSyncing(true);
+    setSyncToast(null);
+    try {
+      const res = await fetch("/api/outlook/sync", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success !== false) {
+        const synced = data.emails_synced ?? data.newEmails ?? 0;
+        setSyncToast(`${synced} email${synced !== 1 ? "s" : ""} synchronisé${synced !== 1 ? "s" : ""}`);
+        await fetchData();
+      } else {
+        setSyncToast(data.error || "Erreur de synchronisation");
       }
     } catch {
-      // fallback: client-side filter
-      const q = searchQuery.toLowerCase();
-      setSearchResults(
-        emails.filter(
-          (e) =>
-            e.subject?.toLowerCase().includes(q) ||
-            (e.from_email || e.sender_email || "").toLowerCase().includes(q) ||
-            (e.body_preview || "").toLowerCase().includes(q)
-        )
-      );
-    } finally {
-      setSearching(false);
+      setSyncToast("Erreur de connexion");
     }
-  }, [searchQuery, filterProjectId, emails]);
+    setSyncing(false);
+    setTimeout(() => setSyncToast(null), 4000);
+  }, [fetchData]);
 
-  const handleSync = useCallback(async () => {
-    await syncEmails();
-  }, [syncEmails]);
-
-  const handleSelectEmail = useCallback(
-    (email: EmailRecord) => {
-      setSelectedEmail(email);
-      markAsRead(email.id);
-    },
-    [markAsRead]
-  );
-
-  const handleEmailUpdated = useCallback(() => {
-    refetch();
-    setSelectedEmail(null);
-  }, [refetch]);
-
-  // Keyboard shortcuts
-  const searchInputRef = { current: null as HTMLInputElement | null };
-  useEmailKeyboardShortcuts({
-    onNextEmail: () => {
-      const idx = filteredEmails.findIndex((e) => e.id === selectedEmail?.id);
-      const next = filteredEmails[idx + 1];
-      if (next) handleSelectEmail(next);
-    },
-    onPrevEmail: () => {
-      const idx = filteredEmails.findIndex((e) => e.id === selectedEmail?.id);
-      const prev = filteredEmails[idx - 1];
-      if (prev) handleSelectEmail(prev);
-    },
-    onReadOk: () => {
-      if (selectedEmail) {
-        fetch(`/api/email/${selectedEmail.id}/process`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "read_ok" }),
-        }).then(() => handleEmailUpdated());
+  const dismissCard = useCallback(async (emailId: string, action: string) => {
+    setDismissedIds((prev) => new Set(prev).add(emailId));
+    setDecisionsToday((d) => d + 1);
+    try {
+      if (action === "archive") {
+        await fetch(`/api/email/${emailId}/archive`, { method: "POST" });
       }
-    },
-    onArchive: () => {
-      if (selectedEmail) {
-        fetch(`/api/email/${selectedEmail.id}/archive`, { method: "POST" })
-          .then(() => handleEmailUpdated());
-      }
-    },
-    onSearch: () => {
-      searchInputRef.current?.focus();
-    },
-    onEscape: () => {
-      if (selectedEmail) setSelectedEmail(null);
-    },
-  });
+      await fetch("/api/mail/decisions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_id: emailId, action }),
+      });
+    } catch { /* non-blocking */ }
+  }, []);
+
+  const snoozeCard = useCallback(async (emailId: string) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0);
+    setDismissedIds((prev) => new Set(prev).add(emailId));
+    try {
+      await fetch(`/api/email/${emailId}/snooze`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ until: tomorrow.toISOString() }),
+      });
+    } catch { /* non-blocking */ }
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#F9FAFB]">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!authorized) return null;
+
+  const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
+  const filteredThisWeek = thisWeek.filter((e) => !dismissedIds.has(e.id));
+  const filteredInfo = info.filter((e) => !dismissedIds.has(e.id));
+
+  let visibleCards: DecisionEmail[] = [];
+  if (activeFilter === "all") visibleCards = [...filteredUrgent, ...filteredThisWeek];
+  else if (activeFilter === "urgent") visibleCards = filteredUrgent;
+  else if (activeFilter === "thisWeek") visibleCards = filteredThisWeek;
+
+  const isEmpty = visibleCards.length === 0 && activeFilter !== "info";
 
   return (
-    <div ref={containerRef} className={cn("flex h-[calc(100vh-120px)] sm:h-[calc(100vh-56px)] lg:h-screen", isDragging && "select-none")}>
-      {/* Left: Email list */}
-      <div
-        className={cn(
-          "flex shrink-0 flex-col border-r border-[#E5E7EB] bg-white",
-          selectedEmail ? "hidden md:flex" : "w-full"
-        )}
-        style={selectedEmail ? { width: `${listWidth}px` } : undefined}
-      >
-        {/* Header */}
-        <div className="border-b border-[#E5E7EB] px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="flex items-center gap-2 text-lg font-semibold text-[#111827]">
-              <Mail className="h-5 w-5 text-[#2563EB]" />
-              {t("title")}
+    <div className="min-h-screen bg-[#F9FAFB]">
+      {/* Header */}
+      <div className="max-w-[860px] mx-auto px-4 pt-8 pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Bonjour {firstName} — {formatDate()}
             </h1>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
-                className="rounded-md p-1.5 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280]"
-                title={t("sort")}
-              >
-                <ArrowUpDown className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={cn(
-                  "rounded-md p-1.5 hover:bg-gray-100",
-                  showFilters || filterProjectId ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
-                )}
-                title={t("filter")}
-              >
-                <Filter className="h-4 w-4" />
-              </button>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="rounded-md p-1.5 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280] disabled:opacity-50"
-                title={t("sync")}
-              >
-                {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+            <p className="text-gray-500 mt-1">
+              {filteredUrgent.length} urgente{filteredUrgent.length !== 1 ? "s" : ""}
+              {" · "}{filteredThisWeek.length} cette semaine
+              {" · "}{filteredInfo.length} info{filteredInfo.length !== 1 ? "s" : ""}
+            </p>
           </div>
-
-          {/* Search */}
-          <div className="mt-2 flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9CA3AF]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (!e.target.value.trim()) setSearchResults(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder={t("searchPlaceholder")}
-                className="w-full rounded-md border border-[#E5E7EB] bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
-              />
-              {searching && (
-                <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-[#9CA3AF]" />
-              )}
-            </div>
-          </div>
-
-          {/* Project filter */}
-          {showFilters && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setFilterProjectId(null)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                  !filterProjectId
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-                )}
-              >
-                {t("allProjects")}
-              </button>
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setFilterProjectId(filterProjectId === p.id ? null : p.id)}
-                  className={cn(
-                    "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                    filterProjectId === p.id
-                      ? "bg-[#2563EB] text-white"
-                      : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-                  )}
-                >
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="mt-3 flex gap-1 rounded-lg bg-gray-100 p-0.5">
-            {(["inbox", "processed", "snoozed"] as TabKey[]).map((tab) => {
-              const Icon = TAB_CONFIG[tab].icon;
-              const count = tabCounts[tab];
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors",
-                    activeTab === tab
-                      ? "bg-white text-[#111827] shadow-sm"
-                      : "text-[#6B7280] hover:text-[#374151]"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{t(`tab_${tab}`)}</span>
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                        activeTab === tab
-                          ? "bg-blue-100 text-[#2563EB]"
-                          : "bg-gray-200 text-[#6B7280]"
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <button
+            onClick={syncEmails}
+            disabled={syncing}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sync..." : "Synchroniser"}
+          </button>
         </div>
 
-        {/* Email list */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
-            </div>
-          ) : filteredEmails.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-              {searchResults ? (
-                <>
-                  <MailX className="h-10 w-10 text-[#D1D5DB]" />
-                  <p className="mt-3 text-sm font-medium text-[#6B7280]">
-                    {t("noSearchResults")}
-                  </p>
-                  <p className="mt-1 text-xs text-[#9CA3AF]">
-                    {t("tryDifferentSearch")}
-                  </p>
-                </>
-              ) : !hasRealData ? (
-                <>
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-                    <Link2 className="h-8 w-8 text-[#2563EB]" />
-                  </div>
-                  <p className="mt-4 text-sm font-semibold text-[#374151]">
-                    {t("connectTitle")}
-                  </p>
-                  <p className="mt-1 max-w-xs text-xs text-[#9CA3AF]">
-                    {t("connectDesc")}
-                  </p>
-                  <button
-                    onClick={() => router.push("/settings?tab=outlook")}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#1D4ED8]"
-                  >
-                    <Settings className="h-4 w-4" />
-                    {t("connectButton")}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <MailX className="h-10 w-10 text-[#D1D5DB]" />
-                  <p className="mt-3 text-sm font-medium text-[#6B7280]">
-                    {t("noEmails")}
-                  </p>
-                  <p className="mt-1 text-xs text-[#9CA3AF]">
-                    {t("noEmailsDesc")}
-                  </p>
-                  <button
-                    onClick={handleSync}
-                    disabled={syncing}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#1D4ED8] disabled:opacity-50"
-                  >
-                    {syncing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    {syncing ? t("syncing") : t("sync")}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : activeTab === "inbox" && !filterProjectId ? (
-            // Group by project for inbox
-            <div className="divide-y divide-gray-100">
-              {groupedByProject.map(([groupKey, group]) => {
-                const isCollapsed = collapsedProjects.has(groupKey);
-                const projectName = group.project?.name || t("unclassified");
-                const projectColor = group.project?.color || "#94a3b8";
+        {syncToast && (
+          <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+            <Check className="w-4 h-4" />{syncToast}
+          </div>
+        )}
 
-                return (
-                  <div key={groupKey}>
-                    {/* Project header */}
-                    <button
-                      onClick={() => toggleProjectCollapse(groupKey)}
-                      className="sticky top-0 z-10 flex w-full items-center gap-2.5 border-b border-[#E5E7EB] bg-gray-50/95 px-4 py-2.5 text-left backdrop-blur-sm hover:bg-gray-100/95"
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4 text-[#6B7280]" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-[#6B7280]" />
-                      )}
-                      <span
-                        className="h-3 w-3 rounded-full ring-2 ring-white"
-                        style={{ backgroundColor: projectColor }}
-                      />
-                      <span className="text-sm font-bold text-[#111827]">
-                        {projectName}
-                      </span>
-                      <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] font-semibold text-[#6B7280]">
-                        {group.emails.length}
-                      </span>
-                    </button>
-
-                    {/* Email items */}
-                    {!isCollapsed && (
-                      <div>
-                        {group.emails.map((email) => (
-                          <EmailListItem
-                            key={email.id}
-                            email={email}
-                            isSelected={selectedEmail?.id === email.id}
-                            isRead={readIds.has(email.id)}
-                            onClick={() => handleSelectEmail(email)}
-                            locale={locale}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            // Virtualized flat list for processed/snoozed/filtered
-            <VirtualizedEmailList
-              emails={filteredEmails}
-              selectedEmail={selectedEmail}
-              readIds={readIds}
-              projects={projects}
-              locale={locale}
-              onSelectEmail={handleSelectEmail}
-              scrollContainerRef={scrollContainerRef}
-            />
-          )}
-        </div>
-
-        {/* Status bar */}
-        <div className="border-t border-[#E5E7EB] px-4 py-2">
-          <p className="text-[11px] text-[#9CA3AF]">
-            {filteredEmails.length} {t("emailCount")}
-            {searchResults && (
-              <button
-                onClick={() => {
-                  setSearchResults(null);
-                  setSearchQuery("");
-                }}
-                className="ml-2 text-[#2563EB] hover:underline"
-              >
-                {t("clearSearch")}
-              </button>
-            )}
-          </p>
+        {/* Filter pills */}
+        <div className="flex gap-3 mt-4">
+          <FilterPill active={activeFilter === "urgent"} color="red" count={filteredUrgent.length} label="Urgentes" onClick={() => setActiveFilter(activeFilter === "urgent" ? "all" : "urgent")} />
+          <FilterPill active={activeFilter === "thisWeek"} color="amber" count={filteredThisWeek.length} label="Cette semaine" onClick={() => setActiveFilter(activeFilter === "thisWeek" ? "all" : "thisWeek")} />
+          <FilterPill active={activeFilter === "info"} color="gray" count={filteredInfo.length} label="Infos" onClick={() => setActiveFilter(activeFilter === "info" ? "all" : "info")} />
         </div>
       </div>
 
-      {/* Drag handle */}
-      {selectedEmail && (
-        <div
-          onMouseDown={handleMouseDown}
-          className="hidden w-1 shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-200 active:bg-blue-300 lg:block"
+      {/* Stats bar */}
+      {stats && (
+        <div className="max-w-[860px] mx-auto px-4 pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<Clock className="w-4 h-4" />} label="Temps moyen de réponse" value={`${stats.avgResponseTime}h`} />
+            <StatCard icon={<Mail className="w-4 h-4" />} label="Emails traités" value={`${stats.processedToday} / ${stats.totalToday}`} />
+            <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Décisions aujourd'hui" value={String(decisionsToday)} />
+            <StatCard icon={<TrendingDown className="w-4 h-4" />} label="Économies générées" value={stats.savingsGenerated != null ? `CHF ${stats.savingsGenerated.toLocaleString("fr-CH")}` : "—"} />
+          </div>
+        </div>
+      )}
+
+      {/* Decision cards */}
+      <div className="max-w-[860px] mx-auto px-4 pb-8">
+        {activeFilter === "info" ? (
+          <InfoSection
+            emails={filteredInfo}
+            onArchive={(id) => dismissCard(id, "archive")}
+            onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
+            onView={(email) => setModalEmail(email)}
+            onCreateTask={(id) => dismissCard(id, "task")}
+            onReply={(email) => setReplyEmail(email)}
+          />
+        ) : isEmpty ? (
+          <EmptyState firstName={firstName} onRefresh={fetchData} />
+        ) : (
+          <div className="space-y-4">
+            {visibleCards.map((email) => (
+              <DecisionCard
+                key={email.id}
+                email={email}
+                isAloneInOrg={isAloneInOrg}
+                onReply={() => setReplyEmail(email)}
+                onView={() => setModalEmail(email)}
+                onDelegate={() => setDelegateEmail(email)}
+                onTransfer={() => setTransferEmail(email)}
+                onCreateTask={() => dismissCard(email.id, "task")}
+                onArchive={() => dismissCard(email.id, "archive")}
+                onSnooze={() => snoozeCard(email.id)}
+                onAccept={() => dismissCard(email.id, "accept")}
+                onNegotiate={() => setReplyEmail(email)}
+                onRefuse={() => dismissCard(email.id, "refuse")}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Info section below decisions */}
+      {activeFilter !== "info" && filteredInfo.length > 0 && (
+        <div className="max-w-[860px] mx-auto px-4 pb-12">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-700">Emails non lus</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  setBackfilling(true);
+                  setBackfillToast(null);
+                  try {
+                    const res = await fetch("/api/mail/backfill-bodies", { method: "POST" });
+                    const json = await res.json();
+                    if (json.success) {
+                      setBackfillToast(`${json.updated}/${json.total} corps chargés${json.errors ? ` (${json.errors} erreurs)` : ""}`);
+                      if (json.updated > 0) fetchData();
+                    } else {
+                      setBackfillToast(json.error || "Erreur");
+                    }
+                  } catch {}
+                  setBackfilling(false);
+                  setTimeout(() => setBackfillToast(null), 5000);
+                }}
+                disabled={backfilling}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                Charger les corps
+              </button>
+              <button
+                onClick={async () => {
+                  setGeneratingSummaries(true);
+                  setSummaryToast(null);
+                  try {
+                    const res = await fetch("/api/mail/generate-summaries", { method: "POST" });
+                    const json = await res.json();
+                    if (json.success) {
+                      setSummaryToast(`${json.updated} résumé${json.updated !== 1 ? "s" : ""} généré${json.updated !== 1 ? "s" : ""}`);
+                      if (json.updated > 0) fetchData();
+                    }
+                  } catch {}
+                  setGeneratingSummaries(false);
+                  setTimeout(() => setSummaryToast(null), 4000);
+                }}
+                disabled={generatingSummaries}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+              >
+                {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Générer les résumés
+              </button>
+            </div>
+          </div>
+          {(summaryToast || backfillToast) && (
+            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
+              <Check className="w-4 h-4" />{backfillToast || summaryToast}
+            </div>
+          )}
+          <InfoSection
+            emails={filteredInfo.slice(0, 10)}
+            onArchive={(id) => dismissCard(id, "archive")}
+            onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
+            onView={(email) => setModalEmail(email)}
+            onCreateTask={(id) => dismissCard(id, "task")}
+            onReply={(email) => setReplyEmail(email)}
+          />
+        </div>
+      )}
+
+      {/* Email Detail Modal (FIX 2) */}
+      {modalEmail && (
+        <EmailDetailModal
+          email={modalEmail}
+          onClose={() => setModalEmail(null)}
+          onReply={() => { const e = modalEmail; setModalEmail(null); setReplyEmail(e); }}
+          onDelegate={() => { const e = modalEmail; setModalEmail(null); setDelegateEmail(e); }}
+          onTransfer={() => { const e = modalEmail; setModalEmail(null); setTransferEmail(e); }}
+          onCreateTask={() => { setModalEmail(null); dismissCard(modalEmail.id, "task"); }}
+          onArchive={() => { setModalEmail(null); dismissCard(modalEmail.id, "archive"); }}
+          isAloneInOrg={isAloneInOrg}
         />
       )}
 
-      {/* Right: Detail panel */}
-      {selectedEmail ? (
-        <div className="min-w-0 flex-1 bg-white">
-          <EmailDetailPanel
-            email={selectedEmail}
-            projects={projects}
-            onClose={() => setSelectedEmail(null)}
-            onEmailUpdated={handleEmailUpdated}
-          />
-        </div>
-      ) : (
-        <div className="hidden flex-1 items-center justify-center bg-gray-50 lg:flex">
-          <div className="text-center">
-            <Mail className="mx-auto h-12 w-12 text-[#D1D5DB]" />
-            <p className="mt-3 text-sm font-medium text-[#6B7280]">
-              {t("selectEmail")}
-            </p>
-            <p className="mt-1 text-xs text-[#9CA3AF]">
-              {t("selectEmailDesc")}
-            </p>
-          </div>
-        </div>
+      {/* Reply Modal (FIX 3 — replaces drawer) */}
+      {replyEmail && (
+        <ReplyModal
+          email={replyEmail}
+          onClose={() => setReplyEmail(null)}
+          onDone={(emailId) => {
+            setReplyEmail(null);
+            dismissCard(emailId, "replied");
+          }}
+        />
+      )}
+
+      {/* Delegate Modal (FIX 4) */}
+      {delegateEmail && (
+        <DelegateModal
+          email={delegateEmail}
+          orgMembers={orgMembers}
+          onClose={() => setDelegateEmail(null)}
+          onDone={(emailId) => {
+            setDelegateEmail(null);
+            dismissCard(emailId, "delegated");
+          }}
+        />
+      )}
+
+      {/* Transfer Modal (FIX 4) */}
+      {transferEmail && (
+        <TransferModal
+          email={transferEmail}
+          onClose={() => setTransferEmail(null)}
+          onDone={(emailId) => {
+            setTransferEmail(null);
+            dismissCard(emailId, "delegated");
+          }}
+        />
       )}
     </div>
   );
 }
 
-// ─── VirtualizedEmailList ──────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════
+   FILTER PILL
+   ═══════════════════════════════════════════════════════════ */
 
-interface VirtualizedEmailListProps {
-  emails: EmailRecord[];
-  selectedEmail: EmailRecord | null;
-  readIds: Set<string>;
-  projects: Project[];
-  locale: string;
-  onSelectEmail: (email: EmailRecord) => void;
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-}
-
-function VirtualizedEmailList({
-  emails,
-  selectedEmail,
-  readIds,
-  projects,
-  locale,
-  onSelectEmail,
-  scrollContainerRef,
-}: VirtualizedEmailListProps) {
-  const virtualizer = useVirtualizer({
-    count: emails.length,
-    getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 76,
-    overscan: 10,
-  });
+function FilterPill({ active, color, count, label, onClick }: {
+  active: boolean;
+  color: "red" | "amber" | "gray";
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  const colors = {
+    red: active ? "bg-red-100 text-red-800 border-red-300" : "bg-white text-red-700 border-gray-200 hover:border-red-200",
+    amber: active ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-white text-amber-700 border-gray-200 hover:border-amber-200",
+    gray: active ? "bg-gray-200 text-gray-800 border-gray-400" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300",
+  };
+  const dots = { red: "bg-red-500", amber: "bg-amber-500", gray: "bg-gray-400" };
 
   return (
-    <div
-      style={{
-        height: `${virtualizer.getTotalSize()}px`,
-        width: "100%",
-        position: "relative",
-      }}
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all ${colors[color]}`}
     >
-      {virtualizer.getVirtualItems().map((virtualItem) => {
-        const email = emails[virtualItem.index];
-        return (
+      <span className={`w-2 h-2 rounded-full ${dots[color]}`} />
+      {count} {label}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STAT CARD
+   ═══════════════════════════════════════════════════════════ */
+
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-gray-400 mb-1">
+        {icon}
+        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <div className="text-xl font-bold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EMAIL DETAIL MODAL (FIX 2 — proper scroll, no truncation)
+   ═══════════════════════════════════════════════════════════ */
+
+function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onCreateTask, onArchive, isAloneInOrg }: {
+  email: DecisionEmail;
+  onClose: () => void;
+  onReply: () => void;
+  onDelegate: () => void;
+  onTransfer: () => void;
+  onCreateTask: () => void;
+  onArchive: () => void;
+  isAloneInOrg: boolean;
+}) {
+  const [thread, setThread] = useState<ThreadMessage[] | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [fallbackBody, setFallbackBody] = useState<string>("");
+  const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
+
+  // Load thread from our API — uses Graph if possible, DB fallback otherwise
+  useEffect(() => {
+    // Immediate fallback: show body_preview while loading
+    setFallbackBody(email.body_preview || "");
+
+    async function loadThread() {
+      try {
+        const res = await fetch(`/api/mail/emails/${email.id}/thread`);
+        const data = await res.json();
+        if (data.thread && data.thread.length > 0) {
+          setThread(data.thread);
+        } else {
+          // No thread from Graph — use fallback from DB
+          if (data.fallback) {
+            const body = data.fallback.body || email.body_preview || "";
+            if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+              setFallbackIsHtml(true);
+            }
+            setFallbackBody(body);
+          }
+          if (data.error) {
+            setThreadError("Conversation complète indisponible — affichage du dernier message");
+          }
+        }
+      } catch {
+        setThreadError("Conversation complète indisponible — affichage du dernier message");
+      }
+      setThreadLoading(false);
+    }
+
+    loadThread();
+  }, [email]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const priorityBadge = email.priority === "urgent"
+    ? { label: "URGENT", cls: "bg-red-500/20 text-red-200" }
+    : email.priority === "action"
+    ? { label: "ACTION", cls: "bg-amber-500/20 text-amber-200" }
+    : { label: "INFO", cls: "bg-white/15 text-blue-200" };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          style={{ width: "70vw", maxWidth: "960px", height: "80vh", maxHeight: "800px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 px-6 py-4" style={{ background: "#1E3A5F" }}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0 mr-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {email.project_name && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">{email.project_name}</span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${priorityBadge.cls}`}>{priorityBadge.label}</span>
+                  {thread && thread.length > 1 && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">
+                      {thread.length} messages
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg font-semibold text-white truncate">{email.subject}</h2>
+                <div className="flex items-center gap-2 mt-1 text-sm text-[#93C5FD]">
+                  <span>De : {email.sender_name || email.sender_email} &lt;{email.sender_email}&gt;</span>
+                  <span className="text-blue-300/50">·</span>
+                  <span>{formatFullDate(email.received_at)}</span>
+                </div>
+              </div>
+              <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors flex-shrink-0">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
           <div
-            key={email.id}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${virtualItem.start}px)`,
-            }}
+            className="flex-1 min-h-0 overflow-y-auto px-6 py-6"
+            onWheel={(e) => e.stopPropagation()}
           >
-            <EmailListItem
-              email={email}
-              isSelected={selectedEmail?.id === email.id}
-              isRead={readIds.has(email.id)}
-              onClick={() => onSelectEmail(email)}
-              showProject
-              projects={projects}
-              locale={locale}
-            />
+            {/* AI Summary block */}
+            {email.ai_summary && (
+              <>
+                <div className="rounded-lg overflow-hidden mb-5" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                  <div className="px-4 py-3">
+                    <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-1.5">Résumé IA</div>
+                    <p className="text-sm leading-relaxed" style={{ color: "#1E3A5F" }}>{email.ai_summary}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">
+                    {thread && thread.length > 1 ? "Fil de conversation" : "Contenu de l'email"}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              </>
+            )}
+
+            {threadError && !thread && (
+              <div className="mb-4 px-3 py-1.5 text-xs text-gray-400 flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3" />{threadError}
+              </div>
+            )}
+
+            {/* Thread or single email */}
+            {thread && thread.length > 0 ? (
+              <ThreadView thread={thread} currentUserEmail={email.sender_email} />
+            ) : (
+              <div className="bg-[#F9FAFB] rounded-lg p-4">
+                {threadLoading && !fallbackBody ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+                    <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
+                  </div>
+                ) : fallbackIsHtml ? (
+                  <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
+                ) : (
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{fallbackBody}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
+            <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
+              <Send className="w-3.5 h-3.5" />Répondre avec IA
+            </button>
+            {isAloneInOrg ? (
+              <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+                <Forward className="w-3.5 h-3.5" />Transférer
+              </button>
+            ) : (
+              <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+                <Users className="w-3.5 h-3.5" />Déléguer
+              </button>
+            )}
+            <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <ListTodo className="w-3.5 h-3.5" />Créer une tâche
+            </button>
+            <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white hover:bg-red-50 border border-red-200 rounded-lg transition-colors">
+              <Archive className="w-3.5 h-3.5" />Archiver
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THREAD VIEW (reusable conversation thread component)
+   ═══════════════════════════════════════════════════════════ */
+
+function ThreadView({ thread, currentUserEmail }: {
+  thread: ThreadMessage[];
+  currentUserEmail?: string;
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    // Last message is always expanded
+    if (thread.length === 0) return new Set<string>();
+    return new Set([thread[thread.length - 1].id]);
+  });
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {thread.map((msg, idx) => {
+        const isExpanded = expandedIds.has(msg.id);
+        const isLast = idx === thread.length - 1;
+        const isCurrentUser = currentUserEmail ? msg.from.email.toLowerCase() === currentUserEmail.toLowerCase() : false;
+        const avatarColor = getAvatarColor(msg.from.name || msg.from.email, isCurrentUser);
+        const initials = getInitials(msg.from.name || msg.from.email);
+        const isHtml = msg.body.contentType?.toLowerCase() === "html";
+
+        return (
+          <div key={msg.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+            {/* Message header — clickable to expand/collapse */}
+            <button
+              onClick={() => toggleExpand(msg.id)}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+            >
+              {/* Avatar */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                style={{ background: avatarColor }}
+              >
+                {initials}
+              </div>
+
+              {/* Sender info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900 truncate">
+                    {msg.from.name || msg.from.email}
+                  </span>
+                  {msg.isCurrentMessage && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">Message principal</span>
+                  )}
+                </div>
+                {!isExpanded && (
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{msg.bodyPreview}</p>
+                )}
+              </div>
+
+              {/* Date + chevron */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-gray-400">{formatThreadDate(msg.receivedDateTime)}</span>
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </button>
+
+            {/* Expanded body */}
+            {isExpanded && (
+              <div className="border-t border-gray-100">
+                {/* Recipients line */}
+                <div className="px-4 py-2 text-xs text-gray-500 space-y-0.5 bg-gray-50/50">
+                  <p>De : {msg.from.name} &lt;{msg.from.email}&gt;</p>
+                  {msg.to.length > 0 && (
+                    <p>À : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
+                  )}
+                  {msg.cc.length > 0 && (
+                    <p>CC : {msg.cc.map((r) => r.name || r.email).join(", ")}</p>
+                  )}
+                </div>
+
+                {/* Body content */}
+                <div className="px-4 py-4">
+                  {isHtml ? (
+                    <div
+                      className="prose prose-sm max-w-none text-gray-700 email-content"
+                      dangerouslySetInnerHTML={{ __html: msg.body.content }}
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body.content}</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Separator label between messages */}
+            {!isLast && idx < thread.length - 1 && (
+              <div className="px-4 pb-1">
+                <span className="text-[10px] text-gray-400">
+                  Réponse · il y a {timeAgo(thread[idx + 1].receivedDateTime)}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
@@ -706,119 +836,948 @@ function VirtualizedEmailList({
   );
 }
 
-// ─── EmailListItem ────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════
+   DECISION CARD (z-index + overflow + upward dropdown)
+   ═══════════════════════════════════════════════════════════ */
 
-interface EmailListItemProps {
-  email: EmailRecord;
-  isSelected: boolean;
-  isRead: boolean;
-  onClick: () => void;
-  showProject?: boolean;
-  projects?: Project[];
-  locale?: string;
-}
+function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse }: {
+  email: DecisionEmail;
+  isAloneInOrg: boolean;
+  onReply: () => void;
+  onView: () => void;
+  onDelegate: () => void;
+  onTransfer: () => void;
+  onCreateTask: () => void;
+  onArchive: () => void;
+  onSnooze: () => void;
+  onAccept: () => void;
+  onNegotiate: () => void;
+  onRefuse: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-function EmailListItem({
-  email,
-  isSelected,
-  isRead,
-  onClick,
-  showProject,
-  projects,
-  locale = "fr",
-}: EmailListItemProps) {
-  const senderName = email.from_name || email.sender_name || email.from_email || email.sender_email || "";
-  const badge = getClassificationBadge(email);
-  const project = showProject && email.project_id && projects
-    ? projects.find((p) => p.id === email.project_id)
-    : null;
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
+  const toggleMenu = useCallback(() => {
+    if (!menuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < 220);
+    }
+    setMenuOpen(!menuOpen);
+  }, [menuOpen]);
+
+  const borderColor = email.priority === "urgent" ? "border-l-red-600" : email.priority === "action" ? "border-l-amber-500" : "border-l-gray-400";
+  const badge = email.is_quote
+    ? { label: "DEVIS RECU", color: "bg-amber-100 text-amber-800" }
+    : email.priority === "urgent"
+    ? { label: "URGENT", color: "bg-red-100 text-red-800" }
+    : { label: "ACTION REQUISE", color: "bg-amber-100 text-amber-800" };
+
+  const handleAction = (action: () => void) => {
+    setExiting(true);
+    setTimeout(action, 350);
+  };
+
+  if (email.is_quote) {
+    return (
+      <div
+        className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm overflow-visible transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+      >
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>{badge.label}</span>
+            {email.project_name && <span className="text-xs text-gray-500 font-medium">{email.project_name}</span>}
+          </div>
+          <p className="text-gray-800 font-medium mb-1">
+            {email.sender_name || email.sender_email} a répondu à ta demande de prix
+          </p>
+          {email.ai_summary && (
+            <p className="text-sm text-gray-500 mb-3 line-clamp-2">{email.ai_summary}</p>
+          )}
+          {email.price_indicator?.extracted_price != null && (
+            <div className="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">
+                Prix extrait : CHF {email.price_indicator.extracted_price.toLocaleString("fr-CH")}
+              </span>
+              {email.price_indicator.diff_percent != null ? (
+                email.price_indicator.diff_percent > 5 ? (
+                  <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />+{email.price_indicator.diff_percent.toFixed(0)}% vs marché
+                  </span>
+                ) : (
+                  <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />Dans la norme
+                  </span>
+                )
+              ) : (
+                <span className="text-xs text-gray-400">Pas de référence marché</span>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => handleAction(onAccept)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+              <ThumbsUp className="w-3.5 h-3.5" />Accepter
+            </button>
+            <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors">
+              <MessageSquare className="w-3.5 h-3.5" />Négocier
+            </button>
+            <button onClick={() => handleAction(onRefuse)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors">
+              <ThumbsDown className="w-3.5 h-3.5" />Refuser
+            </button>
+            <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <Eye className="w-3.5 h-3.5" />Voir détail
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full gap-3 px-4 py-3 text-left transition-colors border-b border-gray-100",
-        isSelected
-          ? "bg-blue-50 border-l-2 border-l-[#2563EB]"
-          : "hover:bg-gray-50",
-        !isRead && "bg-blue-50/30"
-      )}
+    <div
+      className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm overflow-visible relative transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
+      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", zIndex: menuOpen ? 10 : 1 }}
     >
-      {/* Unread indicator */}
-      <div className="mt-1.5 shrink-0">
-        {!isRead ? (
-          <div className="h-2 w-2 rounded-full bg-[#2563EB]" />
-        ) : (
-          <div className="h-2 w-2" />
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        {/* Row 1: Sender + time */}
-        <div className="flex items-center justify-between gap-2">
-          <p
-            className={cn(
-              "truncate text-sm",
-              !isRead ? "font-semibold text-[#111827]" : "font-medium text-[#374151]"
-            )}
-          >
-            {senderName}
-          </p>
-          <span className="shrink-0 text-[11px] text-[#9CA3AF]">
-            {formatRelativeDate(email.received_at, locale)}
-          </span>
+      <div className="p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>{badge.label}</span>
+          {email.project_name && <span className="text-xs text-gray-500 font-medium">{email.project_name}</span>}
+          <span className="text-xs text-gray-400 ml-auto">il y a {timeAgo(email.received_at)}</span>
         </div>
-
-        {/* Row 2: Subject */}
-        <p
-          className={cn(
-            "truncate text-sm",
-            !isRead ? "font-medium text-[#111827]" : "text-[#6B7280]"
-          )}
-        >
-          {email.subject}
+        <p className="text-sm text-gray-700 mb-2 line-clamp-2">
+          {email.ai_summary || email.body_preview || email.subject}
         </p>
+        <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
+          <span>De : {email.sender_name || email.sender_email}</span>
+          {email.priority === "urgent" && (
+            <span className="text-red-500 font-medium">Répondre sous 24h</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
+            <Send className="w-3.5 h-3.5" />Répondre avec IA
+          </button>
+          <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <Eye className="w-3.5 h-3.5" />Voir l&apos;email
+          </button>
+          {isAloneInOrg ? (
+            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <Forward className="w-3.5 h-3.5" />Transférer
+            </button>
+          ) : (
+            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <Users className="w-3.5 h-3.5" />Déléguer
+            </button>
+          )}
 
-        {/* Row 3: Preview + badges */}
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate text-xs text-[#9CA3AF]">
-            {stripSignature(email.body_preview || "")}
-          </p>
-          <div className="flex shrink-0 items-center gap-1">
-            {email.has_attachments && (
-              <Paperclip className="h-3 w-3 text-[#9CA3AF]" />
-            )}
-            {badge && (
-              <span
-                className={cn(
-                  "rounded px-1 py-0.5 text-[10px] font-medium",
-                  badge.color
+          {/* More menu */}
+          <div className="relative ml-auto" ref={menuRef}>
+            <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {menuOpen && (
+              <div
+                className={`absolute right-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
+              >
+                {!isAloneInOrg && (
+                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <Forward className="w-4 h-4" />Transférer
+                  </button>
                 )}
-              >
-                {badge.label}
-              </span>
-            )}
-            {email.ai_summary && (
-              <Sparkles className="h-3 w-3 text-amber-400" />
-            )}
-            {project && (
-              <span
-                className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: `${project.color}15`,
-                  color: project.color,
-                }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: project.color }}
-                />
-                {project.code || project.name?.substring(0, 8)}
-              </span>
+                <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <ListTodo className="w-4 h-4" />Créer une tâche
+                </button>
+                <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <Archive className="w-4 h-4" />Archiver
+                </button>
+                <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <AlarmClock className="w-4 h-4" />Reporter à demain
+                </button>
+                <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <ExternalLink className="w-4 h-4" />Voir dans Mail
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
-    </button>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INFO SECTION (cards grouped by project)
+   ═══════════════════════════════════════════════════════════ */
+
+function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, onReply }: {
+  emails: DecisionEmail[];
+  onArchive: (id: string) => void;
+  onArchiveAll: () => void;
+  onView: (email: DecisionEmail) => void;
+  onCreateTask: (id: string) => void;
+  onReply: (email: DecisionEmail) => void;
+}) {
+  const [confirmArchiveAll, setConfirmArchiveAll] = useState(false);
+  const [dismissedLocal, setDismissedLocal] = useState<Set<string>>(new Set());
+
+  if (emails.length === 0) return null;
+
+  const visible = emails.filter((e) => !dismissedLocal.has(e.id));
+
+  const groups: Record<string, DecisionEmail[]> = {};
+  for (const email of visible) {
+    const key = email.project_name || "Sans projet";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(email);
+  }
+  const groupEntries = Object.entries(groups).sort(([a], [b]) => {
+    if (a === "Sans projet") return 1;
+    if (b === "Sans projet") return -1;
+    return a.localeCompare(b);
+  });
+
+  const handleArchive = (id: string) => {
+    setDismissedLocal((prev) => new Set(prev).add(id));
+    onArchive(id);
+  };
+
+  const handleArchiveAll = () => {
+    if (!confirmArchiveAll) {
+      setConfirmArchiveAll(true);
+      return;
+    }
+    onArchiveAll();
+    setConfirmArchiveAll(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      {groupEntries.map(([projectName, groupEmails]) => (
+        <div key={projectName}>
+          {groupEntries.length > 1 && (
+            <div className="text-sm font-semibold text-gray-500 mb-2 pl-1">
+              {projectName} ({groupEmails.length} email{groupEmails.length !== 1 ? "s" : ""})
+            </div>
+          )}
+          <div className={`space-y-2 ${groupEntries.length > 1 ? "pl-2" : ""}`}>
+            {groupEmails.map((email) => (
+              <InfoCard
+                key={email.id}
+                email={email}
+                onView={() => onView(email)}
+                onCreateTask={() => { setDismissedLocal((p) => new Set(p).add(email.id)); onCreateTask(email.id); }}
+                onArchive={() => handleArchive(email.id)}
+                onReply={() => onReply(email)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {visible.length > 1 && (
+        <div className="pt-2">
+          <button
+            onClick={handleArchiveAll}
+            className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${confirmArchiveAll ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100" : "text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:bg-gray-50"}`}
+          >
+            {confirmArchiveAll ? `Archiver ${visible.length} emails info ?` : "Tout archiver"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INFO CARD (FIX 1 — AI summary + reply button)
+   ═══════════════════════════════════════════════════════════ */
+
+function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
+  email: DecisionEmail;
+  onView: () => void;
+  onCreateTask: () => void;
+  onArchive: () => void;
+  onReply: () => void;
+}) {
+  const [exiting, setExiting] = useState(false);
+
+  const handleAction = (action: () => void) => {
+    setExiting(true);
+    setTimeout(action, 300);
+  };
+
+  return (
+    <div
+      className={`bg-white rounded-xl border border-gray-100 border-l-[3px] border-l-gray-300 shadow-sm transition-all duration-300 ${exiting ? "opacity-0 -translate-x-6" : "opacity-100 translate-x-0"}`}
+      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+    >
+      <div className="p-4">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-1">
+          {email.project_name && <span className="text-xs font-medium text-gray-500">{email.project_name}</span>}
+          <span className="text-xs text-gray-400">il y a {timeAgo(email.received_at)}</span>
+        </div>
+
+        {/* Subject */}
+        <p className="text-sm font-medium text-gray-800 truncate mb-0.5">
+          {email.subject.length > 80 ? email.subject.slice(0, 80) + "..." : email.subject}
+        </p>
+
+        {/* Sender */}
+        <p className="text-xs text-gray-400 mb-2">De : {email.sender_name || email.sender_email}</p>
+
+        {/* Summary / preview block */}
+        {email.ai_summary ? (
+          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ RÉSUMÉ IA</div>
+              <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #9CA3AF", background: "#F3F4F6" }}>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-gray-400 mb-1">APERÇU</div>
+              <p className="text-xs leading-relaxed text-gray-500">
+                {email.body_preview ? (email.body_preview.length > 150 ? email.body_preview.slice(0, 150) + "..." : email.body_preview) : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Actions — FIX 1: added reply button */}
+        <div className="flex items-center gap-2">
+          <button onClick={onReply} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-md transition-colors">
+            <Send className="w-3 h-3" />Répondre avec IA
+          </button>
+          <button onClick={onView} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+            <Eye className="w-3 h-3" />Lire l&apos;email
+          </button>
+          <button onClick={() => handleAction(onCreateTask)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+            <ListTodo className="w-3 h-3" />Créer une tâche
+          </button>
+          <button onClick={() => handleAction(onArchive)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+            <Archive className="w-3 h-3" />Archiver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════════════════ */
+
+function EmptyState({ firstName, onRefresh }: { firstName: string; onRefresh: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+        <CheckCircle2 className="w-8 h-8 text-green-600" />
+      </div>
+      <h2 className="text-xl font-bold text-gray-900 mb-1">Tout est traité. Beau travail, {firstName}.</h2>
+      <p className="text-gray-500 text-sm mb-4">Dernière mise à jour il y a quelques instants</p>
+      <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <RefreshCw className="w-4 h-4" />Actualiser
+      </button>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REPLY MODAL (FIX 3 — centered popup, 2 columns, CC/CCI)
+   ═══════════════════════════════════════════════════════════ */
+
+function ReplyModal({ email, onClose, onDone }: {
+  email: DecisionEmail;
+  onClose: () => void;
+  onDone: (emailId: string) => void;
+}) {
+  const [replyText, setReplyText] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [thread, setThread] = useState<ThreadMessage[] | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [fallbackBody, setFallbackBody] = useState("");
+  const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+  const threadContextRef = useRef<string>("");
+
+  // Load thread from our API — uses Graph if possible, DB fallback otherwise
+  useEffect(() => {
+    setFallbackBody(email.body_preview || "");
+
+    async function loadThread() {
+      try {
+        const res = await fetch(`/api/mail/emails/${email.id}/thread`);
+        const data = await res.json();
+        if (data.thread && data.thread.length > 0) {
+          setThread(data.thread);
+          // Build thread context for AI
+          threadContextRef.current = data.thread.map((msg: ThreadMessage) =>
+            `[${msg.receivedDateTime}] De: ${msg.from.name} <${msg.from.email}>\nObjet: ${msg.subject}\n${msg.bodyPreview || ""}`
+          ).join("\n\n---\n\n");
+        } else if (data.fallback) {
+          // No thread from Graph — use fallback from DB
+          const body = data.fallback.body || email.body_preview || "";
+          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+            setFallbackIsHtml(true);
+          }
+          setFallbackBody(body);
+        }
+      } catch {}
+      setThreadLoading(false);
+    }
+
+    loadThread();
+  }, [email]);
+
+  // Generate AI reply — includes thread context
+  const generateReply = useCallback(async () => {
+    setReplyLoading(true);
+    try {
+      const payload: Record<string, unknown> = { email_id: email.id };
+      if (threadContextRef.current) {
+        payload.thread_context = threadContextRef.current;
+      }
+      const res = await fetch("/api/ai/generate-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReplyText(data.reply_text || "");
+      }
+    } catch { /* ignore */ }
+    setReplyLoading(false);
+  }, [email.id]);
+
+  // Wait for thread to load before generating reply (for context)
+  useEffect(() => {
+    if (!threadLoading) {
+      generateReply();
+    }
+  }, [threadLoading, generateReply]);
+
+  // Auto-expand textarea
+  useEffect(() => {
+    if (replyRef.current) {
+      replyRef.current.style.height = "auto";
+      replyRef.current.style.height = Math.max(200, replyRef.current.scrollHeight) + "px";
+    }
+  }, [replyText]);
+
+  // Close on Escape
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  const handleSend = async () => {
+    if (!replyText.trim()) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const payload: Record<string, any> = {
+        to: [email.sender_email],
+        subject: `Re: ${email.subject}`,
+        body: replyText.replace(/\n/g, "<br>"),
+        reply_to_id: email.outlook_message_id,
+      };
+      if (cc.trim()) payload.cc = cc.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (bcc.trim()) payload.bcc = bcc.split(",").map((s: string) => s.trim()).filter(Boolean);
+
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Erreur serveur" }));
+        setSendError(data.error || `Erreur ${res.status}`);
+        setSending(false);
+        return;
+      }
+      onDone(email.id);
+    } catch {
+      setSendError("Erreur de connexion — vérifiez votre réseau");
+    }
+    setSending(false);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          style={{ width: "75vw", maxWidth: "1100px", height: "85vh", maxHeight: "900px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                Répondre à {email.sender_name || email.sender_email}
+              </h2>
+              <p className="text-sm text-[#93C5FD] truncate mt-0.5">{email.subject}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors flex-shrink-0">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body — 2 columns */}
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+            {/* Left: conversation thread (40%) */}
+            <div className="md:w-[40%] border-r border-gray-200 flex flex-col min-h-0">
+              <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
+                <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">
+                  {thread && thread.length > 1 ? `Conversation (${thread.length})` : "Email original"}
+                </span>
+              </div>
+              <div
+                className="flex-1 min-h-0 overflow-y-auto p-4"
+                style={{ background: "#F9FAFB" }}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                {thread && thread.length > 0 ? (
+                  <ThreadView thread={thread} currentUserEmail={email.sender_email} />
+                ) : (
+                  <>
+                    <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
+                    <div className="text-xs text-gray-500 mb-3">De : {email.sender_name || email.sender_email}</div>
+                    {threadLoading && !fallbackBody ? (
+                      <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                        <Loader2 className="w-4 h-4 animate-spin" />Chargement...
+                      </div>
+                    ) : fallbackIsHtml ? (
+                      <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
+                    ) : (
+                      <div className="text-sm text-gray-600 whitespace-pre-wrap">{fallbackBody}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Right: reply (60%) */}
+            <div className="md:w-[60%] flex flex-col min-h-0">
+              {/* Recipients */}
+              <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-[#F9FAFB] space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500 w-8 text-right">À :</span>
+                  <span className="text-gray-900 font-medium">{email.sender_email}</span>
+                </div>
+                {showCcBcc ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-500 w-8 text-right">CC :</span>
+                      <input
+                        type="text"
+                        value={cc}
+                        onChange={(e) => setCc(e.target.value)}
+                        placeholder="email1@ex.com, email2@ex.com"
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-500 w-8 text-right">CCI :</span>
+                      <input
+                        type="text"
+                        value={bcc}
+                        onChange={(e) => setBcc(e.target.value)}
+                        placeholder="email@ex.com"
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowCcBcc(true)}
+                    className="text-xs text-blue-600 hover:underline ml-10"
+                  >
+                    + Ajouter CC/CCI
+                  </button>
+                )}
+              </div>
+
+              {/* AI reply */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto p-4"
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <div className="rounded-lg overflow-hidden" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs uppercase font-semibold tracking-wide text-[#2563EB]">Réponse IA suggérée</span>
+                      {!replyLoading && (
+                        <button
+                          onClick={generateReply}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" />Régénérer
+                        </button>
+                      )}
+                    </div>
+                    {replyLoading ? (
+                      <div className="flex items-center gap-2 text-blue-400 text-sm py-8">
+                        <Loader2 className="w-4 h-4 animate-spin" />Génération en cours...
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={replyRef}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        className="w-full p-3 text-sm rounded-lg resize-none border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        style={{ minHeight: "200px" }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white">
+            {sendError && (
+              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />{sendError}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSend}
+                disabled={sending || replyLoading || !replyText.trim()}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Envoyer
+              </button>
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DELEGATE MODAL (FIX 4 — org members + task creation)
+   ═══════════════════════════════════════════════════════════ */
+
+function DelegateModal({ email, orgMembers, onClose, onDone }: {
+  email: DecisionEmail;
+  orgMembers: OrgMember[];
+  onClose: () => void;
+  onDone: (emailId: string) => void;
+}) {
+  const [selectedMember, setSelectedMember] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [emailBody, setEmailBody] = useState("");
+
+  useEffect(() => {
+    async function loadBody() {
+      if (!email.outlook_message_id) {
+        setEmailBody(email.body_preview || "");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmailBody(data.body || email.body_preview || "");
+        }
+      } catch {
+        setEmailBody(email.body_preview || "");
+      }
+    }
+    loadBody();
+  }, [email]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleDelegate = async () => {
+    if (!selectedMember) return;
+    setSending(true);
+    try {
+      const member = orgMembers.find((m) => m.id === selectedMember);
+      if (member) {
+        // Forward email
+        await fetch("/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: [member.email],
+            subject: `Fwd: ${email.subject}`,
+            body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
+            forward_id: email.outlook_message_id,
+          }),
+        });
+
+        // Create task assigned to this member
+        try {
+          await fetch("/api/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: `Délégué: ${email.subject}`,
+              description: message || `Email transféré de ${email.sender_name || email.sender_email}`,
+              assigned_to: member.id,
+              project_id: email.project_id,
+              source: "email",
+              priority: email.priority === "urgent" ? "high" : "medium",
+            }),
+          });
+        } catch { /* non-blocking */ }
+      }
+      onDone(email.id);
+    } catch {
+      setDelegateError("Erreur lors de la délégation — vérifiez votre connexion");
+    }
+    setSending(false);
+  };
+
+  const [delegateError, setDelegateError] = useState<string | null>(null);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <h2 className="text-lg font-semibold text-white">Déléguer à un collègue</h2>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
+              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Déléguer à</label>
+              {orgMembers.length > 0 ? (
+                <select
+                  value={selectedMember}
+                  onChange={(e) => setSelectedMember(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Choisir un membre...</option>
+                  {orgMembers.map((m) => (
+                    <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-gray-500">Aucun autre membre dans votre organisation.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ajouter un message au transfert..."
+                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
+            {delegateError && (
+              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />{delegateError}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDelegate}
+                disabled={sending || !selectedMember}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                Déléguer
+              </button>
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TRANSFER MODAL (FIX 4 — free email input, no task)
+   ═══════════════════════════════════════════════════════════ */
+
+function TransferModal({ email, onClose, onDone }: {
+  email: DecisionEmail;
+  onClose: () => void;
+  onDone: (emailId: string) => void;
+}) {
+  const [toEmail, setToEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [emailBody, setEmailBody] = useState("");
+
+  useEffect(() => {
+    async function loadBody() {
+      if (!email.outlook_message_id) {
+        setEmailBody(email.body_preview || "");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/outlook/email-body?message_id=${encodeURIComponent(email.outlook_message_id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmailBody(data.body || email.body_preview || "");
+        }
+      } catch {
+        setEmailBody(email.body_preview || "");
+      }
+    }
+    loadBody();
+  }, [email]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleTransfer = async () => {
+    if (!toEmail.trim()) return;
+    setSending(true);
+    try {
+      await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [toEmail.trim()],
+          subject: `Fwd: ${email.subject}`,
+          body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
+          forward_id: email.outlook_message_id,
+        }),
+      });
+      onDone(email.id);
+    } catch {
+      setTransferError("Erreur lors du transfert — vérifiez votre connexion");
+    }
+    setSending(false);
+  };
+
+  const [transferError, setTransferError] = useState<string | null>(null);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
+            <h2 className="text-lg font-semibold text-white">Transférer l&apos;email</h2>
+            <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
+              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Transférer à</label>
+              <input
+                type="email"
+                value={toEmail}
+                onChange={(e) => setToEmail(e.target.value)}
+                placeholder="destinataire@example.com"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ajouter un message au transfert..."
+                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
+            {transferError && (
+              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />{transferError}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleTransfer}
+                disabled={sending || !toEmail.trim()}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
+                Transférer
+              </button>
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

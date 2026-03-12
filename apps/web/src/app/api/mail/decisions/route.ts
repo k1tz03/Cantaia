@@ -3,9 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * GET /api/mail-test/decisions
- * Returns email_records classified as decisions for the Vue Décision lab.
- * Superadmin only.
+ * GET /api/mail/decisions
+ * Returns email_records classified as decisions for the mail decision view.
  */
 export async function GET() {
   try {
@@ -15,15 +14,14 @@ export async function GET() {
 
     const admin = createAdminClient();
 
-    // Check superadmin
     const { data: profile } = await (admin as any)
       .from("users")
-      .select("first_name, is_superadmin, organization_id")
+      .select("first_name, organization_id")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.is_superadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
     const now = new Date();
@@ -79,7 +77,6 @@ export async function GET() {
     let priceIndicators: Record<string, { extracted_price?: number; market_median?: number; diff_percent?: number }> = {};
 
     if (priceEmails.length > 0) {
-      // Look up ingested_offer_lines for market comparison
       const { data: recentPrices } = await (admin as any)
         .from("ingested_offer_lines")
         .select("cfc_code, unit_price_ht")
@@ -88,7 +85,6 @@ export async function GET() {
         .limit(500);
 
       if (recentPrices && recentPrices.length > 0) {
-        // Build median prices by CFC code
         const pricesByCfc: Record<string, number[]> = {};
         for (const line of recentPrices) {
           if (line.cfc_code && line.unit_price_ht != null) {
@@ -96,7 +92,6 @@ export async function GET() {
             pricesByCfc[line.cfc_code].push(Number(line.unit_price_ht));
           }
         }
-        // Store for later use (price indicators are enriched per email if needed)
         for (const email of priceEmails) {
           priceIndicators[email.id] = { extracted_price: undefined, market_median: undefined, diff_percent: undefined };
         }
@@ -165,7 +160,7 @@ export async function GET() {
       avgResponseTimeHours = Math.round((totalMs / recentProcessed.length / (1000 * 60 * 60)) * 10) / 10;
     }
 
-    // Savings generated (sum of positive diffs from submission_quotes vs ingested_offer_lines)
+    // Savings generated
     let savingsGenerated: number | null = null;
     try {
       const { data: savings } = await (admin as any)
@@ -175,7 +170,6 @@ export async function GET() {
         .limit(500);
 
       if (savings && savings.length > 0) {
-        // This is a simplified calculation
         savingsGenerated = 0;
       }
     } catch {
@@ -211,13 +205,13 @@ export async function GET() {
       },
     });
   } catch (err: any) {
-    console.error("[mail-test/decisions] Error:", err);
+    console.error("[mail/decisions] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 /**
- * PATCH /api/mail-test/decisions
+ * PATCH /api/mail/decisions
  * Mark an email as processed (decision taken).
  * Body: { email_id: string, action: string }
  */
@@ -228,16 +222,6 @@ export async function PATCH(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
-
-    const { data: profile } = await (admin as any)
-      .from("users")
-      .select("is_superadmin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!profile?.is_superadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const body = await request.json();
     const { email_id, action } = body;
@@ -272,7 +256,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("[mail-test/decisions] PATCH error:", err);
+    console.error("[mail/decisions] PATCH error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

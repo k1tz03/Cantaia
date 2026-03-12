@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * POST /api/mail-test/generate-summaries
+ * POST /api/mail/generate-summaries
  * Generates AI summaries for emails that don't have one yet.
  * Processes up to 10 emails per call.
  */
@@ -14,17 +14,6 @@ export async function POST() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
-
-    // Check superadmin
-    const { data: profile } = await (admin as any)
-      .from("users")
-      .select("is_superadmin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!profile?.is_superadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     // Fetch emails without ai_summary — use body_text OR body_preview from DB only (no Graph)
     const { data: emails } = await (admin as any)
@@ -89,7 +78,6 @@ export async function POST() {
         }
       } catch (err: any) {
         console.error(`[SUMMARY] Error for email ${email.id}:`, err?.message || err);
-        // Continue with next email
       }
     }
 
