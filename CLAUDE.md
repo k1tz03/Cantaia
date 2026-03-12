@@ -979,6 +979,10 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | MAIL.FIX2 | Mail page | Pas de bouton sync dans le nouveau module (l'ancien utilisait EmailContext.syncEmails) | Ajouté `syncEmails()` dédié avec POST `/api/outlook/sync` + toast résultat |
 | MAIL.FIX3 | Mail page | Auth redirect cassé (vérifiait status 403 au lieu de 401) | Corrigé : `if (res.status === 401) router.replace("/login")` |
 | MAIL.FIX4 | Build | `delegateError`/`transferError` déclarés mais non utilisés (TS error) | Ajouté affichage JSX dans les footers des modals Delegate et Transfer |
+| MAIL.FIX5 | Mail page | Contenu email tronqué — seul `body_preview` (500 chars) affiché au lieu du corps complet | Decisions API retourne maintenant `body_html` + `body_text` ; fallback immédiat utilise body_html > body_text > body_preview |
+| MAIL.FIX6 | Thread API | Images `cid:` cassées dans les threads — références non résolues | Thread route résout les `cid:` en base64 data URIs via Graph attachments API (pour chaque message du thread + fallback DB) |
+| MAIL.FIX7 | Mail page | XSS — HTML email injecté via `dangerouslySetInnerHTML` sans sanitisation | Ajouté `DOMPurify.sanitize()` avec config permissive (images, tables, styles) sur toutes les 3 insertions HTML |
+| MAIL.FIX8 | CSS | Images email débordent du conteneur, pas de max-width | Ajouté styles `.email-content img { max-width: 100%; height: auto }` + word-break dans globals.css |
 
 ### Non corrigés (à investiguer)
 

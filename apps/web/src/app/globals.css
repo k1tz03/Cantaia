@@ -77,3 +77,22 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* Email HTML content rendering */
+.email-content {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.email-content img {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+.email-content table {
+  max-width: 100%;
+  border-collapse: collapse;
+}
+.email-content a {
+  color: #2563EB;
+  text-decoration: underline;
+}

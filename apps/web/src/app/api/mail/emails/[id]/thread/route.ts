@@ -45,11 +45,41 @@ export async function GET(
     }
 
     // Helper: build fallback from current emailRecord state
-    function buildFallback(record: typeof emailRecord) {
+    // Optionally resolves cid: inline images if token available
+    async function buildFallback(record: typeof emailRecord, token?: string | null) {
+      let body = record.body_html || record.body_text || record.body_preview || "";
+
+      // Resolve cid: references in fallback HTML body
+      if (token && record.outlook_message_id && body.includes("cid:")) {
+        try {
+          const attRes = await fetch(
+            `https://graph.microsoft.com/v1.0/me/messages/${record.outlook_message_id}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (attRes.ok) {
+            const attData = await attRes.json();
+            const inlineAtts = (attData.value || []).filter(
+              (a: any) => a.isInline && a.contentBytes
+            );
+            for (const att of inlineAtts) {
+              const cid = att.contentId || att.name;
+              if (cid && att.contentBytes) {
+                const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
+                body = body
+                  .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri)
+                  .replace(new RegExp(`cid:${cid.replace(/^<|>$/g, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+              }
+            }
+          }
+        } catch (err: any) {
+          console.warn(`[thread] Fallback CID resolve failed:`, err?.message);
+        }
+      }
+
       return {
         subject: record.subject,
         from: { name: record.sender_name || "", email: record.sender_email },
-        body: record.body_html || record.body_text || record.body_preview || "",
+        body,
         bodyPreview: record.body_preview || "",
         receivedDateTime: record.received_at,
         ai_summary: record.ai_summary || null,
@@ -111,7 +141,7 @@ export async function GET(
         error: !emailRecord.outlook_message_id
           ? "Pas d'identifiant Outlook — conversation indisponible"
           : "Connexion Microsoft requise",
-        fallback: buildFallback(emailRecord),
+        fallback: await buildFallback(emailRecord, accessToken),
       });
     }
 
@@ -126,7 +156,7 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Conversation complète indisponible",
-        fallback: buildFallback(emailRecord),
+        fallback: await buildFallback(emailRecord, accessToken),
       });
     }
 
@@ -137,7 +167,7 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Pas de conversationId trouvé",
-        fallback: buildFallback(emailRecord),
+        fallback: await buildFallback(emailRecord, accessToken),
       });
     }
 
@@ -152,36 +182,71 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Conversation complète indisponible",
-        fallback: buildFallback(emailRecord),
+        fallback: await buildFallback(emailRecord, accessToken),
       });
     }
 
     const threadData = await threadRes.json();
     const messages = threadData.value || [];
 
-    const thread: ThreadMessage[] = messages.map((msg: any) => ({
-      id: msg.id,
-      subject: msg.subject || "",
-      from: {
-        name: msg.from?.emailAddress?.name || "",
-        email: msg.from?.emailAddress?.address || "",
-      },
-      to: (msg.toRecipients || []).map((r: any) => ({
-        name: r.emailAddress?.name || "",
-        email: r.emailAddress?.address || "",
-      })),
-      cc: (msg.ccRecipients || []).map((r: any) => ({
-        name: r.emailAddress?.name || "",
-        email: r.emailAddress?.address || "",
-      })),
-      receivedDateTime: msg.receivedDateTime || "",
-      body: {
-        content: msg.body?.content || "",
-        contentType: msg.body?.contentType || "text",
-      },
-      bodyPreview: msg.bodyPreview || "",
-      isCurrentMessage: msg.id === emailRecord.outlook_message_id,
-    }));
+    // Resolve cid: inline images for each message that has them
+    const thread: ThreadMessage[] = await Promise.all(
+      messages.map(async (msg: any) => {
+        let bodyContent = msg.body?.content || "";
+        const contentType = msg.body?.contentType || "text";
+
+        // Resolve cid: references to base64 data URIs
+        if (contentType === "html" && bodyContent.includes("cid:")) {
+          try {
+            const attRes = await fetch(
+              `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (attRes.ok) {
+              const attData = await attRes.json();
+              const inlineAtts = (attData.value || []).filter(
+                (a: any) => a.isInline && a.contentBytes
+              );
+              for (const att of inlineAtts) {
+                const cid = att.contentId || att.name;
+                if (cid && att.contentBytes) {
+                  const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
+                  bodyContent = bodyContent
+                    .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri)
+                    .replace(new RegExp(`cid:${cid.replace(/^<|>$/g, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                }
+              }
+            }
+          } catch (err: any) {
+            console.warn(`[thread] CID resolve failed for ${msg.id}:`, err?.message);
+          }
+        }
+
+        return {
+          id: msg.id,
+          subject: msg.subject || "",
+          from: {
+            name: msg.from?.emailAddress?.name || "",
+            email: msg.from?.emailAddress?.address || "",
+          },
+          to: (msg.toRecipients || []).map((r: any) => ({
+            name: r.emailAddress?.name || "",
+            email: r.emailAddress?.address || "",
+          })),
+          cc: (msg.ccRecipients || []).map((r: any) => ({
+            name: r.emailAddress?.name || "",
+            email: r.emailAddress?.address || "",
+          })),
+          receivedDateTime: msg.receivedDateTime || "",
+          body: {
+            content: bodyContent,
+            contentType,
+          },
+          bodyPreview: msg.bodyPreview || "",
+          isCurrentMessage: msg.id === emailRecord.outlook_message_id,
+        };
+      })
+    );
 
     return NextResponse.json({
       thread,

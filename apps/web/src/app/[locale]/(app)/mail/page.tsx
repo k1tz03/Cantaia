@@ -28,6 +28,39 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react";
+import DOMPurify from "dompurify";
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+/** Sanitize HTML email body — allows images (data:, https:), styles, links */
+function sanitizeEmailHtml(html: string): string {
+  if (typeof window === "undefined") return html;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "p", "div", "span", "br", "hr", "a", "b", "i", "u", "em", "strong",
+      "table", "thead", "tbody", "tr", "td", "th", "caption", "colgroup", "col",
+      "ul", "ol", "li", "blockquote", "pre", "code", "h1", "h2", "h3", "h4", "h5", "h6",
+      "img", "figure", "figcaption", "sup", "sub", "small", "s", "del", "ins",
+      "font", "center",
+    ],
+    ALLOWED_ATTR: [
+      "href", "target", "rel", "style", "class", "id",
+      "src", "alt", "width", "height", "title",
+      "border", "cellpadding", "cellspacing", "align", "valign",
+      "bgcolor", "color", "size", "face",
+      "colspan", "rowspan",
+    ],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ADD_ATTR: ["target"],
+  });
+}
+
+/** Check if a string looks like HTML */
+function looksLikeHtml(s: string): boolean {
+  return /<(?:p|div|br|table|html|body|img|span|a|ul|ol|h[1-6])\b/i.test(s);
+}
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -39,6 +72,8 @@ interface DecisionEmail {
   sender_email: string;
   sender_name: string;
   body_preview: string;
+  body_html?: string | null;
+  body_text?: string | null;
   received_at: string;
   updated_at?: string;
   classification: string;
@@ -561,8 +596,10 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
 
   // Load thread from our API — uses Graph if possible, DB fallback otherwise
   useEffect(() => {
-    // Immediate fallback: show body_preview while loading
-    setFallbackBody(email.body_preview || "");
+    // Immediate fallback: prefer body_html > body_text > body_preview
+    const immediateBody = email.body_html || email.body_text || email.body_preview || "";
+    setFallbackBody(immediateBody);
+    if (looksLikeHtml(immediateBody)) setFallbackIsHtml(true);
 
     async function loadThread() {
       try {
@@ -571,10 +608,10 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
         if (data.thread && data.thread.length > 0) {
           setThread(data.thread);
         } else {
-          // No thread from Graph — use fallback from DB
+          // No thread from Graph — use fallback from DB (with resolved CID images)
           if (data.fallback) {
-            const body = data.fallback.body || email.body_preview || "";
-            if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+            const body = data.fallback.body || email.body_html || email.body_text || email.body_preview || "";
+            if (looksLikeHtml(body)) {
               setFallbackIsHtml(true);
             }
             setFallbackBody(body);
@@ -684,7 +721,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
                     <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
                   </div>
                 ) : fallbackIsHtml ? (
-                  <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
+                  <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                 ) : (
                   <div className="text-sm text-gray-700 whitespace-pre-wrap">{fallbackBody}</div>
                 )}
@@ -812,7 +849,7 @@ function ThreadView({ thread, currentUserEmail }: {
                   {isHtml ? (
                     <div
                       className="prose prose-sm max-w-none text-gray-700 email-content"
-                      dangerouslySetInnerHTML={{ __html: msg.body.content }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }}
                     />
                   ) : (
                     <div className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body.content}</div>
@@ -1220,7 +1257,9 @@ function ReplyModal({ email, onClose, onDone }: {
 
   // Load thread from our API — uses Graph if possible, DB fallback otherwise
   useEffect(() => {
-    setFallbackBody(email.body_preview || "");
+    const immediateBody = email.body_html || email.body_text || email.body_preview || "";
+    setFallbackBody(immediateBody);
+    if (looksLikeHtml(immediateBody)) setFallbackIsHtml(true);
 
     async function loadThread() {
       try {
@@ -1233,9 +1272,9 @@ function ReplyModal({ email, onClose, onDone }: {
             `[${msg.receivedDateTime}] De: ${msg.from.name} <${msg.from.email}>\nObjet: ${msg.subject}\n${msg.bodyPreview || ""}`
           ).join("\n\n---\n\n");
         } else if (data.fallback) {
-          // No thread from Graph — use fallback from DB
-          const body = data.fallback.body || email.body_preview || "";
-          if (body.includes("<p") || body.includes("<div") || body.includes("<br") || body.includes("<table")) {
+          // No thread from Graph — use fallback from DB (with resolved CID images)
+          const body = data.fallback.body || email.body_html || email.body_text || email.body_preview || "";
+          if (looksLikeHtml(body)) {
             setFallbackIsHtml(true);
           }
           setFallbackBody(body);
@@ -1374,7 +1413,7 @@ function ReplyModal({ email, onClose, onDone }: {
                         <Loader2 className="w-4 h-4 animate-spin" />Chargement...
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: fallbackBody }} />
+                      <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                     ) : (
                       <div className="text-sm text-gray-600 whitespace-pre-wrap">{fallbackBody}</div>
                     )}
