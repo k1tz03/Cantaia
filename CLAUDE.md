@@ -1104,6 +1104,38 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 
 ---
 
+## 16. Fix Analyse Soumissions — Timeout Bug (Mars 2026)
+
+### Problème
+L'analyse de soumissions Excel (même petites, ex: 46 Ko) échouait avec "L'analyse a pris trop de temps".
+
+### Cause racine (3 problèmes combinés)
+1. **Route API synchrone** : La route `POST /api/submissions/[id]/analyze` exécutait l'analyse complète (download → parse → Claude API → DB insert) de manière synchrone. Si Vercel tuait la fonction serverless avant la fin, le catch block ne s'exécutait pas → la DB restait bloquée en `analysis_status: "analyzing"` indéfiniment.
+2. **`Promise.race` + `setTimeout` dangling** : L'ancien code utilisait `Promise.race([claudeCall, timeout])` avec un `setTimeout` qui n'était jamais nettoyé en cas de succès, gardant l'event loop actif inutilement en serverless.
+3. **Frontend `await fetch`** : `handleReanalyze` faisait `await fetch(...)` bloquant, alors que la réponse API n'avait pas de valeur utile (le polling gère le suivi).
+
+### Fix appliqué
+
+#### Backend (`apps/web/src/app/api/submissions/[id]/analyze/route.ts`)
+- **`after()` pattern** (Next.js 15) : La route retourne immédiatement `202 Accepted`, puis exécute l'analyse en arrière-plan via `after()`. La fonction reste active jusqu'à `maxDuration` (300s).
+- **Suppression `Promise.race`/`setTimeout`** : Reliance sur le timeout SDK Anthropic natif (`timeout: 180_000`).
+- **Extraction en fonctions** : `performAnalysis()`, `setAnalysisError()` pour lisibilité et error handling robuste.
+- **`maxDuration = 300`** : Permet jusqu'à 5 min d'exécution sur Vercel Pro.
+
+#### Frontend (`apps/web/src/app/[locale]/(app)/submissions/[id]/page.tsx`)
+- **`handleReanalyze` fire-and-forget** : `fetch(...).catch(() => {})` sans `await`, puisque le polling gère le suivi.
+- **Timeout client 300s** (au lieu de 180s) : Aligné avec `maxDuration` serveur.
+- **Vérification finale avant timeout** : Un dernier fetch au serveur avant de déclarer "trop de temps", au cas où l'analyse a terminé juste avant.
+
+### Ce qui n'a PAS fonctionné (historique des tentatives)
+| Tentative | Pourquoi ça ne marchait pas |
+|-----------|---------------------------|
+| `Promise.race` avec timeout 120s | Le `setTimeout` dangling empêchait le garbage collection en serverless ; si Vercel tuait la fn, le catch ne s'exécutait pas |
+| Augmenter le timeout client à 180s | Ne résolvait pas le problème serveur — la fn était tuée avant |
+| Retry côté client | Le serveur restait bloqué en "analyzing", les retries étaient ignorés |
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
 2. Créer bucket Storage "plans" (public, 50MB max)

@@ -126,14 +126,30 @@ export default function SubmissionDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // Poll during analysis — with 90s client-side timeout
+  // Poll during analysis — with 5min client-side timeout matching server maxDuration
   useEffect(() => {
     if (!submission || (submission.analysis_status !== "analyzing" && submission.analysis_status !== "pending")) return;
     setAnalyzing(true);
     const startTime = Date.now();
     const interval = setInterval(async () => {
-      // Client-side 180s timeout (server allows up to 300s with chunking)
-      if (Date.now() - startTime > 180_000) {
+      // Client-side 300s timeout (matches server maxDuration=300)
+      if (Date.now() - startTime > 300_000) {
+        // Check server one last time before declaring timeout
+        try {
+          const res = await fetch(`/api/submissions/${id}`);
+          const json = await res.json();
+          if (json.success && json.submission.analysis_status === "done") {
+            setSubmission(json.submission);
+            setItems(json.items || []);
+            setPriceRequests(json.priceRequests || []);
+            setQuotes(json.quotes || []);
+            const groups = new Set<string>((json.items || []).map((i: SubmissionItem) => i.material_group));
+            setExpandedGroups(groups);
+            setAnalyzing(false);
+            clearInterval(interval);
+            return;
+          }
+        } catch {}
         setAnalyzing(false);
         setSubmission((prev) =>
           prev ? { ...prev, analysis_status: "error", analysis_error: "L'analyse a pris trop de temps. Cliquez sur « Ré-analyser » pour réessayer." } : prev
@@ -160,13 +176,12 @@ export default function SubmissionDetailPage() {
     return () => clearInterval(interval);
   }, [submission?.analysis_status, id]);
 
-  const handleReanalyze = async () => {
+  const handleReanalyze = () => {
     if (!submission) return;
     setAnalyzing(true);
     setSubmission({ ...submission, analysis_status: "analyzing", analysis_error: null });
-    try {
-      await fetch(`/api/submissions/${id}/analyze`, { method: "POST" });
-    } catch {}
+    // Fire-and-forget: backend returns 202 immediately, polling handles status
+    fetch(`/api/submissions/${id}/analyze`, { method: "POST" }).catch(() => {});
   };
 
   if (loading) {

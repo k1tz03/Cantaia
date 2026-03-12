@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -57,7 +58,7 @@ export async function POST(
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
-    // Get submission (cast to any — migration 049 schema differs from TS types)
+    // Get submission
     const { data: submissionRow } = await admin
       .from("submissions")
       .select("*")
@@ -79,143 +80,134 @@ export async function POST(
       }
     }
 
-    // Mark as analyzing
+    // Mark as analyzing BEFORE returning
     await (admin as any).from("submissions").update({
       analysis_status: "analyzing",
       analysis_error: null,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
 
-    try {
-      console.time("[ANALYZE] total");
+    // Schedule the analysis to run AFTER the response is sent.
+    // This ensures the client gets an immediate 202 response.
+    // The function stays alive for up to maxDuration (300s).
+    after(async () => {
+      await performAnalysis(id, submission);
+    });
 
-      // Resolve file URL — migration 012 uses source_file_url, migration 049 uses file_url
-      const fileUrl = submission.file_url || submission.source_file_url;
-      const fileName = submission.file_name || submission.source_file_name;
-
-      if (!fileUrl) {
-        console.error("[ANALYZE] No file URL found for submission", id, { file_url: submission.file_url, source_file_url: submission.source_file_url });
-        await (admin as any).from("submissions").update({
-          analysis_status: "error",
-          analysis_error: "Fichier non trouvé — veuillez re-télécharger le document",
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-        return NextResponse.json({ error: "Fichier non trouvé" }, { status: 400 });
-      }
-
-      // Determine file type — fallback to extension if file_type column is missing
-      const fileType = submission.file_type || (fileName?.toLowerCase().endsWith(".pdf") ? "pdf" : "excel");
-      console.log(`[ANALYZE] File: ${fileName} (${fileType}), URL: ${fileUrl}`);
-
-      let textContent: string;
-
-      console.time("[ANALYZE] download + parse");
-      if (fileType === "pdf") {
-        textContent = await extractPdfText(admin, fileUrl);
-      } else {
-        textContent = await extractExcelText(admin, fileUrl);
-      }
-      console.timeEnd("[ANALYZE] download + parse");
-      console.log(`[ANALYZE] Extracted text: ${textContent.length} chars`);
-
-      if (!textContent || textContent.length < 50) {
-        console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
-        await (admin as any).from("submissions").update({
-          analysis_status: "error",
-          analysis_error: "Document vide ou illisible",
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-        console.timeEnd("[ANALYZE] total");
-        return NextResponse.json({ error: "Document vide ou illisible" }, { status: 400 });
-      }
-
-      // Call Claude for extraction
-      console.time("[ANALYZE] claude call");
-      const items = await analyzeWithClaude(textContent);
-      console.timeEnd("[ANALYZE] claude call");
-      console.log(`[ANALYZE] Claude returned ${items.length} items`);
-
-      if (!items || items.length === 0) {
-        await (admin as any).from("submissions").update({
-          analysis_status: "error",
-          analysis_error: "Aucun poste détecté dans le document",
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-        console.timeEnd("[ANALYZE] total");
-        return NextResponse.json({ error: "No items detected" }, { status: 400 });
-      }
-
-      // Delete existing items (re-analysis)
-      console.time("[ANALYZE] db insert");
-      await (admin as any).from("submission_items").delete().eq("submission_id", id);
-
-      // Insert items
-      const rows = items.map((item: any) => ({
-        submission_id: id,
-        project_id: submission.project_id,
-        item_number: item.item_number || null,
-        description: item.description || "",
-        unit: item.unit || null,
-        quantity: item.quantity ?? null,
-        cfc_code: item.cfc_code || null,
-        material_group: item.material_group || "Divers",
-        status: "pending",
-      }));
-
-      const { error: insertError } = await (admin.from("submission_items") as any).insert(rows);
-      console.timeEnd("[ANALYZE] db insert");
-
-      if (insertError) {
-        console.error("[ANALYZE] Insert error:", insertError);
-        await (admin as any).from("submissions").update({
-          analysis_status: "error",
-          analysis_error: insertError.message,
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-        console.timeEnd("[ANALYZE] total");
-        return NextResponse.json({ error: insertError.message }, { status: 500 });
-      }
-
-      // Mark as done
-      await (admin as any).from("submissions").update({
-        analysis_status: "done",
-        analysis_error: null,
-        updated_at: new Date().toISOString(),
-      }).eq("id", id);
-
-      console.timeEnd("[ANALYZE] total");
-      console.log(`[ANALYZE] Success: ${items.length} items, ${[...new Set(items.map((i: any) => i.material_group))].length} groups`);
-
-      return NextResponse.json({
-        success: true,
-        items_count: items.length,
-        material_groups: [...new Set(items.map((i: any) => i.material_group))],
-      });
-
-    } catch (analysisError: any) {
-      console.error("[analyze] Analysis failed:", analysisError);
-      await (admin as any).from("submissions").update({
-        analysis_status: "error",
-        analysis_error: analysisError.message || "Analysis failed",
-        updated_at: new Date().toISOString(),
-      }).eq("id", id);
-      return NextResponse.json({ error: analysisError.message }, { status: 500 });
-    }
+    // Return immediately — client should poll GET /api/submissions/[id] for status
+    return NextResponse.json({ status: "analyzing" }, { status: 202 });
 
   } catch (err: any) {
     console.error("[analyze] Fatal error:", err);
-    // Attempt to set error status so client polling stops
     try {
       const adminFallback = createAdminClient();
       await (adminFallback as any).from("submissions").update({
         analysis_status: "error",
-        analysis_error: err.message || "Erreur inattendue",
+        analysis_error: err.message || "Unexpected error",
         updated_at: new Date().toISOString(),
       }).eq("id", id);
     } catch { /* best effort */ }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+// ── Background analysis (runs after response is sent) ────────
+
+async function performAnalysis(id: string, submission: any) {
+  const admin = createAdminClient();
+  try {
+    console.time("[ANALYZE] total");
+
+    const fileUrl = submission.file_url || submission.source_file_url;
+    const fileName = submission.file_name || submission.source_file_name;
+
+    if (!fileUrl) {
+      console.error("[ANALYZE] No file URL for submission", id);
+      await setAnalysisError(admin, id, "Fichier non trouvé — veuillez re-télécharger le document");
+      return;
+    }
+
+    const fileType = submission.file_type || (fileName?.toLowerCase().endsWith(".pdf") ? "pdf" : "excel");
+    console.log(`[ANALYZE] File: ${fileName} (${fileType}), URL: ${fileUrl}`);
+
+    // ── Step 1: Download & parse ──
+    console.time("[ANALYZE] download + parse");
+    let textContent: string;
+    if (fileType === "pdf") {
+      textContent = await extractPdfText(admin, fileUrl);
+    } else {
+      textContent = await extractExcelText(admin, fileUrl);
+    }
+    console.timeEnd("[ANALYZE] download + parse");
+    console.log(`[ANALYZE] Extracted text: ${textContent.length} chars`);
+
+    if (!textContent || textContent.length < 50) {
+      console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
+      await setAnalysisError(admin, id, "Document vide ou illisible");
+      return;
+    }
+
+    // ── Step 2: Claude extraction ──
+    console.time("[ANALYZE] claude call");
+    const items = await analyzeWithClaude(textContent);
+    console.timeEnd("[ANALYZE] claude call");
+    console.log(`[ANALYZE] Claude returned ${items.length} items`);
+
+    if (!items || items.length === 0) {
+      await setAnalysisError(admin, id, "Aucun poste détecté dans le document");
+      return;
+    }
+
+    // ── Step 3: Save to DB ──
+    console.time("[ANALYZE] db insert");
+    await (admin as any).from("submission_items").delete().eq("submission_id", id);
+
+    const rows = items.map((item: any) => ({
+      submission_id: id,
+      project_id: submission.project_id,
+      item_number: item.item_number || null,
+      description: item.description || "",
+      unit: item.unit || null,
+      quantity: item.quantity ?? null,
+      cfc_code: item.cfc_code || null,
+      material_group: item.material_group || "Divers",
+      status: "pending",
+    }));
+
+    const { error: insertError } = await (admin.from("submission_items") as any).insert(rows);
+    console.timeEnd("[ANALYZE] db insert");
+
+    if (insertError) {
+      console.error("[ANALYZE] Insert error:", insertError);
+      await setAnalysisError(admin, id, insertError.message);
+      return;
+    }
+
+    // ── Success ──
+    await (admin as any).from("submissions").update({
+      analysis_status: "done",
+      analysis_error: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+
+    console.timeEnd("[ANALYZE] total");
+    console.log(`[ANALYZE] Success: ${items.length} items, ${[...new Set(items.map((i: any) => i.material_group))].length} groups`);
+
+  } catch (err: any) {
+    console.error("[ANALYZE] Analysis failed:", err);
+    await setAnalysisError(admin, id, err.message || "Analysis failed").catch(() => {});
+  }
+}
+
+async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id: string, error: string) {
+  await (admin as any).from("submissions").update({
+    analysis_status: "error",
+    analysis_error: error,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id);
+}
+
+// ── File extraction helpers ─────────────────────────────────
 
 async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
   console.time("[ANALYZE] storage download");
@@ -261,9 +253,7 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
       const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
       const nonEmpty = rawRows.filter((r: any[]) => r.some((c: any) => c !== null && c !== ""));
       if (nonEmpty.length > 0) {
-        // Compact: strip empty trailing cells, skip rows with only nulls
         const compacted = nonEmpty.map((r: any[]) => {
-          // Trim trailing empty cells
           let lastNonEmpty = r.length - 1;
           while (lastNonEmpty >= 0 && (r[lastNonEmpty] === null || r[lastNonEmpty] === "")) lastNonEmpty--;
           return r.slice(0, lastNonEmpty + 1).map(c => c ?? "").join(" | ");
@@ -283,10 +273,9 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
         const v = (r as Record<string, unknown>)[h];
         return v !== null && v !== undefined && v !== "";
       });
-      return nonEmpty.length > rows.length * 0.2; // Keep columns with >20% fill rate
+      return nonEmpty.length > rows.length * 0.2;
     });
 
-    // Use useful headers or all if filtering removed everything
     const finalHeaders = usefulHeaders.length > 0 ? usefulHeaders : headers;
 
     const compactRows = rows.map((r: any) => {
@@ -295,7 +284,6 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
         return v !== null && v !== undefined && v !== "" ? String(v) : "";
       }).join(" | ");
     }).filter(line => {
-      // Skip rows where all values are empty
       return line.replace(/\s*\|\s*/g, "").trim().length > 0;
     });
 
@@ -315,21 +303,22 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
   return result;
 }
 
+// ── Claude analysis ─────────────────────────────────────────
+
 async function analyzeWithClaude(textContent: string): Promise<any[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey, timeout: 120_000 });
+  const client = new Anthropic({ apiKey, timeout: 180_000 });
 
-  const MAX_CHUNK_CHARS = 80_000; // ~20K tokens — Haiku handles this well within timeout
+  const MAX_CHUNK_CHARS = 80_000;
 
-  // If document fits in one chunk, process directly
   if (textContent.length <= MAX_CHUNK_CHARS) {
     return analyzeChunk(client, textContent);
   }
 
-  // Split into chunks by lines, respecting sheet boundaries
+  // Split into chunks by lines
   console.log(`[ANALYZE] Large document (${textContent.length} chars), splitting into chunks`);
   const chunks: string[] = [];
   const lines = textContent.split("\n");
@@ -346,7 +335,6 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
 
   console.log(`[ANALYZE] Split into ${chunks.length} chunks: ${chunks.map(c => c.length).join(", ")} chars`);
 
-  // Process chunks sequentially (avoid API rate limits)
   const allItems: any[] = [];
   for (let i = 0; i < chunks.length; i++) {
     console.log(`[ANALYZE] Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
@@ -367,29 +355,23 @@ async function analyzeChunk(
   const chunkLabel = chunkIndex ? ` (chunk ${chunkIndex}/${totalChunks})` : "";
   console.log(`[ANALYZE] tokens estimés${chunkLabel}: ${estimatedTokens} (${text.length} chars)`);
 
-  // 120s timeout — works with maxDuration=300
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Timeout: l'analyse a pris trop de temps (>120s). Réessayez ou réduisez la taille du document.")), 120_000)
-  );
-
   const chunkNote = totalChunks && totalChunks > 1
     ? `\n\n[Partie ${chunkIndex}/${totalChunks} du document]`
     : "";
 
-  const response = await Promise.race([
-    client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 16384,
-      system: ANALYSIS_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Analyse ce document de soumission et extrais tous les postes :\n\n${text}${chunkNote}`,
-        },
-      ],
-    }),
-    timeoutPromise,
-  ]);
+  // No custom setTimeout — rely on the SDK's own timeout (180s).
+  // The dangling setTimeout was causing issues on serverless.
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 16384,
+    system: ANALYSIS_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `Analyse ce document de soumission et extrais tous les postes :\n\n${text}${chunkNote}`,
+      },
+    ],
+  });
 
   const textBlock = response.content.find((c: any) => c.type === "text");
   if (!textBlock || textBlock.type !== "text") throw new Error("No text response from Claude");
