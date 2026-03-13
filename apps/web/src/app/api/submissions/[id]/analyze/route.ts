@@ -6,34 +6,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Allow up to 300s on Vercel serverless (Pro plan) — 60s for Hobby
 export const maxDuration = 300;
 
-const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (CFC / NPK).
+const ANALYSIS_PROMPT = `Expert soumissions construction suisse (CFC/NPK). Extrais TOUS les postes.
 
-Analyse ce document et extrais TOUS les postes du descriptif/soumission.
+JSON uniquement: {"items":[{"item_number":"1.1","description":"...","unit":"m2","quantity":10,"cfc_code":"211","material_group":"Terrassement","product_name":"Sika 101"}]}
 
-## Format de sortie STRICT (JSON uniquement)
+Champs:
+- item_number: numéro de poste
+- description: prestation complète
+- unit: m2/m3/ml/m/kg/pce/fft/gl/h/j/t
+- quantity: nombre ou null
+- cfc_code: code CFC estimé (211/241/271...)
+- material_group: groupe cohérent (Graves/Béton/Plantations/Maçonnerie/Étanchéité/Revêtements/Terrassement/Coffrage/Ferraillage/Isolation...)
+- product_name: nom de produit/marque spécifique si mentionné (ex: "OH-ch-Gravierflora Myko", "Sika", "Weber", "Geberit"). null si générique.
 
-Retourne UNIQUEMENT un JSON valide :
-
-{
-  "items": [
-    {
-      "item_number": "string — numéro de poste (ex: 1.1, 2.3.4, 211.111)",
-      "description": "string — description complète de la prestation",
-      "unit": "string — m2, m3, ml, m, kg, pce, forfait, gl, h, j, t, etc.",
-      "quantity": number | null,
-      "cfc_code": "string | null — code CFC estimé (ex: 211, 241, 271)",
-      "material_group": "string — groupe de matériaux (ex: Graves, Béton, Plantations, Maçonnerie, Caniveaux, Équipements de jeux, Étanchéité, Revêtements, Terrassement, Coffrage, Ferraillage, Isolation, etc.)"
-    }
-  ]
-}
-
-## Règles
-1. Extrais CHAQUE ligne avec un numéro de position
-2. Unités suisses : m2, m3, m, m', ml, pce, kg, t, h, j, fft (forfait), gl (global)
-3. Estime le code CFC basé sur la description (classification suisse)
-4. Regroupe par material_group cohérent (sera utilisé pour les demandes de prix)
-5. Si le document est en allemand, traduis les descriptions en français
-6. Sois exhaustif — n'omets aucun poste`;
+Règles: extrais CHAQUE poste, estime CFC, regroupe par material_group, traduis DE→FR si nécessaire, sois exhaustif.`;
 
 export async function POST(
   _request: NextRequest,
@@ -171,6 +157,7 @@ async function performAnalysis(id: string, submission: any) {
       quantity: item.quantity ?? null,
       cfc_code: item.cfc_code || null,
       material_group: item.material_group || "Divers",
+      product_name: item.product_name || null,
       status: "pending",
     }));
 
@@ -338,11 +325,16 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
 
   console.log(`[ANALYZE] Split into ${chunks.length} chunks: ${chunks.map(c => c.length).join(", ")} chars`);
 
+  // Process chunks in parallel (max 3 concurrent to avoid rate limits)
+  const MAX_CONCURRENT = 3;
   const allItems: any[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    console.log(`[ANALYZE] Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
-    const items = await analyzeChunk(client, chunks[i], i + 1, chunks.length);
-    allItems.push(...items);
+  for (let batch = 0; batch < chunks.length; batch += MAX_CONCURRENT) {
+    const batchChunks = chunks.slice(batch, batch + MAX_CONCURRENT);
+    console.log(`[ANALYZE] Processing batch ${Math.floor(batch / MAX_CONCURRENT) + 1}: chunks ${batch + 1}-${batch + batchChunks.length}`);
+    const results = await Promise.all(
+      batchChunks.map((chunk, i) => analyzeChunk(client, chunk, batch + i + 1, chunks.length))
+    );
+    allItems.push(...results.flat());
   }
 
   return allItems;
@@ -362,11 +354,11 @@ async function analyzeChunk(
     ? `\n\n[Partie ${chunkIndex}/${totalChunks} du document]`
     : "";
 
-  // Use assistant prefill to force JSON output — most reliable technique
+  // Use assistant prefill to force JSON output + prompt caching for multi-chunk
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 16384,
-    system: ANALYSIS_PROMPT,
+    system: [{ type: "text" as const, text: ANALYSIS_PROMPT, cache_control: { type: "ephemeral" as const } }],
     messages: [
       {
         role: "user",

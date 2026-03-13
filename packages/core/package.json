@@ -18,6 +18,7 @@
     "./plans/estimation/pipeline": "./src/plans/estimation/pipeline.ts",
     "./plans/estimation/types": "./src/plans/estimation/types.ts",
     "./plans/estimation/auto-calibration": "./src/plans/estimation/auto-calibration.ts",
+    "./plans/estimation/reference-data/cfc-prices": "./src/plans/estimation/reference-data/cfc-prices.ts",
     "./suppliers": "./src/suppliers/index.ts",
     "./submissions": "./src/submissions/index.ts",
     "./emails": "./src/emails/index.ts",

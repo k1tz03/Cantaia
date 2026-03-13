@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   X,
+  Calculator,
+  CheckSquare,
+  ListFilter,
 } from "lucide-react";
 
 // ── Local types matching API response ────────────────────────
@@ -53,7 +56,32 @@ interface SubmissionItem {
   quantity: number | null;
   cfc_code: string | null;
   material_group: string;
+  product_name: string | null;
   status: string;
+}
+
+interface BudgetEstimate {
+  item_id: string;
+  item_number: string | null;
+  description: string;
+  unit: string | null;
+  quantity: number | null;
+  material_group: string;
+  prix_min: number;
+  prix_median: number;
+  prix_max: number;
+  confidence: number;
+  source: string;
+}
+
+interface BudgetResult {
+  estimates: BudgetEstimate[];
+  total_min: number;
+  total_median: number;
+  total_max: number;
+  crb_count: number;
+  ai_count: number;
+  unestimated_count: number;
 }
 
 interface PriceRequestData {
@@ -88,7 +116,7 @@ interface QuoteData {
   extracted_at: string;
 }
 
-type Tab = "items" | "requests" | "comparison" | "summary";
+type Tab = "items" | "requests" | "comparison" | "budget" | "summary";
 
 export default function SubmissionDetailPage() {
   const params = useParams();
@@ -209,6 +237,7 @@ export default function SubmissionDetailPage() {
     { key: "items", label: "Postes", icon: FileSpreadsheet, count: items.length },
     { key: "requests", label: "Demandes de prix", icon: Send, count: priceRequests.length },
     { key: "comparison", label: "Analyse comparative", icon: BarChart3, count: quotes.length },
+    { key: "budget", label: "Budget IA", icon: Calculator },
     { key: "summary", label: "Récapitulatif", icon: ClipboardList },
   ];
 
@@ -328,6 +357,13 @@ export default function SubmissionDetailPage() {
             quotes={quotes}
           />
         )}
+        {activeTab === "budget" && (
+          <BudgetTabContent
+            submissionId={id}
+            items={items}
+            budgetEstimate={(submission as any).budget_estimate}
+          />
+        )}
         {activeTab === "summary" && (
           <SummaryTabContent
             submission={submission}
@@ -436,7 +472,14 @@ function ItemsTabContent({
                       return (
                         <tr key={item.id} className="hover:bg-gray-50 text-sm">
                           <td className="px-4 py-2 text-xs font-mono text-gray-500">{item.item_number || "—"}</td>
-                          <td className="px-4 py-2 text-gray-900">{item.description}</td>
+                          <td className="px-4 py-2 text-gray-900">
+                            <div>{item.description}</div>
+                            {item.product_name && (
+                              <span className="inline-block mt-0.5 text-[11px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                {item.product_name}
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-2 text-center text-xs text-gray-500">{item.unit || "—"}</td>
                           <td className="px-4 py-2 text-right text-gray-600">
                             {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
@@ -511,6 +554,10 @@ function RequestsTabContent({
   const [relanceRequest, setRelanceRequest] = useState<PriceRequestData | null>(null);
   const [relanceSubject, setRelanceSubject] = useState("");
   const [relanceBody, setRelanceBody] = useState("");
+  // Cross-category selection mode
+  const [selectionMode, setSelectionMode] = useState<"group" | "free">("group");
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [freeSupplierIds, setFreeSupplierIds] = useState<string[]>([]);
 
   // Load org suppliers
   useEffect(() => {
@@ -533,18 +580,26 @@ function RequestsTabContent({
     });
   }
 
-  const hasSelection = Object.values(selectedSuppliers).some((ids) => ids.length > 0);
+  const hasSelection = selectionMode === "free"
+    ? selectedItemIds.size > 0 && freeSupplierIds.length > 0
+    : Object.values(selectedSuppliers).some((ids) => ids.length > 0);
 
   async function handleSend() {
     setSending(true);
     setSendResult(null);
     try {
-      const groups = Object.entries(selectedSuppliers)
-        .filter(([, ids]) => ids.length > 0)
-        .map(([group, ids]) => ({
-          material_group: group,
-          supplier_ids: ids,
-        }));
+      const groups = selectionMode === "free"
+        ? [{
+            material_group: "Sélection personnalisée",
+            supplier_ids: freeSupplierIds,
+            item_ids: [...selectedItemIds],
+          }]
+        : Object.entries(selectedSuppliers)
+          .filter(([, ids]) => ids.length > 0)
+          .map(([group, ids]) => ({
+            material_group: group,
+            supplier_ids: ids,
+          }));
 
       // Collect manual supplier info for temp IDs
       const manualSuppliers = suppliers
@@ -714,13 +769,53 @@ function RequestsTabContent({
     ids.map((sid) => ({ group, supplierId: sid }))
   );
 
+  function toggleItemSelection(itemId: string) {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleFreeSupplier(supplierId: string) {
+    setFreeSupplierIds(prev =>
+      prev.includes(supplierId) ? prev.filter(id => id !== supplierId) : [...prev, supplierId]
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Mode toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSelectionMode("group")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            selectionMode === "group" ? "bg-brand text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <ListFilter className="h-3.5 w-3.5" />
+          Par groupe
+        </button>
+        <button
+          onClick={() => setSelectionMode("free")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            selectionMode === "free" ? "bg-brand text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <CheckSquare className="h-3.5 w-3.5" />
+          Sélection libre
+        </button>
+      </div>
+
       {/* Action bar */}
       {hasSelection && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
           <div className="text-sm text-blue-900">
-            {Object.values(selectedSuppliers).flat().length} fournisseur(s) sélectionné(s)
+            {selectionMode === "free"
+              ? `${selectedItemIds.size} article(s) · ${freeSupplierIds.length} fournisseur(s)`
+              : `${Object.values(selectedSuppliers).flat().length} fournisseur(s) sélectionné(s)`
+            }
           </div>
           <button
             onClick={() => setShowSendModal(true)}
@@ -732,8 +827,123 @@ function RequestsTabContent({
         </div>
       )}
 
-      {/* Material groups */}
-      {materialGroups.map((group) => {
+      {/* ── Free selection mode ── */}
+      {selectionMode === "free" && (
+        <div className="space-y-4">
+          {/* Item selection table */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-900">Sélectionner les articles</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedItemIds(new Set(items.map(i => i.id)))}
+                  className="text-xs text-brand hover:underline"
+                >
+                  Tout sélectionner
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={() => setSelectedItemIds(new Set())}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  Désélectionner
+                </button>
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <table className="w-full min-w-[600px]">
+                <thead className="sticky top-0 bg-gray-50 z-10">
+                  <tr className="text-[11px] font-medium text-gray-500 uppercase">
+                    <th className="w-10 px-3 py-2"></th>
+                    <th className="text-left px-3 py-2 w-16">N°</th>
+                    <th className="text-left px-3 py-2">Description</th>
+                    <th className="text-left px-3 py-2 w-24">Groupe</th>
+                    <th className="text-center px-3 py-2 w-14">Unité</th>
+                    <th className="text-right px-3 py-2 w-16">Qté</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {items.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => toggleItemSelection(item.id)}
+                      className={`text-sm cursor-pointer transition-colors ${
+                        selectedItemIds.has(item.id) ? "bg-blue-50/50" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={() => toggleItemSelection(item.id)}
+                          className="rounded border-gray-300 text-brand focus:ring-brand"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-gray-500">{item.item_number || "—"}</td>
+                      <td className="px-3 py-2 text-gray-900">
+                        <div className="truncate max-w-[300px]">{item.description}</div>
+                        {item.product_name && (
+                          <span className="inline-block mt-0.5 text-[10px] bg-purple-50 text-purple-700 px-1 py-0.5 rounded">
+                            {item.product_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-500">{item.material_group}</td>
+                      <td className="px-3 py-2 text-center text-xs text-gray-500">{item.unit || "—"}</td>
+                      <td className="px-3 py-2 text-right text-xs text-gray-600">
+                        {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Supplier selection for free mode */}
+          {selectedItemIds.size > 0 && (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-900">
+                  Envoyer à ({selectedItemIds.size} article{selectedItemIds.size > 1 ? "s" : ""})
+                </span>
+                <button
+                  onClick={() => setShowAddSupplier(true)}
+                  className="text-xs px-2 py-1 text-brand hover:bg-brand/5 rounded flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Ajouter
+                </button>
+              </div>
+              <div className="px-4 py-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {suppliers.map((supplier: any) => {
+                    const isSelected = freeSupplierIds.includes(supplier.id);
+                    return (
+                      <button
+                        key={supplier.id}
+                        onClick={() => toggleFreeSupplier(supplier.id)}
+                        className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                          isSelected ? "bg-blue-50 border-blue-300 text-blue-900" :
+                          "bg-white border-gray-200 text-gray-700 hover:border-brand/30"
+                        }`}
+                      >
+                        <span className="font-medium block truncate">{supplier.company_name}</span>
+                        {supplier.email && (
+                          <span className="text-gray-400 block truncate">{supplier.email}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Group mode (existing) ── */}
+      {selectionMode === "group" && materialGroups.map((group) => {
         const groupItems = items.filter((i) => i.material_group === group);
         const existingRequests = requestsByGroup[group] || [];
 
@@ -897,7 +1107,7 @@ function RequestsTabContent({
         );
       })}
 
-      {materialGroups.length === 0 && (
+      {selectionMode === "group" && materialGroups.length === 0 && (
         <div className="text-center py-16">
           <Send className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500">Analysez d&apos;abord le descriptif pour grouper les postes</p>
@@ -1422,6 +1632,207 @@ function SummaryTabContent({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Tab 5: Budget IA ────────────────────────────────────────
+function BudgetTabContent({
+  submissionId,
+  items,
+  budgetEstimate: initialBudget,
+}: {
+  submissionId: string;
+  items: SubmissionItem[];
+  budgetEstimate: BudgetResult | null;
+}) {
+  const [budget, setBudget] = useState<BudgetResult | null>(initialBudget);
+  const [estimating, setEstimating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleEstimate() {
+    setEstimating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/estimate-budget`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        setBudget(json);
+      } else {
+        setError(json.error || "Erreur lors de l'estimation");
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur réseau");
+    }
+    setEstimating(false);
+  }
+
+  function formatCHF(n: number) {
+    return n.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <Calculator className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-sm text-gray-500">Analysez d&apos;abord le descriptif</p>
+      </div>
+    );
+  }
+
+  if (!budget) {
+    return (
+      <div className="text-center py-16">
+        <Calculator className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-sm text-gray-500 mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
+        <p className="text-xs text-gray-400 mb-6 max-w-md mx-auto">
+          L&apos;estimation utilise les prix de référence CRB 2025 et l&apos;IA pour les postes sans correspondance CFC directe.
+        </p>
+        {error && (
+          <div className="mb-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 inline-block">
+            {error}
+          </div>
+        )}
+        <button
+          onClick={handleEstimate}
+          disabled={estimating}
+          className="px-6 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-2 mx-auto"
+        >
+          {estimating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+          {estimating ? "Estimation en cours..." : `Estimer le budget (${items.length} postes)`}
+        </button>
+      </div>
+    );
+  }
+
+  // Group estimates by material_group
+  const estimatesByGroup: Record<string, BudgetEstimate[]> = {};
+  for (const est of budget.estimates) {
+    const group = est.material_group || "Divers";
+    if (!estimatesByGroup[group]) estimatesByGroup[group] = [];
+    estimatesByGroup[group].push(est);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Total banner */}
+      <div className="bg-gradient-to-r from-brand/5 to-blue-50 border border-brand/20 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-gray-700">Budget estimé</h3>
+          <button
+            onClick={handleEstimate}
+            disabled={estimating}
+            className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-white text-gray-600 flex items-center gap-1.5"
+          >
+            {estimating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Recalculer
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-6">
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Minimum</div>
+            <div className="text-xl font-bold text-gray-600">CHF {formatCHF(budget.total_min)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Médiane</div>
+            <div className="text-2xl font-bold text-brand">CHF {formatCHF(budget.total_median)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Maximum</div>
+            <div className="text-xl font-bold text-gray-600">CHF {formatCHF(budget.total_max)}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+          {budget.crb_count > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              {budget.crb_count} postes CRB 2025
+            </span>
+          )}
+          {budget.ai_count > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              {budget.ai_count} postes estimés IA
+            </span>
+          )}
+          {budget.unestimated_count > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+              {budget.unestimated_count} non estimés
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Detail by group */}
+      {Object.entries(estimatesByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, ests]) => {
+        const groupMedian = ests.reduce((s, e) => s + (e.quantity ?? 0) * e.prix_median, 0);
+
+        return (
+          <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-900">{group}</span>
+                <span className="text-xs text-gray-400">{ests.length} postes</span>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">CHF {formatCHF(Math.round(groupMedian))}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="bg-gray-50/50 text-[11px] font-medium text-gray-500 uppercase">
+                    <th className="text-left px-3 py-2 w-16">N°</th>
+                    <th className="text-left px-3 py-2">Description</th>
+                    <th className="text-center px-3 py-2 w-14">Unité</th>
+                    <th className="text-right px-3 py-2 w-16">Qté</th>
+                    <th className="text-right px-3 py-2 w-20">PU min</th>
+                    <th className="text-right px-3 py-2 w-20">PU méd.</th>
+                    <th className="text-right px-3 py-2 w-20">PU max</th>
+                    <th className="text-right px-3 py-2 w-24">Total méd.</th>
+                    <th className="text-center px-3 py-2 w-16">Source</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ests.map((est) => {
+                    const total = (est.quantity ?? 0) * est.prix_median;
+                    return (
+                      <tr key={est.item_id} className="text-sm hover:bg-gray-50">
+                        <td className="px-3 py-2 text-xs font-mono text-gray-500">{est.item_number || "—"}</td>
+                        <td className="px-3 py-2 text-gray-900 truncate max-w-[250px]">{est.description}</td>
+                        <td className="px-3 py-2 text-center text-xs text-gray-500">{est.unit || "—"}</td>
+                        <td className="px-3 py-2 text-right text-gray-600 text-xs">
+                          {est.quantity != null ? Number(est.quantity).toLocaleString("fr-CH") : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-gray-500">
+                          {est.prix_min > 0 ? est.prix_min.toFixed(2) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+                          {est.prix_median > 0 ? est.prix_median.toFixed(2) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-gray-500">
+                          {est.prix_max > 0 ? est.prix_max.toFixed(2) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">
+                          {total > 0 ? formatCHF(Math.round(total)) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {est.source === "referentiel_crb" ? (
+                            <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium">CRB</span>
+                          ) : est.source === "estimation_ia" ? (
+                            <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">IA</span>
+                          ) : (
+                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

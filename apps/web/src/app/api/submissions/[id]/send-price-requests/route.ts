@@ -15,6 +15,7 @@ interface SendRequest {
   groups: Array<{
     material_group: string;
     supplier_ids: string[];
+    item_ids?: string[]; // Cross-category: if present, use these specific items instead of all group items
   }>;
   deadline?: string;
   language?: "fr" | "en" | "de";
@@ -105,7 +106,10 @@ export async function POST(
     }> = [];
 
     for (const group of body.groups) {
-      const groupItems = itemsByGroup[group.material_group] || [];
+      // Cross-category: if item_ids specified, use those; otherwise use all items in the group
+      const groupItems = group.item_ids
+        ? (allItems || []).filter((i: any) => group.item_ids!.includes(i.id))
+        : (itemsByGroup[group.material_group] || []);
       if (groupItems.length === 0) continue;
 
       for (const supplierId of group.supplier_ids) {

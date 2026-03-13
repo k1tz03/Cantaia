@@ -1153,12 +1153,41 @@ Même après le fix timeout, l'analyse échouait avec "Failed to parse AI respon
 
 ---
 
+## 17. Soumissions — 4 améliorations (2026-03-12)
+
+### 17.1 Optimisation vitesse d'analyse
+- **Prompt compacté** : prompt système raccourci (~40% plus court)
+- **Parallelisation chunks** : traitement par lots de 3 chunks simultanés (`Promise.all`, `MAX_CONCURRENT = 3`)
+- **Prompt caching** : `cache_control: { type: "ephemeral" }` sur le message système → réutilisé entre chunks
+- **Résultat** : réduction significative du temps d'analyse
+
+### 17.2 Extraction nom de produit
+- **Champ `product_name`** ajouté à `submission_items` (migration 052)
+- **Extraction IA** : le prompt d'analyse extrait automatiquement le nom du produit (ex: "OH-ch-Gravierflora Myko" depuis un long libellé)
+- **Affichage** : chip violet dans la liste des postes
+
+### 17.3 Sélection multi-catégorie pour demandes de prix
+- **Mode "Sélection libre"** : toggle entre "Par groupe" (par material_group) et "Sélection libre"
+- **Sélection libre** : tableau plat de tous les postes avec checkboxes + picker fournisseurs
+- **API** : `item_ids?: string[]` ajouté au payload de `/api/submissions/[id]/send-price-requests`
+
+### 17.4 Budget IA (estimation prix soumission)
+- **Nouvel onglet "Budget IA"** dans la page soumission
+- **API** : `POST /api/submissions/[id]/estimate-budget`
+  - Étape 1 : Match CFC reference prices (CRB 2025) par `cfc_code` + `unit`
+  - Étape 2 : Estimation IA (Claude Haiku) pour les postes non matchés
+  - Étape 3 : Calcul totaux (min/median/max)
+- **Migration 052** : `budget_estimate JSONB` + `budget_estimated_at TIMESTAMPTZ` sur `submissions`
+- **UI** : bannière totaux, badges source (CRB vert, IA bleu), tableau détaillé par groupe
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
 2. Créer bucket Storage "plans" (public, 50MB max)
 3. Appliquer migrations 024-040 (data intelligence)
 4. Appliquer migration 043 (calibration)
-5. Appliquer migrations 049-051 (submissions enhanced)
+5. Appliquer migrations 049-052 (submissions enhanced + budget)
 6. Définir `CRON_SECRET` sur Vercel
 7. Définir `GEMINI_API_KEY` sur Vercel
 8. Vérifier `OPENAI_API_KEY` (déjà utilisé pour Whisper)
