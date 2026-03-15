@@ -1033,6 +1033,24 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | HC.FIX11 | HAUTE | `admin/finances/page.tsx` | Métriques vides (MRR=0, coûts=0), graphiques vides, répartition par module hardcodée en pourcentages fixes | Fetch analytics + list-organizations. Revenue vs Costs quotidien, coûts par module depuis `per_action`, détail par plan réel |
 | HC.FIX12 | MOYENNE | `admin/members/page.tsx` | Bouton "Renvoyer l'invitation" sans `onClick` — bouton mort | Ajouté `handleResendInvite()` : annule l'ancienne invitation + en crée une nouvelle |
 
+### Corrigés — Navigation sidebar incomplète (2026-03-15)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| NAV.FIX1 | HAUTE | `Sidebar.tsx` | Page `/direction` (Vue Direction) absente de la sidebar — aucun moyen d'y accéder pour les project managers | Ajouté lien "Direction" (icône BarChart3) visible pour les rôles `project_manager`, `director`, `admin` et superadmins |
+| NAV.FIX2 | HAUTE | `Sidebar.tsx` | Page `/briefing` (Briefing quotidien) absente de la sidebar — page orpheline | Ajouté lien "Briefing" (icône Newspaper) dans le groupe "daily", visible pour tous les utilisateurs |
+| NAV.FIX3 | HAUTE | `Sidebar.tsx` | Page `/visits` (Visites clients) absente de la sidebar — page orpheline | Ajouté lien "Visites clients" (icône HardHat) dans le groupe "daily", visible pour tous les utilisateurs |
+| NAV.FIX4 | HAUTE | `Sidebar.tsx` | Lien "Administration" (`/admin`) visible uniquement pour `role=admin` — les project managers et directeurs n'avaient aucun accès à la gestion de l'organisation | Élargi la visibilité aux rôles `project_manager`, `director`, `admin` et superadmins |
+| NAV.FIX5 | MOYENNE | `Sidebar.tsx` | Navigation mobile ("Plus") manquait les mêmes pages | Ajouté Briefing, Visites, Direction et Admin dans `mobileExtraItems` (Direction/Admin conditionnels au rôle) |
+
+#### Hiérarchie d'accès sidebar
+
+| Élément | `member` / `foreman` / `site_manager` | `project_manager` / `director` / `admin` | `superadmin` |
+|---------|----------------------------------------|------------------------------------------|--------------|
+| Dashboard, Mail, Briefing, Tasks, PV, Visits, Projects, Plans, Submissions, Suppliers, Prix, Chat, Settings | Oui | Oui | Oui |
+| Direction (vue org) | Non | Oui | Oui |
+| Administration (`/admin`) | Non | Oui | Oui |
+
 ### Non corrigés (à investiguer)
 
 | ID | Sévérité | Module | Description | Impact |

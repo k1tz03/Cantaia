@@ -27,6 +27,9 @@ import {
   MessageSquare,
   MoreHorizontal,
   X,
+  BarChart3,
+  Newspaper,
+  HardHat,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -64,17 +67,25 @@ export function Sidebar() {
       .catch(() => {});
   }, [user?.id]);
 
+  const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
+  const isSuperAdmin = !!user?.user_metadata?.is_superadmin;
+
   const navItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", group: "main" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, group: "daily" },
+    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", group: "daily" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", group: "daily" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", group: "daily" },
+    { href: "/visits", labelKey: "visits", icon: HardHat, status: "active", group: "daily" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active", group: "projects" },
     { href: "/plans", labelKey: "plans", icon: Map, status: "active", group: "projects" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", group: "projects" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", group: "data" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", group: "data" },
     { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active", group: "assistant" },
+    ...((isManager || isSuperAdmin) ? [
+      { href: "/direction", labelKey: "direction", icon: BarChart3, status: "active" as NavItemStatus, group: "management" },
+    ] : []),
   ];
 
   const bottomItems: NavItem[] = [
@@ -173,12 +184,18 @@ export function Sidebar() {
   ];
 
   const mobileExtraItems: NavItem[] = [
+    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
     { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
+    { href: "/visits", labelKey: "visits", icon: HardHat, status: "active" },
     { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
+    ...((isManager || isSuperAdmin) ? [
+      { href: "/direction", labelKey: "direction", icon: BarChart3, status: "active" as NavItemStatus },
+      { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
+    ] : []),
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
@@ -231,8 +248,8 @@ export function Sidebar() {
             </ul>
           </div>
 
-          {/* Admin link */}
-          {(userRole === "admin" || user?.user_metadata?.is_superadmin) && (
+          {/* Admin link — visible to project_manager, director, admin, superadmin */}
+          {(isManager || isSuperAdmin) && (
             <div className="mt-1">
               <Link
                 href="/admin"
