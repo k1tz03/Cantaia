@@ -348,6 +348,10 @@ export default function SubmissionDetailPage() {
             setExpandedGroups={setExpandedGroups}
             quotes={quotes}
             budgetEstimates={((submission as any).budget_estimate as BudgetResult | null)?.estimates}
+            submissionId={id}
+            onBudgetCalculated={(budget) => {
+              setSubmission((prev) => prev ? { ...prev, budget_estimate: budget } as any : prev);
+            }}
           />
         )}
         {activeTab === "requests" && (
@@ -411,6 +415,8 @@ function ItemsTabContent({
   setExpandedGroups,
   quotes,
   budgetEstimates,
+  submissionId,
+  onBudgetCalculated,
 }: {
   items: SubmissionItem[];
   materialGroups: string[];
@@ -418,15 +424,22 @@ function ItemsTabContent({
   setExpandedGroups: React.Dispatch<React.SetStateAction<Set<string>>>;
   quotes: QuoteData[];
   budgetEstimates?: BudgetEstimate[];
+  submissionId: string;
+  onBudgetCalculated?: (budget: BudgetResult) => void;
 }) {
-  // Build a map of item_id → budget estimate for fast lookup
-  const budgetMap = new Map<string, BudgetEstimate>();
+  const [estimatingBudget, setEstimatingBudget] = useState(false);
+  // Build maps for budget estimate lookup: by item_id (primary) + item_number (fallback after re-analysis)
+  const budgetByIdMap = new Map<string, BudgetEstimate>();
+  const budgetByNumberMap = new Map<string, BudgetEstimate>();
   if (budgetEstimates) {
     for (const est of budgetEstimates) {
-      budgetMap.set(est.item_id, est);
+      budgetByIdMap.set(est.item_id, est);
+      if (est.item_number) budgetByNumberMap.set(est.item_number, est);
     }
   }
-  const hasBudget = budgetMap.size > 0;
+  const getBudget = (item: SubmissionItem): BudgetEstimate | undefined =>
+    budgetByIdMap.get(item.id) ?? (item.item_number ? budgetByNumberMap.get(item.item_number) : undefined);
+  const hasBudget = budgetByIdMap.size > 0 || budgetByNumberMap.size > 0;
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
@@ -446,15 +459,43 @@ function ItemsTabContent({
     });
   }
 
+  async function handleEstimateBudget() {
+    setEstimatingBudget(true);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/estimate-budget`, { method: "POST" });
+      const json = await res.json();
+      if (json.success && onBudgetCalculated) {
+        onBudgetCalculated(json);
+      }
+    } catch {}
+    setEstimatingBudget(false);
+  }
+
   return (
     <div className="space-y-3">
+      {!hasBudget && items.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-900">Aucun prix estimé</p>
+            <p className="text-xs text-blue-600">Lancez l&apos;estimation pour voir les prix unitaires et totaux par poste</p>
+          </div>
+          <button
+            onClick={handleEstimateBudget}
+            disabled={estimatingBudget}
+            className="px-4 py-2 bg-brand text-white rounded-lg text-xs font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+          >
+            {estimatingBudget ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calculator className="h-3 w-3" />}
+            {estimatingBudget ? "Estimation..." : "Estimer les prix"}
+          </button>
+        </div>
+      )}
       {materialGroups.map((group) => {
         const groupItems = items.filter((i) => i.material_group === group);
         const expanded = expandedGroups.has(group);
         const quotedCount = groupItems.filter((i) => i.status === "quoted").length;
         // Sum group total from budget estimates
         const groupTotal = groupItems.reduce((sum, i) => {
-          const est = budgetMap.get(i.id);
+          const est = getBudget(i);
           if (est && est.prix_median > 0 && i.quantity != null) {
             return sum + est.prix_median * Number(i.quantity);
           }
@@ -506,7 +547,7 @@ function ItemsTabContent({
                       const bestPrice = itemQuotes.length > 0
                         ? Math.min(...itemQuotes.filter((q) => q.unit_price_ht != null).map((q) => q.unit_price_ht!))
                         : null;
-                      const budget = budgetMap.get(item.id);
+                      const budget = getBudget(item);
                       const hasQuote = item.status === "quoted" && bestPrice != null;
                       const unitPrice = hasQuote ? bestPrice : budget?.prix_median ?? null;
                       const totalPrice = unitPrice != null && item.quantity != null ? unitPrice * Number(item.quantity) : null;

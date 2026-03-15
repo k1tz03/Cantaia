@@ -54,22 +54,26 @@ export async function POST(
     if (!submissionRow) return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     const submission = submissionRow as any;
 
-    // Verify submission's project belongs to user's org
-    if (submission.project_id) {
-      const { data: projCheck } = await (admin as any)
-        .from("projects")
-        .select("organization_id")
-        .eq("id", submission.project_id)
-        .maybeSingle();
-      if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+    // Verify submission's project belongs to user's org — mandatory (no project_id = forbidden)
+    if (!submission.project_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { data: projCheck } = await (admin as any)
+      .from("projects")
+      .select("organization_id")
+      .eq("id", submission.project_id)
+      .maybeSingle();
+    if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Mark as analyzing BEFORE returning
+    // Mark as analyzing BEFORE returning — also clear stale budget_estimate
+    // (re-analysis creates new items with new UUIDs, old budget references old IDs)
     await (admin as any).from("submissions").update({
       analysis_status: "analyzing",
       analysis_error: null,
+      budget_estimate: null,
+      budget_estimated_at: null,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
 

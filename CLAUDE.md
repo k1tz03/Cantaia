@@ -1406,20 +1406,19 @@ resolvePrice() ← même moteur que Cantaia Prix
 ### Fix V3 — Intégration prix dans l'onglet Postes (2026-03-15)
 
 #### Problème
-Après le fix V2 du price-resolver, l'onglet "Postes" affichait toujours "En attente" pour tous les items sans aucun prix. Le statut "En attente" signifie qu'aucun fournisseur n'a encore soumis de devis — c'est le comportement normal. Mais les prix estimés du Budget IA n'étaient visibles que dans l'onglet "Budget IA" séparé, pas dans la vue principale des postes.
+Après le fix V2 du price-resolver, l'onglet "Postes" affichait toujours "En attente" pour tous les items sans aucun prix, même quand un budget IA existait. Deux causes :
+1. **Les colonnes PU MÉD./TOTAL/SOURCE s'affichaient mais montraient "—"** : le matching utilisait `item_id` (UUID) mais après une ré-analyse, les items sont recréés avec de nouveaux UUIDs. Le budget stocké référençait les anciens IDs → aucun match.
+2. **La ré-analyse ne vidait pas `budget_estimate`** : données stales restaient en DB avec les anciens IDs.
+3. **Pas de bouton "Estimer les prix" sur l'onglet Postes** : l'utilisateur devait aller sur l'onglet Budget IA séparément.
 
-#### Fix appliqué (`submissions/[id]/page.tsx`)
-- **Passage des données budget** : `ItemsTabContent` reçoit maintenant `budgetEstimates` (depuis `submission.budget_estimate.estimates`)
-- **Colonnes conditionnelles** : Si un budget IA existe, ajout des colonnes "PU Méd." et "Total" dans le tableau des postes
-- **Colonne Source** : Remplace l'ancien "Statut" par une colonne "Source" avec badges colorés :
-  - **Fournisseur** (vert) : prix réel d'un devis fournisseur (prioritaire)
-  - **Réel** (emerald) : `historique_interne` — prix issus d'offres passées
-  - **CRB** (teal) : `referentiel_crb` — référentiel statique CRB 2025
-  - **Marché** (purple) : `benchmark_cantaia` — benchmark cross-tenant
-  - **IA** (bleu) : `estimation_ia` — estimation Claude Haiku
-  - **En attente** (gris) : aucun prix disponible
-- **Total par groupe** : Affichage du total CHF estimé dans le header de chaque groupe de postes
-- **Tooltips** : Survol du badge source affiche `detail_source` (ex: "12 offres internes, dernière: 2025-11-15")
+#### Fix appliqué
+- **Matching par `item_number`** (fallback) : `getBudget(item)` cherche d'abord par `item_id`, puis par `item_number` (stable entre ré-analyses : "401", "402"...)
+- **Ré-analyse vide le budget** : `analyze/route.ts` met `budget_estimate: null` et `budget_estimated_at: null` quand `analysis_status: "analyzing"` → plus de données stales
+- **Bouton "Estimer les prix"** : Bannière bleue dans l'onglet Postes quand aucun budget n'existe, avec bouton qui lance `POST /api/submissions/[id]/estimate-budget` et met à jour l'affichage en temps réel
+- **Colonnes conditionnelles** : PU Méd., Total, Source — apparaissent seulement quand un budget existe
+- **Badges source colorés** : Fournisseur (vert), Réel (emerald), CRB (teal), Marché (purple), IA (bleu), En attente (gris)
+- **Total par groupe** dans le header de chaque section
+- **Tooltips** : Survol du badge source affiche `detail_source`
 
 ---
 
