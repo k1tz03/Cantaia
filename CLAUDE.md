@@ -1009,6 +1009,12 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | SEC.FIX15 | CRITIQUE | `/api/submissions/[id]/preview-email` | IDOR — génération d'emails de prix pour soumissions d'autres orgs | Ajouté vérification org après fetch userProfile |
 | SEC.FIX16 | CRITIQUE | `/api/submissions/[id]/price-alerts` | IDOR — accès aux alertes prix de soumissions d'autres orgs | Ajouté vérification submission ownership via project.organization_id |
 
+### Corrigés — Settings (2026-03-15)
+
+| ID | Module | Description | Fix |
+|----|--------|-------------|-----|
+| SETTINGS.FIX1 | `/api/emails/preferences` GET | "Failed to load" sur l'onglet Préférences Email — la route retournait 500 si la table `email_preferences` n'existe pas (migration 019b non appliquée) | Retourne les valeurs par défaut au lieu de 500 quand la table est absente. Le POST retourne aussi un message explicite si la table manque. |
+
 ### Non corrigés (à investiguer)
 
 | ID | Sévérité | Module | Description | Impact |

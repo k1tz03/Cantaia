@@ -18,6 +18,18 @@ export async function GET() {
 
   const admin = createAdminClient();
 
+  const DEFAULTS = {
+    auto_move_outlook: false,
+    auto_dismiss_spam: true,
+    auto_dismiss_newsletters: false,
+    show_dismissed: false,
+    outlook_root_folder_name: "Cantaia",
+    outlook_root_folder_id: null,
+    default_snooze_hours: 4,
+    archive_enabled: false,
+    archive_path: null,
+  };
+
   const { data: prefs, error } = await (admin as any)
     .from("email_preferences")
     .select("auto_move_outlook, auto_dismiss_spam, auto_dismiss_newsletters, show_dismissed, outlook_root_folder_name, outlook_root_folder_id, default_snooze_hours, archive_enabled, archive_path")
@@ -25,23 +37,14 @@ export async function GET() {
     .maybeSingle();
 
   if (error) {
-    console.error("[emails/preferences] GET error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Table may not exist yet (migration 019b not applied) — return defaults gracefully
+    console.warn("[emails/preferences] GET error (returning defaults):", error.message);
+    return NextResponse.json({ preferences: DEFAULTS, exists: false });
   }
 
   // Return existing prefs or defaults
   return NextResponse.json({
-    preferences: prefs || {
-      auto_move_outlook: false,
-      auto_dismiss_spam: true,
-      auto_dismiss_newsletters: false,
-      show_dismissed: false,
-      outlook_root_folder_name: "Cantaia",
-      outlook_root_folder_id: null,
-      default_snooze_hours: 4,
-      archive_enabled: false,
-      archive_path: null,
-    },
+    preferences: prefs || DEFAULTS,
     exists: !!prefs,
   });
 }
@@ -116,6 +119,10 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
+    // Table may not exist yet (migration 019b not applied)
+    if (error.message?.includes("does not exist") || error.code === "42P01") {
+      return NextResponse.json({ error: "La table email_preferences n'existe pas encore. Appliquez la migration 019b." }, { status: 501 });
+    }
     console.error("[emails/preferences] POST error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
