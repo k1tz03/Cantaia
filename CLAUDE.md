@@ -1471,6 +1471,25 @@ Transformée en dashboard analytique complet :
 - Badge org : bleu pour orgs nommées, gris "Solo" sinon
 - Affichage total coût IA dans le sous-titre
 
+### Corrigés — Dashboard Super-Admin (2026-03-15)
+
+| ID | Module | Description | Fix |
+|----|--------|-------------|-----|
+| SA.FIX2 | Dashboard `page.tsx` | "Activité récente" toujours vide — `activities` initialisé `[]` sans setter ni fetch. Aucune API ne fournissait les données. Import cassé `getRelativeTime` depuis mock-data. | Ajouté action API `recent-activity` qui agrège 4 sources (api_usage_logs, email_records, tasks, projects), triées par date. Dashboard fetch au mount avec `setActivities`. Icône colorée par type (ai=amber, email=blue). Remplacé `getRelativeTime` par `formatRelativeTime` local. |
+| SA.FIX3 | API `platform-metrics` | Table `plans` n'existe pas (le vrai nom est `plan_registry`) — query échouait silencieusement, `totalPlans` toujours 0 | Corrigé `.from("plans")` → `.from("plan_registry")` |
+
+### API `recent-activity` (nouvelle action)
+
+`GET /api/super-admin?action=recent-activity&limit=20`
+
+Sources de données (chacune avec try/catch pour graceful degradation) :
+1. **`api_usage_logs`** — Appels IA récents (classification, réponse, analyse plan, chat, etc.) avec labels FR traduits
+2. **`email_records`** — Derniers emails synchronisés (sujet tronqué à 50 chars)
+3. **`tasks`** — Tâches récemment créées
+4. **`projects`** — Projets récemment créés
+
+Enrichissement : lookup `organizations` (nom) + `users` (prénom/nom/org_id). Résultat trié par date desc, limité au `limit` demandé (max 50).
+
 ---
 
 ### TODO manuels pour Julien

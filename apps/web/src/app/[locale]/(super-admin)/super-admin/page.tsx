@@ -19,8 +19,8 @@ import {
   CheckCircle2,
   ExternalLink,
   ShieldAlert,
+  Bot,
 } from "lucide-react";
-import { getRelativeTime } from "@/lib/mock-data";
 
 interface PlatformMetrics {
   totalOrganizations: number;
@@ -57,7 +57,7 @@ interface RecentActivity {
   userName: string;
   description: string;
   time: string;
-  icon: "email" | "pv" | "login" | "project" | "user";
+  icon: "email" | "pv" | "login" | "project" | "user" | "ai";
 }
 
 export default function SuperAdminDashboardPage() {
@@ -72,8 +72,9 @@ export default function SuperAdminDashboardPage() {
     storageGb: 0,
     activeOrgs: 0,
   });
-  const [activities] = useState<RecentActivity[]>([]);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [sentry, setSentry] = useState<SentryData>({ configured: false, total: 0, errors: [] });
   const [sentryLoading, setSentryLoading] = useState(true);
 
@@ -118,14 +119,22 @@ export default function SuperAdminDashboardPage() {
       .then((data) => setSentry(data))
       .catch(() => {})
       .finally(() => setSentryLoading(false));
+
+    // Load recent activity
+    fetch("/api/super-admin?action=recent-activity&limit=15")
+      .then((r) => r.json())
+      .then((data) => setActivities(data.activities || []))
+      .catch(() => {})
+      .finally(() => setActivitiesLoading(false));
   }, []);
 
-  const iconMap = {
+  const iconMap: Record<string, any> = {
     email: Mail,
     pv: FileText,
     login: LogIn,
     project: FolderKanban,
     user: UserPlus,
+    ai: Bot,
   };
 
   const metricCards = [
@@ -287,7 +296,7 @@ export default function SuperAdminDashboardPage() {
           <h2 className="text-sm font-semibold text-gray-800">{t("recentActivity")}</h2>
         </div>
 
-        {loading ? (
+        {activitiesLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
           </div>
@@ -299,14 +308,18 @@ export default function SuperAdminDashboardPage() {
         ) : (
           <div className="divide-y divide-gray-50">
             {activities.map((activity) => {
-              const Icon = iconMap[activity.icon];
+              const Icon = iconMap[activity.icon] || Activity;
               return (
                 <div
                   key={activity.id}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                    <Icon className="h-4 w-4 text-gray-500" />
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    activity.icon === "ai" ? "bg-amber-50" : activity.icon === "email" ? "bg-blue-50" : "bg-gray-100"
+                  }`}>
+                    <Icon className={`h-4 w-4 ${
+                      activity.icon === "ai" ? "text-amber-500" : activity.icon === "email" ? "text-blue-500" : "text-gray-500"
+                    }`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-700">
@@ -318,7 +331,7 @@ export default function SuperAdminDashboardPage() {
                     </p>
                   </div>
                   <span className="shrink-0 text-xs text-gray-400">
-                    {getRelativeTime(activity.time)}
+                    {formatRelativeTime(activity.time)}
                   </span>
                 </div>
               );
@@ -343,4 +356,16 @@ function formatSentryTime(isoDate: string): string {
   if (hours < 24) return `il y a ${hours}h`;
   const days = Math.floor(hours / 24);
   return `il y a ${days}j`;
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `il y a ${days}j`;
+  return new Date(isoDate).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" });
 }

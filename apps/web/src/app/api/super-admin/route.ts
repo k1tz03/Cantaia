@@ -238,6 +238,132 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Recent Activity ──
+  if (action === "recent-activity") {
+    const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
+    const activities: any[] = [];
+
+    // Fetch org + user lookups
+    const [orgsRes, usersRes] = await Promise.all([
+      (admin as any).from("organizations").select("id, name"),
+      (admin as any).from("users").select("id, first_name, last_name, organization_id"),
+    ]);
+    const orgMap = new Map<string, string>((orgsRes.data || []).map((o: any) => [o.id, o.name]));
+    const userMap = new Map<string, { id: string; first_name: string; last_name: string; organization_id: string }>(
+      (usersRes.data || []).map((u: any) => [u.id, u])
+    );
+
+    // 1. Recent AI calls from api_usage_logs
+    try {
+      const { data: aiLogs } = await (admin as any)
+        .from("api_usage_logs")
+        .select("id, user_id, organization_id, action_type, estimated_cost_chf, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      for (const log of (aiLogs || [])) {
+        const user = userMap.get(log.user_id);
+        const ACTION_LABELS: Record<string, string> = {
+          email_classify: "Classification email IA",
+          email_reply: "Réponse email IA",
+          email_summary: "Résumé email IA",
+          task_extract: "Extraction tâches IA",
+          reclassify: "Reclassification batch",
+          plan_analyze: "Analyse plan IA",
+          chat_message: "Message chat IA",
+          price_extract: "Extraction prix IA",
+          price_estimate: "Estimation prix IA",
+          supplier_enrichment: "Enrichissement fournisseur IA",
+          supplier_search: "Recherche fournisseur IA",
+          pv_generate: "Génération PV IA",
+          pv_transcribe: "Transcription audio",
+          submission_parse: "Analyse soumission IA",
+        };
+        activities.push({
+          id: `ai-${log.id}`,
+          type: "ai",
+          orgName: orgMap.get(log.organization_id) || "—",
+          userName: user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "—",
+          description: ACTION_LABELS[log.action_type] || log.action_type.replace(/_/g, " "),
+          time: log.created_at,
+          icon: "ai",
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // 2. Recent emails synced
+    try {
+      const { data: emails } = await (admin as any)
+        .from("email_records")
+        .select("id, user_id, subject, created_at")
+        .order("created_at", { ascending: false })
+        .limit(Math.min(limit, 10));
+
+      for (const email of (emails || [])) {
+        const user = userMap.get(email.user_id);
+        const orgId = user?.organization_id;
+        activities.push({
+          id: `email-${email.id}`,
+          type: "email",
+          orgName: orgId ? (orgMap.get(orgId) || "—") : "—",
+          userName: user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "—",
+          description: `Email sync: ${(email.subject || "").slice(0, 50)}${(email.subject || "").length > 50 ? "..." : ""}`,
+          time: email.created_at,
+          icon: "email",
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // 3. Recent tasks created
+    try {
+      const { data: tasks } = await (admin as any)
+        .from("tasks")
+        .select("id, created_by, title, project_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(Math.min(limit, 10));
+
+      for (const task of (tasks || [])) {
+        const user = userMap.get(task.created_by);
+        const orgId = user?.organization_id;
+        activities.push({
+          id: `task-${task.id}`,
+          type: "task",
+          orgName: orgId ? (orgMap.get(orgId) || "—") : "—",
+          userName: user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "—",
+          description: `Tâche créée: ${(task.title || "").slice(0, 50)}`,
+          time: task.created_at,
+          icon: "project",
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // 4. Recent projects created
+    try {
+      const { data: projects } = await (admin as any)
+        .from("projects")
+        .select("id, name, organization_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(Math.min(limit, 5));
+
+      for (const proj of (projects || [])) {
+        activities.push({
+          id: `proj-${proj.id}`,
+          type: "project",
+          orgName: orgMap.get(proj.organization_id) || "—",
+          userName: "—",
+          description: `Projet créé: ${proj.name}`,
+          time: proj.created_at,
+          icon: "project",
+        });
+      }
+    } catch { /* table may not exist */ }
+
+    // Sort by time desc, take top N
+    activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+    return NextResponse.json({ activities: activities.slice(0, limit) });
+  }
+
   // ── Analytics ──
   if (action === "analytics") {
     const scope = searchParams.get("scope") || "platform";
