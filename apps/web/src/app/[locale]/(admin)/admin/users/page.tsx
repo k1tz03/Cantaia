@@ -1,20 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   Users,
   Search,
   ArrowUpDown,
   ChevronDown,
+  Loader2,
+  ShieldAlert,
 } from "lucide-react";
-// Mock data removed — will be replaced by real API calls
-const mockAdminUsers: {
-  id: string; name: string; email: string; role: string;
-  organization_id: string; organization_name: string;
-  last_login: string; emails_classified: number; cost_month_chf: number;
-}[] = [];
-const mockAdminOrgs: { id: string; name: string }[] = [];
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  organization_id: string;
+  organization_name: string;
+  last_login: string;
+  emails_classified: number;
+  cost_month_chf: number;
+}
+
+interface AdminOrg {
+  id: string;
+  name: string;
+}
 
 type SortKey = "name" | "last_login" | "emails_classified" | "cost_month_chf";
 type SortDir = "asc" | "desc";
@@ -27,11 +39,63 @@ export default function AdminUsersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("cost_month_chf");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [filterOrg, setFilterOrg] = useState<string>("all");
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [allOrgs, setAllOrgs] = useState<AdminOrg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/super-admin?action=all-users"),
+      fetch("/api/super-admin?action=analytics&scope=platform&period=30d"),
+    ])
+      .then(async ([usersRes, analyticsRes]) => {
+        if (usersRes.status === 403 || usersRes.status === 401) {
+          setAccessDenied(true);
+          return;
+        }
+        const usersData = await usersRes.json();
+        const analyticsData = await analyticsRes.json().catch(() => ({ per_user: [] }));
+
+        const users: Record<string, unknown>[] = usersData.users || [];
+        const perUser: { user_id: string; cost: number }[] = analyticsData.per_user || [];
+
+        const userCosts = new Map<string, number>();
+        for (const u of perUser) {
+          userCosts.set(u.user_id, u.cost || 0);
+        }
+
+        const enriched: AdminUser[] = users.map((u) => ({
+          id: u.id as string,
+          name: `${(u.first_name as string) || ""} ${(u.last_name as string) || ""}`.trim() || (u.email as string),
+          email: (u.email || "") as string,
+          role: (u.role || "user") as string,
+          organization_id: (u.organization_id || "") as string,
+          organization_name: (u.org_name || "\u2014") as string,
+          last_login: (u.last_sync_at || u.created_at || new Date().toISOString()) as string,
+          emails_classified: 0,
+          cost_month_chf: userCosts.get(u.id as string) || 0,
+        }));
+
+        // Extract unique orgs for the filter dropdown
+        const orgMap = new Map<string, string>();
+        for (const u of enriched) {
+          if (u.organization_id && u.organization_name !== "\u2014") {
+            orgMap.set(u.organization_id, u.organization_name);
+          }
+        }
+
+        setAllUsers(enriched);
+        setAllOrgs([...orgMap.entries()].map(([id, name]) => ({ id, name })));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const now = Date.now();
 
   const users = useMemo(() => {
-    let list = [...mockAdminUsers];
+    let list = [...allUsers];
 
     // Search
     if (search) {
@@ -93,11 +157,11 @@ export default function AdminUsersPage() {
     });
 
     return list;
-  }, [search, segment, sortKey, sortDir, filterOrg, now]);
+  }, [allUsers, search, segment, sortKey, sortDir, filterOrg, now]);
 
   // Segment counts
   const segmentCounts = useMemo(() => {
-    const all = mockAdminUsers;
+    const all = allUsers;
     return {
       all: all.length,
       active_today: all.filter(
@@ -117,7 +181,7 @@ export default function AdminUsersPage() {
           Math.floor((now - new Date(u.last_login).getTime()) / 86400000) > 30
       ).length,
     };
-  }, [now]);
+  }, [allUsers, now]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -145,6 +209,23 @@ export default function AdminUsersPage() {
     { key: "inactive_30d", labelKey: "usersInactive30d" },
   ];
 
+  if (accessDenied) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-3">
+        <ShieldAlert className="h-10 w-10 text-red-400" />
+        <p className="text-sm text-gray-500">Acc\u00e8s r\u00e9serv\u00e9 aux super-administrateurs</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8">
       {/* Header */}
@@ -155,7 +236,7 @@ export default function AdminUsersPage() {
             {t("usersTitle")}
           </h1>
           <p className="text-sm text-gray-500">
-            {t("usersTotal", { count: mockAdminUsers.length })}
+            {t("usersTotal", { count: allUsers.length })}
           </p>
         </div>
       </div>
@@ -201,7 +282,7 @@ export default function AdminUsersPage() {
             className="appearance-none rounded-md border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm text-gray-700"
           >
             <option value="all">Toutes les organisations</option>
-            {mockAdminOrgs.map((o) => (
+            {allOrgs.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
@@ -253,6 +334,13 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  Aucun utilisateur
+                </td>
+              </tr>
+            )}
             {users.map((user) => {
               const daysSince = Math.floor(
                 (now - new Date(user.last_login).getTime()) / 86400000
@@ -314,7 +402,7 @@ export default function AdminUsersPage() {
       </div>
 
       <p className="mt-3 text-xs text-gray-400">
-        {users.length} utilisateur{users.length > 1 ? "s" : ""} affichés
+        {users.length} utilisateur{users.length > 1 ? "s" : ""} affich\u00e9s
       </p>
     </div>
   );

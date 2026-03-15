@@ -1,16 +1,25 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Search, Download, ArrowUpDown } from "lucide-react";
-// Mock data removed — will be replaced by real API calls
-const mockAdminOrgs: {
-  id: string; name: string; city: string; plan: string;
-  users_active: number; users_max: number; projects_count: number;
-  mrr_chf: number; api_cost_chf: number; margin_percent: number;
+import { Search, Download, ArrowUpDown, Loader2, ShieldAlert } from "lucide-react";
+
+const PLAN_PRICING: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+
+interface AdminOrg {
+  id: string;
+  name: string;
+  city: string;
+  plan: string;
+  users_active: number;
+  users_max: number;
+  projects_count: number;
+  mrr_chf: number;
+  api_cost_chf: number;
+  margin_percent: number;
   last_activity: string;
-}[] = [];
+}
 
 type SortKey = "name" | "plan" | "users_active" | "projects_count" | "mrr_chf" | "api_cost_chf" | "margin_percent" | "last_activity";
 
@@ -48,9 +57,56 @@ export default function AdminOrganizationsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("mrr_chf");
   const [sortAsc, setSortAsc] = useState(false);
+  const [orgs, setOrgs] = useState<AdminOrg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/super-admin?action=list-organizations"),
+      fetch("/api/super-admin?action=analytics&scope=platform&period=30d"),
+    ])
+      .then(async ([orgsRes, analyticsRes]) => {
+        if (orgsRes.status === 403 || orgsRes.status === 401) {
+          setAccessDenied(true);
+          return;
+        }
+        const orgsData = await orgsRes.json();
+        const analyticsData = await analyticsRes.json().catch(() => ({ per_org: [] }));
+
+        const orgList = orgsData.organizations || [];
+        const perOrg: { org_id: string; cost: number }[] = analyticsData.per_org || [];
+        const costMap = new Map<string, number>();
+        for (const entry of perOrg) {
+          costMap.set(entry.org_id, entry.cost || 0);
+        }
+
+        const enriched: AdminOrg[] = orgList.map((o: Record<string, unknown>) => {
+          const plan = (o.subscription_plan || o.plan || "trial") as string;
+          const mrr = PLAN_PRICING[plan] || 0;
+          const apiCost = costMap.get(o.id as string) || 0;
+          return {
+            id: o.id as string,
+            name: (o.name || "") as string,
+            city: (o.city || "\u2014") as string,
+            plan,
+            users_active: (o.member_count || 0) as number,
+            users_max: (o.max_users || 999) as number,
+            projects_count: (o.project_count || 0) as number,
+            mrr_chf: mrr,
+            api_cost_chf: apiCost,
+            margin_percent: mrr > 0 ? ((mrr - apiCost) / mrr) * 100 : apiCost > 0 ? -100 : 0,
+            last_activity: (o.updated_at || o.created_at || new Date().toISOString()) as string,
+          };
+        });
+        setOrgs(enriched);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
-    let result = [...mockAdminOrgs];
+    let result = [...orgs];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -66,7 +122,7 @@ export default function AdminOrganizationsPage() {
       return sortAsc ? cmp : -cmp;
     });
     return result;
-  }, [search, sortKey, sortAsc]);
+  }, [orgs, search, sortKey, sortAsc]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -74,7 +130,7 @@ export default function AdminOrganizationsPage() {
   };
 
   const exportCSV = () => {
-    const headers = ["Organisation", "Plan", "Users actifs", "Users max", "Projets", "MRR CHF", "Coût API CHF", "Marge %", "Dernière activité"];
+    const headers = ["Organisation", "Plan", "Users actifs", "Users max", "Projets", "MRR CHF", "Co\u00fbt API CHF", "Marge %", "Derni\u00e8re activit\u00e9"];
     const rows = filtered.map((o) => [
       o.name, o.plan, o.users_active, o.users_max, o.projects_count,
       o.mrr_chf, o.api_cost_chf.toFixed(2), o.margin_percent.toFixed(1),
@@ -89,6 +145,23 @@ export default function AdminOrganizationsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (accessDenied) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-3">
+        <ShieldAlert className="h-10 w-10 text-red-400" />
+        <p className="text-sm text-gray-500">Acc\u00e8s r\u00e9serv\u00e9 aux super-administrateurs</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -143,6 +216,13 @@ export default function AdminOrganizationsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
+                  Aucune organisation
+                </td>
+              </tr>
+            )}
             {filtered.map((org) => {
               const activity = getRelativeActivity(org.last_activity);
               return (
@@ -162,14 +242,14 @@ export default function AdminOrganizationsPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        planBadgeColors[org.plan]
+                        planBadgeColors[org.plan] || "bg-gray-100 text-gray-700"
                       }`}
                     >
                       {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {org.users_active}/{org.users_max === 999 ? "∞" : org.users_max}
+                    {org.users_active}/{org.users_max === 999 ? "\u221e" : org.users_max}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{org.projects_count}</td>
                   <td className="px-4 py-3 font-medium text-gray-800">
@@ -182,7 +262,7 @@ export default function AdminOrganizationsPage() {
                     <span className={`font-medium ${getMarginColor(org.margin_percent)}`}>
                       {org.margin_percent > -100
                         ? `${org.margin_percent.toFixed(1)}%`
-                        : "-∞"}{" "}
+                        : "-\u221e"}{" "}
                       {getMarginEmoji(org.margin_percent)}
                     </span>
                   </td>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -45,11 +46,38 @@ export default function DashboardPage() {
   const tn = useTranslations("nav");
   const firstName = user?.user_metadata?.first_name || tn("user");
 
+  const [statsData, setStatsData] = useState({ tasks: 0, pvs: 0, projects: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/tasks").then((r) => r.json()).catch(() => ({ tasks: [] })),
+      fetch("/api/pv").then((r) => r.json()).catch(() => ({ meetings: [] })),
+      fetch("/api/projects/list").then((r) => r.json()).catch(() => ({ projects: [] })),
+    ]).then(([tasksRes, pvsRes, projectsRes]) => {
+      const tasks = tasksRes.tasks || [];
+      const inProgress = tasks.filter(
+        (t: any) => t.status === "todo" || t.status === "in_progress" || t.status === "waiting"
+      ).length;
+      const meetings = pvsRes.meetings || [];
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const pvThisWeek = meetings.filter(
+        (m: any) => new Date(m.meeting_date) >= weekAgo
+      ).length;
+      const projects = projectsRes.projects || [];
+      const activeProjects = projects.filter(
+        (p: any) => p.status === "active" || p.status === "planning"
+      ).length;
+      setStatsData({ tasks: inProgress, pvs: pvThisWeek, projects: activeProjects });
+    }).finally(() => setStatsLoading(false));
+  }, []);
+
   const stats: StatCard[] = [
     { icon: Mail, value: unreadCount > 0 ? String(unreadCount) : "0", label: "Emails non lus", iconBg: "bg-blue-50", iconColor: "text-[#2563EB]", href: "/mail" },
-    { icon: CheckSquare, value: "12", label: "Tâches en cours", iconBg: "bg-green-50", iconColor: "text-[#10B981]", href: "/tasks" },
-    { icon: FileText, value: "3", label: "PV cette semaine", iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]", href: "/pv-chantier" },
-    { icon: FolderKanban, value: "5", label: "Projets actifs", iconBg: "bg-purple-50", iconColor: "text-purple-600", href: "/projects" },
+    { icon: CheckSquare, value: statsLoading ? "—" : String(statsData.tasks), label: "Tâches en cours", iconBg: "bg-green-50", iconColor: "text-[#10B981]", href: "/tasks" },
+    { icon: FileText, value: statsLoading ? "—" : String(statsData.pvs), label: "PV cette semaine", iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]", href: "/pv-chantier" },
+    { icon: FolderKanban, value: statsLoading ? "—" : String(statsData.projects), label: "Projets actifs", iconBg: "bg-purple-50", iconColor: "text-purple-600", href: "/projects" },
   ];
 
   const modules: ModuleCard[] = [

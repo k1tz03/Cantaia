@@ -119,6 +119,26 @@ export default function AdminMembersPage() {
     }
   }
 
+  async function handleResendInvite(invite: { id: string; email: string }) {
+    // Cancel old invite, then send new one
+    await fetch("/api/super-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel-invite", invite_id: invite.id }),
+    });
+    await fetch("/api/super-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "send-invite",
+        organization_id: orgId,
+        email: invite.email,
+        role: "member",
+      }),
+    });
+    loadMembers();
+  }
+
   async function handleCancelInvite(inviteId: string) {
     await fetch("/api/super-admin", {
       method: "POST",
@@ -228,7 +248,10 @@ export default function AdminMembersPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button className="rounded-md px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">
+                    <button
+                      onClick={() => handleResendInvite(invite)}
+                      className="rounded-md px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                    >
                       <RotateCcw className="mr-1 inline h-3 w-3" />{t("resendInvite")}
                     </button>
                     <button

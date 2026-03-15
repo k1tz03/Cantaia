@@ -1,35 +1,55 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { ArrowLeft, Check, X } from "lucide-react";
-// Mock data removed — will be replaced by real API calls
-const PLAN_PRICING: Record<string, number> = { trial: 0, starter: 49, pro: 149, enterprise: 499 };
-const mockAdminOrgs: {
-  id: string; name: string; city: string; plan: string;
-  trial_ends_at?: string; branding_enabled: boolean; created_at: string;
-  api_cost_chf: number; mrr_chf: number;
-}[] = [];
-const mockAdminUsers: {
-  id: string; name: string; email: string; role: string;
-  organization_id: string; last_login: string;
-  emails_classified: number; cost_month_chf: number;
-}[] = [];
-const mockProjects: {
-  id: string; name: string; code?: string; color: string;
-  status: string; organization_id: string;
-}[] = [];
+import { ArrowLeft, Check, X, Loader2, ShieldAlert } from "lucide-react";
 
-// Simulated cost breakdown per action
-const costBreakdown = [
-  { action: "Classification emails", cost: 8.4, percent: 34, color: "bg-blue-500" },
-  { action: "Réponses IA", cost: 4.2, percent: 17, color: "bg-indigo-500" },
-  { action: "Transcription PV", cost: 6.4, percent: 26, color: "bg-green-500" },
-  { action: "Génération PV", cost: 3.5, percent: 14, color: "bg-purple-500" },
-  { action: "Briefings", cost: 1.2, percent: 5, color: "bg-amber-500" },
-  { action: "Extraction tâches", cost: 0.8, percent: 3, color: "bg-cyan-500" },
+const PLAN_PRICING: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+
+const ACTION_COLORS = [
+  "bg-blue-500",
+  "bg-indigo-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-amber-500",
+  "bg-cyan-500",
+  "bg-rose-500",
+  "bg-teal-500",
 ];
+
+interface OrgDetail {
+  id: string;
+  name: string;
+  city: string;
+  plan: string;
+  trial_ends_at?: string;
+  branding_enabled: boolean;
+  created_at: string;
+  api_cost_chf: number;
+  mrr_chf: number;
+  member_count: number;
+  project_count: number;
+}
+
+interface OrgUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  organization_id: string;
+  last_login: string;
+  emails_classified: number;
+  cost_month_chf: number;
+}
+
+interface CostBreakdownItem {
+  action: string;
+  cost: number;
+  percent: number;
+  color: string;
+}
 
 function getRelativeDate(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -44,22 +64,139 @@ export default function AdminOrgDetailPage() {
   const t = useTranslations("admin");
   const orgId = params.id as string;
 
-  const org = mockAdminOrgs.find((o) => o.id === orgId);
-  if (!org) {
+  const [org, setOrg] = useState<OrgDetail | null>(null);
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdownItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/super-admin?action=get-organization&id=${orgId}`),
+      fetch("/api/super-admin?action=all-users"),
+      fetch(`/api/super-admin?action=analytics&scope=org&org_id=${orgId}&period=30d`),
+    ])
+      .then(async ([orgRes, usersRes, analyticsRes]) => {
+        if (orgRes.status === 403 || orgRes.status === 401) {
+          setAccessDenied(true);
+          return;
+        }
+        const orgData = await orgRes.json();
+        const usersData = await usersRes.json().catch(() => ({ users: [] }));
+        const analyticsData = await analyticsRes.json().catch(() => ({
+          overview: { total_cost_chf: 0 },
+          per_user: [],
+          per_action: [],
+        }));
+
+        // Build org detail
+        const foundOrg = orgData.organization;
+        if (foundOrg) {
+          const plan = (foundOrg.subscription_plan || foundOrg.plan || "trial") as string;
+          const apiCost = analyticsData.overview?.total_cost_chf || 0;
+          setOrg({
+            id: foundOrg.id,
+            name: foundOrg.name || "",
+            city: foundOrg.city || "\u2014",
+            plan,
+            trial_ends_at: foundOrg.trial_ends_at || undefined,
+            branding_enabled: foundOrg.branding_enabled || false,
+            created_at: foundOrg.created_at || new Date().toISOString(),
+            api_cost_chf: apiCost,
+            mrr_chf: PLAN_PRICING[plan] || 0,
+            member_count: orgData.members?.length || 0,
+            project_count: orgData.projectCount || 0,
+          });
+        }
+
+        // Build users list for this org
+        const allUsers: Record<string, unknown>[] = usersData.users || [];
+        const orgMembers = allUsers.filter(
+          (u) => u.organization_id === orgId
+        );
+        const perUser: { user_id: string; cost: number }[] = analyticsData.per_user || [];
+        const userCosts = new Map<string, number>();
+        for (const u of perUser) {
+          userCosts.set(u.user_id, u.cost || 0);
+        }
+
+        setOrgUsers(
+          orgMembers.map((u) => ({
+            id: u.id as string,
+            name: `${(u.first_name as string) || ""} ${(u.last_name as string) || ""}`.trim() || (u.email as string),
+            email: (u.email || "") as string,
+            role: (u.role || "user") as string,
+            organization_id: (u.organization_id || "") as string,
+            last_login: (u.last_sync_at || u.created_at || new Date().toISOString()) as string,
+            emails_classified: 0,
+            cost_month_chf: userCosts.get(u.id as string) || 0,
+          }))
+        );
+
+        // Build cost breakdown from per_action analytics
+        const perAction: { action_type: string; cost: number; calls: number }[] =
+          analyticsData.per_action || [];
+        const totalCost = analyticsData.overview?.total_cost_chf || 0;
+
+        const ACTION_LABELS: Record<string, string> = {
+          email_classify: "Classification emails",
+          email_reply: "R\u00e9ponses IA",
+          email_summary: "R\u00e9sum\u00e9s emails",
+          task_extract: "Extraction t\u00e2ches",
+          reclassify: "Reclassification batch",
+          plan_analyze: "Analyse plans",
+          chat_message: "Chat IA",
+          price_extract: "Extraction prix",
+          price_estimate: "Estimation prix",
+          supplier_enrichment: "Enrichissement fournisseurs",
+          supplier_search: "Recherche fournisseurs",
+          pv_generate: "G\u00e9n\u00e9ration PV",
+          pv_transcribe: "Transcription audio",
+          submission_parse: "Analyse soumissions",
+        };
+
+        setCostBreakdown(
+          perAction.map((a, i) => ({
+            action: ACTION_LABELS[a.action_type] || a.action_type.replace(/_/g, " "),
+            cost: Math.round(a.cost * 100) / 100,
+            percent: totalCost > 0 ? Math.round((a.cost / totalCost) * 100) : 0,
+            color: ACTION_COLORS[i % ACTION_COLORS.length],
+          }))
+        );
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [orgId]);
+
+  if (accessDenied) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <p className="text-gray-500">Organisation non trouvée</p>
+      <div className="flex h-96 flex-col items-center justify-center gap-3">
+        <ShieldAlert className="h-10 w-10 text-red-400" />
+        <p className="text-sm text-gray-500">Acc\u00e8s r\u00e9serv\u00e9 aux super-administrateurs</p>
       </div>
     );
   }
 
-  const orgUsers = mockAdminUsers.filter((u) => u.organization_id === orgId);
-  const orgProjects = mockProjects.filter((p) => p.organization_id === orgId);
-  const orgLogs: { id: string; date: string; user_name: string; action: string; metadata: Record<string, unknown> }[] = [];
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!org) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-gray-500">Organisation non trouv\u00e9e</p>
+      </div>
+    );
+  }
+
   const totalCost = org.api_cost_chf;
   const mrr = org.mrr_chf;
   const margin = mrr > 0 ? mrr - totalCost : -totalCost;
-  const marginPercent = mrr > 0 ? ((margin / mrr) * 100).toFixed(1) : "-∞";
+  const marginPercent = mrr > 0 ? ((margin / mrr) * 100).toFixed(1) : "-\u221e";
 
   return (
     <div className="p-6 lg:p-8">
@@ -84,7 +221,7 @@ export default function AdminOrgDetailPage() {
           <div>
             <p className="text-xs text-gray-500">{t("orgPlan")}</p>
             <p className="mt-0.5 font-medium text-gray-800">
-              {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)} ({PLAN_PRICING[org.plan]} CHF/mois)
+              {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)} ({PLAN_PRICING[org.plan] || 0} CHF/mois)
             </p>
           </div>
           <div>
@@ -98,7 +235,7 @@ export default function AdminOrgDetailPage() {
             <p className="mt-0.5 font-medium text-gray-800">
               {org.trial_ends_at
                 ? `${Math.max(0, Math.ceil((new Date(org.trial_ends_at).getTime() - Date.now()) / 86400000))} jours`
-                : `— (${t("orgConverted")})`}
+                : `\u2014 (${t("orgConverted")})`}
             </p>
           </div>
           <div>
@@ -135,7 +272,9 @@ export default function AdminOrgDetailPage() {
 
       {/* Users Section */}
       <div className="mt-5 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-gray-800">{t("orgUsers")}</h2>
+        <h2 className="text-sm font-semibold text-gray-800">
+          {t("orgUsers")} ({orgUsers.length})
+        </h2>
         <table className="mt-3 w-full text-left text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-xs text-gray-500">
@@ -146,6 +285,13 @@ export default function AdminOrgDetailPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
+            {orgUsers.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-4 text-center text-sm text-gray-400">
+                  Aucun utilisateur
+                </td>
+              </tr>
+            )}
             {orgUsers.map((u) => (
               <tr key={u.id}>
                 <td className="py-2.5 font-medium text-gray-800">{u.name}</td>
@@ -164,26 +310,12 @@ export default function AdminOrgDetailPage() {
         </table>
       </div>
 
-      {/* Projects Section */}
+      {/* Summary Section (replaces projects section) */}
       <div className="mt-5 rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-gray-800">{t("orgProjects")}</h2>
-        <div className="mt-3 space-y-2">
-          {orgProjects.length > 0 ? orgProjects.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 rounded-md border border-gray-100 px-4 py-2.5">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-800">{p.name}</span>
-                {p.code && <span className="ml-2 text-xs text-gray-400">({p.code})</span>}
-              </div>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                p.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-              }`}>
-                {p.status}
-              </span>
-            </div>
-          )) : (
-            <p className="text-sm text-gray-400">Aucun projet</p>
-          )}
+        <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+          <span className="text-2xl font-bold text-gray-800">{org.project_count}</span>
+          <span>projet{org.project_count > 1 ? "s" : ""} actif{org.project_count > 1 ? "s" : ""}</span>
         </div>
       </div>
 
@@ -192,7 +324,7 @@ export default function AdminOrgDetailPage() {
         <h2 className="text-sm font-semibold text-gray-800">{t("orgCosts")}</h2>
         <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
           <div>
-            <p className="text-xs text-gray-500">Coût total ce mois</p>
+            <p className="text-xs text-gray-500">Co\u00fbt total ce mois</p>
             <p className="text-lg font-bold text-gray-800">{totalCost.toFixed(2)} CHF</p>
           </div>
           <div>
@@ -206,71 +338,52 @@ export default function AdminOrgDetailPage() {
             </p>
           </div>
         </div>
-        <div className="mt-4 space-y-2">
-          {costBreakdown.map((item) => (
-            <div key={item.action} className="flex items-center gap-3 text-sm">
-              <div className="w-[200px] flex-shrink-0">
-                <div className="flex h-4 overflow-hidden rounded-full bg-gray-100">
-                  <div className={`${item.color} h-full rounded-full`} style={{ width: `${item.percent}%` }} />
+        {costBreakdown.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {costBreakdown.map((item) => (
+              <div key={item.action} className="flex items-center gap-3 text-sm">
+                <div className="w-[200px] flex-shrink-0">
+                  <div className="flex h-4 overflow-hidden rounded-full bg-gray-100">
+                    <div className={`${item.color} h-full rounded-full`} style={{ width: `${Math.max(item.percent, 2)}%` }} />
+                  </div>
                 </div>
+                <span className="w-40 text-gray-600">{item.action}</span>
+                <span className="font-medium text-gray-800">{item.cost.toFixed(2)} CHF</span>
+                <span className="text-xs text-gray-400">({item.percent}%)</span>
               </div>
-              <span className="w-40 text-gray-600">{item.action}</span>
-              <span className="font-medium text-gray-800">{item.cost.toFixed(2)} CHF</span>
-              <span className="text-xs text-gray-400">({item.percent}%)</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+        {costBreakdown.length === 0 && totalCost === 0 && (
+          <p className="mt-4 text-sm text-gray-400">Aucun co\u00fbt API enregistr\u00e9 ce mois</p>
+        )}
 
         {/* Per-user cost */}
-        <h3 className="mt-5 text-xs font-semibold text-gray-600">Par utilisateur</h3>
-        <table className="mt-2 w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 text-xs text-gray-500">
-              <th className="pb-2">{t("colUser")}</th>
-              <th className="pb-2">{t("colEmailsClassified")}</th>
-              <th className="pb-2">Coût</th>
-              <th className="pb-2">Coût/jour</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {orgUsers.map((u) => (
-              <tr key={u.id}>
-                <td className="py-2 font-medium text-gray-800">{u.name}</td>
-                <td className="py-2 text-gray-600">{u.emails_classified}</td>
-                <td className="py-2 text-gray-600">{u.cost_month_chf.toFixed(2)} CHF</td>
-                <td className="py-2 text-gray-500">{(u.cost_month_chf / 17).toFixed(2)} CHF</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Activity Log */}
-      <div className="mt-5 rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-gray-800">{t("orgActivity")}</h2>
-        <div className="mt-3 space-y-1.5">
-          {orgLogs.slice(0, 15).map((log) => (
-            <div key={log.id} className="flex items-center gap-3 text-sm">
-              <span className="w-28 shrink-0 text-xs text-gray-400">
-                {new Date(log.date).toLocaleString("fr-CH", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              <span className="w-32 shrink-0 font-medium text-gray-700">{log.user_name}</span>
-              <span className="text-gray-600">
-                {log.action}
-                {log.metadata.count ? ` (×${log.metadata.count})` : ""}
-                {log.metadata.recipients ? ` (${log.metadata.recipients} dest.)` : ""}
-              </span>
-            </div>
-          ))}
-          {orgLogs.length === 0 && (
-            <p className="text-sm text-gray-400">Aucune activité récente</p>
-          )}
-        </div>
+        {orgUsers.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold text-gray-600">Par utilisateur</h3>
+            <table className="mt-2 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs text-gray-500">
+                  <th className="pb-2">{t("colUser")}</th>
+                  <th className="pb-2">{t("colEmailsClassified")}</th>
+                  <th className="pb-2">Co\u00fbt</th>
+                  <th className="pb-2">Co\u00fbt/jour</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {orgUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td className="py-2 font-medium text-gray-800">{u.name}</td>
+                    <td className="py-2 text-gray-600">{u.emails_classified}</td>
+                    <td className="py-2 text-gray-600">{u.cost_month_chf.toFixed(2)} CHF</td>
+                    <td className="py-2 text-gray-500">{(u.cost_month_chf / 17).toFixed(2)} CHF</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </div>
   );

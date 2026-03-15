@@ -1016,6 +1016,23 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | SETTINGS.FIX1 | `/api/emails/preferences` GET | "Failed to load" sur l'onglet Préférences Email — la route retournait 500 si la table `email_preferences` n'existe pas (migration 019b non appliquée) | Retourne les valeurs par défaut au lieu de 500 quand la table est absente. Le POST retourne aussi un message explicite si la table manque. |
 | SA.FIX1 | `super-admin/organizations/[id]` | "Cannot read properties of undefined (reading 'charAt')" — crash sur la page détail organisation car `org.status` et `org.plan` sont `undefined` quand migration 016 n'est pas appliquée | Ajouté fallbacks : `orgStatus = org.status \|\| "active"`, `orgPlan = org.plan \|\| org.subscription_plan \|\| "trial"`. Corrigé toutes les références (`handleSuspend`, badge status, bouton suspend, affichage plan, initiales membres). |
 
+### Corrigés — Audit données hardcodées & pages mortes (2026-03-15)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| HC.FIX1 | CRITIQUE | `dashboard/page.tsx` | Tâches "12", PVs "3", projets "5" hardcodés — jamais fetch depuis l'API | Ajouté `useState` + `useEffect` → fetch `/api/tasks`, `/api/pv`, `/api/projects/list`. Affiche "—" pendant le chargement, puis les vrais compteurs |
+| HC.FIX2 | CRITIQUE | `direction/page.tsx` | Page entièrement morte — tous les tableaux mock étaient des arrays vides `[]`, aucune donnée affichée | Réécriture complète : fetch projets, tâches, membres (Supabase), soumissions, réceptions. Tous les tableaux et KPIs connectés aux vraies données |
+| HC.FIX3 | CRITIQUE | `pricing-intelligence/page.tsx` | Page entièrement morte — `mockPricingAlerts`, `BENCHMARK_DATA`, `TOP_SUPPLIERS` tous vides | Réécriture : fetch `/api/pricing-alerts`, `/api/benchmarks/market`, `/api/suppliers`. Les 3 onglets (Alertes, Benchmark, Fournisseurs) affichent les vraies données |
+| HC.FIX4 | CRITIQUE | `admin/organizations/page.tsx` | `mockAdminOrgs = []` — liste toujours vide | Fetch `/api/super-admin?action=list-organizations` + analytics. Table avec MRR calculé, coûts API réels, marge, tri et filtres fonctionnels |
+| HC.FIX5 | CRITIQUE | `admin/users/page.tsx` | `mockAdminUsers = []` — liste toujours vide | Fetch `/api/super-admin?action=all-users` + analytics. Table avec coûts IA par utilisateur, filtre org, segments activité |
+| HC.FIX6 | CRITIQUE | `admin/organizations/[id]/page.tsx` | `mockAdminOrgs`, `mockAdminUsers`, `mockProjects` tous vides + `costBreakdown` hardcodé | Fetch org detail + users + analytics. Coûts par action et par utilisateur calculés depuis les vraies données |
+| HC.FIX7 | CRITIQUE | `GuaranteeAlerts.tsx` | `mockReceptions = []`, `mockReserves = []` — alertes garantie jamais affichées | Fetch depuis Supabase (`project_receptions`, `reception_reserves`) avec try/catch si tables absentes |
+| HC.FIX8 | HAUTE | `projects/page.tsx` | `getProjectHealth()` retournait toujours `"good"` — santé projet jamais calculée | Calcul basé sur les vraies données : >3 overdue = critical, >0 overdue ou >10 open = warning, sinon good |
+| HC.FIX9 | HAUTE | `ProjectOverviewTab.tsx` | `emailCount: 0`, `archivedCount: 0` hardcodés, card "Archivés" inutile | Fetch email count depuis `/api/projects/{id}/emails`. Supprimé la card "Archivés" vide |
+| HC.FIX10 | HAUTE | `super-admin/billing/page.tsx` | MRR "0 CHF", ARR "0 CHF" hardcodés, action API `all-orgs` inexistante | Fetch `list-organizations`, calcul MRR/ARR depuis les plans (trial=0, starter=149, pro=349, enterprise=990), distribution des plans, statut réel par org |
+| HC.FIX11 | HAUTE | `admin/finances/page.tsx` | Métriques vides (MRR=0, coûts=0), graphiques vides, répartition par module hardcodée en pourcentages fixes | Fetch analytics + list-organizations. Revenue vs Costs quotidien, coûts par module depuis `per_action`, détail par plan réel |
+| HC.FIX12 | MOYENNE | `admin/members/page.tsx` | Bouton "Renvoyer l'invitation" sans `onClick` — bouton mort | Ajouté `handleResendInvite()` : annule l'ancienne invitation + en crée une nouvelle |
+
 ### Non corrigés (à investiguer)
 
 | ID | Sévérité | Module | Description | Impact |

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   TrendingUp,
@@ -10,20 +10,49 @@ import {
   CheckCircle,
   Building2,
   BarChart3,
+  Loader2,
+  DatabaseZap,
+  Users,
 } from "lucide-react";
-import type { PricingAlert, Supplier, OfferLineItem, Project } from "@cantaia/database";
 
-// Data will come from Supabase — empty arrays until wired
-const mockPricingAlerts: PricingAlert[] = [];
-const mockSuppliers: Supplier[] = [];
-const mockOfferLineItems: OfferLineItem[] = [];
-const mockProjects: Project[] = [];
+interface PricingAlert {
+  id: string;
+  title: string;
+  message: string;
+  severity: "critical" | "warning" | "info";
+  status: string;
+  difference_percent: number | null;
+  financial_impact: number | null;
+  suggested_action: string | null;
+}
 
-// Benchmark data will come from Supabase — empty array until wired
-const BENCHMARK_DATA: any[] = [];
+interface MarketBenchmark {
+  cfc_code: string;
+  description: string;
+  unit: string;
+  median_price: number;
+  p25_price: number;
+  p75_price: number;
+  trend_percent: number;
+  data_point_count: number;
+  region: string;
+  quarter: string;
+}
 
-// Top suppliers data will come from Supabase — empty array until wired
-const TOP_SUPPLIERS: any[] = [];
+interface SupplierData {
+  id: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  specialties: string[];
+  cfc_codes: string[];
+  response_rate: number;
+  reliability_score: number;
+  overall_score: number;
+  status: string;
+  geo_zone: string;
+}
 
 export default function PricingIntelligencePage() {
   const t = useTranslations("pricing");
@@ -31,21 +60,80 @@ export default function PricingIntelligencePage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"alerts" | "benchmark" | "suppliers">("alerts");
 
-  const activeAlerts = mockPricingAlerts.filter((a) => a.status === "active");
+  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState<PricingAlert[]>([]);
+  const [benchmarks, setBenchmarks] = useState<MarketBenchmark[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
+  const [projectCount, setProjectCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [alertsRes, benchmarksRes, suppliersRes, projectsRes] = await Promise.all([
+          fetch("/api/pricing-alerts").then((r) => r.json()).catch(() => ({ alerts: [] })),
+          fetch("/api/benchmarks/market").then((r) => r.json()).catch(() => ({ benchmarks: [] })),
+          fetch("/api/suppliers").then((r) => r.json()).catch(() => ({ suppliers: [] })),
+          fetch("/api/projects/list").then((r) => r.json()).catch(() => ({ projects: [] })),
+        ]);
+        setAlerts(alertsRes.alerts ?? []);
+        setBenchmarks(benchmarksRes.benchmarks ?? []);
+        setSuppliers(suppliersRes.suppliers ?? []);
+        const projects = projectsRes.projects ?? [];
+        setProjectCount(projects.filter((p: { status: string }) => p.status === "active" || p.status === "completed").length);
+      } catch {
+        // Default to empty arrays on global failure
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const activeAlerts = useMemo(() => alerts.filter((a) => a.status === "active"), [alerts]);
+
+  const benchmarkRows = useMemo(() => {
+    return benchmarks.map((b) => ({
+      item: b.description,
+      cfc: b.cfc_code,
+      unit: b.unit,
+      min: b.p25_price,
+      median: b.median_price,
+      max: b.p75_price,
+      trend: b.trend_percent,
+      dataPoints: b.data_point_count,
+    }));
+  }, [benchmarks]);
 
   const filteredBenchmark = useMemo(() => {
-    if (!search) return BENCHMARK_DATA;
+    if (!search) return benchmarkRows;
     const q = search.toLowerCase();
-    return BENCHMARK_DATA.filter((b) => b.item.toLowerCase().includes(q) || b.cfc.includes(q));
-  }, [search]);
+    return benchmarkRows.filter((b) => b.item.toLowerCase().includes(q) || b.cfc.includes(q));
+  }, [search, benchmarkRows]);
 
-  const totalPricePoints = mockOfferLineItems.length;
-  const totalProjects = mockProjects.filter((p) => p.status === "active" || p.status === "completed").length;
-  const totalSuppliers = mockSuppliers.length;
+  const topSuppliers = useMemo(() => {
+    return [...suppliers]
+      .sort((a, b) => (b.overall_score ?? 0) - (a.overall_score ?? 0))
+      .slice(0, 10);
+  }, [suppliers]);
+
+  const totalPricePoints = benchmarks.length;
+  const totalSuppliers = suppliers.length;
 
   function formatCHF(amount: number): string {
     if (amount < 10) return amount.toFixed(2) + " CHF";
     return new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount) + " CHF";
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 overflow-auto h-full flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Chargement des données...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -55,7 +143,7 @@ export default function PricingIntelligencePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {t("subtitle", { prices: totalPricePoints, projects: totalProjects, suppliers: totalSuppliers })}
+            {t("subtitle", { prices: totalPricePoints, projects: projectCount, suppliers: totalSuppliers })}
           </p>
         </div>
       </div>
@@ -164,55 +252,72 @@ export default function PricingIntelligencePage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm bg-white"
             />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
-                  <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">CFC</th>
-                  <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">{tSub("unit")}</th>
-                  <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("min")}</th>
-                  <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("median")}</th>
-                  <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("max")}</th>
-                  <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("trend")}</th>
-                  <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">N</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredBenchmark.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{row.item}</td>
-                    <td className="px-3 py-3 text-center">
-                      <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{row.cfc}</span>
-                    </td>
-                    <td className="px-3 py-3 text-center text-xs text-gray-500">{row.unit}</td>
-                    <td className="px-3 py-3 text-right text-sm text-green-600 font-medium">{formatCHF(row.min)}</td>
-                    <td className="px-3 py-3 text-right text-sm text-gray-700 font-medium">{formatCHF(row.median)}</td>
-                    <td className="px-3 py-3 text-right text-sm text-red-600 font-medium">{formatCHF(row.max)}</td>
-                    <td className="px-3 py-3 text-right">
-                      <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
-                        row.trend > 0 ? "text-red-600" : row.trend < 0 ? "text-green-600" : "text-gray-500"
-                      }`}>
-                        {row.trend > 0 ? <TrendingUp className="h-3 w-3" /> : row.trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-                        {row.trend > 0 ? "+" : ""}{row.trend}%
-                      </span>
-                      <span className="text-[10px] text-gray-400 ml-1">{t("perSixMonths")}</span>
-                    </td>
-                    <td className="px-3 py-3 text-center text-xs text-gray-400">{row.dataPoints}</td>
+          {filteredBenchmark.length === 0 ? (
+            <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
+              <DatabaseZap className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-sm font-medium text-gray-900">Aucune donnée benchmark disponible</h3>
+              <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                Activez le partage de données dans Paramètres &gt; Partage de données pour contribuer et accéder aux benchmarks marché.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
+                    <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">CFC</th>
+                    <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">{tSub("unit")}</th>
+                    <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("min")}</th>
+                    <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("median")}</th>
+                    <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("max")}</th>
+                    <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t("trend")}</th>
+                    <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase">N</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredBenchmark.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{row.item}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{row.cfc}</span>
+                      </td>
+                      <td className="px-3 py-3 text-center text-xs text-gray-500">{row.unit}</td>
+                      <td className="px-3 py-3 text-right text-sm text-green-600 font-medium">{formatCHF(row.min)}</td>
+                      <td className="px-3 py-3 text-right text-sm text-gray-700 font-medium">{formatCHF(row.median)}</td>
+                      <td className="px-3 py-3 text-right text-sm text-red-600 font-medium">{formatCHF(row.max)}</td>
+                      <td className="px-3 py-3 text-right">
+                        <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+                          row.trend > 0 ? "text-red-600" : row.trend < 0 ? "text-green-600" : "text-gray-500"
+                        }`}>
+                          {row.trend > 0 ? <TrendingUp className="h-3 w-3" /> : row.trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+                          {row.trend > 0 ? "+" : ""}{row.trend}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 ml-1">{t("perSixMonths")}</span>
+                      </td>
+                      <td className="px-3 py-3 text-center text-xs text-gray-400">{row.dataPoints}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {/* Top Suppliers tab */}
       {tab === "suppliers" && (
         <div className="space-y-3">
-          {TOP_SUPPLIERS.map((sup, idx) => {
-            const supplier = mockSuppliers.find((s) => s.id === sup.id);
-            return (
+          {topSuppliers.length === 0 ? (
+            <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
+              <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-sm font-medium text-gray-900">Aucun fournisseur enregistré</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Ajoutez des fournisseurs dans la section Fournisseurs pour les voir apparaître ici.
+              </p>
+            </div>
+          ) : (
+            topSuppliers.map((sup, idx) => (
               <div key={sup.id} className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-6">
                 <div className="flex items-center gap-3 w-8">
                   <span className={`text-lg font-bold ${idx === 0 ? "text-amber-500" : idx === 1 ? "text-gray-400" : idx === 2 ? "text-amber-700" : "text-gray-300"}`}>
@@ -221,36 +326,36 @@ export default function PricingIntelligencePage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{sup.name}</span>
-                    {supplier?.status === "preferred" && (
+                    <span className="text-sm font-medium text-gray-900">{sup.company_name}</span>
+                    {sup.status === "preferred" && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">Preferred</span>
                     )}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {supplier?.geo_zone} · {supplier?.specialties.slice(0, 3).join(", ")}
+                    {sup.geo_zone || "—"} · {(sup.specialties ?? []).slice(0, 3).join(", ") || "—"}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-6 text-center flex-shrink-0">
                   <div>
-                    <div className="text-lg font-bold text-gray-900">{sup.score}</div>
+                    <div className="text-lg font-bold text-gray-900">{sup.overall_score ?? 0}</div>
                     <div className="text-[10px] text-gray-500">Score</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-blue-600">{sup.competitiveness}%</div>
+                    <div className="text-lg font-bold text-blue-600">{sup.reliability_score ?? 0}%</div>
                     <div className="text-[10px] text-gray-500">Prix</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-green-600">{sup.responseRate}%</div>
+                    <div className="text-lg font-bold text-green-600">{sup.response_rate ?? 0}%</div>
                     <div className="text-[10px] text-gray-500">Réponse</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-gray-700">{sup.projects}</div>
+                    <div className="text-lg font-bold text-gray-700">—</div>
                     <div className="text-[10px] text-gray-500">Projets</div>
                   </div>
                 </div>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       )}
     </div>

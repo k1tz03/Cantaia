@@ -1,10 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Calendar, ShieldCheck } from "lucide-react";
-// Mock data removed — will be replaced by real API calls
-const mockReceptions: ProjectReception[] = [];
-const mockReserves: ReceptionReserve[] = [];
+import { createClient } from "@/lib/supabase/client";
 import type { ProjectReception, ReceptionReserve } from "@cantaia/database";
 
 export interface GuaranteeAlert {
@@ -157,13 +156,36 @@ interface GuaranteeAlertsProps {
 
 export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsProps) {
   const t = useTranslations("closure");
+  const [receptions, setReceptions] = useState<ProjectReception[]>([]);
+  const [reserves, setReserves] = useState<ReceptionReserve[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const receptions = projectId
-    ? mockReceptions.filter((r) => r.project_id === projectId)
-    : mockReceptions;
-  const reserves = projectId
-    ? mockReserves.filter((r) => r.project_id === projectId)
-    : mockReserves;
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const supabase = createClient();
+        let receptionsQuery = (supabase.from("project_receptions") as any).select("*");
+        let reservesQuery = (supabase.from("reception_reserves") as any).select("*");
+        if (projectId) {
+          receptionsQuery = receptionsQuery.eq("project_id", projectId);
+          reservesQuery = reservesQuery.eq("project_id", projectId);
+        }
+        const [recRes, resRes] = await Promise.all([
+          receptionsQuery.catch(() => ({ data: [] })),
+          reservesQuery.catch(() => ({ data: [] })),
+        ]);
+        setReceptions(recRes.data || []);
+        setReserves(resRes.data || []);
+      } catch {
+        // Tables may not exist yet
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [projectId]);
+
+  if (loading) return null;
 
   const alerts = computeGuaranteeAlerts(receptions, reserves);
 

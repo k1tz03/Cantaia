@@ -30,7 +30,9 @@ type HealthFilter = "all" | "attention";
 type SortDirection = "asc" | "desc";
 type HealthStatus = "good" | "warning" | "critical";
 
-function getProjectHealth(_projectId: string): HealthStatus {
+function getProjectHealth(overdueTasks: number, openTasks: number): HealthStatus {
+  if (overdueTasks > 3) return "critical";
+  if (overdueTasks > 0 || openTasks > 10) return "warning";
   return "good";
 }
 
@@ -87,7 +89,7 @@ export default function ProjectsPage() {
         overdueTasks: (pa.overdueTasks as number) ?? 0,
         emailCount: (pa.emailCount as number) ?? 0,
         nextMeeting: (pa.nextMeeting as { title: string; meeting_date: string } | null) ?? null,
-        health: getProjectHealth(p.id),
+        health: getProjectHealth(pa.overdueTasks ?? 0, pa.openTasks ?? 0),
       };
     });
   }, [projects]);

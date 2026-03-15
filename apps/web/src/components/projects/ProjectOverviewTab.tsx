@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { StatusBadge, PriorityIndicator } from "@cantaia/ui";
 import { Clock } from "lucide-react";
@@ -20,6 +21,20 @@ export function ProjectOverviewTab({
   overdueTasks: Task[];
 }) {
   const t = useTranslations("projects");
+
+  const [emailCount, setEmailCount] = useState(0);
+
+  useEffect(() => {
+    if (project?.id) {
+      fetch(`/api/projects/${project.id}/emails`)
+        .then((r) => r.json())
+        .then((data) => {
+          const emails = data.emails || [];
+          setEmailCount(emails.length);
+        })
+        .catch(() => {});
+    }
+  }, [project?.id]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -53,11 +68,7 @@ export function ProjectOverviewTab({
           </div>
           <div className="rounded-md border border-slate-200 bg-white p-4">
             <p className="text-xs font-medium text-slate-500">Emails</p>
-            <p className="mt-1 text-xl font-semibold text-slate-800">0</p>
-          </div>
-          <div className="rounded-md border border-slate-200 bg-white p-4">
-            <p className="text-xs font-medium text-slate-500">Archivés</p>
-            <p className="mt-1 text-xl font-semibold text-slate-800">0</p>
+            <p className="mt-1 text-xl font-semibold text-slate-800">{emailCount}</p>
           </div>
         </div>
 
