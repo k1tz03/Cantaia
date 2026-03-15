@@ -13,6 +13,8 @@ export interface VisitReportPromptInput {
   client_address?: string;
   visit_date: string;
   language?: string;
+  handwritten_notes?: string;
+  sketch_descriptions?: string[];
 }
 
 /**
@@ -25,7 +27,13 @@ Analyse cette transcription et génère un rapport de visite structuré.
 
 Transcription de la visite :
 ${input.transcription}
-
+${input.handwritten_notes ? `
+NOTES MANUSCRITES PHOTOGRAPHIÉES :
+${input.handwritten_notes}
+` : ""}${input.sketch_descriptions && input.sketch_descriptions.length > 0 ? `
+CROQUIS ET DIAGRAMMES IDENTIFIÉS :
+${input.sketch_descriptions.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+` : ""}
 Informations connues :
 - Conducteur de travaux : ${input.user_name}, ${input.user_company}
 - Client : ${input.client_name || "(non renseigné)"}
@@ -89,6 +97,8 @@ RÈGLES :
 - Le "sentiment" et "closing_probability" sont ton estimation basée sur le ton de la conversation
 - Identifie les corps de métier (CFC) pour chaque demande
 - Si des informations de contact sont mentionnées → les extraire dans client_info_extracted
+- Si des notes manuscrites sont fournies, croise les mesures et informations avec celles de la transcription audio
+- Les notes manuscrites peuvent contenir des croquis : intègre leurs descriptions dans les mesures et demandes
 - Réponds UNIQUEMENT avec le JSON, sans texte avant ou après`;
 }
 

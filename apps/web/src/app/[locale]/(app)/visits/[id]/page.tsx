@@ -18,11 +18,16 @@ import {
   AlertTriangle,
   Loader2,
   Download,
+  Camera,
+  Plus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { ClientVisit } from "@cantaia/database";
+import type { ClientVisit, VisitPhoto } from "@cantaia/database";
+import { PhotoGallery } from "@/components/visits/PhotoGallery";
+import { PhotoCapture } from "@/components/visits/PhotoCapture";
+import { HandwrittenNotesResult } from "@/components/visits/HandwrittenNotesResult";
 
-type Tab = "report" | "transcription" | "tasks" | "documents";
+type Tab = "report" | "transcription" | "photos" | "tasks" | "documents";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("fr-CH", {
@@ -113,9 +118,10 @@ export default function VisitDetailPage() {
   }
 
   const report = visit.report || {};
-  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: "report", label: t("tabReport"), icon: FileText },
     { id: "transcription", label: t("tabTranscription"), icon: Mic },
+    { id: "photos", label: t("photos.tabPhotos"), icon: Camera, badge: visit.photos_count || 0 },
     { id: "tasks", label: t("tabTasks"), icon: CheckSquare },
     { id: "documents", label: t("tabDocuments"), icon: File },
   ];
@@ -206,6 +212,11 @@ export default function VisitDetailPage() {
             >
               <Icon className="h-4 w-4" />
               {tab.label}
+              {tab.badge ? (
+                <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -214,6 +225,7 @@ export default function VisitDetailPage() {
       {/* Tab content */}
       {activeTab === "report" && <ReportTab visit={visit} report={report} />}
       {activeTab === "transcription" && <TranscriptionTab visit={visit} />}
+      {activeTab === "photos" && <PhotosTab visit={visit} onPhotosChanged={loadVisit} />}
       {activeTab === "tasks" && <TasksTab visit={visit} />}
       {activeTab === "documents" && <DocumentsTab visit={visit} />}
     </div>
@@ -540,6 +552,168 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
       {!visit.audio_url && !visit.report_pdf_url && (
         <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-sm text-gray-400">
           {t("tabDocuments")} — {t("noDocuments")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════ Photos Tab ═══════ */
+function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosChanged: () => void }) {
+  const t = useTranslations("visits");
+  const [photos, setPhotos] = useState<VisitPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [orgId, setOrgId] = useState("");
+
+  useEffect(() => {
+    loadPhotos();
+  }, [visit.id]);
+
+  async function loadPhotos() {
+    try {
+      const res = await fetch(`/api/visits/photos?visit_id=${visit.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPhotos(data.photos || []);
+      }
+
+      // Get org ID for upload
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData } = await (supabase.from("users") as any)
+          .select("organization_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (userData?.organization_id) setOrgId(userData.organization_id);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(photoId: string) {
+    if (!confirm(t("photos.deleteConfirm"))) return;
+    try {
+      await fetch(`/api/visits/photos/${photoId}`, { method: "DELETE" });
+      await loadPhotos();
+      onPhotosChanged();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleUpdateCaption(photoId: string, caption: string) {
+    try {
+      await fetch(`/api/visits/photos/${photoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption }),
+      });
+      setPhotos((prev) => prev.map((p) => p.id === photoId ? { ...p, caption } : p));
+    } catch {
+      // ignore
+    }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
+  }
+
+  const notesPhotos = photos.filter((p) => p.photo_type === "handwritten_notes");
+  const sitePhotos = photos.filter((p) => p.photo_type === "site");
+
+  return (
+    <div className="space-y-6">
+      {/* Add photos button */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowUpload(!showUpload)}
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Plus className="h-4 w-4" />
+          {t("photos.addPhotos")}
+        </button>
+      </div>
+
+      {/* Upload section */}
+      {showUpload && orgId && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-purple-800">
+              <Camera className="h-4 w-4" />
+              {t("photos.handwrittenNotes")}
+            </h4>
+            <PhotoCapture
+              visitId={visit.id}
+              orgId={orgId}
+              photoType="handwritten_notes"
+              onPhotosUploaded={() => { loadPhotos(); onPhotosChanged(); }}
+            />
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-blue-800">
+              <Camera className="h-4 w-4" />
+              {t("photos.sitePhotos")}
+            </h4>
+            <PhotoCapture
+              visitId={visit.id}
+              orgId={orgId}
+              photoType="site"
+              onPhotosUploaded={() => { loadPhotos(); onPhotosChanged(); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Handwritten notes section */}
+      {notesPhotos.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+            {t("photos.handwrittenNotes")} ({notesPhotos.length})
+          </h3>
+          <div className="space-y-3">
+            {notesPhotos.map((photo) => (
+              <HandwrittenNotesResult
+                key={photo.id}
+                photo={photo}
+                onAnalysisComplete={loadPhotos}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Site photos section */}
+      {sitePhotos.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+            {t("photos.sitePhotos")} ({sitePhotos.length})
+          </h3>
+          <PhotoGallery
+            photos={sitePhotos}
+            onDelete={handleDelete}
+            onUpdateCaption={handleUpdateCaption}
+          />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {photos.length === 0 && !showUpload && (
+        <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
+          <Camera className="mx-auto mb-3 h-8 w-8 text-gray-300" />
+          <p className="text-sm text-gray-500">{t("photos.noPhotos")}</p>
+          <button
+            type="button"
+            onClick={() => setShowUpload(true)}
+            className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            {t("photos.addPhotos")}
+          </button>
         </div>
       )}
     </div>

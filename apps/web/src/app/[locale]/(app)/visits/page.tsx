@@ -16,6 +16,7 @@ import {
   XCircle,
   Archive,
   Loader2,
+  Camera,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -30,6 +31,7 @@ interface VisitSummary {
   status: string;
   report: any;
   is_prospect: boolean;
+  photos_count: number | null;
 }
 
 type VisitFilter = "all" | "recording" | "report_ready" | "quoted" | "won" | "lost";
@@ -68,7 +70,7 @@ export default function VisitsPage() {
       if (!userData?.organization_id) { setLoading(false); return; }
 
       const { data } = await (supabase.from("client_visits") as any)
-        .select("id, client_name, title, client_address, client_city, visit_date, duration_minutes, status, report, is_prospect")
+        .select("id, client_name, title, client_address, client_city, visit_date, duration_minutes, status, report, is_prospect, photos_count")
         .eq("organization_id", userData.organization_id)
         .order("visit_date", { ascending: false });
 
@@ -230,6 +232,12 @@ export default function VisitsPage() {
                       </span>
                       {visit.title && (
                         <span className="text-sm text-gray-500">— {visit.title}</span>
+                      )}
+                      {(visit.photos_count || 0) > 0 && (
+                        <span className="flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                          <Camera className="h-2.5 w-2.5" />
+                          {visit.photos_count}
+                        </span>
                       )}
                     </div>
                     <div className="mt-1.5 flex items-center gap-4 text-xs text-gray-400">

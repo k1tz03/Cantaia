@@ -1727,6 +1727,8 @@ export interface ClientVisit {
   followup_task_id: string | null;
   status: VisitStatus;
   report_pdf_url: string | null;
+  photos_count: number;
+  handwritten_notes_transcription: string | null;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -1734,8 +1736,42 @@ export interface ClientVisit {
 
 export type ClientVisitInsert = WithOptionalDefaults<
   ClientVisit,
-  "id" | "project_id" | "client_company" | "client_email" | "client_phone" | "client_address" | "client_city" | "client_postal_code" | "is_prospect" | "title" | "visit_date" | "visit_time" | "duration_minutes" | "audio_url" | "audio_duration_seconds" | "audio_file_name" | "audio_file_size" | "transcription" | "transcription_status" | "transcription_provider" | "transcription_language" | "report_status" | "report_generated_at" | "report" | "quote_task_id" | "followup_task_id" | "status" | "report_pdf_url" | "created_at" | "updated_at"
+  "id" | "project_id" | "client_company" | "client_email" | "client_phone" | "client_address" | "client_city" | "client_postal_code" | "is_prospect" | "title" | "visit_date" | "visit_time" | "duration_minutes" | "audio_url" | "audio_duration_seconds" | "audio_file_name" | "audio_file_size" | "transcription" | "transcription_status" | "transcription_provider" | "transcription_language" | "report_status" | "report_generated_at" | "report" | "quote_task_id" | "followup_task_id" | "status" | "report_pdf_url" | "photos_count" | "handwritten_notes_transcription" | "created_at" | "updated_at"
 >;
+
+// ---------- Visit Photos ----------
+
+export type VisitPhotoType = "site" | "handwritten_notes";
+export type VisitPhotoAnalysisStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface HandwrittenNotesAnalysis {
+  transcribed_text: string;
+  sketches: { description: string; location?: string }[];
+  measurements_found: { value: string; unit: string; context: string }[];
+  language_detected: string;
+  confidence: number;
+}
+
+export interface VisitPhoto {
+  id: string;
+  visit_id: string;
+  organization_id: string;
+  photo_type: VisitPhotoType;
+  file_url: string;
+  file_name: string;
+  file_size: number | null;
+  mime_type: string | null;
+  sort_order: number;
+  caption: string | null;
+  location_description: string | null;
+  ai_transcription: string | null;
+  ai_sketch_description: string | null;
+  ai_analysis_status: VisitPhotoAnalysisStatus;
+  ai_confidence: number | null;
+  ai_analysis_result: HandwrittenNotesAnalysis | null;
+  created_at: string;
+  created_by: string | null;
+}
 
 // ---------- Database Schema Type (Supabase-style) ----------
 

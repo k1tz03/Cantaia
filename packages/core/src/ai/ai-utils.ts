@@ -26,6 +26,7 @@ export const MODEL_FOR_TASK = {
   supplier_enrichment: AI_MODELS.HAIKU,
   price_extraction: AI_MODELS.SONNET,
   pv_generation: AI_MODELS.SONNET,
+  handwritten_notes: AI_MODELS.SONNET,
 } as const;
 
 // ── AI Error Classification ─────────────────────────────────

@@ -94,6 +94,36 @@ export async function POST(request: NextRequest) {
 
     const userName = userData ? `${userData.first_name} ${userData.last_name}` : "";
 
+    // Fetch handwritten notes if available
+    let handwrittenNotes: string | undefined;
+    let sketchDescriptions: string[] | undefined;
+    try {
+      const { data: notesPhotos } = await ((supabase as any).from("visit_photos"))
+        .select("ai_transcription, ai_sketch_description, ai_analysis_result")
+        .eq("visit_id", visit_id)
+        .eq("photo_type", "handwritten_notes")
+        .eq("ai_analysis_status", "completed");
+
+      if (notesPhotos && notesPhotos.length > 0) {
+        const transcriptions = notesPhotos
+          .map((p: any) => p.ai_transcription)
+          .filter(Boolean);
+        if (transcriptions.length > 0) {
+          handwrittenNotes = transcriptions.join("\n\n---\n\n");
+        }
+
+        const sketches = notesPhotos
+          .flatMap((p: any) => p.ai_analysis_result?.sketches || [])
+          .map((s: any) => s.description)
+          .filter(Boolean);
+        if (sketches.length > 0) {
+          sketchDescriptions = sketches;
+        }
+      }
+    } catch {
+      // visit_photos table may not exist yet
+    }
+
     // Generate report
     const { buildVisitReportPrompt, getMockVisitReport } = await import("@cantaia/core/visits");
 
@@ -112,6 +142,8 @@ export async function POST(request: NextRequest) {
         client_name: visit.client_name,
         client_address: visit.client_address ? `${visit.client_address}, ${visit.client_postal_code || ""} ${visit.client_city || ""}` : undefined,
         visit_date: visit.visit_date,
+        handwritten_notes: handwrittenNotes,
+        sketch_descriptions: sketchDescriptions,
       });
 
       const Anthropic = (await import("@anthropic-ai/sdk")).default;

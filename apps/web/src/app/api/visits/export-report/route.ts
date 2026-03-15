@@ -160,11 +160,19 @@ function bulletItem(text: string, opts?: { color?: string; indent?: number }): P
 
 // ─── Document builder ───
 
+interface PhotoRecord {
+  photo_type: string;
+  caption: string | null;
+  location_description: string | null;
+  ai_transcription: string | null;
+}
+
 function createVisitReportDocument(
   visit: VisitRecord,
   report: VisitReportData,
   orgName: string,
-  brandColor: string
+  brandColor: string,
+  photos?: PhotoRecord[]
 ): Document {
   const children: (Paragraph | Table)[] = [];
 
@@ -538,6 +546,48 @@ function createVisitReportDocument(
     }
   }
 
+  // ── Photos section (if provided) ──
+  if (photos && photos.length > 0) {
+    children.push(separator());
+    children.push(sectionHeading(`Photos du chantier (${photos.length})`));
+
+    for (const photo of photos) {
+      const typeLabel = photo.photo_type === "handwritten_notes" ? "Notes manuscrites" : "Photo site";
+      const parts: TextRun[] = [
+        new TextRun({ text: `📷 ${typeLabel}`, bold: true, size: 20, font: "Arial" }),
+      ];
+      if (photo.caption) {
+        parts.push(new TextRun({ text: ` — ${photo.caption}`, size: 20, font: "Arial" }));
+      }
+      children.push(new Paragraph({ indent: { left: 360 }, spacing: { after: 40 }, children: parts }));
+
+      if (photo.ai_transcription) {
+        children.push(
+          new Paragraph({
+            indent: { left: 720 },
+            spacing: { after: 40 },
+            children: [
+              new TextRun({ text: "Transcription : ", bold: true, size: 18, font: "Arial", color: "666666" }),
+              new TextRun({ text: photo.ai_transcription.substring(0, 500), size: 18, font: "Arial", italics: true, color: "666666" }),
+            ],
+          })
+        );
+      }
+
+      if (photo.location_description) {
+        children.push(
+          new Paragraph({
+            indent: { left: 720 },
+            spacing: { after: 60 },
+            children: [
+              new TextRun({ text: `Emplacement : ${photo.location_description}`, size: 16, font: "Arial", color: "999999" }),
+            ],
+          })
+        );
+      }
+    }
+  }
+
   // ── Footer ──
   children.push(
     new Paragraph({
@@ -623,8 +673,21 @@ export async function POST(request: NextRequest) {
       ? orgRow.primary_color
       : "#0A1F30";
 
+    // Fetch photos
+    let photos: PhotoRecord[] = [];
+    try {
+      const { data: photoRows } = await ((supabaseAdmin as any).from("visit_photos"))
+        .select("photo_type, caption, location_description, ai_transcription")
+        .eq("visit_id", visit_id)
+        .eq("organization_id", userRow.organization_id)
+        .order("sort_order", { ascending: true });
+      if (photoRows) photos = photoRows as PhotoRecord[];
+    } catch {
+      // visit_photos table may not exist yet
+    }
+
     // Generate document
-    const doc = createVisitReportDocument(typedVisit, report, orgName, brandColor);
+    const doc = createVisitReportDocument(typedVisit, report, orgName, brandColor, photos);
     const buffer = await Packer.toBuffer(doc);
     const uint8 = new Uint8Array(buffer);
 

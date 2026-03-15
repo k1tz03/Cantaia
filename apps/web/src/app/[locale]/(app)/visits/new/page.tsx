@@ -10,10 +10,14 @@ import {
   Rocket,
   Save,
   FolderKanban,
+  Camera,
+  StickyNote,
+  ChevronDown,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AudioRecorder } from "@/components/visits/AudioRecorder";
+import { PhotoCapture } from "@/components/visits/PhotoCapture";
 
 type Step = "info" | "recording" | "post";
 
@@ -56,6 +60,9 @@ export default function NewVisitPage() {
   const [saving, setSaving] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [orgId, setOrgId] = useState("");
+  const [photosCount, setPhotosCount] = useState(0);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [sitePhotosExpanded, setSitePhotosExpanded] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -371,8 +378,76 @@ export default function NewVisitPage() {
           <Mic className="h-5 w-5 text-red-500" />
           {t("clientVisit")} — {form.client_name || "Client"}
         </h1>
-        <div className="mx-auto max-w-lg">
+        <div className="mx-auto max-w-lg space-y-6">
           <AudioRecorder onRecordingComplete={handleRecordingComplete} />
+
+          {/* Photos section */}
+          {visitId && orgId && (
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <div className="border-b border-gray-100 px-4 py-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                  <Camera className="h-4 w-4 text-gray-400" />
+                  {t("photos.title")}
+                  {photosCount > 0 && (
+                    <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                      {photosCount}
+                    </span>
+                  )}
+                </h3>
+              </div>
+
+              {/* Handwritten notes */}
+              <div className="border-b border-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setNotesExpanded(!notesExpanded)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <StickyNote className="h-4 w-4 text-purple-500" />
+                    {t("photos.handwrittenNotes")}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {notesExpanded && (
+                  <div className="px-4 pb-4">
+                    <p className="mb-3 text-xs text-gray-400">{t("photos.handwrittenNotesDesc")}</p>
+                    <PhotoCapture
+                      visitId={visitId}
+                      orgId={orgId}
+                      photoType="handwritten_notes"
+                      onPhotosUploaded={() => setPhotosCount((c) => c + 1)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Site photos */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setSitePhotosExpanded(!sitePhotosExpanded)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Camera className="h-4 w-4 text-blue-500" />
+                    {t("photos.sitePhotos")}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {sitePhotosExpanded && (
+                  <div className="px-4 pb-4">
+                    <PhotoCapture
+                      visitId={visitId}
+                      orgId={orgId}
+                      photoType="site"
+                      onPhotosUploaded={() => setPhotosCount((c) => c + 1)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -383,6 +458,11 @@ export default function NewVisitPage() {
     <div className="p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-900">
         {t("recordingFinished")} — {Math.floor(audioDuration / 60)} min {audioDuration % 60} sec
+        {photosCount > 0 && (
+          <span className="ml-2 text-base font-normal text-gray-500">
+            + {photosCount} {t("photos.title").toLowerCase()}
+          </span>
+        )}
       </h1>
 
       <div className="mx-auto max-w-lg">
