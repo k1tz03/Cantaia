@@ -741,7 +741,7 @@ Pipeline 4 passes multi-modèle :
 
 - `types.ts`, `pipeline.ts`, `prompts.ts`, `ai-clients.ts`
 - `consensus-engine.ts` — 5 niveaux (concordance_forte, partielle, divergence, detection_unique, detection_double)
-- `price-resolver.ts` — 4 tiers (historique_interne → benchmark_cantaia → referentiel_crb → prix_non_disponible)
+- `price-resolver.ts` — 6 tiers avec matching par mots-clés (historique_interne → données ingérées → fallback textuel → benchmark_cantaia → referentiel_crb → prix_non_disponible)
 - `confidence-calculator.ts`, `dynamic-confidence.ts` — Score plafonné 0.95, bonus corrections (+0.25 qty, +0.30 prix, +0.10 bureau, +0.10 cross-plan)
 - `calibration-engine.ts`, `cross-plan-verification.ts`, `auto-calibration.ts`
 - `reference-data/cfc-prices.ts` — 55+ prix CFC (CRB 2025)
@@ -1182,15 +1182,242 @@ Même après le fix timeout, l'analyse échouait avec "Failed to parse AI respon
 
 ---
 
+## 18. Audit Sécurité Complet (2026-03-13)
+
+Audit de sécurité exhaustif couvrant 136 routes API, l'authentification, la gestion de session, les uploads de fichiers, les injections, et l'infrastructure. 45 vulnérabilités identifiées, 30 corrigées.
+
+### Corrigés — Audit Sécurité V2 (2026-03-13)
+
+#### Routes sans authentification (CRITIQUE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX1 | CRITIQUE | `/api/projects/closure/generate-pv` | Aucune authentification — endpoint accessible publiquement | Ajouté `createClient()` + `getUser()` guard, retourne 401 si non authentifié |
+| SEC2.FIX2 | CRITIQUE | `/api/outlook/archive` | Aucune authentification — requêtes d'archivage sans vérification | Ajouté auth Supabase + guard 401 |
+
+#### IDOR — PV & Réunions (CRITIQUE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX3 | CRITIQUE | `/api/pv/[id]/finalize` | IDOR — tout utilisateur authentifié peut finaliser les réunions d'autres orgs | Ajouté vérification org via `meetings → projects!inner(organization_id)` |
+| SEC2.FIX4 | CRITIQUE | `/api/pv/transcribe` | IDOR — tout utilisateur peut écraser l'audio/transcription de réunions d'autres orgs | Ajouté vérification `meeting.projects.organization_id === userProfile.organization_id` |
+| SEC2.FIX5 | CRITIQUE | `/api/ai/generate-pv` | IDOR — génération/écrasement de PV de réunions d'autres orgs | Ajouté vérification org avec join projet avant consommation des données meeting |
+
+#### Injection SQL via PostgREST `.or()` (CRITIQUE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX6 | CRITIQUE | `/api/suppliers` GET | Injection — `search` interpolé directement dans `.or()` PostgREST. Un `%,organization_id.eq.X` pouvait injecter des clauses filtre arbitraires via admin client (bypass RLS) | Sanitisation : `search.replace(/[%_,().]/g, "")` avant interpolation |
+| SEC2.FIX7 | CRITIQUE | `/api/projects/create` | Injection — `body.code` sans aucune sanitisation dans `.or()`. `body.name` ne filtrait que `%_`, pas `,().` | Sanitisation complète `[%_,().]` sur `body.name` et `body.code` |
+
+#### IDOR — Soumissions (HAUTE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX8 | HAUTE | `/api/submissions/[id]/send-price-requests` | IDOR — envoi d'emails de demande de prix pour soumissions d'autres orgs | Ajouté vérification `submission.projects.organization_id` |
+| SEC2.FIX9 | HAUTE | `/api/submissions/[id]/estimate-budget` | IDOR — lecture items + écriture budget sur soumissions d'autres orgs | Ajouté fetch submission avec join projet + vérification org |
+| SEC2.FIX10 | HAUTE | `/api/submissions/[id]/relance` | IDOR — envoi de relances fournisseurs pour soumissions d'autres orgs | Ajouté vérification org + return 403 si pas de `project_id` |
+| SEC2.FIX11 | MOYENNE | `/api/submissions/[id]/analyze` | IDOR conditionnel — org check sautée si `project_id` null | Rendu la vérification org inconditionnelle : `!project_id` → 403 |
+| SEC2.FIX12 | MOYENNE | `/api/submissions` POST | IDOR — `project_id` non vérifié contre l'org de l'utilisateur | Ajouté vérification `project.organization_id === profile.organization_id` |
+
+#### IDOR — Plans (MOYENNE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX13 | MOYENNE | `/api/plans/upload` | IDOR — `project_id` non vérifié avant insertion plan | Ajouté vérification org du projet |
+| SEC2.FIX14 | MOYENNE | `/api/plans/estimate-v2` | IDOR — `plan_id` non vérifié avant pipeline estimation 4 passes multi-modèle | Ajouté vérification org via `plan_registry.organization_id` |
+| SEC2.FIX15 | MOYENNE | `/api/plans/corrections` | IDOR — corrections de quantité applicables à plans d'autres orgs | Ajouté vérification org via `plan_registry` |
+| SEC2.FIX16 | MOYENNE | `/api/plans/calibration` | IDOR — calibration prix applicable à analyses d'autres orgs | Ajouté vérification org via `plan_analyses → plan_registry` |
+
+#### IDOR — PV création (MOYENNE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX17 | MOYENNE | `/api/pv` POST | IDOR — création de meeting sous `project_id` d'une autre org | Ajouté vérification `project.organization_id === userProfile.organization_id` |
+
+#### XSS (HAUTE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX18 | HAUTE | `EmailDetailPanel.tsx` | XSS — DOMPurify autorisait `data:` URIs (toutes, pas juste images). `data:text/html,<script>...` exécutable au clic | Regex restreinte à `data:image\/` uniquement |
+| SEC2.FIX19 | HAUTE | `mail/page.tsx` | XSS — même problème DOMPurify `data:` URI | Regex restreinte à `data:image\/` uniquement |
+| SEC2.FIX20 | HAUTE | `mail/page.tsx` | XSS SSR — `sanitizeEmailHtml()` retournait le HTML brut côté serveur (`typeof window === "undefined"`) | Retourne `""` au lieu de `html` côté SSR |
+
+#### Privilege Escalation (HAUTE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX21 | HAUTE | `/api/invites` POST | Escalade de privilèges — `user_id` du body accepté sans vérification d'identité. Un attaquant avec un token d'invitation pouvait reassigner n'importe quel utilisateur à une autre org | Ajouté `createClient()` + `getUser()` auth, puis vérification `body.user_id === user.id` |
+
+#### Debug Routes (HAUTE/CRITIQUE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX22 | CRITIQUE | `/api/debug/org-merge` | Route de merge d'organisations accessible à tous les utilisateurs authentifiés — opérations destructives cross-org (déplacement projets, connections email, suppression users/orgs) | Ajouté vérification `is_superadmin` sur GET et POST |
+| SEC2.FIX23 | HAUTE | `/api/debug/microsoft-status` | Informations sensibles exposées (tokens OAuth, connections email, IDs utilisateurs) sans restriction de rôle | Ajouté vérification `is_superadmin` |
+
+#### Upload & Stockage (HAUTE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX24 | HAUTE | `/api/organization/upload-logo` | SVG accepté en upload — peut contenir `<script>` et event handlers JS. Servi publiquement depuis bucket Supabase = stored XSS | Retiré `image/svg+xml` de `ALLOWED_TYPES` |
+| SEC2.FIX25 | HAUTE | `plan-storage.ts` | Path traversal — `attachment.name` (Microsoft Graph) utilisé directement dans le chemin storage sans sanitisation. `../../` possible | Ajouté `attachment.name.replace(/[^a-zA-Z0-9._-]/g, "_")` |
+| SEC2.FIX26 | HAUTE | `/api/submissions` POST | Path traversal — `file.name` utilisé directement dans le chemin storage | Ajouté `fileName.replace(/[^a-zA-Z0-9._-]/g, "_")` |
+
+#### Infrastructure Sécurité
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX27 | HAUTE | `next.config.ts` | Aucun Content-Security-Policy header — toute XSS peut exfiltrer des données, charger des scripts externes | Ajouté CSP complet : `default-src 'self'`, script/style/img/font/connect/frame-src avec domaines autorisés, `frame-ancestors 'none'`, `object-src 'none'` |
+| SEC2.FIX28 | MOYENNE | `supabase/server.ts` | Flag `httpOnly` non explicitement défini sur les cookies de session — dépendance sur le default de la librairie | Ajouté `httpOnly: true` explicitement |
+| SEC2.FIX29 | MOYENNE | `supabase/middleware.ts` | Même problème `httpOnly` sur les cookies middleware | Ajouté `httpOnly: true` explicitement |
+| SEC2.FIX30 | MOYENNE | `env.ts` | `MICROSOFT_TOKEN_ENCRYPTION_KEY` et `OUTLOOK_WEBHOOK_SECRET` absents du schéma de validation — défaillance silencieuse en production | Ajouté au schéma Zod : `MICROSOFT_TOKEN_ENCRYPTION_KEY: z.string().length(64).optional()`, `OUTLOOK_WEBHOOK_SECRET: z.string().min(16).optional()` |
+
+#### Auth Client (MOYENNE)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| SEC2.FIX31 | MOYENNE | `AuthProvider.tsx` | `getSession()` utilisé au chargement initial — ne valide PAS le JWT côté serveur (lit simplement le cookie local). Un cookie forgé serait accepté | Remplacé par `getUser()` (validation serveur) en premier, puis `getSession()` uniquement si l'utilisateur est vérifié |
+
+### Non corrigés — Audit Sécurité V2 (à implémenter)
+
+| ID | Sévérité | Module | Description | Impact | Action recommandée |
+|----|----------|--------|-------------|--------|-------------------|
+| SEC2.NC1 | HAUTE | Tous les endpoints | Aucun rate limiting sur aucune route API (136 routes). Les routes IA (`/api/ai/*`, `/api/plans/estimate-v2`, `/api/chat`) peuvent être appelées en boucle → coûts API illimités | Amplification de coûts API, brute-force auth | Implémenter un middleware rate limiting (ex: `@upstash/ratelimit` avec Redis) |
+| SEC2.NC2 | HAUTE | Tous les endpoints POST | Aucune protection CSRF. `SameSite=Lax` est une mitigation partielle mais ne bloque pas les form POST cross-site simples | Attaques CSRF théoriquement possibles | Ajouter validation header `Origin` ou token CSRF |
+| SEC2.NC3 | HAUTE | Bucket Storage `plans` | Plans stockés dans un bucket public — URLs accessibles sans auth. Documents de construction sensibles exposés | Fuite de documents confidentiels | Migrer vers bucket privé + signed URLs |
+| SEC2.NC4 | MOYENNE | Auth callback | Tokens OAuth Microsoft écrits en clair dans la DB si `MICROSOFT_TOKEN_ENCRYPTION_KEY` n'est pas défini (pas d'erreur, fallback silencieux) | Tokens lisibles en DB en cas de compromission Supabase | Rendre `MICROSOFT_TOKEN_ENCRYPTION_KEY` requis en production |
+| SEC2.NC5 | MOYENNE | Auth callback | `migrateUserData()` exécute 6 updates + 1 delete sans transaction DB — état incohérent possible si interrompu | Données partiellement migrées | Wrapper dans une transaction RPC |
+| SEC2.NC6 | MOYENNE | Session | Session 7 jours sans sliding expiry ni step-up auth pour opérations sensibles (changement email, admin) | Session longue durée non re-validée | Ajouter re-auth pour opérations critiques |
+| SEC2.NC7 | BASSE | Encryption | Pas de mécanisme de rotation de clé pour `MICROSOFT_TOKEN_ENCRYPTION_KEY` — rotation = tous les tokens cassés | Lock-in sur une seule clé | Ajouter versioning au format chiffré |
+| SEC2.NC8 | BASSE | `/api/ai/analyze-plan` | `file_url` de la DB fetché via `fetch()` sans validation de domaine (pas d'allowlist Supabase) | SSRF potentiel si `file_url` compromise en DB | Valider que l'URL pointe vers le domaine Supabase attendu |
+| SEC2.NC9 | BASSE | Uploads | Validation par extension de fichier uniquement, pas de magic bytes. MIME type client-side ignoré | Fichiers malformés acceptés | Ajouter vérification magic bytes pour PDF/XLSX |
+| SEC2.NC10 | BASSE | `/api/transcription/process` | Pas de limite de taille serveur pour uploads audio | Consommation mémoire/coûts API | Ajouter vérification taille max |
+
+### Résumé Sécurité V2
+
+| Catégorie | Trouvées | Corrigées | Restantes |
+|-----------|----------|-----------|-----------|
+| **CRITIQUE** (no auth, IDOR, SQL injection) | 12 | 12 | 0 |
+| **HAUTE** (XSS, privilege escalation, path traversal, CSP) | 16 | 14 | 2 |
+| **MOYENNE** (cookies, env, auth client, IDOR conditionnel) | 12 | 8 | 4 |
+| **BASSE** (SSRF, magic bytes, rotation clés, file size) | 5 | 0 | 5 |
+| **Total** | **45** | **34** | **11** |
+
+### Architecture sécurité après audit
+
+| Aspect | Avant | Après |
+|--------|-------|-------|
+| **CSP** | Aucun | Complet (default, script, style, img, font, connect, frame, frame-ancestors, base-uri, form-action, object-src) |
+| **Cookie httpOnly** | Implicite (dépendance librairie) | Explicite `httpOnly: true` |
+| **Auth initial client** | `getSession()` (non vérifié) | `getUser()` (vérifié côté serveur) |
+| **Routes sans auth** | 2 | 0 |
+| **IDOR routes** | 14 | 0 |
+| **SQL injection** | 2 | 0 |
+| **XSS vectors** | 3 | 0 |
+| **Debug routes** | Accessibles à tous | Restreintes superadmin |
+| **SVG upload** | Autorisé | Bloqué |
+| **Path traversal** | 2 vecteurs | 0 |
+| **Env validation** | Partielle | `MICROSOFT_TOKEN_ENCRYPTION_KEY` + `OUTLOOK_WEBHOOK_SECRET` validés |
+| **DOMPurify `data:` URI** | Toutes (`data:text/html` XSS) | `data:image/*` uniquement |
+| **Invite escalation** | `user_id` non vérifié | `user_id === auth.uid()` |
+
+---
+
+## 19. Fix Budget IA Soumissions — Sources de Prix (2026-03-13 → 2026-03-15)
+
+### Problème (persistant)
+Le Budget IA des soumissions affichait **100% des postes comme "estimés IA"** alors que la base de données contient des prix réels (offres fournisseurs, prix ingérés, benchmarks marché, référentiel CRB 2025 avec 55+ entrées).
+
+### Historique : Fix V1 (2026-03-13) — N'A PAS RÉSOLU le problème
+Le premier fix a remplacé le matching CFC basique par `resolvePrice()` et ajouté la normalisation d'unités. **Mais `resolvePrice()` lui-même était cassé** — les 6 tiers échouaient silencieusement à cause de noms de colonnes incorrects.
+
+### Cause racine réelle — Fix V2 (2026-03-15)
+**4 bugs critiques dans `price-resolver.ts`** faisaient que CHAQUE tier lançait une erreur PostgREST, attrapée silencieusement par les `catch {}`, faisant tout tomber en IA :
+
+#### Bug 1 : Tier 1 — 3 noms de colonnes incorrects dans `offer_line_items`
+Le code cherchait des colonnes qui N'EXISTENT PAS dans la table `offer_line_items` (migration 012) :
+- `.eq('supplier_offers.org_id', org_id)` → la colonne s'appelle `organization_id` (pas `org_id`), et `offer_line_items` a directement `organization_id` sans besoin de join
+- `.or(`cfc_code.eq...`)` → la colonne s'appelle `cfc_subcode` (pas `cfc_code`)
+- `description_normalized.ilike...` → la colonne s'appelle `normalized_description` (pas `description_normalized`)
+- **Résultat** : PostgREST retournait une erreur 400, le `catch {}` l'avalait, tier 1 sauté.
+
+#### Bug 2 : Tier 1 — Recherche de CFC code dans les descriptions
+`.or(`...description_normalized.ilike.%${cfc_code}%`)` cherchait le CODE CFC (ex: "215.3") dans les descriptions textuelles des offres. Même avec le bon nom de colonne, chercher "215.3" dans "Béton armé pour fondations" ne matche jamais.
+
+#### Bug 3 : Tier 3 — Colonne `is_forfait` inexistante
+`.eq('is_forfait', false)` dans la requête sur `ingested_offer_lines` — cette colonne N'EXISTE PAS dans la table (migration 045). PostgREST 400 → catch → tier 3 sauté.
+
+#### Bug 4 : Tier 5 — Matching description par inclusion exacte
+```typescript
+r.description.toLowerCase().includes(descLower)  // CRB "Béton armé" contient la description longue ?
+descLower.includes(r.description.toLowerCase())   // Description contient exactement "Béton armé C30/37 (fourniture + coulage)" ?
+```
+Trop strict — une description de soumission comme "Fourniture et mise en place de bordures en béton préfabriquées" ne contient jamais exactement "Béton armé C30/37 (fourniture + coulage)".
+
+### Fix V2 appliqué (2026-03-15)
+
+#### `price-resolver.ts` — Réécriture complète
+- **Tier 1 fix** : Colonnes corrigées (`organization_id`, `cfc_subcode`, `normalized_description`). Query directe sans join `supplier_offers`.
+- **Tier 1 enhancement** : Recherche par mots-clés de description (3 étapes) :
+  1. Par `cfc_subcode` si disponible
+  2. Par mot-clé principal (le plus long = plus discriminant) dans `normalized_description` OU `supplier_description`
+  3. Par 2e mot-clé si le 1er n'a rien donné
+- **Tier 3 fix** : Suppression de `.eq('is_forfait', false)` (colonne inexistante)
+- **Tier 5 enhancement** : Matching par score de similarité mots-clés (≥40% de chevauchement) au lieu d'inclusion exacte de substring
+- **Sanitisation** : `sanitizeForFilter()` sur toutes les valeurs interpolées dans `.or()` PostgREST
+- **Logging** : `console.warn` sur les erreurs de chaque tier au lieu de `catch {}` silencieux
+- **Extraction de mots-clés** : `extractKeywords()` avec stop words FR/DE, tri par longueur (plus discriminants en premier)
+- **Similarité** : `keywordOverlap()` pour le matching CRB — score basé sur les mots en commun ou contenus
+
+#### `estimate-budget/route.ts` — Logging amélioré
+- Log détaillé des sources par tier : `[BUDGET] Sources: {"historique_interne":15,"referentiel_crb":8,"prix_non_disponible":73}`
+- Warning par item en cas d'échec de `resolvePrice()`
+
+### Ce qui n'a PAS fonctionné (historique complet)
+| Tentative | Pourquoi ça ne marchait pas |
+|-----------|---------------------------|
+| Fix V1 (2026-03-13) : intégration `resolvePrice()` | `resolvePrice()` lui-même était cassé — 3 noms de colonnes incorrects dans tier 1, colonne inexistante dans tier 3, tous les tiers échouaient silencieusement |
+| Matching CFC avec `cfcMatch.unite === item.unit` | Les unités Excel (`m2`) ne matchent jamais les unités CFC unicode (`m²`) — 0 résultat sur 55 entrées |
+| Pas de fallback par description quand `cfc_code` est null | La majorité des items de soumission n'ont pas de `cfc_code` — tous tombaient en IA |
+| Route isolée avec son propre matching | Duplication de logique, miss des 5 autres sources de prix |
+| `.or(`cfc_code.eq.${val},description_normalized.ilike...`)` | Colonnes `cfc_code` et `description_normalized` n'existent pas dans `offer_line_items` (ce sont `cfc_subcode` et `normalized_description`) — PostgREST 400 silencieux |
+| `.eq('supplier_offers.org_id', org_id)` avec join | `supplier_offers` a `organization_id` pas `org_id` — et `offer_line_items` a sa propre colonne `organization_id` sans besoin de join |
+| `.eq('is_forfait', false)` sur `ingested_offer_lines` | Colonne `is_forfait` n'existe pas dans la table — PostgREST 400 silencieux |
+| Description matching par `includes()` exact | "Béton armé C30/37 (fourniture + coulage)" ne sera jamais un substring de "Fourniture et mise en place de bordures en béton" |
+
+### Architecture prix après fix V2
+
+```
+estimate-budget (soumissions)
+   ↓
+resolvePrice() ← même moteur que Cantaia Prix
+   ├── 1. Historique interne (offer_line_items)
+   │    ├── 1a. Par cfc_subcode (exact + préfixe)
+   │    ├── 1b. Par mot-clé principal dans normalized_description/supplier_description
+   │    └── 1c. Par 2e mot-clé si 1b échoue
+   ├── 2. Données ingérées (mv_reference_prices, par CFC)
+   ├── 3. Fallback textuel (ingested_offer_lines, par description keyword)
+   ├── 4. Benchmark Cantaia (market_benchmarks, CFC + région + trimestre)
+   ├── 5. Référentiel CRB (55 prix statiques, keyword overlap ≥40%)
+   └── 6. Non disponible → fallback IA Claude Haiku
+```
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
-2. Créer bucket Storage "plans" (public, 50MB max)
+2. Créer bucket Storage "plans" (**PRIVÉ**, 50MB max) — SEC2.NC3
 3. Appliquer migrations 024-040 (data intelligence)
 4. Appliquer migration 043 (calibration)
 5. Appliquer migrations 049-052 (submissions enhanced + budget)
-6. Définir `CRON_SECRET` sur Vercel
+6. Définir `CRON_SECRET` sur Vercel (min 16 chars)
 7. Définir `GEMINI_API_KEY` sur Vercel
 8. Vérifier `OPENAI_API_KEY` (déjà utilisé pour Whisper)
 9. Configurer DNS: cantaia.com et cantaia.app doivent pointer vers Vercel pour que les redirects 301 fonctionnent
 10. Soumettre sitemap dans Google Search Console: `https://cantaia.ch/sitemap.xml`
 11. Vérifier la propriété cantaia.ch dans Google Search Console (si pas déjà fait)
+12. **SÉCURITÉ** : Définir `MICROSOFT_TOKEN_ENCRYPTION_KEY` sur Vercel (64 chars hex = 32 bytes AES-256) — SEC2.NC4
+13. **SÉCURITÉ** : Définir `OUTLOOK_WEBHOOK_SECRET` sur Vercel (min 16 chars) — OUTLOOK.6
+14. **SÉCURITÉ** : Migrer bucket "plans" de public à privé + adapter le code pour utiliser signed URLs — SEC2.NC3
+15. **SÉCURITÉ** : Implémenter rate limiting sur les routes IA (recommandé: `@upstash/ratelimit`) — SEC2.NC1

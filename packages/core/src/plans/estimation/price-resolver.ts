@@ -1,6 +1,6 @@
 // Résolveur de prix — hiérarchie stricte des sources
-// 1. Historique interne (offer_line_items de l'org)
-// 2. Données ingérées (mv_reference_prices — 2500+ prix réels)
+// 1. Historique interne (offer_line_items de l'org) — par CFC + par description
+// 2. Données ingérées (mv_reference_prices — prix agrégés)
 // 3. Fallback textuel (ingested_offer_lines par description)
 // 4. Benchmark Cantaia (market_benchmarks cross-tenant)
 // 5. Référentiel CFC statique (CRB 2025)
@@ -30,6 +30,10 @@ function percentile(values: number[], p: number): number {
   return sorted[lower] * (upper - idx) + sorted[upper] * (idx - lower);
 }
 
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
 // Plafond de prix unitaire par type d'unité (CHF) — filtre les forfaits contaminants
 function getMaxUnitPrice(unite: string): number {
   switch (unite?.toLowerCase()) {
@@ -42,187 +46,314 @@ function getMaxUnitPrice(unite: string): number {
   }
 }
 
+// Sanitize pour PostgREST — supprime caractères spéciaux qui casseraient le filtre .or()
+function sanitizeForFilter(val: string): string {
+  return val.replace(/[%_,().\\'"]/g, '');
+}
+
+// Extraction de mots-clés pertinents depuis une description
+// Retourne les mots les plus longs (= les plus discriminants) en premier
+const STOP_WORDS = new Set([
+  'pour', 'dans', 'avec', 'sans', 'sous', 'type', 'selon', 'compris',
+  'fourniture', 'mise', 'place', 'pose', 'travaux', 'incl', 'inclus',
+  'environ', 'conf', 'norme', 'normes', 'plan', 'plans', 'detail',
+  'comme', 'suivant', 'existant', 'existante', 'nouveau', 'nouvelle',
+  'tout', 'toute', 'tous', 'toutes', 'plus', 'moins', 'entre',
+  'y.c.', 'y.c', 'resp', 'bzw', 'inkl', 'gemäss', 'laut',
+]);
+
+function extractKeywords(description: string): string[] {
+  if (!description) return [];
+  return description
+    .toLowerCase()
+    .replace(/[,;()\/\-:."'«»]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOP_WORDS.has(w))
+    .sort((a, b) => b.length - a.length) // Mots les plus longs = les plus discriminants
+    .slice(0, 5);
+}
+
+// Calcul de score de similarité par mots-clés entre deux descriptions
+function keywordOverlap(desc1: string, desc2: string): number {
+  const kw1 = new Set(extractKeywords(desc1));
+  const kw2 = new Set(extractKeywords(desc2));
+  if (kw1.size === 0 || kw2.size === 0) return 0;
+  let matches = 0;
+  for (const w of kw1) {
+    for (const w2 of kw2) {
+      if (w === w2 || w.includes(w2) || w2.includes(w)) {
+        matches++;
+        break;
+      }
+    }
+  }
+  return matches / Math.min(kw1.size, kw2.size);
+}
+
 export async function resolvePrice(params: PriceResolverParams): Promise<PrixUnitaire> {
   const { cfc_code, description, unite, region, quarter, org_id, supabase } = params;
 
-  // 1. Historique interne (offres fournisseurs de cette org)
-  try {
-    const { data: internal } = await supabase
-      .from('offer_line_items')
-      .select('unit_price, created_at, supplier_offers!inner(org_id)')
-      .eq('supplier_offers.org_id', org_id)
-      .or(`cfc_code.eq.${cfc_code},description_normalized.ilike.%${cfc_code}%`)
-      .order('created_at', { ascending: false })
-      .limit(20);
+  const keywords = extractKeywords(description);
+  const hasCfcCode = Boolean(cfc_code && cfc_code.trim().length >= 2);
+  const maxPrice = getMaxUnitPrice(unite);
 
-    if (internal && internal.length >= 2) {
-      const maxPrice = getMaxUnitPrice(unite);
-      const prices = internal.map((d: any) => Number(d.unit_price)).filter((p: number) => p > 0 && p <= maxPrice);
+  // ══════════════════════════════════════════════════════
+  // 1. Historique interne (offer_line_items de cette org)
+  // Colonnes: organization_id, cfc_subcode, normalized_description,
+  //           supplier_description, unit_price, unit_normalized
+  // ══════════════════════════════════════════════════════
+  try {
+    let internalPrices: any[] | null = null;
+
+    // 1a. Par code CFC (si disponible)
+    if (hasCfcCode) {
+      const safeCfc = sanitizeForFilter(cfc_code);
+      const cfcPrefix = sanitizeForFilter(cfc_code.split('.')[0]);
+      const { data } = await supabase
+        .from('offer_line_items')
+        .select('unit_price, created_at')
+        .eq('organization_id', org_id)
+        .or(`cfc_subcode.eq.${safeCfc},cfc_subcode.like.${cfcPrefix}%`)
+        .gt('unit_price', 0)
+        .lt('unit_price', maxPrice)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (data && data.length >= 2) {
+        internalPrices = data;
+      }
+    }
+
+    // 1b. Par mots-clés de description (si pas assez de résultats CFC)
+    if ((!internalPrices || internalPrices.length < 2) && keywords.length > 0) {
+      const mainKeyword = sanitizeForFilter(keywords[0]);
+      if (mainKeyword.length >= 4) {
+        const { data } = await supabase
+          .from('offer_line_items')
+          .select('unit_price, created_at')
+          .eq('organization_id', org_id)
+          .or(`normalized_description.ilike.%${mainKeyword}%,supplier_description.ilike.%${mainKeyword}%`)
+          .gt('unit_price', 0)
+          .lt('unit_price', maxPrice)
+          .order('created_at', { ascending: false })
+          .limit(30);
+
+        if (data && data.length >= 2) {
+          internalPrices = data;
+        }
+      }
+
+      // 1c. Essayer avec le 2e mot-clé si le 1er n'a rien donné
+      if ((!internalPrices || internalPrices.length < 2) && keywords.length >= 2) {
+        const secondKeyword = sanitizeForFilter(keywords[1]);
+        if (secondKeyword.length >= 4) {
+          const { data } = await supabase
+            .from('offer_line_items')
+            .select('unit_price, created_at')
+            .eq('organization_id', org_id)
+            .or(`normalized_description.ilike.%${secondKeyword}%,supplier_description.ilike.%${secondKeyword}%`)
+            .gt('unit_price', 0)
+            .lt('unit_price', maxPrice)
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+          if (data && data.length >= 2) {
+            internalPrices = data;
+          }
+        }
+      }
+    }
+
+    if (internalPrices && internalPrices.length >= 2) {
+      const prices = internalPrices
+        .map((d: any) => Number(d.unit_price))
+        .filter((p: number) => p > 0 && p <= maxPrice);
       if (prices.length >= 2) {
         return {
-          min: Math.round(percentile(prices, 0.25) * 100) / 100,
-          median: Math.round(percentile(prices, 0.50) * 100) / 100,
-          max: Math.round(percentile(prices, 0.75) * 100) / 100,
+          min: round2(percentile(prices, 0.25)),
+          median: round2(percentile(prices, 0.50)),
+          max: round2(percentile(prices, 0.75)),
           source: 'historique_interne',
-          detail_source: `${prices.length} offres internes, dernière : ${internal[0].created_at?.slice(0, 10)}`,
-          date_reference: internal[0].created_at?.slice(0, 10) ?? quarter,
+          detail_source: `${prices.length} offres internes, dernière : ${internalPrices[0].created_at?.slice(0, 10)}`,
+          date_reference: internalPrices[0].created_at?.slice(0, 10) ?? quarter,
           ajustements: [],
         };
       }
     }
-  } catch {
-    // Continuer vers la source suivante
+  } catch (e: any) {
+    console.warn('[price-resolver] Tier 1 (offer_line_items) error:', e?.message ?? e);
   }
 
-  // 2. Données ingérées — mv_reference_prices (2500+ prix réels fournisseurs)
-  try {
-    // 2a. Match exact par code CFC
-    const { data: mvExact } = await supabase
-      .from('mv_reference_prices')
-      .select('cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs, derniere_offre')
-      .eq('cfc_code', cfc_code)
-      .order('nb_datapoints', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (mvExact && mvExact.prix_median <= getMaxUnitPrice(unite)) {
-      return {
-        min: mvExact.prix_p25,
-        median: mvExact.prix_median,
-        max: mvExact.prix_p75,
-        source: 'historique_interne',
-        detail_source: `${mvExact.nb_datapoints} offres réelles, ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
-        date_reference: mvExact.derniere_offre?.slice(0, 10) ?? quarter,
-        ajustements: [],
-      };
-    }
-
-    // 2b. Match par préfixe CFC (ex: "215.3" → "215.0" → "215")
-    const cfcParts = cfc_code.split('.');
-    const prefixes: string[] = [];
-    if (cfcParts.length >= 2) {
-      prefixes.push(`${cfcParts[0]}.0`); // ex: "215.0"
-    }
-    prefixes.push(cfcParts[0]); // ex: "215"
-
-    for (const prefix of prefixes) {
-      const { data: mvPrefix } = await supabase
+  // ══════════════════════════════════════════════════════
+  // 2. Données ingérées — mv_reference_prices (vue matérialisée)
+  // ══════════════════════════════════════════════════════
+  if (hasCfcCode) {
+    try {
+      // 2a. Match exact par code CFC
+      const { data: mvExact } = await supabase
         .from('mv_reference_prices')
         .select('cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs, derniere_offre')
-        .like('cfc_code', `${prefix}%`)
+        .eq('cfc_code', cfc_code)
         .order('nb_datapoints', { ascending: false })
         .limit(1)
         .single();
 
-      if (mvPrefix && mvPrefix.prix_median <= getMaxUnitPrice(unite)) {
+      if (mvExact && mvExact.prix_median <= maxPrice) {
         return {
-          min: mvPrefix.prix_p25,
-          median: mvPrefix.prix_median,
-          max: mvPrefix.prix_p75,
+          min: mvExact.prix_p25,
+          median: mvExact.prix_median,
+          max: mvExact.prix_p75,
           source: 'historique_interne',
-          detail_source: `${mvPrefix.nb_datapoints} offres réelles (match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
-          date_reference: mvPrefix.derniere_offre?.slice(0, 10) ?? quarter,
-          ajustements: [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`],
+          detail_source: `${mvExact.nb_datapoints} offres réelles, ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+          date_reference: mvExact.derniere_offre?.slice(0, 10) ?? quarter,
+          ajustements: [],
         };
       }
-    }
-  } catch {
-    // Continuer vers la source suivante
-  }
 
-  // 3. Fallback textuel — recherche par description dans ingested_offer_lines
-  try {
-    // Extraire le mot-clé principal de la description (≥ 4 caractères)
-    const keywords = description
-      .toLowerCase()
-      .split(/[\s,;()\/\-]+/)
-      .filter((w) => w.length >= 4)
-      .slice(0, 3);
+      // 2b. Match par préfixe CFC (ex: "215.3" → "215.0" → "215")
+      const cfcParts = cfc_code.split('.');
+      const prefixes: string[] = [];
+      if (cfcParts.length >= 2) {
+        prefixes.push(`${cfcParts[0]}.0`);
+      }
+      prefixes.push(cfcParts[0]);
 
-    if (keywords.length > 0) {
-      const searchTerm = keywords[0];
-      const maxPrice = getMaxUnitPrice(unite);
-      const { data: textMatches } = await supabase
-        .from('ingested_offer_lines')
-        .select('cfc_code, prix_unitaire_ht')
-        .ilike('description', `%${searchTerm}%`)
-        .eq('is_forfait', false)
-        .gt('prix_unitaire_ht', 0)
-        .lt('prix_unitaire_ht', maxPrice)
-        .limit(50);
+      for (const prefix of prefixes) {
+        const { data: mvPrefix } = await supabase
+          .from('mv_reference_prices')
+          .select('cfc_code, prix_p25, prix_median, prix_p75, nb_datapoints, nb_fournisseurs, derniere_offre')
+          .like('cfc_code', `${prefix}%`)
+          .order('nb_datapoints', { ascending: false })
+          .limit(1)
+          .single();
 
-      if (textMatches && textMatches.length >= 2) {
-        const prices = textMatches.map((r: any) => Number(r.prix_unitaire_ht)).filter((p: number) => p > 0 && p <= maxPrice).sort((a: number, b: number) => a - b);
-        if (prices.length >= 2) {
-          const cfcFound = textMatches[0].cfc_code ?? 'N/A';
+        if (mvPrefix && mvPrefix.prix_median <= maxPrice) {
           return {
-            min: Math.round(percentile(prices, 0.25) * 100) / 100,
-            median: Math.round(percentile(prices, 0.50) * 100) / 100,
-            max: Math.round(percentile(prices, 0.75) * 100) / 100,
+            min: mvPrefix.prix_p25,
+            median: mvPrefix.prix_median,
+            max: mvPrefix.prix_p75,
             source: 'historique_interne',
-            detail_source: `${prices.length} offres réelles (recherche texte: "${searchTerm}", CFC ${cfcFound})`,
-            date_reference: quarter,
-            ajustements: [`Recherche textuelle: "${searchTerm}"`, `Confiance réduite (match par description)`],
+            detail_source: `${mvPrefix.nb_datapoints} offres réelles (match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+            date_reference: mvPrefix.derniere_offre?.slice(0, 10) ?? quarter,
+            ajustements: [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`],
           };
         }
       }
+    } catch {
+      // Table mv_reference_prices peut ne pas exister encore — continuer
     }
-  } catch {
-    // Continuer vers la source suivante
   }
 
-  // 4. Benchmark Cantaia (Couche 2, données agrégées cross-tenant)
+  // ══════════════════════════════════════════════════════
+  // 3. Fallback textuel — ingested_offer_lines par description
+  // Colonnes: org_id, cfc_code, description, prix_unitaire_ht, unite
+  // NOTE: pas de colonne is_forfait dans cette table
+  // ══════════════════════════════════════════════════════
   try {
-    const { data: benchmark } = await supabase
-      .from('market_benchmarks')
-      .select('*')
-      .eq('cfc_code', cfc_code)
-      .eq('region', region)
-      .eq('quarter', quarter)
-      .gte('contributor_count', 3)
-      .single();
+    if (keywords.length > 0) {
+      const searchTerm = sanitizeForFilter(keywords[0]);
+      if (searchTerm.length >= 4) {
+        const { data: textMatches } = await supabase
+          .from('ingested_offer_lines')
+          .select('cfc_code, prix_unitaire_ht, description')
+          .ilike('description', `%${searchTerm}%`)
+          .gt('prix_unitaire_ht', 0)
+          .lt('prix_unitaire_ht', maxPrice)
+          .limit(50);
 
-    if (benchmark) {
-      return {
-        min: benchmark.price_p25,
-        median: benchmark.price_median,
-        max: benchmark.price_p75,
-        source: 'benchmark_cantaia',
-        detail_source: `Benchmark Cantaia, ${region}, ${quarter}, ${benchmark.contributor_count} contributeurs`,
-        date_reference: quarter,
-        ajustements: [],
-      };
+        if (textMatches && textMatches.length >= 2) {
+          const prices = textMatches
+            .map((r: any) => Number(r.prix_unitaire_ht))
+            .filter((p: number) => p > 0 && p <= maxPrice)
+            .sort((a: number, b: number) => a - b);
+          if (prices.length >= 2) {
+            const cfcFound = textMatches[0].cfc_code ?? 'N/A';
+            return {
+              min: round2(percentile(prices, 0.25)),
+              median: round2(percentile(prices, 0.50)),
+              max: round2(percentile(prices, 0.75)),
+              source: 'historique_interne',
+              detail_source: `${prices.length} offres réelles (recherche texte: "${searchTerm}", CFC ${cfcFound})`,
+              date_reference: quarter,
+              ajustements: [`Recherche textuelle: "${searchTerm}"`, `Confiance réduite (match par description)`],
+            };
+          }
+        }
+      }
     }
-  } catch {
-    // Continuer vers la source suivante
+  } catch (e: any) {
+    console.warn('[price-resolver] Tier 3 (ingested_offer_lines) error:', e?.message ?? e);
   }
 
-  // 5. Référentiel CFC (données statiques)
+  // ══════════════════════════════════════════════════════
+  // 4. Benchmark Cantaia (Couche 2, données agrégées cross-tenant)
+  // ══════════════════════════════════════════════════════
+  if (hasCfcCode) {
+    try {
+      const { data: benchmark } = await supabase
+        .from('market_benchmarks')
+        .select('*')
+        .eq('cfc_code', cfc_code)
+        .eq('region', region)
+        .eq('quarter', quarter)
+        .gte('contributor_count', 3)
+        .single();
+
+      if (benchmark) {
+        return {
+          min: benchmark.price_p25,
+          median: benchmark.price_median,
+          max: benchmark.price_p75,
+          source: 'benchmark_cantaia',
+          detail_source: `Benchmark Cantaia, ${region}, ${quarter}, ${benchmark.contributor_count} contributeurs`,
+          date_reference: quarter,
+          ajustements: [],
+        };
+      }
+    } catch {
+      // Pas de benchmark — continuer
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 5. Référentiel CFC (données statiques CRB 2025)
+  // ══════════════════════════════════════════════════════
   const coeff = REGIONAL_COEFFICIENTS[region.toLowerCase()] ?? 1.0;
 
-  // Chercher par code exact
-  let ref = CFC_REFERENCE_PRICES.find((r) => r.cfc_code === cfc_code);
+  // 5a. Match exact par code CFC
+  let ref = hasCfcCode
+    ? CFC_REFERENCE_PRICES.find((r) => r.cfc_code === cfc_code)
+    : undefined;
 
-  // Si pas trouvé, chercher par préfixe (ex: "215" si "215.3" pas trouvé)
-  if (!ref) {
+  // 5b. Match par préfixe CFC + même unité
+  if (!ref && hasCfcCode) {
     const prefix = cfc_code.split('.')[0];
     ref = CFC_REFERENCE_PRICES.find((r) => r.cfc_code.startsWith(prefix) && r.unite === unite);
   }
 
-  // Chercher aussi par description normalisée
-  if (!ref) {
-    const descLower = description.toLowerCase();
-    ref = CFC_REFERENCE_PRICES.find((r) =>
-      r.description.toLowerCase().includes(descLower) ||
-      descLower.includes(r.description.toLowerCase())
-    );
+  // 5c. Match par mots-clés de description (au moins 2 mots-clés en commun)
+  if (!ref && keywords.length >= 1) {
+    let bestMatch: (typeof CFC_REFERENCE_PRICES)[0] | undefined;
+    let bestScore = 0;
+
+    for (const r of CFC_REFERENCE_PRICES) {
+      const score = keywordOverlap(description, r.description);
+      if (score > bestScore && score >= 0.4) { // Au moins 40% de mots-clés en commun
+        bestScore = score;
+        bestMatch = r;
+      }
+    }
+
+    if (bestMatch) {
+      ref = bestMatch;
+    }
   }
 
   if (ref) {
     return {
-      min: Math.round(ref.prix_min * coeff * 100) / 100,
-      median: Math.round(ref.prix_median * coeff * 100) / 100,
-      max: Math.round(ref.prix_max * coeff * 100) / 100,
+      min: round2(ref.prix_min * coeff),
+      median: round2(ref.prix_median * coeff),
+      max: round2(ref.prix_max * coeff),
       source: 'referentiel_crb',
       detail_source: `Référentiel CRB ${ref.periode}, coefficient ${region}: ${coeff}`,
       date_reference: ref.periode,
@@ -230,7 +361,9 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
     };
   }
 
+  // ══════════════════════════════════════════════════════
   // 6. Aucun prix trouvé
+  // ══════════════════════════════════════════════════════
   return {
     min: null,
     median: null,
