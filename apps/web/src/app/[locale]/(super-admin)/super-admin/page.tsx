@@ -102,7 +102,7 @@ export default function SuperAdminDashboardPage() {
           totalEmails: m.totalEmails || 0,
           aiCallsThisMonth: m.aiCallsThisMonth || 0,
           mrr: m.mrr || 0,
-          storageGb: 0,
+          storageGb: m.storageGb || 0,
           activeOrgs,
         });
       } catch (err) {

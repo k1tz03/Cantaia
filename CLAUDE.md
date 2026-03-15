@@ -1477,6 +1477,7 @@ Transformée en dashboard analytique complet :
 |----|--------|-------------|-----|
 | SA.FIX2 | Dashboard `page.tsx` | "Activité récente" toujours vide — `activities` initialisé `[]` sans setter ni fetch. Aucune API ne fournissait les données. Import cassé `getRelativeTime` depuis mock-data. | Ajouté action API `recent-activity` qui agrège 4 sources (api_usage_logs, email_records, tasks, projects), triées par date. Dashboard fetch au mount avec `setActivities`. Icône colorée par type (ai=amber, email=blue). Remplacé `getRelativeTime` par `formatRelativeTime` local. |
 | SA.FIX3 | API `platform-metrics` | Table `plans` n'existe pas (le vrai nom est `plan_registry`) — query échouait silencieusement, `totalPlans` toujours 0 | Corrigé `.from("plans")` → `.from("plan_registry")` |
+| SA.FIX4 | Dashboard `page.tsx` + API | "Stockage" affiche toujours "0.0 GB" — `storageGb` hardcodé à `0` côté dashboard ET absent de la réponse API `platform-metrics`. Aucun calcul de taille de fichiers. | API : ajouté scan des 6 buckets Supabase Storage (`plans`, `audio`, `submissions`, `organization-assets`, `meeting-audio`, `email-archives`) avec `admin.storage.from(bucket).list()` récursif (racine + sous-dossiers). Somme des `metadata.size` convertie en GB. Dashboard : remplacé `storageGb: 0` par `storageGb: m.storageGb \|\| 0`. |
 
 ### API `recent-activity` (nouvelle action)
 

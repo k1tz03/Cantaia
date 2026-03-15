@@ -219,6 +219,31 @@ export async function GET(request: NextRequest) {
       mrr += PLAN_PRICES[plan] || 0;
     }
 
+    // Storage usage across all buckets
+    let storageTotalBytes = 0;
+    const STORAGE_BUCKETS = ["plans", "audio", "submissions", "organization-assets", "meeting-audio", "email-archives"];
+    for (const bucket of STORAGE_BUCKETS) {
+      try {
+        // List root-level folders/files
+        const { data: rootItems } = await admin.storage.from(bucket).list("", { limit: 1000 });
+        if (!rootItems) continue;
+        for (const item of rootItems) {
+          if (item.metadata?.size) {
+            storageTotalBytes += Number(item.metadata.size) || 0;
+          } else if (item.id === null) {
+            // It's a folder — list its contents
+            const { data: subItems } = await admin.storage.from(bucket).list(item.name, { limit: 1000 });
+            if (subItems) {
+              for (const sub of subItems) {
+                storageTotalBytes += Number(sub.metadata?.size) || 0;
+              }
+            }
+          }
+        }
+      } catch { /* bucket may not exist */ }
+    }
+    const storageGb = storageTotalBytes / (1024 * 1024 * 1024);
+
     return NextResponse.json({
       metrics: {
         totalUsers: users.count || 0,
@@ -234,6 +259,7 @@ export async function GET(request: NextRequest) {
         aiCallsThisMonth,
         aiCostThisMonth: Math.round(aiCostThisMonth * 100) / 100,
         mrr,
+        storageGb: Math.round(storageGb * 100) / 100,
       },
     });
   }
