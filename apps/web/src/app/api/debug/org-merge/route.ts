@@ -19,11 +19,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const admin = createAdminClient();
+  const { data: userProfile } = await admin.from("users").select("is_superadmin").eq("id", user.id).single();
+  if (!userProfile?.is_superadmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   // Additional emails to search for (comma-separated or multiple params)
   const alsoEmails = searchParams.getAll("also_email").flatMap(e => e.split(",")).filter(Boolean);
-
-  const admin = createAdminClient();
 
   // Current user row by auth ID
   const { data: currentUser } = await admin
@@ -168,13 +172,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const admin = createAdminClient();
+  const { data: userProfile } = await admin.from("users").select("is_superadmin").eq("id", user.id).single();
+  if (!userProfile?.is_superadmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await request.json();
   const { target_org_id } = body;
   if (!target_org_id) {
     return NextResponse.json({ error: "target_org_id required" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
   const log: string[] = [];
 
   // Validate target org exists

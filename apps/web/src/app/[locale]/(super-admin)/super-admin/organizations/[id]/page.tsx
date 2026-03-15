@@ -19,7 +19,20 @@ import {
   Loader2,
   Send,
   RotateCcw,
+  Sparkles,
+  DollarSign,
+  TrendingUp,
+  Calculator,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type { Organization, OrganizationInvite } from "@cantaia/database";
 
 interface OrgMember {
@@ -58,10 +71,30 @@ export default function OrganizationDetailPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", first_name: "", last_name: "", role: "member", message: "" });
   const [sending, setSending] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState("30d");
+  const [statsData, setStatsData] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     loadOrganization();
   }, [orgId]);
+
+  useEffect(() => {
+    if (activeTab === "stats") loadStats();
+  }, [activeTab, statsPeriod]);
+
+  async function loadStats() {
+    setStatsLoading(true);
+    try {
+      const res = await fetch(`/api/super-admin?action=analytics&scope=org&org_id=${orgId}&period=${statsPeriod}`);
+      const data = await res.json();
+      setStatsData(data);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }
 
   async function loadOrganization() {
     try {
@@ -355,9 +388,177 @@ export default function OrganizationDetailPage() {
       )}
 
       {activeTab === "stats" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-          <BarChart3 className="mx-auto h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-sm text-gray-400">Statistiques détaillées — bientôt disponible</p>
+        <div className="space-y-6">
+          {/* Period selector */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700">Statistiques IA</h3>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+              {(["7d", "30d", "90d"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setStatsPeriod(p)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    statsPeriod === p ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {p === "7d" ? "7 jours" : p === "30d" ? "30 jours" : "90 jours"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+            </div>
+          ) : statsData ? (
+            <>
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {[
+                  { icon: DollarSign, label: "Coût IA total", value: `${statsData.overview.total_cost_chf.toFixed(2)} CHF`, color: "bg-blue-50 text-blue-600" },
+                  { icon: Sparkles, label: "Appels IA", value: statsData.overview.total_calls, color: "bg-amber-50 text-amber-600" },
+                  { icon: Calculator, label: "Coût moyen/appel", value: `${statsData.overview.avg_cost_per_call.toFixed(4)} CHF`, color: "bg-violet-50 text-violet-600" },
+                  { icon: TrendingUp, label: "Projection mensuelle", value: `${statsData.overview.projected_monthly.toFixed(2)} CHF`, color: "bg-emerald-50 text-emerald-600" },
+                ].map((c) => (
+                  <div key={c.label} className="rounded-lg border border-gray-200 bg-white p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${c.color}`}>
+                        <c.icon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">{c.label}</p>
+                        <p className="text-lg font-bold text-gray-900">{c.value}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Profitability banner */}
+              {(() => {
+                const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+                const revenue = PLAN_PRICES[orgPlan] || 0;
+                const costMonthly = statsData.overview.projected_monthly;
+                const margin = revenue > 0 ? ((revenue - costMonthly) / revenue) * 100 : 0;
+                const profitable = revenue >= costMonthly;
+                return (
+                  <div className={`flex items-center justify-between rounded-lg border p-4 ${
+                    profitable ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
+                  }`}>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Rentabilité</p>
+                      <p className="text-xs text-gray-500">Revenu plan ({orgPlan}) vs coût IA projeté</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-lg font-bold ${profitable ? "text-green-700" : "text-red-700"}`}>
+                        {revenue > 0 ? `${margin.toFixed(0)}% marge` : "Pas de revenu"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {revenue} CHF revenu — {costMonthly.toFixed(2)} CHF coût
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Cost evolution chart */}
+              {statsData.daily_trend.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white p-5">
+                  <h4 className="mb-4 text-sm font-semibold text-gray-700">Évolution des coûts</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={statsData.daily_trend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
+                      <Tooltip
+                        formatter={(value: number) => [`${value.toFixed(4)} CHF`, "Coût"]}
+                        labelFormatter={(l: string) => `Date: ${l}`}
+                      />
+                      <Area type="monotone" dataKey="cost" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Per action table */}
+              {statsData.per_action.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white">
+                  <div className="border-b border-gray-100 px-5 py-3">
+                    <h4 className="text-sm font-semibold text-gray-700">Par fonction IA</h4>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-left text-xs text-gray-500">
+                      <tr>
+                        <th className="px-5 py-2 font-medium">Action</th>
+                        <th className="px-3 py-2 font-medium text-right">Appels</th>
+                        <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
+                        <th className="px-5 py-2 font-medium text-right">% du total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {statsData.per_action.map((a: any) => (
+                        <tr key={a.action_type} className="hover:bg-gray-50">
+                          <td className="px-5 py-2 font-medium text-gray-800">{a.action_type.replace(/_/g, " ")}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{a.calls}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{a.cost.toFixed(4)}</td>
+                          <td className="px-5 py-2 text-right text-gray-400">
+                            {statsData.overview.total_cost_chf > 0 ? ((a.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Per member table */}
+              {statsData.per_user.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white">
+                  <div className="border-b border-gray-100 px-5 py-3">
+                    <h4 className="text-sm font-semibold text-gray-700">Par membre</h4>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-left text-xs text-gray-500">
+                      <tr>
+                        <th className="px-5 py-2 font-medium">Membre</th>
+                        <th className="px-3 py-2 font-medium text-right">Appels</th>
+                        <th className="px-3 py-2 font-medium text-right">Coût (CHF)</th>
+                        <th className="px-5 py-2 font-medium text-right">% du total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {statsData.per_user.map((u: any) => (
+                        <tr key={u.user_id} className="hover:bg-gray-50">
+                          <td className="px-5 py-2">
+                            <p className="font-medium text-gray-800">{u.name}</p>
+                            <p className="text-xs text-gray-400">{u.email}</p>
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-600">{u.calls}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{u.cost.toFixed(4)}</td>
+                          <td className="px-5 py-2 text-right text-gray-400">
+                            {statsData.overview.total_cost_chf > 0 ? ((u.cost / statsData.overview.total_cost_chf) * 100).toFixed(1) : "0"}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {statsData.overview.total_calls === 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                  <Sparkles className="mx-auto h-10 w-10 text-gray-300" />
+                  <p className="mt-3 text-sm text-gray-400">Aucune activité IA sur cette période</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+              <BarChart3 className="mx-auto h-10 w-10 text-gray-300" />
+              <p className="mt-3 text-sm text-gray-400">Impossible de charger les statistiques</p>
+            </div>
+          )}
         </div>
       )}
 

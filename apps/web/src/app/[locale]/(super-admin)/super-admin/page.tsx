@@ -88,24 +88,22 @@ export default function SuperAdminDashboardPage() {
 
         const m = metricsRes.metrics || {};
         const orgList = orgsRes.organizations || [];
-        const activeOrgs = orgList.filter((o: any) =>
-          o.status === "active" || o.status === "trial"
-        ).length;
+        const activeOrgs = orgList.filter((o: any) => {
+          const s = o.status || "active";
+          return s === "active" || s === "trial";
+        }).length;
+        const totalProjects = orgList.reduce((sum: number, o: any) => sum + (o.project_count || 0), 0);
 
         setMetrics({
           totalOrganizations: m.totalOrgs || orgList.length,
           totalUsers: m.totalUsers || 0,
-          totalProjects: 0, // not in platform-metrics yet, use org enrichment
+          totalProjects,
           totalEmails: m.totalEmails || 0,
-          aiCallsThisMonth: 0,
-          mrr: 0,
+          aiCallsThisMonth: m.aiCallsThisMonth || 0,
+          mrr: m.mrr || 0,
           storageGb: 0,
           activeOrgs,
         });
-
-        // Calculate projects from org data
-        const totalProjects = orgList.reduce((sum: number, o: any) => sum + (o.project_count || 0), 0);
-        setMetrics(prev => ({ ...prev, totalProjects }));
       } catch (err) {
         console.error("Failed to load metrics:", err);
       } finally {

@@ -27,6 +27,7 @@ export async function createClient() {
                 maxAge: 60 * 60 * 24 * 7, // 7 days
                 sameSite: "lax" as const,
                 secure: process.env.NODE_ENV === "production",
+                httpOnly: true,
                 path: "/",
               })
             );

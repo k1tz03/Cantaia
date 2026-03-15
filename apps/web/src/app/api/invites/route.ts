@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
@@ -55,6 +56,12 @@ export async function GET(request: NextRequest) {
  * body: { token, user_id }
  */
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { data: body, error: parseError } = await parseBody(request);
   if (parseError || !body) {
     return NextResponse.json({ error: parseError || "Invalid request" }, { status: 400 });
@@ -66,6 +73,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { token, user_id } = body;
+
+  // Prevent privilege escalation: caller can only accept invites for their own user_id
+  if (user_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const admin = createAdminClient();
 

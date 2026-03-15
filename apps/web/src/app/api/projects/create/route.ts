@@ -112,12 +112,15 @@ export async function POST(request: NextRequest) {
   });
 
   // 4. Check for duplicates (same name or same code in the same org)
+  // Sanitize: remove PostgREST filter special characters to prevent injection
+  const safeName = body.name.replace(/[%_,().]/g, "");
+  const safeCode = body.code ? body.code.replace(/[%_,().]/g, "") : null;
   const { data: duplicate } = await admin
     .from("projects")
     .select("id, name, code")
     .eq("organization_id", userRow.organization_id)
     .or(
-      `name.ilike.%${body.name.replace(/[%_]/g, "")}%${body.code ? `,code.eq.${body.code}` : ""}`
+      `name.ilike.%${safeName}%${safeCode ? `,code.eq.${safeCode}` : ""}`
     )
     .limit(1)
     .maybeSingle();

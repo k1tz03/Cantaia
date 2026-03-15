@@ -94,7 +94,8 @@ export async function savePlanFromAttachment(
 
   // ── 2. Upload to Supabase Storage ──
   const buffer = Buffer.from(contentBytes, "base64");
-  const storagePath = `${organizationId}/${projectId}/${attachment.name}`;
+  const sanitizedName = attachment.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `${organizationId}/${projectId}/${sanitizedName}`;
 
   const { error: uploadError } = await supabase.storage
     .from("plans")

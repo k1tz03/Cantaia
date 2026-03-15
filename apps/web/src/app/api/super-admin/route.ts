@@ -174,7 +174,11 @@ export async function GET(request: NextRequest) {
 
   // ── Platform metrics ──
   if (action === "platform-metrics") {
-    const [users, orgs, emails, pvs, tasks, suppliers, offers, plans, ingestedPlans] = await Promise.all([
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [users, orgs, emails, pvs, tasks, suppliers, offers, plans, ingestedPlans, orgsList] = await Promise.all([
       (admin as any).from("users").select("id", { count: "exact", head: true }),
       (admin as any).from("organizations").select("id", { count: "exact", head: true }),
       (admin as any).from("email_records").select("id", { count: "exact", head: true }),
@@ -182,14 +186,38 @@ export async function GET(request: NextRequest) {
       (admin as any).from("tasks").select("id", { count: "exact", head: true }),
       (admin as any).from("suppliers").select("id", { count: "exact", head: true }),
       (admin as any).from("supplier_offers").select("id", { count: "exact", head: true }),
-      (admin as any).from("plans").select("id", { count: "exact", head: true }),
+      (admin as any).from("plan_registry").select("id", { count: "exact", head: true }),
       (admin as any).from("ingested_plan_quantities").select("source_file"),
+      (admin as any).from("organizations").select("subscription_plan, plan"),
     ]);
 
     // Count distinct source_file from ingested_plan_quantities
     const distinctIngestedFiles = new Set(
       (ingestedPlans.data || []).map((r: { source_file: string }) => r.source_file)
     ).size;
+
+    // AI calls this month (try/catch if table absent)
+    let aiCallsThisMonth = 0;
+    let aiCostThisMonth = 0;
+    try {
+      const { data: aiData } = await (admin as any)
+        .from("api_usage_logs")
+        .select("estimated_cost_chf")
+        .gte("created_at", monthStart.toISOString());
+      if (aiData) {
+        aiCallsThisMonth = aiData.length;
+        aiCostThisMonth = aiData.reduce((sum: number, r: { estimated_cost_chf: number }) =>
+          sum + (Number(r.estimated_cost_chf) || 0), 0);
+      }
+    } catch { /* table may not exist */ }
+
+    // MRR calculation from org plans
+    const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+    let mrr = 0;
+    for (const o of (orgsList.data || [])) {
+      const plan = o.plan || o.subscription_plan || "trial";
+      mrr += PLAN_PRICES[plan] || 0;
+    }
 
     return NextResponse.json({
       metrics: {
@@ -203,8 +231,196 @@ export async function GET(request: NextRequest) {
         totalTasks: tasks.count || 0,
         totalSuppliers: suppliers.count || 0,
         totalOffers: offers.count || 0,
+        aiCallsThisMonth,
+        aiCostThisMonth: Math.round(aiCostThisMonth * 100) / 100,
+        mrr,
       },
     });
+  }
+
+  // ── Analytics ──
+  if (action === "analytics") {
+    const scope = searchParams.get("scope") || "platform";
+    const orgId = searchParams.get("org_id");
+    const period = searchParams.get("period") || "30d";
+
+    const daysMap: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+    const days = daysMap[period] || 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    try {
+      // Fetch usage logs
+      let query = (admin as any)
+        .from("api_usage_logs")
+        .select("action_type, api_provider, model, estimated_cost_chf, user_id, organization_id, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: true });
+
+      if (scope === "org" && orgId) {
+        query = query.eq("organization_id", orgId);
+      }
+
+      const { data: logs, error: logsErr } = await query;
+      if (logsErr) throw logsErr;
+      const rows = logs || [];
+
+      // Overview
+      const totalCost = rows.reduce((s: number, r: any) => s + (Number(r.estimated_cost_chf) || 0), 0);
+      const totalCalls = rows.length;
+      const avgCostPerCall = totalCalls > 0 ? totalCost / totalCalls : 0;
+      const projectedMonthly = days > 0 ? (totalCost / days) * 30 : 0;
+
+      // Per action
+      const actionMap = new Map<string, { calls: number; cost: number }>();
+      for (const r of rows) {
+        const key = r.action_type || "unknown";
+        const entry = actionMap.get(key) || { calls: 0, cost: 0 };
+        entry.calls++;
+        entry.cost += Number(r.estimated_cost_chf) || 0;
+        actionMap.set(key, entry);
+      }
+      const perAction = [...actionMap.entries()]
+        .map(([action_type, v]) => ({ action_type, ...v }))
+        .sort((a, b) => b.cost - a.cost);
+
+      // Per org
+      const orgMap = new Map<string, { calls: number; cost: number }>();
+      for (const r of rows) {
+        if (!r.organization_id) continue;
+        const entry = orgMap.get(r.organization_id) || { calls: 0, cost: 0 };
+        entry.calls++;
+        entry.cost += Number(r.estimated_cost_chf) || 0;
+        orgMap.set(r.organization_id, entry);
+      }
+
+      // Enrich orgs
+      const orgIds = [...orgMap.keys()];
+      let orgsData: any[] = [];
+      let memberCountMap = new Map<string, number>();
+      if (orgIds.length > 0) {
+        const { data: orgsRaw } = await (admin as any)
+          .from("organizations")
+          .select("id, name, subscription_plan, plan")
+          .in("id", orgIds);
+        orgsData = orgsRaw || [];
+
+        const { data: membersRaw } = await (admin as any)
+          .from("users")
+          .select("organization_id")
+          .in("organization_id", orgIds);
+        for (const m of (membersRaw || [])) {
+          memberCountMap.set(m.organization_id, (memberCountMap.get(m.organization_id) || 0) + 1);
+        }
+      }
+      const orgLookup = new Map(orgsData.map((o: any) => [o.id, o]));
+      const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+
+      const perOrg = orgIds.map((oid) => {
+        const stats = orgMap.get(oid)!;
+        const orgInfo = orgLookup.get(oid);
+        const plan = orgInfo?.plan || orgInfo?.subscription_plan || "trial";
+        const revenueMonthly = PLAN_PRICES[plan] || 0;
+        const costMonthly = days > 0 ? (stats.cost / days) * 30 : 0;
+        return {
+          org_id: oid,
+          org_name: orgInfo?.name || oid.slice(0, 8),
+          plan,
+          member_count: memberCountMap.get(oid) || 0,
+          calls: stats.calls,
+          cost: Math.round(stats.cost * 100) / 100,
+          revenue_monthly: revenueMonthly,
+          profit: Math.round((revenueMonthly - costMonthly) * 100) / 100,
+        };
+      }).sort((a, b) => b.cost - a.cost);
+
+      // Per user
+      const userMap = new Map<string, { calls: number; cost: number; org_id: string }>();
+      for (const r of rows) {
+        if (!r.user_id) continue;
+        const entry = userMap.get(r.user_id) || { calls: 0, cost: 0, org_id: r.organization_id || "" };
+        entry.calls++;
+        entry.cost += Number(r.estimated_cost_chf) || 0;
+        userMap.set(r.user_id, entry);
+      }
+      const userIds = [...userMap.keys()];
+      let usersData: any[] = [];
+      if (userIds.length > 0) {
+        const { data: usersRaw } = await (admin as any)
+          .from("users")
+          .select("id, first_name, last_name, email, organization_id")
+          .in("id", userIds);
+        usersData = usersRaw || [];
+      }
+      const userLookup = new Map(usersData.map((u: any) => [u.id, u]));
+
+      const perUser = userIds.map((uid) => {
+        const stats = userMap.get(uid)!;
+        const uInfo = userLookup.get(uid);
+        const orgInfo = orgLookup.get(uInfo?.organization_id || stats.org_id);
+        return {
+          user_id: uid,
+          name: uInfo ? `${uInfo.first_name || ""} ${uInfo.last_name || ""}`.trim() : uid.slice(0, 8),
+          email: uInfo?.email || "",
+          org_name: orgInfo?.name || "",
+          calls: stats.calls,
+          cost: Math.round(stats.cost * 100) / 100,
+        };
+      }).sort((a, b) => b.cost - a.cost);
+
+      // Daily trend
+      const dailyMap = new Map<string, { calls: number; cost: number }>();
+      for (const r of rows) {
+        const day = r.created_at.slice(0, 10);
+        const entry = dailyMap.get(day) || { calls: 0, cost: 0 };
+        entry.calls++;
+        entry.cost += Number(r.estimated_cost_chf) || 0;
+        dailyMap.set(day, entry);
+      }
+      const dailyTrend = [...dailyMap.entries()]
+        .map(([date, v]) => ({ date, calls: v.calls, cost: Math.round(v.cost * 100) / 100 }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Hourly distribution
+      const hourlyArr = Array.from({ length: 24 }, (_, i) => ({ hour: i, calls: 0 }));
+      for (const r of rows) {
+        const h = new Date(r.created_at).getHours();
+        hourlyArr[h].calls++;
+      }
+
+      // Day-of-week distribution
+      const DOW_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+      const dowArr = Array.from({ length: 7 }, (_, i) => ({ day: DOW_NAMES[i], calls: 0 }));
+      for (const r of rows) {
+        const d = new Date(r.created_at).getDay();
+        dowArr[d].calls++;
+      }
+
+      return NextResponse.json({
+        overview: {
+          total_cost_chf: Math.round(totalCost * 100) / 100,
+          total_calls: totalCalls,
+          avg_cost_per_call: Math.round(avgCostPerCall * 10000) / 10000,
+          projected_monthly: Math.round(projectedMonthly * 100) / 100,
+        },
+        per_action: perAction,
+        per_org: perOrg,
+        per_user: perUser,
+        daily_trend: dailyTrend,
+        hourly_distribution: hourlyArr,
+        dow_distribution: dowArr,
+      });
+    } catch (err) {
+      console.warn("[super-admin] analytics query failed (table may not exist):", err);
+      return NextResponse.json({
+        overview: { total_cost_chf: 0, total_calls: 0, avg_cost_per_call: 0, projected_monthly: 0 },
+        per_action: [],
+        per_org: [],
+        per_user: [],
+        daily_trend: [],
+        hourly_distribution: Array.from({ length: 24 }, (_, i) => ({ hour: i, calls: 0 })),
+        dow_distribution: ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map(d => ({ day: d, calls: 0 })),
+      });
+    }
   }
 
   // ── Platform config ──

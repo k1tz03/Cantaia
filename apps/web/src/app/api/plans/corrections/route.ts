@@ -34,6 +34,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Verify that the plan belongs to the user's organization
+    const { data: planCheck } = await (adminClient as any)
+      .from("plan_registry")
+      .select("organization_id")
+      .eq("id", plan_id)
+      .maybeSingle();
+
+    if (!planCheck || planCheck.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Récupérer l'estimation originale
     const { data: analysis } = await (adminClient as any)
       .from("plan_analyses")

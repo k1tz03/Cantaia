@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import {
   Document,
@@ -508,6 +509,12 @@ function createReceptionDocument(data: ReceptionData): Document {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { data: body, error: parseError } = await parseBody<ReceptionData>(request);
     if (parseError || !body) {
       return NextResponse.json({ error: parseError || "Invalid request" }, { status: 400 });

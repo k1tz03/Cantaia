@@ -28,14 +28,38 @@ export async function POST(
 
     const admin = createAdminClient();
 
-    // Get the meeting
+    // Get user's organization
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "User organization not found" }, { status: 403 });
+    }
+
+    // Get the meeting with project org check
     const { data: meeting } = await admin
       .from("meetings")
-      .select("id, pv_content, project_id, meeting_number")
+      .select("id, pv_content, project_id, meeting_number, projects!inner(organization_id)")
       .eq("id", id)
       .maybeSingle();
 
-    if (!meeting || !meeting.pv_content) {
+    if (!meeting) {
+      return NextResponse.json(
+        { error: "Meeting or PV not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify meeting belongs to user's organization
+    const meetingOrg = (meeting.projects as any)?.organization_id;
+    if (meetingOrg !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!meeting.pv_content) {
       return NextResponse.json(
         { error: "Meeting or PV not found" },
         { status: 404 }

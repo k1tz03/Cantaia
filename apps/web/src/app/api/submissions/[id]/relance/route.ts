@@ -63,6 +63,20 @@ export async function POST(
       .eq("id", user.id)
       .maybeSingle();
 
+    // Verify org ownership: submission's project must belong to user's org
+    if (submission?.project_id) {
+      const { data: projCheck } = await admin
+        .from("projects")
+        .select("organization_id")
+        .eq("id", submission.project_id)
+        .maybeSingle();
+      if (!projCheck || projCheck.organization_id !== userProfile?.organization_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: org } = await admin
       .from("organizations")
       .select("name")

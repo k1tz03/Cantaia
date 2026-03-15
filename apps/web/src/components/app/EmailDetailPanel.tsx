@@ -594,7 +594,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                       __html: DOMPurify.sanitize(emailBody.content, {
                         ALLOWED_TAGS: ["p", "br", "b", "i", "u", "strong", "em", "a", "ul", "ol", "li", "table", "tr", "td", "th", "thead", "tbody", "span", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img"],
                         ALLOWED_ATTR: ["href", "target", "style", "class", "src", "alt", "width", "height"],
-                        ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+                        ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
                       }),
                     }}
                   />

@@ -1429,6 +1429,50 @@ Après le fix V2 du price-resolver, l'onglet "Postes" affichait toujours "En att
 
 ---
 
+## 20. Super-Admin Analytics & Dashboard (2026-03-15)
+
+### Problème
+Le dashboard super-admin affichait des KPIs cassés : Appels IA = 0 (hardcodé), MRR = 0, Orgs actives = 0 (filtre `.status` sans fallback pour migration 016 non appliquée). La table `api_usage_logs` (alimentée par 17+ routes API) n'était jamais requêtée côté super-admin. L'onglet stats des organisations était un placeholder "bientôt disponible". La page métriques n'avait que des compteurs statiques sans analytics.
+
+### Corrections appliquées
+
+#### API Route (`/api/super-admin`)
+- **Fix `platform-metrics`** : table `plans` → `plan_registry` (nom correct). Ajouté `aiCallsThisMonth`, `aiCostThisMonth` (query `api_usage_logs` avec try/catch si table absente), `mrr` (calculé depuis subscription_plan × tarifs : trial=0, starter=149, pro=349, enterprise=990).
+- **Nouvelle action `analytics`** : `GET /api/super-admin?action=analytics&scope=platform|org&org_id=xxx&period=7d|30d|90d`. Agrège `api_usage_logs` pour retourner : `overview` (total_cost, total_calls, avg_cost_per_call, projected_monthly), `per_action`, `per_org` (avec revenue/profit), `per_user`, `daily_trend`, `hourly_distribution`, `dow_distribution`. Enrichissement orgs/users depuis les tables respectives. Try/catch global (graceful degradation si table absente).
+
+#### Dashboard super-admin (`page.tsx`)
+- Fix "Orgs actives" : fallback `o.status || "active"` quand migration 016 pas appliquée
+- "Appels IA" : utilise `m.aiCallsThisMonth` au lieu de 0 hardcodé
+- "MRR" : utilise `m.mrr` au lieu de "0 CHF"
+
+#### Organisation détail — Onglet Stats (`organizations/[id]/page.tsx`)
+Remplacé le placeholder par un dashboard complet :
+- 4 KPI cards : Coût IA total, Appels IA, Coût moyen/appel, Projection mensuelle
+- Bannière rentabilité : Revenu plan vs Coût IA projeté → Marge (vert/rouge)
+- AreaChart (recharts) : évolution quotidienne des coûts
+- Table par fonction IA : action_type, appels, coût, % du total
+- Table par membre : nom, email, appels, coût, % du total
+- Sélecteur période : 7j / 30j / 90j
+
+#### Page Métriques (`metrics/page.tsx`)
+Transformée en dashboard analytique complet :
+- 4 KPI cards IA + sélecteur période (7j/30j/90j)
+- AreaChart dual-axis : coûts + appels quotidiens
+- 3 BarCharts : top fonctions par coût, distribution horaire, distribution jour de semaine
+- Table rentabilité orgs : Plan, Membres, Appels, Coût, Revenu, Profit, Marge %
+- Table top users par coût IA (top 20)
+- Section volume de données (emails, plans, PVs, tâches, fournisseurs, offres)
+
+#### Page Users (`users/page.tsx`)
+- Ajouté colonnes : **Appels IA**, **Coût IA (CHF)** (depuis analytics per_user)
+- Filtre dropdown par organisation
+- Sélecteur période 7j/30j/90j
+- Tri par coût desc par défaut
+- Badge org : bleu pour orgs nommées, gris "Solo" sinon
+- Affichage total coût IA dans le sous-titre
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
 2. Créer bucket Storage "plans" (**PRIVÉ**, 50MB max) — SEC2.NC3

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/x-icon"];
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/x-icon"];
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 
 /**
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   if (!ALLOWED_TYPES.includes(file.type)) {
     return NextResponse.json(
-      { error: `Invalid file type: ${file.type}. Allowed: PNG, JPEG, SVG, ICO` },
+      { error: `Invalid file type: ${file.type}. Allowed: PNG, JPEG, ICO` },
       { status: 400 }
     );
   }

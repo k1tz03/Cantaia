@@ -31,10 +31,21 @@ export async function POST(request: NextRequest) {
     const { meeting_id, language } = body;
     const whisperLanguage = (language === "de" || language === "en") ? language : "fr";
 
-    // Get the meeting
+    // Get user's organization
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "User organization not found" }, { status: 403 });
+    }
+
+    // Get the meeting with org check
     const { data: meeting, error: meetingError } = await admin
       .from("meetings")
-      .select("id, audio_url")
+      .select("id, audio_url, projects!inner(organization_id)")
       .eq("id", meeting_id)
       .maybeSingle();
 
@@ -43,6 +54,12 @@ export async function POST(request: NextRequest) {
         { error: "Meeting not found" },
         { status: 404 }
       );
+    }
+
+    // Verify meeting belongs to user's organization
+    const meetingOrg = (meeting.projects as any)?.organization_id;
+    if (meetingOrg !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (!meeting.audio_url) {

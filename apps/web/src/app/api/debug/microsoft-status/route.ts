@@ -21,6 +21,10 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
+  const { data: userProfile } = await admin.from("users").select("is_superadmin").eq("id", user.id).single();
+  if (!userProfile?.is_superadmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // 1. Check users table
   const { data: userRow, error: userError } = await admin

@@ -30,7 +30,7 @@ async function main() {
   const args = process.argv.slice(2);
   const runAll = args.length === 0;
   const runOffers = runAll || args.includes('--offers');
-  const runPlans = args.includes('--plans');
+  const runPlans = runAll || args.includes('--plans');
   const runEmails = args.includes('--emails');
   const runEmailsClassify = args.includes('--emails-classify');
   const runMetrages = args.includes('--metrages');
@@ -69,6 +69,17 @@ async function main() {
       console.log('  → Lance manuellement : SELECT refresh_reference_prices();');
     } else {
       console.log('  ✅ Vue mv_reference_prices rafraîchie');
+    }
+  }
+
+  if (runPlans) {
+    console.log('\n📊 Rafraîchissement de la vue mv_plan_ratios...');
+    const { error: ratioErr } = await supabase.rpc('refresh_plan_ratios');
+    if (ratioErr) {
+      console.log('  ⚠️  Rafraîchissement échoué:', ratioErr.message);
+      console.log('  → Lance manuellement : REFRESH MATERIALIZED VIEW mv_plan_ratios;');
+    } else {
+      console.log('  ✅ Vue mv_plan_ratios rafraîchie');
     }
   }
 

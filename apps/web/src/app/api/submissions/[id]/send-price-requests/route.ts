@@ -62,6 +62,16 @@ export async function POST(
     if (!userProfile) return NextResponse.json({ error: "User profile not found" }, { status: 400 });
     console.log("[SEND] User profile:", userProfile.email, "org:", userProfile.organization_id);
 
+    // Verify org ownership: submission's project must belong to user's org
+    const { data: projCheck } = await admin
+      .from("projects")
+      .select("organization_id")
+      .eq("id", submission.project_id)
+      .maybeSingle();
+    if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Get org name
     const { data: org } = await admin
       .from("organizations")

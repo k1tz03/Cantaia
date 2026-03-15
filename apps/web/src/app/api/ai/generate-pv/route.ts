@@ -33,6 +33,17 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { meeting_id } = body;
 
+    // Get user's organization
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "User organization not found" }, { status: 403 });
+    }
+
     // If transcript is passed directly, use it. Otherwise fetch from DB.
     let transcript = body.transcript;
     let project_name = body.project_name;
@@ -44,10 +55,10 @@ export async function POST(request: NextRequest) {
     const language = body.language || "fr";
 
     if (!transcript) {
-      // Fetch meeting + project from DB
+      // Fetch meeting + project from DB (with org check)
       const { data: meeting } = await admin
         .from("meetings")
-        .select("*, projects(name, code, address, city)")
+        .select("*, projects!inner(name, code, address, city, organization_id)")
         .eq("id", meeting_id)
         .maybeSingle();
 
@@ -56,6 +67,12 @@ export async function POST(request: NextRequest) {
           { error: "Meeting not found" },
           { status: 404 }
         );
+      }
+
+      // Verify meeting belongs to user's organization
+      const meetingOrg = (meeting.projects as any)?.organization_id;
+      if (meetingOrg !== userProfile.organization_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
       if (!meeting.transcription_raw) {

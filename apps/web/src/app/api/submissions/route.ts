@@ -86,9 +86,20 @@ export async function POST(request: NextRequest) {
 
     if (!projectId) return NextResponse.json({ error: "project_id or project_name required" }, { status: 400 });
 
+    // Verify that the project belongs to the user's organization
+    const { data: projCheck } = await admin
+      .from("projects")
+      .select("organization_id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!projCheck || projCheck.organization_id !== profile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Upload file to Supabase Storage
     const arrayBuffer = await file.arrayBuffer();
-    const storagePath = `${profile.organization_id}/${projectId}/${Date.now()}_${fileName}`;
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${profile.organization_id}/${projectId}/${Date.now()}_${sanitizedFileName}`;
 
     const { error: uploadError } = await admin.storage
       .from("submissions")

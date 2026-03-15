@@ -49,8 +49,10 @@ export async function GET(request: NextRequest) {
 
   // Full-text search across multiple fields
   if (search) {
+    // Sanitize: remove PostgREST filter special characters to prevent injection
+    const sanitizedSearch = search.replace(/[%_,().]/g, "");
     query = query.or(
-      `company_name.ilike.%${search}%,contact_name.ilike.%${search}%,email.ilike.%${search}%,city.ilike.%${search}%`
+      `company_name.ilike.%${sanitizedSearch}%,contact_name.ilike.%${sanitizedSearch}%,email.ilike.%${sanitizedSearch}%,city.ilike.%${sanitizedSearch}%`
     );
   }
 

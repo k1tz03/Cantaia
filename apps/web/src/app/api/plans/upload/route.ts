@@ -60,6 +60,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify that the project belongs to the user's organization
+    const { data: projCheck } = await adminClient
+      .from("projects")
+      .select("organization_id")
+      .eq("id", project_id)
+      .maybeSingle();
+
+    if (!projCheck || projCheck.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const orgId = userOrg.organization_id;
 
     // Create plan_registry record

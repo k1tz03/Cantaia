@@ -91,6 +91,27 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient();
 
+    // Verify user's org and that the project belongs to it
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { data: projCheck } = await admin
+      .from("projects")
+      .select("organization_id")
+      .eq("id", body.project_id)
+      .maybeSingle();
+
+    if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Calculate meeting_number if not provided
     let meetingNumber = body.meeting_number;
     if (!meetingNumber) {

@@ -34,9 +34,9 @@ import DOMPurify from "dompurify";
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-/** Sanitize HTML email body — allows images (data:, https:), styles, links */
+/** Sanitize HTML email body — allows images (data:image/*), styles, links */
 function sanitizeEmailHtml(html: string): string {
-  if (typeof window === "undefined") return html;
+  if (typeof window === "undefined") return ""; // SSR: don't render unsanitized HTML
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "p", "div", "span", "br", "hr", "a", "b", "i", "u", "em", "strong",
@@ -52,7 +52,7 @@ function sanitizeEmailHtml(html: string): string {
       "bgcolor", "color", "size", "face",
       "colspan", "rowspan",
     ],
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ADD_ATTR: ["target"],
   });
 }

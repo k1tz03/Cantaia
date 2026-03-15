@@ -34,6 +34,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Verify ownership: resolve estimation_id to a plan_id, then check plan's org
+    const { data: analysisForAuth } = await (adminClient as any)
+      .from("plan_analyses")
+      .select("plan_id")
+      .eq("id", estimation_id)
+      .maybeSingle();
+
+    const resolvedPlanId = analysisForAuth?.plan_id ?? estimation_id;
+
+    const { data: planCheck } = await (adminClient as any)
+      .from("plan_registry")
+      .select("organization_id")
+      .eq("id", resolvedPlanId)
+      .maybeSingle();
+
+    if (!planCheck || planCheck.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Récupérer le prix estimé original
     const { data: analysis } = await (adminClient as any)
       .from("plan_analyses")
