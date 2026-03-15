@@ -82,7 +82,7 @@ export default function OrganizationDetailPage() {
 
   async function handleSuspend() {
     if (!org) return;
-    const action = org.status === "suspended" ? "unsuspend-organization" : "suspend-organization";
+    const action = (org.status || "active") === "suspended" ? "unsuspend-organization" : "suspend-organization";
     await fetch("/api/super-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -154,12 +154,15 @@ export default function OrganizationDetailPage() {
     );
   }
 
+  const orgStatus = org.status || "active";
+  const orgPlan = org.plan || org.subscription_plan || "trial";
+
   const statusStyle = {
     setup: "bg-yellow-50 text-yellow-700",
     trial: "bg-blue-50 text-blue-700",
     active: "bg-green-50 text-green-700",
     suspended: "bg-red-50 text-red-700",
-  }[org.status] || "bg-gray-50 text-gray-700";
+  }[orgStatus] || "bg-gray-50 text-gray-700";
 
   return (
     <div className="p-6">
@@ -177,7 +180,7 @@ export default function OrganizationDetailPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">{org.name}</h1>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle}`}>
-              {t(`status${org.status.charAt(0).toUpperCase() + org.status.slice(1)}`)}
+              {t(`status${orgStatus.charAt(0).toUpperCase() + orgStatus.slice(1)}`)}
             </span>
           </div>
           {org.subdomain && (
@@ -191,13 +194,13 @@ export default function OrganizationDetailPage() {
           <button
             onClick={handleSuspend}
             className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium ${
-              org.status === "suspended"
+              orgStatus === "suspended"
                 ? "bg-green-50 text-green-700 hover:bg-green-100"
                 : "bg-red-50 text-red-700 hover:bg-red-100"
             }`}
           >
-            {org.status === "suspended" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            {org.status === "suspended" ? t("unsuspend") : t("suspend")}
+            {orgStatus === "suspended" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            {orgStatus === "suspended" ? t("unsuspend") : t("suspend")}
           </button>
           <button
             onClick={() => setShowDeleteModal(true)}
@@ -242,7 +245,7 @@ export default function OrganizationDetailPage() {
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <p className="text-xs text-gray-500">{t("plan")}</p>
-              <p className="text-2xl font-bold text-gray-900 capitalize">{org.plan}</p>
+              <p className="text-2xl font-bold text-gray-900 capitalize">{orgPlan}</p>
             </div>
           </div>
 
@@ -293,7 +296,7 @@ export default function OrganizationDetailPage() {
                   <div key={member.id} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
-                        {member.first_name[0]}{member.last_name[0]}
+                        {(member.first_name || "?")[0]}{(member.last_name || "?")[0]}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{member.first_name} {member.last_name}</p>
