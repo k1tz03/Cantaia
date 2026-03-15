@@ -1403,6 +1403,24 @@ resolvePrice() ← même moteur que Cantaia Prix
    └── 6. Non disponible → fallback IA Claude Haiku
 ```
 
+### Fix V3 — Intégration prix dans l'onglet Postes (2026-03-15)
+
+#### Problème
+Après le fix V2 du price-resolver, l'onglet "Postes" affichait toujours "En attente" pour tous les items sans aucun prix. Le statut "En attente" signifie qu'aucun fournisseur n'a encore soumis de devis — c'est le comportement normal. Mais les prix estimés du Budget IA n'étaient visibles que dans l'onglet "Budget IA" séparé, pas dans la vue principale des postes.
+
+#### Fix appliqué (`submissions/[id]/page.tsx`)
+- **Passage des données budget** : `ItemsTabContent` reçoit maintenant `budgetEstimates` (depuis `submission.budget_estimate.estimates`)
+- **Colonnes conditionnelles** : Si un budget IA existe, ajout des colonnes "PU Méd." et "Total" dans le tableau des postes
+- **Colonne Source** : Remplace l'ancien "Statut" par une colonne "Source" avec badges colorés :
+  - **Fournisseur** (vert) : prix réel d'un devis fournisseur (prioritaire)
+  - **Réel** (emerald) : `historique_interne` — prix issus d'offres passées
+  - **CRB** (teal) : `referentiel_crb` — référentiel statique CRB 2025
+  - **Marché** (purple) : `benchmark_cantaia` — benchmark cross-tenant
+  - **IA** (bleu) : `estimation_ia` — estimation Claude Haiku
+  - **En attente** (gris) : aucun prix disponible
+- **Total par groupe** : Affichage du total CHF estimé dans le header de chaque groupe de postes
+- **Tooltips** : Survol du badge source affiche `detail_source` (ex: "12 offres internes, dernière: 2025-11-15")
+
 ---
 
 ### TODO manuels pour Julien

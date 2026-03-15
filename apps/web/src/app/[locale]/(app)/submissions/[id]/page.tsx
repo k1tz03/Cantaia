@@ -72,6 +72,8 @@ interface BudgetEstimate {
   prix_max: number;
   confidence: number;
   source: string;
+  detail_source?: string;
+  ajustements?: string[];
 }
 
 interface BudgetResult {
@@ -82,6 +84,13 @@ interface BudgetResult {
   crb_count: number;
   ai_count: number;
   unestimated_count: number;
+  source_breakdown?: {
+    historique_interne: number;
+    benchmark_cantaia: number;
+    referentiel_crb: number;
+    estimation_ia: number;
+    non_estime: number;
+  };
 }
 
 interface PriceRequestData {
@@ -338,6 +347,7 @@ export default function SubmissionDetailPage() {
             expandedGroups={expandedGroups}
             setExpandedGroups={setExpandedGroups}
             quotes={quotes}
+            budgetEstimates={((submission as any).budget_estimate as BudgetResult | null)?.estimates}
           />
         )}
         {activeTab === "requests" && (
@@ -400,13 +410,23 @@ function ItemsTabContent({
   expandedGroups,
   setExpandedGroups,
   quotes,
+  budgetEstimates,
 }: {
   items: SubmissionItem[];
   materialGroups: string[];
   expandedGroups: Set<string>;
   setExpandedGroups: React.Dispatch<React.SetStateAction<Set<string>>>;
   quotes: QuoteData[];
+  budgetEstimates?: BudgetEstimate[];
 }) {
+  // Build a map of item_id → budget estimate for fast lookup
+  const budgetMap = new Map<string, BudgetEstimate>();
+  if (budgetEstimates) {
+    for (const est of budgetEstimates) {
+      budgetMap.set(est.item_id, est);
+    }
+  }
+  const hasBudget = budgetMap.size > 0;
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
@@ -432,6 +452,14 @@ function ItemsTabContent({
         const groupItems = items.filter((i) => i.material_group === group);
         const expanded = expandedGroups.has(group);
         const quotedCount = groupItems.filter((i) => i.status === "quoted").length;
+        // Sum group total from budget estimates
+        const groupTotal = groupItems.reduce((sum, i) => {
+          const est = budgetMap.get(i.id);
+          if (est && est.prix_median > 0 && i.quantity != null) {
+            return sum + est.prix_median * Number(i.quantity);
+          }
+          return sum;
+        }, 0);
 
         return (
           <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -444,11 +472,18 @@ function ItemsTabContent({
                 <span className="text-sm font-medium text-gray-900">{group}</span>
                 <span className="text-xs text-gray-400">{groupItems.length} postes</span>
               </div>
-              {quotedCount > 0 && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                  {quotedCount}/{groupItems.length} cotés
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {quotedCount > 0 && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    {quotedCount}/{groupItems.length} cotés
+                  </span>
+                )}
+                {hasBudget && groupTotal > 0 && (
+                  <span className="text-sm font-semibold text-gray-700">
+                    CHF {groupTotal.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                )}
+              </div>
             </button>
             {expanded && (
               <div className="border-t border-gray-200 overflow-x-auto">
@@ -460,7 +495,9 @@ function ItemsTabContent({
                       <th className="text-center px-4 py-2 w-16">Unité</th>
                       <th className="text-right px-4 py-2 w-20">Quantité</th>
                       <th className="text-center px-4 py-2 w-20">CFC</th>
-                      <th className="text-center px-4 py-2 w-20">Statut</th>
+                      {hasBudget && <th className="text-right px-4 py-2 w-24">PU Méd.</th>}
+                      {hasBudget && <th className="text-right px-4 py-2 w-24">Total</th>}
+                      <th className="text-center px-4 py-2 w-20">Source</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -469,6 +506,12 @@ function ItemsTabContent({
                       const bestPrice = itemQuotes.length > 0
                         ? Math.min(...itemQuotes.filter((q) => q.unit_price_ht != null).map((q) => q.unit_price_ht!))
                         : null;
+                      const budget = budgetMap.get(item.id);
+                      const hasQuote = item.status === "quoted" && bestPrice != null;
+                      const unitPrice = hasQuote ? bestPrice : budget?.prix_median ?? null;
+                      const totalPrice = unitPrice != null && item.quantity != null ? unitPrice * Number(item.quantity) : null;
+                      const source = hasQuote ? "fournisseur" : budget?.source ?? null;
+
                       return (
                         <tr key={item.id} className="hover:bg-gray-50 text-sm">
                           <td className="px-4 py-2 text-xs font-mono text-gray-500">{item.item_number || "—"}</td>
@@ -491,13 +534,39 @@ function ItemsTabContent({
                               </span>
                             )}
                           </td>
+                          {hasBudget && (
+                            <td className="px-4 py-2 text-right font-medium text-gray-900">
+                              {unitPrice != null ? `${unitPrice.toFixed(2)}` : "—"}
+                            </td>
+                          )}
+                          {hasBudget && (
+                            <td className="px-4 py-2 text-right text-gray-600">
+                              {totalPrice != null ? totalPrice.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}
+                            </td>
+                          )}
                           <td className="px-4 py-2 text-center">
-                            {item.status === "quoted" ? (
-                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                {bestPrice != null ? `${bestPrice.toFixed(2)} CHF` : "Coté"}
+                            {hasQuote ? (
+                              <span className="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                                Fournisseur
+                              </span>
+                            ) : source === "historique_interne" ? (
+                              <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                                Réel
+                              </span>
+                            ) : source === "referentiel_crb" ? (
+                              <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                                CRB
+                              </span>
+                            ) : source === "benchmark_cantaia" ? (
+                              <span className="text-[10px] font-medium bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                                Marché
+                              </span>
+                            ) : source === "estimation_ia" ? (
+                              <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                                IA
                               </span>
                             ) : (
-                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
                                 En attente
                               </span>
                             )}
@@ -1686,7 +1755,7 @@ function BudgetTabContent({
         <Calculator className="h-12 w-12 text-gray-300 mx-auto mb-3" />
         <p className="text-sm text-gray-500 mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
         <p className="text-xs text-gray-400 mb-6 max-w-md mx-auto">
-          L&apos;estimation utilise les prix de référence CRB 2025 et l&apos;IA pour les postes sans correspondance CFC directe.
+          L&apos;estimation utilise vos offres fournisseurs, les prix du marché, le référentiel CRB 2025, et l&apos;IA en dernier recours.
         </p>
         {error && (
           <div className="mb-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 inline-block">
@@ -1742,17 +1811,29 @@ function BudgetTabContent({
             <div className="text-xl font-bold text-gray-600">CHF {formatCHF(budget.total_max)}</div>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-          {budget.crb_count > 0 && (
+        <div className="flex items-center gap-4 mt-4 text-xs text-gray-500 flex-wrap">
+          {(budget.source_breakdown?.historique_interne ?? 0) > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              {budget.source_breakdown!.historique_interne} prix réels
+            </span>
+          )}
+          {(budget.source_breakdown?.benchmark_cantaia ?? 0) > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+              {budget.source_breakdown!.benchmark_cantaia} benchmark marché
+            </span>
+          )}
+          {(budget.source_breakdown?.referentiel_crb ?? 0) > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              {budget.crb_count} postes CRB 2025
+              {budget.source_breakdown!.referentiel_crb} CRB 2025
             </span>
           )}
           {budget.ai_count > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              {budget.ai_count} postes estimés IA
+              {budget.ai_count} estimés IA
             </span>
           )}
           {budget.unestimated_count > 0 && (
@@ -1816,8 +1897,12 @@ function BudgetTabContent({
                           {total > 0 ? formatCHF(Math.round(total)) : "—"}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {est.source === "referentiel_crb" ? (
-                            <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium">CRB</span>
+                          {est.source === "historique_interne" ? (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Prix réels fournisseurs"}>Réel</span>
+                          ) : est.source === "benchmark_cantaia" ? (
+                            <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Benchmark marché"}>Marché</span>
+                          ) : est.source === "referentiel_crb" ? (
+                            <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Référentiel CRB 2025"}>CRB</span>
                           ) : est.source === "estimation_ia" ? (
                             <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">IA</span>
                           ) : (
