@@ -13,6 +13,7 @@ import {
   MessageSquare,
   TrendingUp,
   Truck,
+  Map,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,10 +54,13 @@ export default function DashboardPage() {
 
   const modules: ModuleCard[] = [
     { href: "/mail", icon: Mail, titleKey: "cardMailTitle", descKey: "cardMailDesc", iconBg: "bg-blue-50", iconColor: "text-[#2563EB]", badge: unreadCount > 0 ? String(unreadCount) : undefined },
+    { href: "/tasks", icon: CheckSquare, titleKey: "cardTasksTitle", descKey: "cardTasksDesc", iconBg: "bg-green-50", iconColor: "text-[#10B981]" },
+    { href: "/pv-chantier", icon: FileText, titleKey: "cardPvTitle", descKey: "cardPvDesc", iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]" },
     { href: "/projects", icon: FolderKanban, titleKey: "cardProjectsTitle", descKey: "cardProjectsDesc", iconBg: "bg-purple-50", iconColor: "text-purple-600" },
+    { href: "/plans", icon: Map, titleKey: "cardPlansTitle", descKey: "cardPlansDesc", iconBg: "bg-rose-50", iconColor: "text-rose-600" },
     { href: "/submissions", icon: FileSpreadsheet, titleKey: "cardSubmissionsTitle", descKey: "cardSubmissionsDesc", iconBg: "bg-indigo-50", iconColor: "text-indigo-600" },
-    { href: "/cantaia-prix", icon: TrendingUp, titleKey: "cardPrixTitle", descKey: "cardPrixDesc", iconBg: "bg-green-50", iconColor: "text-[#10B981]" },
     { href: "/suppliers", icon: Truck, titleKey: "cardSuppliersTitle", descKey: "cardSuppliersDesc", iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]" },
+    { href: "/cantaia-prix", icon: TrendingUp, titleKey: "cardPrixTitle", descKey: "cardPrixDesc", iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
     { href: "/chat", icon: MessageSquare, titleKey: "cardChatTitle", descKey: "cardChatDesc", iconBg: "bg-cyan-50", iconColor: "text-cyan-600" },
   ];
 
