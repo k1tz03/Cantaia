@@ -43,6 +43,14 @@ function buildBriefingPrompt(data: BriefingRawData): string {
     )
     .join("\n");
 
+  const deadlinesList = data.submission_deadlines
+    .slice(0, 8)
+    .map(
+      (s) =>
+        `- "${s.title}"${s.reference ? ` (${s.reference})` : ""} — ${s.project_name} — deadline: ${s.deadline} (${s.days_remaining} days remaining, status: ${s.status})`
+    )
+    .join("\n");
+
   return `You are an AI assistant for Swiss construction project managers. Generate a daily morning briefing in ${lang}.
 
 USER: ${data.user_name}
@@ -66,6 +74,9 @@ ${urgentEmailsList || "(none)"}
 TODAY'S MEETINGS:
 ${meetingsList || "(none)"}
 
+SUBMISSION DEADLINES (next 30 days):
+${deadlinesList || "(none)"}
+
 INSTRUCTIONS:
 Generate a structured JSON briefing. The tone should be professional, concise, and actionable — like a trusted assistant briefing a busy construction PM in the morning.
 
@@ -78,7 +89,8 @@ Generate a structured JSON briefing. The tone should be professional, concise, a
    - "summary": 1-2 sentences about the project status today
    - "action_items": 0-3 specific actions for today
 4. "meetings_today": List of meetings with time, project name, title
-5. "global_summary": 1-2 sentences overall summary for the day
+5. "submission_deadlines": For each upcoming submission deadline, provide title, deadline date, days_remaining, project name, and urgency note. Only include if there are deadlines within 30 days.
+6. "global_summary": 1-2 sentences overall summary for the day
 
 Output ONLY valid JSON matching this structure. No markdown, no explanation.
 
@@ -87,6 +99,7 @@ Output ONLY valid JSON matching this structure. No markdown, no explanation.
   "priority_alerts": ["..."],
   "projects": [{"project_id":"...","name":"...","status_emoji":"...","summary":"...","action_items":["..."]}],
   "meetings_today": [{"time":"...","project":"...","title":"..."}],
+  "submission_deadlines": [{"title":"...","deadline":"...","days_remaining":0,"project":"...","note":"..."}],
   "global_summary": "..."
 }`;
 }
@@ -155,6 +168,13 @@ export async function generateBriefingAI(
         time: m.time as string,
         project: m.project as string,
         title: m.title as string,
+      })),
+      submission_deadlines: (parsed.submission_deadlines || []).map((s: Record<string, unknown>) => ({
+        title: s.title as string,
+        deadline: s.deadline as string,
+        days_remaining: s.days_remaining as number,
+        project: s.project as string,
+        note: (s.note as string) || "",
       })),
       stats: rawData.stats,
       global_summary: parsed.global_summary || "",
@@ -251,6 +271,33 @@ export function generateBriefingFallback(rawData: BriefingRawData): BriefingCont
     title: m.title,
   }));
 
+  // Submission deadlines
+  const submissionDeadlines = rawData.submission_deadlines.map((s) => {
+    const urgencyMsgs: Record<string, string> = {
+      fr: s.days_remaining <= 3 ? "Urgent" : s.days_remaining <= 7 ? "Cette semaine" : "",
+      en: s.days_remaining <= 3 ? "Urgent" : s.days_remaining <= 7 ? "This week" : "",
+      de: s.days_remaining <= 3 ? "Dringend" : s.days_remaining <= 7 ? "Diese Woche" : "",
+    };
+    return {
+      title: s.title,
+      deadline: s.deadline,
+      days_remaining: s.days_remaining,
+      project: s.project_name,
+      note: urgencyMsgs[rawData.locale] || "",
+    };
+  });
+
+  // Add deadline alerts
+  const urgentDeadlines = rawData.submission_deadlines.filter((s) => s.days_remaining <= 7);
+  if (urgentDeadlines.length > 0) {
+    const msgs: Record<string, string> = {
+      fr: `${urgentDeadlines.length} deadline(s) soumission dans les 7 prochains jours`,
+      en: `${urgentDeadlines.length} submission deadline(s) within 7 days`,
+      de: `${urgentDeadlines.length} Einreichungsfrist(en) innerhalb von 7 Tagen`,
+    };
+    alerts.push(msgs[rawData.locale]);
+  }
+
   // Global summary
   const globalMsgs: Record<string, string> = {
     fr: `${rawData.stats.total_projects} projets actifs, ${rawData.stats.emails_unread} emails non lus, ${rawData.stats.tasks_overdue} tâches en retard, ${rawData.stats.meetings_today} réunion(s) aujourd'hui.`,
@@ -264,6 +311,7 @@ export function generateBriefingFallback(rawData: BriefingRawData): BriefingCont
     priority_alerts: alerts,
     projects,
     meetings_today: meetingsToday,
+    submission_deadlines: submissionDeadlines,
     stats: rawData.stats,
     global_summary: globalMsgs[rawData.locale],
   };

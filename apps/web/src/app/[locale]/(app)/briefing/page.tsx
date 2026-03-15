@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Clock,
   UserCheck,
+  FileText,
 } from "lucide-react";
 import type { BriefingContent } from "@cantaia/database";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
@@ -295,7 +296,55 @@ export default function BriefingPage() {
         </div>
       )}
 
-      {/* Submission deadlines — will be populated by real API calls */}
+      {/* Submission deadlines */}
+      {briefing.submission_deadlines && briefing.submission_deadlines.length > 0 && (
+        <div className="mt-6">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <FileText className="h-4 w-4 text-purple-500" />
+            {t("deadlinesTitle")}
+          </h2>
+          <div className="mt-2 space-y-2">
+            {briefing.submission_deadlines.map((d, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-between rounded-md border px-4 py-3 ${
+                  d.days_remaining <= 3
+                    ? "border-red-200 bg-red-50"
+                    : d.days_remaining <= 7
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-purple-100 bg-purple-50/50"
+                }`}
+              >
+                <div>
+                  <p className={`text-sm font-medium ${
+                    d.days_remaining <= 3 ? "text-red-900" : d.days_remaining <= 7 ? "text-amber-900" : "text-gray-800"
+                  }`}>
+                    {d.title}
+                  </p>
+                  <p className="text-xs text-gray-500">{d.project}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-semibold ${
+                    d.days_remaining <= 3 ? "text-red-700" : d.days_remaining <= 7 ? "text-amber-700" : "text-purple-700"
+                  }`}>
+                    {d.days_remaining}j
+                  </p>
+                  <p className="text-xs text-gray-500">{d.deadline}</p>
+                  {d.note && (
+                    <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      d.days_remaining <= 3
+                        ? "bg-red-100 text-red-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {d.note}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Projects */}
       <div className="mt-6">

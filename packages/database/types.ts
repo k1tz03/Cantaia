@@ -819,6 +819,13 @@ export interface BriefingContent {
     project: string;
     title: string;
   }>;
+  submission_deadlines?: Array<{
+    title: string;
+    deadline: string;
+    days_remaining: number;
+    project: string;
+    note: string;
+  }>;
   stats: {
     total_projects: number;
     emails_unread: number;

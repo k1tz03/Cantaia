@@ -78,6 +78,18 @@ export async function POST() {
     .gte("meeting_date", today)
     .lte("meeting_date", nextWeek.toISOString());
 
+  // Fetch submissions with approaching deadlines (next 30 days)
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  const { data: submissions } = await (admin as any)
+    .from("submissions")
+    .select("id, title, reference, status, deadline, project_id")
+    .in("project_id", projectIds.length > 0 ? projectIds : ["__none__"])
+    .in("status", ["draft", "sent", "responses", "comparing"])
+    .not("deadline", "is", null)
+    .lte("deadline", thirtyDaysFromNow.toISOString().split("T")[0])
+    .order("deadline", { ascending: true });
+
   // Collect raw data
   const rawData = collectBriefingData({
     user_name: userName,
@@ -85,6 +97,7 @@ export async function POST() {
     emails: emails || [],
     tasks: tasks || [],
     meetings: meetings || [],
+    submissions: submissions || [],
     locale,
   });
 

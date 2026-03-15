@@ -187,6 +187,7 @@ ADMIN_SECRET_KEY
 
 ### Vercel CRON (`vercel.json`)
 ```json
+{ "path": "/api/cron/briefing",              "schedule": "45 6 * * *"  }  // Daily 6h45
 { "path": "/api/email/sync/cron",            "schedule": "0 7 * * *"   }  // Daily 7h
 { "path": "/api/cron/aggregate-benchmarks",   "schedule": "0 2 * * *"   }  // Daily 2h
 { "path": "/api/cron/extract-patterns",       "schedule": "0 3 * * 0"   }  // Weekly dim 3h
@@ -453,7 +454,8 @@ ADMIN_SECRET_KEY
 | Route | Méthode | Description |
 |-------|---------|-------------|
 | `/api/briefing/today` | GET | Briefing du jour |
-| `/api/briefing/generate` | POST | Générer briefing |
+| `/api/briefing/generate` | POST | Générer briefing (inclut deadlines soumissions) |
+| `/api/cron/briefing` | POST | CRON: génération briefings + envoi email (Resend) pour tous les users `briefing_enabled=true` |
 
 ### Benchmarks & Data Intelligence
 | Route | Méthode | Description |
@@ -470,6 +472,7 @@ ADMIN_SECRET_KEY
 | `/api/cron/aggregate-benchmarks` | POST | Agrégation C2 (9 fonctions RPC) |
 | `/api/cron/extract-patterns` | POST | Extraction patterns C3 hebdomadaire |
 | `/api/cron/calibrate` | POST | Rafraîchissement calibration (vues matérialisées + model error profiles) |
+| `/api/cron/briefing` | POST | Génération briefings quotidiens + envoi email Resend (6:45 AM) |
 
 ### Admin & Super-Admin
 | Route | Méthode | Description |
@@ -794,8 +797,8 @@ Pipeline 4 passes multi-modèle :
 - `email-sync.ts` — `syncUserEmails()` avec injection de dépendances
 
 ### Briefing (`briefing/`, 3 fichiers)
-- `briefing-collector.ts` — Collecte événements quotidiens (emails, tâches, réunions, projets)
-- `briefing-generator.ts` — Génération briefing IA
+- `briefing-collector.ts` — Collecte événements quotidiens (emails, tâches, réunions, projets, deadlines soumissions)
+- `briefing-generator.ts` — Génération briefing IA (prompt inclut deadlines soumissions, fallback avec alertes urgence localisées)
 
 ### Visits (`visits/`, 3 fichiers)
 - `transcription-service.ts` — `transcribeVisitAudio()` (Whisper)
@@ -928,7 +931,7 @@ pnpm clean
 
 ### Vercel
 - Déploiement automatique sur push `main`
-- CRON routes configurées dans `vercel.json` (sync email 7h, benchmarks 2h, patterns dim 3h)
+- CRON routes configurées dans `vercel.json` (briefing 6h45, sync email 7h, benchmarks 2h, patterns dim 3h)
 - Variables d'environnement à configurer manuellement sur Vercel
 
 ---

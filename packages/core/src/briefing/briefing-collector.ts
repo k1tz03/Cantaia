@@ -14,12 +14,22 @@ import type {
 
 // ---------- Input types (raw data from Supabase) ----------
 
+export interface SubmissionDeadlineInput {
+  id: string;
+  title: string;
+  reference: string | null;
+  status: string;
+  deadline: string;
+  project_id: string;
+}
+
 export interface BriefingDataInput {
   user_name: string;
   projects: Project[];
   emails: EmailRecord[];
   tasks: Task[];
   meetings: Meeting[];
+  submissions?: SubmissionDeadlineInput[];
   locale: "fr" | "en" | "de";
 }
 
@@ -75,6 +85,14 @@ export interface BriefingRawData {
     sender: string;
     project_name: string | null;
     received_at: string;
+  }>;
+  submission_deadlines: Array<{
+    title: string;
+    reference: string | null;
+    project_name: string;
+    deadline: string;
+    days_remaining: number;
+    status: string;
   }>;
 }
 
@@ -254,6 +272,25 @@ export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
       t.status !== "cancelled"
   ).length;
 
+  // Submission deadlines (approaching within 30 days)
+  const submissionDeadlines = (input.submissions || [])
+    .filter((s) => s.deadline && s.deadline >= today)
+    .map((s) => {
+      const daysRemaining = Math.ceil(
+        (new Date(s.deadline).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        title: s.title,
+        reference: s.reference,
+        project_name: projectMap.get(s.project_id)?.name ?? "—",
+        deadline: s.deadline,
+        days_remaining: daysRemaining,
+        status: s.status,
+      };
+    })
+    .sort((a, b) => a.days_remaining - b.days_remaining)
+    .slice(0, 10);
+
   return {
     user_name: input.user_name,
     date: today,
@@ -270,5 +307,6 @@ export function collectBriefingData(input: BriefingDataInput): BriefingRawData {
     meetings_today: meetingsToday,
     overdue_tasks: overdueTasks,
     urgent_emails: urgentEmails,
+    submission_deadlines: submissionDeadlines,
   };
 }

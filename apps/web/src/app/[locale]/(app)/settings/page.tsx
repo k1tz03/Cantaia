@@ -408,11 +408,23 @@ function LanguageSection() {
    ═══════════════════════════════════════════════ */
 function NotificationsSection() {
   const t = useTranslations("settings");
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
-  const saveBriefing = useCallback(async (_data: Record<string, unknown>) => {
-    // TODO: POST /api/user/preferences when connected to Supabase
-    await new Promise((r) => setTimeout(r, 500));
-  }, []);
+  const saveBriefing = useCallback(async (data: Record<string, unknown>) => {
+    const res = await fetch("/api/user/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        briefing_enabled: data.briefingEnabled,
+        briefing_time: data.briefingTime,
+        briefing_email: data.briefingEmail,
+        briefing_projects: selectedProjects,
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to save");
+  }, [selectedProjects]);
 
   const briefingForm = useFormSection(
     {
@@ -422,6 +434,43 @@ function NotificationsSection() {
     },
     saveBriefing
   );
+
+  // Load real preferences + projects on mount
+  useEffect(() => {
+    async function loadPrefs() {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) return;
+        const { profile } = await res.json();
+        if (!profile) return;
+
+        briefingForm.setInitial({
+          briefingEnabled: profile.briefing_enabled ?? true,
+          briefingTime: profile.briefing_time ?? "07:00",
+          briefingEmail: profile.briefing_email ?? false,
+        });
+        setSelectedProjects(profile.briefing_projects || []);
+
+        // Load org projects
+        if (profile.organization_id) {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const { data } = await (supabase.from("projects") as any)
+            .select("id, name")
+            .eq("organization_id", profile.organization_id)
+            .in("status", ["active", "planning"])
+            .order("name");
+          setProjects(data || []);
+        }
+      } catch {
+        // use defaults
+      } finally {
+        setPrefsLoaded(true);
+      }
+    }
+    loadPrefs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveNotifs = useCallback(async (_data: Record<string, unknown>) => {
     await new Promise((r) => setTimeout(r, 500));
@@ -476,13 +525,45 @@ function NotificationsSection() {
                 checked={briefingForm.data.briefingEmail as boolean}
                 onChange={(v) => briefingForm.update({ briefingEmail: v })}
               />
+
+              {/* Project filter */}
+              {projects.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700">{t("briefingProjects")}</p>
+                  <p className="text-xs text-gray-500">{t("briefingProjectsDesc")}</p>
+                  <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3">
+                    {projects.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-gray-900">
+                        <input
+                          type="checkbox"
+                          checked={selectedProjects.includes(p.id)}
+                          onChange={(e) => {
+                            setSelectedProjects((prev) =>
+                              e.target.checked
+                                ? [...prev, p.id]
+                                : prev.filter((id) => id !== p.id)
+                            );
+                            // Mark form dirty
+                            briefingForm.update({});
+                          }}
+                          className="rounded border-gray-300 text-blue-600"
+                        />
+                        {p.name}
+                      </label>
+                    ))}
+                  </div>
+                  {selectedProjects.length === 0 && (
+                    <p className="mt-1 text-xs text-gray-400">{t("briefingAllProjects")}</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
 
         <div className="mt-5 border-t border-gray-100 pt-4">
           <SaveButton
-            isDirty={briefingForm.isDirty}
+            isDirty={briefingForm.isDirty || !prefsLoaded}
             saving={briefingForm.saving}
             showSaved={briefingForm.showSaved}
             error={briefingForm.error}
