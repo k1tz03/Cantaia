@@ -166,102 +166,120 @@ export async function GET(request: Request) {
               console.log("[auth/callback] SPLIT IDENTITY DETECTED — keeping both users functional");
               console.log("[auth/callback] Original user:", originalUser.id, "| OAuth user:", data.user.id);
 
-              const providerToken = data.session?.provider_token;
-              const providerRefreshToken = data.session?.provider_refresh_token;
-              if (providerToken && (authProvider === "microsoft" || authProvider === "google")) {
-                let expiresIn = 3600;
-                try {
-                  const parts = providerToken.split(".");
-                  if (parts.length === 3) {
-                    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-                    if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
-                    else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+              // Wrap entire handler in try/catch — NEVER redirect to login on error
+              try {
+                const providerToken = data.session?.provider_token;
+                const providerRefreshToken = data.session?.provider_refresh_token;
+                if (providerToken && (authProvider === "microsoft" || authProvider === "google")) {
+                  let expiresIn = 3600;
+                  try {
+                    const parts = providerToken.split(".");
+                    if (parts.length === 3) {
+                      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+                      if (payload.exp && payload.iat) expiresIn = payload.exp - payload.iat;
+                      else if (payload.exp) expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+                    }
+                  } catch { /* fallback 3600s */ }
+                  const expiresAt = new Date();
+                  expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
+
+                  const tokenFields: Record<string, unknown> = { auth_provider: authProvider };
+                  if (authProvider === "microsoft") {
+                    tokenFields.microsoft_access_token = providerToken;
+                    tokenFields.microsoft_refresh_token = providerRefreshToken || null;
+                    tokenFields.microsoft_token_expires_at = expiresAt.toISOString();
+                    tokenFields.outlook_sync_enabled = true;
                   }
-                } catch { /* fallback 3600s */ }
-                const expiresAt = new Date();
-                expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-                const tokenFields: Record<string, unknown> = { auth_provider: authProvider };
-                if (authProvider === "microsoft") {
-                  tokenFields.microsoft_access_token = providerToken;
-                  tokenFields.microsoft_refresh_token = providerRefreshToken || null;
-                  tokenFields.microsoft_token_expires_at = expiresAt.toISOString();
-                  tokenFields.outlook_sync_enabled = true;
+                  // Get original user's profile data
+                  const { data: origProfile } = await adminClient
+                    .from("users")
+                    .select("first_name, last_name, role, preferred_language, email, phone")
+                    .eq("id", originalUser.id)
+                    .maybeSingle();
+
+                  // 1. Update tokens on ORIGINAL user (for future email/password logins)
+                  await adminClient.from("users").update(tokenFields as any).eq("id", originalUser.id);
+
+                  // 2. Ensure OAuth user has a valid row in the same org with the same profile
+                  //    Include onboarding_completed: true to prevent OnboardingGuard redirect
+                  await adminClient.from("users").upsert({
+                    id: data.user.id,
+                    organization_id: linkOrgId,
+                    email: data.user.email || origProfile?.email || "",
+                    first_name: origProfile?.first_name || data.user.user_metadata?.full_name?.split(" ")[0] || "",
+                    last_name: origProfile?.last_name || data.user.user_metadata?.full_name?.split(" ").slice(1).join(" ") || "",
+                    role: origProfile?.role || "project_manager",
+                    preferred_language: origProfile?.preferred_language || locale,
+                    onboarding_completed: true,
+                    ...tokenFields,
+                  } as any, { onConflict: "id" });
+
+                  // 3. Sync user_metadata so ProfileForm works for the OAuth user
+                  try {
+                    await adminClient.auth.admin.updateUserById(data.user.id, {
+                      user_metadata: {
+                        ...data.user.user_metadata,
+                        first_name: origProfile?.first_name || data.user.user_metadata?.first_name || "",
+                        last_name: origProfile?.last_name || data.user.user_metadata?.last_name || "",
+                        phone: origProfile?.phone || "",
+                        preferred_language: origProfile?.preferred_language || "fr",
+                      },
+                    });
+                  } catch (metaErr) {
+                    console.warn("[auth/callback] user_metadata sync failed:", metaErr);
+                  }
+
+                  // 4. Create email_connection under BOTH users (so it works regardless of which session)
+                  const connectionScopes = authProvider === "microsoft"
+                    ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
+                    : "openid profile email gmail.readonly gmail.send gmail.modify";
+
+                  const connectionBase = {
+                    organization_id: linkOrgId,
+                    provider: authProvider as "microsoft" | "google",
+                    oauth_access_token: providerToken,
+                    oauth_refresh_token: providerRefreshToken || null,
+                    oauth_token_expires_at: expiresAt.toISOString(),
+                    oauth_scopes: connectionScopes,
+                    email_address: data.user.email!,
+                    display_name: data.user.user_metadata?.full_name || null,
+                    status: "active" as const,
+                  };
+
+                  // Connection for current session user (OAuth user)
+                  try {
+                    const { data: oauthConn } = await adminClient.from("email_connections")
+                      .insert({ ...connectionBase, user_id: data.user.id })
+                      .select("id").single();
+                    if (oauthConn) {
+                      await adminClient.from("email_connections").delete()
+                        .eq("user_id", data.user.id).neq("id", oauthConn.id);
+                    }
+                  } catch (connErr) {
+                    console.warn("[auth/callback] OAuth user connection insert failed:", connErr);
+                  }
+
+                  // Connection for original user (email/password login)
+                  try {
+                    const { data: origConn } = await adminClient.from("email_connections")
+                      .insert({ ...connectionBase, user_id: originalUser.id })
+                      .select("id").single();
+                    if (origConn) {
+                      await adminClient.from("email_connections").delete()
+                        .eq("user_id", originalUser.id).neq("id", origConn.id);
+                    }
+                  } catch (connErr) {
+                    console.warn("[auth/callback] Original user connection insert failed:", connErr);
+                  }
+
+                  console.log("[auth/callback] Tokens + connections saved under both users");
                 }
-
-                // Get original user's profile data
-                const { data: origProfile } = await adminClient
-                  .from("users")
-                  .select("first_name, last_name, role, preferred_language, email, phone")
-                  .eq("id", originalUser.id)
-                  .maybeSingle();
-
-                // 1. Update tokens on ORIGINAL user (for future email/password logins)
-                await adminClient.from("users").update(tokenFields as any).eq("id", originalUser.id);
-
-                // 2. Ensure OAuth user has a valid row in the same org with the same profile
-                await adminClient.from("users").upsert({
-                  id: data.user.id,
-                  organization_id: linkOrgId,
-                  email: data.user.email || origProfile?.email || "",
-                  first_name: origProfile?.first_name || data.user.user_metadata?.full_name?.split(" ")[0] || "",
-                  last_name: origProfile?.last_name || data.user.user_metadata?.full_name?.split(" ").slice(1).join(" ") || "",
-                  role: origProfile?.role || "project_manager",
-                  preferred_language: origProfile?.preferred_language || locale,
-                  ...tokenFields,
-                } as any, { onConflict: "id" });
-
-                // 3. Sync user_metadata so ProfileForm works for the OAuth user
-                await adminClient.auth.admin.updateUserById(data.user.id, {
-                  user_metadata: {
-                    ...data.user.user_metadata,
-                    first_name: origProfile?.first_name || data.user.user_metadata?.first_name || "",
-                    last_name: origProfile?.last_name || data.user.user_metadata?.last_name || "",
-                    phone: origProfile?.phone || "",
-                    preferred_language: origProfile?.preferred_language || "fr",
-                  },
-                });
-
-                // 4. Create email_connection under BOTH users (so it works regardless of which session)
-                const connectionScopes = authProvider === "microsoft"
-                  ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
-                  : "openid profile email gmail.readonly gmail.send gmail.modify";
-
-                const connectionBase = {
-                  organization_id: linkOrgId,
-                  provider: authProvider as "microsoft" | "google",
-                  oauth_access_token: providerToken,
-                  oauth_refresh_token: providerRefreshToken || null,
-                  oauth_token_expires_at: expiresAt.toISOString(),
-                  oauth_scopes: connectionScopes,
-                  email_address: data.user.email!,
-                  display_name: data.user.user_metadata?.full_name || null,
-                  status: "active" as const,
-                };
-
-                // Connection for current session user (OAuth user)
-                const { data: oauthConn } = await adminClient.from("email_connections")
-                  .insert({ ...connectionBase, user_id: data.user.id })
-                  .select("id").single();
-                if (oauthConn) {
-                  await adminClient.from("email_connections").delete()
-                    .eq("user_id", data.user.id).neq("id", oauthConn.id);
-                }
-
-                // Connection for original user (email/password login)
-                const { data: origConn } = await adminClient.from("email_connections")
-                  .insert({ ...connectionBase, user_id: originalUser.id })
-                  .select("id").single();
-                if (origConn) {
-                  await adminClient.from("email_connections").delete()
-                    .eq("user_id", originalUser.id).neq("id", origConn.id);
-                }
-
-                console.log("[auth/callback] Tokens + connections saved under both users");
+              } catch (splitErr) {
+                console.error("[auth/callback] Split identity handler error (non-fatal):", splitErr);
               }
 
-              // Redirect to settings — NOT to login. The browser session is for
-              // the OAuth user, which now has a valid user row in the same org.
+              // ALWAYS redirect to settings — NEVER to login
               const { data: origProfile2 } = await adminClient
                 .from("users")
                 .select("preferred_language")

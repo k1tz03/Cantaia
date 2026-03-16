@@ -182,9 +182,38 @@ export async function signInWithMicrosoftAction(options?: {
 
         if (orphanAzureUser) {
           console.log("[auth] Found orphan Azure auth user:", orphanAzureUser.id, orphanAzureUser.email);
-          // Clean up DB references before deleting auth user
-          await adminClient.from("email_connections").delete().eq("user_id", orphanAzureUser.id);
-          await adminClient.from("users").delete().eq("id", orphanAzureUser.id);
+
+          // Migrate ALL FK references from orphan to current user before deletion.
+          // Each table wrapped in try/catch (table may not exist or row may not exist).
+          const fkMigrations: Array<{ table: string; column: string }> = [
+            { table: "project_members", column: "user_id" },
+            { table: "tasks", column: "assigned_to" },
+            { table: "tasks", column: "created_by" },
+            { table: "email_records", column: "user_id" },
+            { table: "meetings", column: "created_by" },
+            { table: "email_connections", column: "user_id" },
+            { table: "plan_registry", column: "created_by" },
+            { table: "plan_analyses", column: "analyzed_by" },
+            { table: "plan_estimates", column: "estimated_by" },
+            { table: "suppliers", column: "created_by" },
+            { table: "daily_briefings", column: "user_id" },
+            { table: "client_visits", column: "created_by" },
+            { table: "visit_photos", column: "created_by" },
+          ];
+          for (const { table, column } of fkMigrations) {
+            try {
+              await (adminClient as any).from(table).update({ [column]: linkUserId }).eq(column, orphanAzureUser.id);
+            } catch { /* table may not exist */ }
+          }
+          // Delete non-critical references (logs) instead of migrating
+          for (const logTable of ["app_logs", "admin_activity_logs", "api_usage_logs"]) {
+            try {
+              await (adminClient as any).from(logTable).delete().eq("user_id", orphanAzureUser.id);
+            } catch { /* table may not exist */ }
+          }
+
+          // Now delete the orphan user row + auth user
+          try { await adminClient.from("users").delete().eq("id", orphanAzureUser.id); } catch { /* may already be gone */ }
           await adminClient.auth.admin.deleteUser(orphanAzureUser.id);
           console.log("[auth] Orphan Azure auth user deleted, retrying linkIdentity");
 
