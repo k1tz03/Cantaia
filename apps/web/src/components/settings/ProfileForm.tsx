@@ -36,33 +36,35 @@ export function ProfileForm() {
 
   useEffect(() => {
     if (user) {
-      const values: UpdateUserInput = {
+      // Set initial values from user_metadata (may be incomplete for Microsoft OAuth)
+      const metaValues: UpdateUserInput = {
         first_name: user.user_metadata?.first_name || "",
         last_name: user.user_metadata?.last_name || "",
         phone: user.user_metadata?.phone || "",
         preferred_language: user.user_metadata?.preferred_language || "fr",
       };
-      initialValues.current = values;
-      reset(values);
+      initialValues.current = metaValues;
+      reset(metaValues);
 
-      // If user_metadata is empty, fall back to DB profile
-      if (!values.first_name && !values.last_name) {
-        fetch("/api/user/profile")
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.profile && (data.profile.first_name || data.profile.last_name)) {
-              const dbValues: UpdateUserInput = {
-                first_name: data.profile.first_name || "",
-                last_name: data.profile.last_name || "",
-                phone: data.profile.phone || "",
-                preferred_language: data.profile.preferred_language || "fr",
-              };
+      // Always fetch from DB to fill in gaps (user_metadata may be incomplete)
+      fetch("/api/user/profile")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.profile) {
+            const dbValues: UpdateUserInput = {
+              first_name: data.profile.first_name || metaValues.first_name,
+              last_name: data.profile.last_name || metaValues.last_name,
+              phone: data.profile.phone || metaValues.phone,
+              preferred_language: data.profile.preferred_language || metaValues.preferred_language,
+            };
+            // Only update if DB has more data than metadata
+            if (dbValues.first_name || dbValues.last_name) {
               initialValues.current = dbValues;
               reset(dbValues);
             }
-          })
-          .catch(() => {});
-      }
+          }
+        })
+        .catch(() => {});
     }
   }, [user, reset]);
 

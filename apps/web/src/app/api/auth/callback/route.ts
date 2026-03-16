@@ -257,6 +257,27 @@ export async function GET(request: Request) {
             auth_provider_id: identity?.id || null,
           };
 
+          // Ensure user_metadata has first_name/last_name (Microsoft only provides full_name)
+          const metadata = data.user.user_metadata || {};
+          if (!metadata.first_name || !metadata.last_name) {
+            const { data: dbUser } = await adminClient
+              .from("users")
+              .select("first_name, last_name, phone, preferred_language")
+              .eq("id", data.user.id)
+              .maybeSingle();
+            if (dbUser && (dbUser.first_name || dbUser.last_name)) {
+              await adminClient.auth.admin.updateUserById(data.user.id, {
+                user_metadata: {
+                  ...metadata,
+                  first_name: metadata.first_name || dbUser.first_name || "",
+                  last_name: metadata.last_name || dbUser.last_name || "",
+                  phone: metadata.phone || dbUser.phone || "",
+                  preferred_language: metadata.preferred_language || dbUser.preferred_language || "fr",
+                },
+              });
+            }
+          }
+
           const providerTokenForExisting = data.session?.provider_token;
           const providerRefreshForExisting = data.session?.provider_refresh_token;
           if (providerTokenForExisting && authProvider === "microsoft") {
@@ -514,6 +535,11 @@ export async function GET(request: Request) {
         let finalNext = next;
         if (profile && (profile as any).onboarding_completed === false && !next.includes("onboarding")) {
           finalNext = "/onboarding";
+        }
+
+        // If this was an email connection flow, redirect to the integrations tab with refresh signal
+        if (linkOrgId && finalNext.startsWith("/settings")) {
+          finalNext = "/settings?tab=outlook&connected=email";
         }
 
         const redirectUrl = `${origin}/${userLocale}${finalNext}`;
