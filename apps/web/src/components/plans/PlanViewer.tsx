@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FileText, Download, ExternalLink, ZoomIn, ZoomOut, Loader2 } from "lucide-react";
 import { formatFileSize } from "./plan-detail-types";
 import type { PlanVersion } from "./plan-detail-types";
@@ -9,6 +9,13 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
   const [viewerLoading, setViewerLoading] = useState(true);
   const [zoom, setZoom] = useState(100);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fallback: hide spinner after 3s even if onLoad doesn't fire (common with PDF embeds)
+  useEffect(() => {
+    if (!viewerLoading) return;
+    const timer = setTimeout(() => setViewerLoading(false), 3000);
+    return () => clearTimeout(timer);
+  }, [viewerLoading]);
 
   if (!version?.file_url) {
     return (
@@ -93,26 +100,12 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
             />
           </div>
         ) : (
-          <object
-            data={`${version.file_url}#toolbar=1&navpanes=0&view=FitH`}
-            type="application/pdf"
-            className="w-full h-full"
+          <iframe
+            src={`${version.file_url}#toolbar=1&navpanes=0&view=FitH`}
+            className="w-full h-full border-0"
             onLoad={() => setViewerLoading(false)}
-          >
-            <div className="flex flex-col items-center justify-center h-full">
-              <FileText className="h-12 w-12 text-slate-300 mb-3" />
-              <p className="text-sm text-slate-600 mb-3">{t("pdfCannotDisplay")}</p>
-              <a
-                href={version.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
-              >
-                <ExternalLink className="h-4 w-4" />
-                {t("openNewTab")}
-              </a>
-            </div>
-          </object>
+            title={version.file_name}
+          />
         )}
       </div>
     </div>

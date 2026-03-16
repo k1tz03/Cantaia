@@ -100,11 +100,15 @@ export default function PlanDetailPage() {
     setAnalyzing(true);
     setAnalysisError("");
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300_000); // 5 min
       const res = await fetch("/api/ai/analyze-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan_id: plan.id, force }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (data.success) {
         setAnalysis(data.analysis);
@@ -115,9 +119,13 @@ export default function PlanDetailPage() {
       } else {
         setAnalysisError(data.error || "Erreur lors de l'analyse");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("[analyze] Error:", err);
-      setAnalysisError("Erreur réseau");
+      if (err?.name === "AbortError") {
+        setAnalysisError("L'analyse a pris trop de temps. Réessayez.");
+      } else {
+        setAnalysisError("Erreur réseau");
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -128,6 +136,8 @@ export default function PlanDetailPage() {
     setEstimatingV2(true);
     setEstimationV2Error("");
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300_000);
       const res = await fetch("/api/plans/estimate-v2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,16 +145,22 @@ export default function PlanDetailPage() {
           plan_id: plan.id,
           project_id: plan.project_id,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (res.ok && data.estimation) {
         setEstimationV2(data.estimation);
       } else {
         setEstimationV2Error(data.error || "Erreur lors de l'estimation");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("[estimate-v2] Error:", err);
-      setEstimationV2Error("Erreur réseau");
+      if (err?.name === "AbortError") {
+        setEstimationV2Error("L'estimation a pris trop de temps. Réessayez.");
+      } else {
+        setEstimationV2Error("Erreur réseau");
+      }
     } finally {
       setEstimatingV2(false);
     }
@@ -268,7 +284,12 @@ export default function PlanDetailPage() {
             estimationV2={estimationV2}
             estimatingV2={estimatingV2}
             estimationV2Error={estimationV2Error}
+            hasAnalysis={!!analysis}
             onEstimate={handleEstimateV2}
+            onGoToAnalysis={() => {
+              setActiveTab("analysis");
+              if (!analysis && !analyzing) handleAnalyze(false);
+            }}
             onCorrectQuantity={(poste) => setCorrectionPoste(poste)}
             onCalibratePrice={(poste) => setCalibrationPoste(poste)}
           />

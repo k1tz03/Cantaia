@@ -15,6 +15,8 @@ interface PlanVersion {
   is_current: boolean;
 }
 
+export const maxDuration = 300;
+
 const MAX_FILE_SIZE_MB = 20;
 
 /**

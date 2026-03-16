@@ -1,26 +1,48 @@
 "use client";
 
-import { Sparkles, Loader2, AlertTriangle, RefreshCw, Calculator } from "lucide-react";
+import { Sparkles, Loader2, AlertTriangle, RefreshCw, Calculator, ArrowRight } from "lucide-react";
 import EstimationResultV2 from "@/components/plans/EstimationResultV2";
 
 export function PlanEstimationTab({
   estimationV2,
   estimatingV2,
   estimationV2Error,
+  hasAnalysis,
   onEstimate,
+  onGoToAnalysis,
   onCorrectQuantity,
   onCalibratePrice,
 }: {
   estimationV2: any;
   estimatingV2: boolean;
   estimationV2Error: string;
+  hasAnalysis: boolean;
   onEstimate: () => void;
+  onGoToAnalysis: () => void;
   onCorrectQuantity: (poste: any) => void;
   onCalibratePrice: (poste: any) => void;
 }) {
   return (
     <div className="space-y-4">
-      {!estimationV2 && !estimatingV2 && !estimationV2Error && (
+      {!estimationV2 && !estimatingV2 && !estimationV2Error && !hasAnalysis && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-amber-300 bg-amber-50 py-16">
+          <AlertTriangle className="h-12 w-12 text-amber-400 mb-4" />
+          <h3 className="text-lg font-semibold text-slate-800 mb-2">Analyse IA requise</h3>
+          <p className="text-sm text-slate-500 max-w-md text-center mb-6">
+            L&apos;estimation V2 necessite une analyse prealable du plan. Lancez d&apos;abord l&apos;analyse IA pour identifier les quantites, puis revenez ici pour l&apos;estimation.
+          </p>
+          <button
+            onClick={onGoToAnalysis}
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
+          >
+            <Sparkles className="h-4 w-4" />
+            Lancer l&apos;analyse IA
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {!estimationV2 && !estimatingV2 && !estimationV2Error && hasAnalysis && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
           <Calculator className="h-12 w-12 text-brand/40 mb-4" />
           <h3 className="text-lg font-semibold text-slate-800 mb-2">Estimation multi-modele V2</h3>
