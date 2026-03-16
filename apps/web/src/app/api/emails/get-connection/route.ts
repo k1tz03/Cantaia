@@ -50,10 +50,10 @@ export async function GET() {
       return NextResponse.json({ connection: orgConnection });
     }
 
-    // Auto-create email_connection from Microsoft tokens in users table.
-    // This handles the case where the OAuth callback stored tokens in the
-    // users table but failed to create the email_connections row.
+    // If Microsoft tokens exist in users table, user IS connected even if
+    // email_connections table is missing or INSERT fails.
     if (profile.microsoft_access_token) {
+      // Try to auto-create email_connection row
       try {
         const { data: newConn } = await (adminClient as any)
           .from("email_connections")
@@ -71,12 +71,44 @@ export async function GET() {
           .single();
 
         if (newConn) {
-          console.log("[get-connection] Auto-created email_connection from Microsoft tokens for user:", user.id);
+          console.log("[get-connection] Auto-created email_connection for user:", user.id);
           return NextResponse.json({ connection: newConn });
         }
       } catch (err) {
-        console.warn("[get-connection] Failed to auto-create email_connection:", err);
+        console.warn("[get-connection] email_connections insert failed (table may not exist):", err);
       }
+
+      // Return synthetic connection from users table tokens
+      return NextResponse.json({
+        connection: {
+          provider: "microsoft",
+          email_address: profile.email || user.email || "",
+          status: "active",
+          last_sync_at: null,
+          total_emails_synced: 0,
+        },
+      });
+    }
+  }
+
+  // Also check users table directly (without org check) for microsoft tokens
+  if (!profile?.organization_id) {
+    const { data: userOnly } = await adminClient
+      .from("users")
+      .select("microsoft_access_token, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userOnly?.microsoft_access_token) {
+      return NextResponse.json({
+        connection: {
+          provider: "microsoft",
+          email_address: userOnly.email || user.email || "",
+          status: "active",
+          last_sync_at: null,
+          total_emails_synced: 0,
+        },
+      });
     }
   }
 

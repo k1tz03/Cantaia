@@ -148,8 +148,8 @@ export async function GET(request: Request) {
       const expiresAt = new Date();
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-      // Store tokens in users table (legacy compatibility)
-      await adminClient
+      // Store tokens in users table
+      const { error: updateError, count: updateCount } = await adminClient
         .from("users")
         .update({
           microsoft_access_token: accessToken,
@@ -158,6 +158,12 @@ export async function GET(request: Request) {
           outlook_sync_enabled: true,
         })
         .eq("id", user.id);
+
+      if (updateError) {
+        console.error("[microsoft-connect] users UPDATE error:", updateError);
+      } else {
+        console.log("[microsoft-connect] users UPDATE OK for:", user.id);
+      }
 
       // Upsert email_connection (handles re-connections without unique constraint errors)
       // First, delete any existing connections for this user to avoid conflicts
