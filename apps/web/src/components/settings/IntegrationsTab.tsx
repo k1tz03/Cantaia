@@ -112,8 +112,10 @@ export function IntegrationsTab() {
   // Determine if connected via legacy check or email_connections
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
-  // Still loading = auth not resolved yet OR connection not checked yet
-  const loading = !checked && !hasConnection;
+  // Loading only while we're actively waiting for the connection check.
+  // Once profile hook has loaded (even with no data) OR checked is true, stop loading.
+  // This prevents infinite spinner when auth takes time to resolve.
+  const loading = !checked && !hasConnection && !profile?.loaded;
 
   // Load email connection — runs when user becomes available
   useEffect(() => {
