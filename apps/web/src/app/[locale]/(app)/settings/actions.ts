@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { UpdateUserInput } from "@cantaia/core/models";
 
 export async function updateProfileAction(data: UpdateUserInput) {
@@ -44,7 +45,11 @@ export async function updateProfileAction(data: UpdateUserInput) {
   if (data.age_range !== undefined) updateData.age_range = data.age_range;
   if (data.gender !== undefined) updateData.gender = data.gender;
 
-  const { error: dbError } = await (supabase as any)
+  // Use admin client to bypass RLS — the users table RLS policy references
+  // itself (SELECT organization_id FROM users WHERE id = auth.uid()), which
+  // causes "infinite recursion detected in policy" on UPDATE via regular client.
+  const admin = createAdminClient();
+  const { error: dbError } = await (admin as any)
     .from("users")
     .update(updateData)
     .eq("id", user.id);
