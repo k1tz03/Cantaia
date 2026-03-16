@@ -149,7 +149,7 @@ export async function GET(request: Request) {
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
       // Store tokens in users table
-      const { error: updateError, count: updateCount } = await adminClient
+      const { error: updateError } = await adminClient
         .from("users")
         .update({
           microsoft_access_token: accessToken,
