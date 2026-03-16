@@ -178,6 +178,19 @@ export function IntegrationsTab() {
   async function handleConnectMicrosoft() {
     setConnecting(true);
     try {
+      // If user already has Microsoft tokens (logged in with Microsoft),
+      // try to create the connection directly without another OAuth redirect.
+      if (profile?.profile?.microsoft_access_token) {
+        try {
+          const res = await fetch("/api/emails/get-connection");
+          const data = await res.json();
+          if (data.connection) {
+            setConnection(data.connection);
+            return;
+          }
+        } catch { /* fall through to OAuth */ }
+      }
+
       // Pass current org_id so the callback reuses it instead of creating a new one
       const orgId = profile?.profile?.organization_id;
       const result = await signInWithMicrosoftAction(orgId ? { linkToOrg: orgId } : undefined);

@@ -176,6 +176,23 @@ export async function signInWithMicrosoftAction(options?: {
     const linkUserId = currentUser?.id || "";
     const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&link_user=${linkUserId}&next=${options.next || "/settings"}`;
 
+    // If the user already has Azure identity linked (e.g., they logged in with Microsoft),
+    // skip linkIdentity and go straight to signInWithOAuth. linkIdentity for an already-
+    // linked identity can fail or not return provider_token properly. signInWithOAuth is
+    // safe here because the same Azure identity maps to the same auth user (no split).
+    const hasAzureIdentity = currentUser?.identities?.some(i => i.provider === "azure");
+
+    if (hasAzureIdentity) {
+      console.log("[auth] Azure identity already linked, using signInWithOAuth directly");
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: { scopes, redirectTo: callbackUrl },
+      });
+      if (error) return { error: error.message };
+      return { url: data.url };
+    }
+
+    // Azure not linked yet — use linkIdentity to attach it to the current user
     const { data, error } = await supabase.auth.linkIdentity({
       provider: "azure",
       options: {
@@ -297,6 +314,24 @@ export async function signInWithGoogleAction(options?: {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     const linkUserId = currentUser?.id || "";
     const callbackUrl = `${appUrl}/api/auth/callback?link_org=${options.linkToOrg}&link_user=${linkUserId}&next=${options.next || "/settings"}`;
+
+    // If user already has Google identity linked, skip linkIdentity and go straight
+    // to signInWithOAuth. Same logic as Azure — avoids linkIdentity issues.
+    const hasGoogleIdentity = currentUser?.identities?.some(i => i.provider === "google");
+
+    if (hasGoogleIdentity) {
+      console.log("[auth] Google identity already linked, using signInWithOAuth directly");
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          scopes,
+          redirectTo: callbackUrl,
+          queryParams: { access_type: "offline", prompt: "consent" },
+        },
+      });
+      if (error) return { error: error.message };
+      return { url: data.url };
+    }
 
     const { data, error } = await supabase.auth.linkIdentity({
       provider: "google",

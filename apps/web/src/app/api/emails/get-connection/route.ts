@@ -32,7 +32,7 @@ export async function GET() {
   // connection was saved under a different auth user in the same org)
   const { data: profile } = await adminClient
     .from("users")
-    .select("organization_id")
+    .select("organization_id, microsoft_access_token, microsoft_refresh_token, microsoft_token_expires_at, email")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -46,7 +46,38 @@ export async function GET() {
       .limit(1)
       .maybeSingle();
 
-    return NextResponse.json({ connection: orgConnection || null });
+    if (orgConnection) {
+      return NextResponse.json({ connection: orgConnection });
+    }
+
+    // Auto-create email_connection from Microsoft tokens in users table.
+    // This handles the case where the OAuth callback stored tokens in the
+    // users table but failed to create the email_connections row.
+    if (profile.microsoft_access_token) {
+      try {
+        const { data: newConn } = await (adminClient as any)
+          .from("email_connections")
+          .insert({
+            user_id: user.id,
+            organization_id: profile.organization_id,
+            provider: "microsoft",
+            oauth_access_token: profile.microsoft_access_token,
+            oauth_refresh_token: profile.microsoft_refresh_token || null,
+            oauth_token_expires_at: profile.microsoft_token_expires_at || null,
+            email_address: profile.email || user.email || "",
+            status: "active",
+          })
+          .select("provider, email_address, status, last_sync_at, total_emails_synced")
+          .single();
+
+        if (newConn) {
+          console.log("[get-connection] Auto-created email_connection from Microsoft tokens for user:", user.id);
+          return NextResponse.json({ connection: newConn });
+        }
+      } catch (err) {
+        console.warn("[get-connection] Failed to auto-create email_connection:", err);
+      }
+    }
   }
 
   return NextResponse.json({ connection: null });
