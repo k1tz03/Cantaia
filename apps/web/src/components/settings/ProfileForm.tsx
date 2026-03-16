@@ -44,6 +44,25 @@ export function ProfileForm() {
       };
       initialValues.current = values;
       reset(values);
+
+      // If user_metadata is empty, fall back to DB profile
+      if (!values.first_name && !values.last_name) {
+        fetch("/api/user/profile")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.profile && (data.profile.first_name || data.profile.last_name)) {
+              const dbValues: UpdateUserInput = {
+                first_name: data.profile.first_name || "",
+                last_name: data.profile.last_name || "",
+                phone: data.profile.phone || "",
+                preferred_language: data.profile.preferred_language || "fr",
+              };
+              initialValues.current = dbValues;
+              reset(dbValues);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [user, reset]);
 

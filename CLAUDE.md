@@ -1065,6 +1065,15 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | Direction (vue org) | Non | Oui | Oui |
 | Administration (`/admin`) | Non | Oui | Oui |
 
+### Corrigés — Visites & Profil (2026-03-15)
+
+| ID | Sévérité | Module | Description | Fix |
+|----|----------|--------|-------------|-----|
+| VISIT.FIX1 | HAUTE | `/visits/new` | Bouton "Enregistrer et commencer" ne fait rien — erreur Supabase INSERT silencieusement catchée sans feedback utilisateur. Si `orgId` vide (user sans organisation), l'insert échoue avec une erreur PostgREST invisible | Ajouté bannière d'erreur visible, vérification `orgId` avant INSERT, messages d'erreur en français, `type="button"` sur les boutons |
+| PROFILE.FIX1 | HAUTE | `/api/user/profile` GET | Champs `first_name`, `last_name`, `phone`, `preferred_language`, `email`, `job_title`, `avatar_url` absents du SELECT — la route ne retournait que les champs briefing/outlook | Ajouté tous les champs profil au SELECT |
+| PROFILE.FIX2 | HAUTE | `ProfileForm.tsx` | Données personnelles disparues si `user_metadata` Supabase Auth est vide (ex: après re-authentification OAuth). La form ne lisait que `user.user_metadata` sans fallback | Ajouté fallback : si `user_metadata.first_name` et `last_name` sont vides, fetch `/api/user/profile` et utilise les données DB |
+| EMAIL.FIX1 | MOYENNE | `IntegrationsTab.tsx` | Après connexion email OAuth, retour sur la page settings ne rafraîchit pas le statut de connexion — le `useEffect` ne se relance pas car `user.id` n'a pas changé | Ajouté détection du paramètre URL `?connected=email` avec re-fetch différé de 1.5s + nettoyage URL |
+
 ### Non corrigés (à investiguer)
 
 | ID | Sévérité | Module | Description | Impact |

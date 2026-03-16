@@ -114,15 +114,28 @@ export function IntegrationsTab() {
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
 
-  // Load email connection
+  // Load email connection (also refresh when returning from OAuth via ?connected=email)
   useEffect(() => {
     if (!user?.id) return;
-    fetch("/api/emails/get-connection")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.connection) setConnection(data.connection);
-      })
-      .catch(() => {});
+    const loadConnection = () => {
+      fetch("/api/emails/get-connection")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.connection) setConnection(data.connection);
+        })
+        .catch(() => {});
+    };
+    loadConnection();
+
+    // If returning from OAuth callback, refresh after a short delay to ensure DB is updated
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "email") {
+      setTimeout(loadConnection, 1500);
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("connected");
+      window.history.replaceState({}, "", url.toString());
+    }
   }, [user?.id]);
 
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);

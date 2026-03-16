@@ -63,6 +63,7 @@ export default function NewVisitPage() {
   const [photosCount, setPhotosCount] = useState(0);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [sitePhotosExpanded, setSitePhotosExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -95,9 +96,10 @@ export default function NewVisitPage() {
   async function createVisitRecord(): Promise<string> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    if (!user) throw new Error("Non authentifié");
+    if (!orgId) throw new Error("Organisation non trouvée. Veuillez vous reconnecter.");
 
-    const { data, error } = await (supabase.from("client_visits") as any)
+    const { data, error } = await ((supabase as any).from("client_visits"))
       .insert({
         organization_id: orgId,
         client_name: form.client_name || "Client",
@@ -121,12 +123,14 @@ export default function NewVisitPage() {
 
   async function handleStartRecording() {
     setSaving(true);
+    setError(null);
     try {
       const id = await createVisitRecord();
       setVisitId(id);
       setStep("recording");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to create visit:", err);
+      setError(err instanceof Error ? err.message : "Impossible de créer la visite. Vérifiez votre connexion.");
     } finally {
       setSaving(false);
     }
@@ -136,12 +140,14 @@ export default function NewVisitPage() {
     // Create with minimal info
     if (!form.client_name) update({ client_name: "Client" });
     setSaving(true);
+    setError(null);
     try {
       const id = await createVisitRecord();
       setVisitId(id);
       setStep("recording");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to create visit:", err);
+      setError(err instanceof Error ? err.message : "Impossible de créer la visite. Vérifiez votre connexion.");
     } finally {
       setSaving(false);
     }
@@ -171,7 +177,7 @@ export default function NewVisitPage() {
       }
 
       // Update visit with audio info
-      await (supabase.from("client_visits") as any)
+      await ((supabase as any).from("client_visits"))
         .update({
           audio_url: filePath,
           audio_duration_seconds: audioDuration,
@@ -216,7 +222,7 @@ export default function NewVisitPage() {
         .from("audio")
         .upload(filePath, audioBlob, { contentType: "audio/webm" });
 
-      await (supabase.from("client_visits") as any)
+      await ((supabase as any).from("client_visits"))
         .update({
           audio_url: filePath,
           audio_duration_seconds: audioDuration,
@@ -347,9 +353,17 @@ export default function NewVisitPage() {
             />
           </div>
 
+          {/* Error banner */}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex items-center justify-between">
             <button
+              type="button"
               onClick={handleSkipToRecording}
               disabled={saving}
               className="text-sm text-gray-500 hover:text-gray-700"
@@ -357,6 +371,7 @@ export default function NewVisitPage() {
               {t("skipToRecording")}
             </button>
             <button
+              type="button"
               onClick={handleStartRecording}
               disabled={!form.client_name || saving}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
