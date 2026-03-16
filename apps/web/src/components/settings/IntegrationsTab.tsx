@@ -107,32 +107,37 @@ export function IntegrationsTab() {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  const [checked, setChecked] = useState(false);
 
   // Determine if connected via legacy check or email_connections
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
+  // Still loading = auth not resolved yet OR connection not checked yet
+  const loading = !checked && !hasConnection;
 
-  // Load email connection
+  // Load email connection — runs when user becomes available
   useEffect(() => {
     if (!user?.id) return;
 
-    const loadConnection = () => {
-      fetch("/api/emails/get-connection")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.connection) setConnection(data.connection);
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    };
-
-    loadConnection();
+    fetch("/api/emails/get-connection")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.connection) setConnection(data.connection);
+      })
+      .catch(() => {})
+      .finally(() => setChecked(true));
 
     // If returning from OAuth, retry once after delay + clean URL
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "email") {
-      setTimeout(loadConnection, 2000);
+      setTimeout(() => {
+        fetch("/api/emails/get-connection")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.connection) setConnection(data.connection);
+          })
+          .catch(() => {});
+      }, 2000);
       const url = new URL(window.location.href);
       url.searchParams.delete("connected");
       window.history.replaceState({}, "", url.toString());
@@ -147,11 +152,6 @@ export function IntegrationsTab() {
       window.history.replaceState({}, "", url.toString());
     }
   }, [user?.id]);
-
-  // When profile loads with microsoft token, stop loading
-  useEffect(() => {
-    if (profile?.loaded) setLoading(false);
-  }, [profile?.loaded]);
 
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);
   const displayEmail = connection?.email_address || user?.email || "";
