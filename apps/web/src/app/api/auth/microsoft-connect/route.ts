@@ -18,7 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * 6. Redirect to /settings?tab=outlook&connected=email
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
 
@@ -33,10 +33,19 @@ export async function GET(request: Request) {
     );
   }
 
-  // Use origin from request URL (reliable on Vercel)
-  const appUrl = origin;
-  const redirectUri = `${origin}/api/auth/microsoft-connect`;
-  console.log("[microsoft-connect] Using redirect_uri:", redirectUri);
+  // Use NEXT_PUBLIC_APP_URL (set on Vercel) to guarantee the redirect_uri
+  // matches exactly what's registered in Azure AD. Fallback to headers.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (() => {
+      const h =
+        request.headers.get("x-forwarded-host") ||
+        request.headers.get("host") ||
+        new URL(request.url).host;
+      const p = request.headers.get("x-forwarded-proto")?.split(",")[0] || "https";
+      return `${p}://${h}`;
+    })();
+  const redirectUri = `${appUrl}/api/auth/microsoft-connect`;
   const scopes =
     "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
