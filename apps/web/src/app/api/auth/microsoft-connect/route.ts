@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { headers } from "next/headers";
 
 /**
  * GET /api/auth/microsoft-connect
@@ -19,7 +18,7 @@ import { headers } from "next/headers";
  * 6. Redirect to /settings?tab=outlook&connected=email
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
 
@@ -34,13 +33,10 @@ export async function GET(request: Request) {
     );
   }
 
-  // Determine app URL from headers
-  const h = await headers();
-  const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
-  const proto = h.get("x-forwarded-proto") || "https";
-  const appUrl = `${proto}://${host}`;
-
-  const redirectUri = `${appUrl}/api/auth/microsoft-connect`;
+  // Use origin from request URL (reliable on Vercel)
+  const appUrl = origin;
+  const redirectUri = `${origin}/api/auth/microsoft-connect`;
+  console.log("[microsoft-connect] Using redirect_uri:", redirectUri);
   const scopes =
     "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
