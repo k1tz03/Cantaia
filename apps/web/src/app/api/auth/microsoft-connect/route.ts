@@ -33,19 +33,18 @@ export async function GET(request: Request) {
     );
   }
 
-  // Use NEXT_PUBLIC_APP_URL (set on Vercel) to guarantee the redirect_uri
-  // matches exactly what's registered in Azure AD. Fallback to headers.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (() => {
-      const h =
-        request.headers.get("x-forwarded-host") ||
-        request.headers.get("host") ||
-        new URL(request.url).host;
-      const p = request.headers.get("x-forwarded-proto")?.split(",")[0] || "https";
-      return `${p}://${h}`;
-    })();
+  // Build the redirect_uri from the actual request host so it matches
+  // the domain the user is on (and thus the URI registered in Azure AD).
+  // NEXT_PUBLIC_APP_URL may point to a different domain (e.g. cantaia.ch
+  // vs cantaia.vercel.app), so we prefer headers.
+  const reqHost =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("host");
+  const appUrl = reqHost
+    ? `${request.headers.get("x-forwarded-proto")?.split(",")[0] || "https"}://${reqHost}`
+    : process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
   const redirectUri = `${appUrl}/api/auth/microsoft-connect`;
+  console.log("[microsoft-connect] redirectUri:", redirectUri, "host:", reqHost);
   const scopes =
     "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
