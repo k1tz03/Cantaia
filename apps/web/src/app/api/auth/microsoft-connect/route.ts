@@ -167,7 +167,7 @@ export async function GET(request: Request) {
         .delete()
         .eq("user_id", user.id);
 
-      const { data: newConn, error: connError } = await (adminClient as any)
+      const { error: connError } = await (adminClient as any)
         .from("email_connections")
         .insert({
           user_id: user.id,
