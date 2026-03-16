@@ -14,6 +14,7 @@ export async function GET() {
 
   const adminClient = createAdminClient();
 
+  // Try by user_id first
   const { data: connection } = await adminClient
     .from("email_connections")
     .select("provider, email_address, status, last_sync_at, total_emails_synced")
@@ -23,5 +24,30 @@ export async function GET() {
     .limit(1)
     .maybeSingle();
 
-  return NextResponse.json({ connection: connection || null });
+  if (connection) {
+    return NextResponse.json({ connection });
+  }
+
+  // Fallback: search by organization (handles split identity case where
+  // connection was saved under a different auth user in the same org)
+  const { data: profile } = await adminClient
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.organization_id) {
+    const { data: orgConnection } = await adminClient
+      .from("email_connections")
+      .select("provider, email_address, status, last_sync_at, total_emails_synced")
+      .eq("organization_id", profile.organization_id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return NextResponse.json({ connection: orgConnection || null });
+  }
+
+  return NextResponse.json({ connection: null });
 }

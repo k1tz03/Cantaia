@@ -161,10 +161,11 @@ export async function GET(request: Request) {
 
             if (originalUser && originalUser.id !== data.user.id) {
               // Identity was NOT linked (fallback signInWithOAuth created a new auth user).
-              // Save tokens under the ORIGINAL user instead of the new OAuth user.
-              console.log("[auth/callback] SPLIT IDENTITY DETECTED — migrating from", data.user.id, "to", originalUser.id);
+              // The browser session is now for data.user.id (the OAuth user).
+              // We keep BOTH users functional and save connection under BOTH.
+              console.log("[auth/callback] SPLIT IDENTITY DETECTED — keeping both users functional");
+              console.log("[auth/callback] Original user:", originalUser.id, "| OAuth user:", data.user.id);
 
-              // Store provider tokens on the original user
               const providerToken = data.session?.provider_token;
               const providerRefreshToken = data.session?.provider_refresh_token;
               if (providerToken && (authProvider === "microsoft" || authProvider === "google")) {
@@ -180,54 +181,94 @@ export async function GET(request: Request) {
                 const expiresAt = new Date();
                 expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
-                // Update users table with provider tokens
-                const userUpdate: Record<string, unknown> = { auth_provider: authProvider };
+                const tokenFields: Record<string, unknown> = { auth_provider: authProvider };
                 if (authProvider === "microsoft") {
-                  userUpdate.microsoft_access_token = providerToken;
-                  userUpdate.microsoft_refresh_token = providerRefreshToken || null;
-                  userUpdate.microsoft_token_expires_at = expiresAt.toISOString();
-                  userUpdate.outlook_sync_enabled = true;
+                  tokenFields.microsoft_access_token = providerToken;
+                  tokenFields.microsoft_refresh_token = providerRefreshToken || null;
+                  tokenFields.microsoft_token_expires_at = expiresAt.toISOString();
+                  tokenFields.outlook_sync_enabled = true;
                 }
-                await adminClient.from("users").update(userUpdate as any).eq("id", originalUser.id);
 
-                // Create email_connection under original user
-                const scopes = authProvider === "microsoft"
+                // Get original user's profile data
+                const { data: origProfile } = await adminClient
+                  .from("users")
+                  .select("first_name, last_name, role, preferred_language, email, phone")
+                  .eq("id", originalUser.id)
+                  .maybeSingle();
+
+                // 1. Update tokens on ORIGINAL user (for future email/password logins)
+                await adminClient.from("users").update(tokenFields as any).eq("id", originalUser.id);
+
+                // 2. Ensure OAuth user has a valid row in the same org with the same profile
+                await adminClient.from("users").upsert({
+                  id: data.user.id,
+                  organization_id: linkOrgId,
+                  email: data.user.email || origProfile?.email || "",
+                  first_name: origProfile?.first_name || data.user.user_metadata?.full_name?.split(" ")[0] || "",
+                  last_name: origProfile?.last_name || data.user.user_metadata?.full_name?.split(" ").slice(1).join(" ") || "",
+                  role: origProfile?.role || "project_manager",
+                  preferred_language: origProfile?.preferred_language || locale,
+                  ...tokenFields,
+                } as any, { onConflict: "id" });
+
+                // 3. Sync user_metadata so ProfileForm works for the OAuth user
+                await adminClient.auth.admin.updateUserById(data.user.id, {
+                  user_metadata: {
+                    ...data.user.user_metadata,
+                    first_name: origProfile?.first_name || data.user.user_metadata?.first_name || "",
+                    last_name: origProfile?.last_name || data.user.user_metadata?.last_name || "",
+                    phone: origProfile?.phone || "",
+                    preferred_language: origProfile?.preferred_language || "fr",
+                  },
+                });
+
+                // 4. Create email_connection under BOTH users (so it works regardless of which session)
+                const connectionScopes = authProvider === "microsoft"
                   ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
                   : "openid profile email gmail.readonly gmail.send gmail.modify";
-                const { data: newConn } = await adminClient.from("email_connections").insert({
-                  user_id: originalUser.id,
+
+                const connectionBase = {
                   organization_id: linkOrgId,
                   provider: authProvider as "microsoft" | "google",
                   oauth_access_token: providerToken,
                   oauth_refresh_token: providerRefreshToken || null,
                   oauth_token_expires_at: expiresAt.toISOString(),
-                  oauth_scopes: scopes,
+                  oauth_scopes: connectionScopes,
                   email_address: data.user.email!,
                   display_name: data.user.user_metadata?.full_name || null,
-                  status: "active",
-                }).select("id").single();
+                  status: "active" as const,
+                };
 
-                if (newConn) {
+                // Connection for current session user (OAuth user)
+                const { data: oauthConn } = await adminClient.from("email_connections")
+                  .insert({ ...connectionBase, user_id: data.user.id })
+                  .select("id").single();
+                if (oauthConn) {
                   await adminClient.from("email_connections").delete()
-                    .eq("user_id", originalUser.id).neq("id", newConn.id);
+                    .eq("user_id", data.user.id).neq("id", oauthConn.id);
                 }
 
-                if (process.env.NODE_ENV === "development") console.log("[auth/callback] Tokens saved under original user", originalUser.id);
+                // Connection for original user (email/password login)
+                const { data: origConn } = await adminClient.from("email_connections")
+                  .insert({ ...connectionBase, user_id: originalUser.id })
+                  .select("id").single();
+                if (origConn) {
+                  await adminClient.from("email_connections").delete()
+                    .eq("user_id", originalUser.id).neq("id", origConn.id);
+                }
+
+                console.log("[auth/callback] Tokens + connections saved under both users");
               }
 
-              // Migrate all data from the orphaned OAuth user to the original user
-              await migrateUserData(adminClient, data.user.id, originalUser.id);
-
-              // Redirect — the browser has a session for the OAuth user,
-              // but we stored data under the original user. The user will need
-              // to re-login with email/password to get the correct session.
-              const { data: origProfile } = await adminClient
+              // Redirect to settings — NOT to login. The browser session is for
+              // the OAuth user, which now has a valid user row in the same org.
+              const { data: origProfile2 } = await adminClient
                 .from("users")
                 .select("preferred_language")
                 .eq("id", originalUser.id)
                 .maybeSingle();
-              const origLocale = origProfile?.preferred_language || locale;
-              return NextResponse.redirect(`${origin}/${origLocale}/login?message=microsoft_linked`);
+              const origLocale = origProfile2?.preferred_language || locale;
+              return NextResponse.redirect(`${origin}/${origLocale}/settings?tab=outlook&connected=email`);
             }
 
             // Normal case: identities are linked (same user ID) or truly new user

@@ -166,8 +166,45 @@ export async function signInWithMicrosoftAction(options?: {
     });
 
     if (error) {
-      // Fallback to signInWithOAuth if linking fails (e.g. identity already exists elsewhere)
-      console.warn("[auth] linkIdentity failed, falling back to signInWithOAuth:", error.message);
+      // linkIdentity failed — likely because the Azure identity already belongs to another auth user.
+      // Try to find and delete the orphan auth user, then retry linkIdentity.
+      console.warn("[auth] linkIdentity failed:", error.message, "— attempting orphan cleanup");
+
+      try {
+        const adminClient = createAdminClient();
+
+        // Find the orphan auth user that owns the Azure identity
+        const { data: authUserList } = await adminClient.auth.admin.listUsers({ perPage: 500 });
+        const orphanAzureUser = authUserList?.users?.find(u =>
+          u.id !== linkUserId &&
+          u.identities?.some(i => i.provider === "azure")
+        );
+
+        if (orphanAzureUser) {
+          console.log("[auth] Found orphan Azure auth user:", orphanAzureUser.id, orphanAzureUser.email);
+          // Clean up DB references before deleting auth user
+          await adminClient.from("email_connections").delete().eq("user_id", orphanAzureUser.id);
+          await adminClient.from("users").delete().eq("id", orphanAzureUser.id);
+          await adminClient.auth.admin.deleteUser(orphanAzureUser.id);
+          console.log("[auth] Orphan Azure auth user deleted, retrying linkIdentity");
+
+          // Retry linkIdentity — should succeed now that the identity is freed
+          const retry = await supabase.auth.linkIdentity({
+            provider: "azure",
+            options: { scopes, redirectTo: callbackUrl },
+          });
+
+          if (!retry.error && retry.data?.url) {
+            return { url: retry.data.url };
+          }
+          console.warn("[auth] linkIdentity retry also failed:", retry.error?.message);
+        }
+      } catch (cleanupErr) {
+        console.warn("[auth] Orphan cleanup failed:", cleanupErr);
+      }
+
+      // Final fallback: signInWithOAuth (will create split identity, handled by callback)
+      console.warn("[auth] Falling back to signInWithOAuth");
       const fallback = await supabase.auth.signInWithOAuth({
         provider: "azure",
         options: { scopes, redirectTo: callbackUrl },
