@@ -107,6 +107,13 @@ export function IntegrationsTab() {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [justConnected, setJustConnected] = useState(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("connected") === "email";
+    }
+    return false;
+  });
+
   // Determine if connected via legacy check or email_connections
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
@@ -114,24 +121,40 @@ export function IntegrationsTab() {
   // Load email connection (also refresh when returning from OAuth via ?connected=email)
   useEffect(() => {
     if (!user?.id) return;
-    const loadConnection = () => {
-      fetch("/api/emails/get-connection")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.connection) setConnection(data.connection);
-        })
-        .catch(() => {});
+
+    const loadConnection = async (): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/emails/get-connection");
+        const data = await res.json();
+        if (data.connection) {
+          setConnection(data.connection);
+          return true;
+        }
+      } catch { /* ignore */ }
+      return false;
     };
+
     loadConnection();
 
-    // If returning from OAuth callback, refresh after a short delay to ensure DB is updated
+    // If returning from OAuth callback, retry aggressively until connection is found
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "email") {
-      setTimeout(loadConnection, 1500);
-      // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete("connected");
-      window.history.replaceState({}, "", url.toString());
+      setJustConnected(true);
+      let attempt = 0;
+      const maxAttempts = 5;
+      const retryInterval = setInterval(async () => {
+        attempt++;
+        const found = await loadConnection();
+        if (found || attempt >= maxAttempts) {
+          clearInterval(retryInterval);
+          setJustConnected(false);
+          // Clean up URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("connected");
+          window.history.replaceState({}, "", url.toString());
+        }
+      }, 1500);
+      return () => clearInterval(retryInterval);
     }
 
     // Show connect error if any
@@ -143,6 +166,18 @@ export function IntegrationsTab() {
       window.history.replaceState({}, "", url.toString());
     }
   }, [user?.id]);
+
+  // Also detect connection from profile when it loads (handles case where
+  // email_connections table doesn't exist but tokens are in users table)
+  useEffect(() => {
+    if (isLegacyOutlook && justConnected) {
+      setJustConnected(false);
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("connected");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [isLegacyOutlook, justConnected]);
 
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);
   const displayEmail = connection?.email_address || user?.email || "";
@@ -649,6 +684,21 @@ export function IntegrationsTab() {
             {syncMessage && (
               <p className="text-sm text-green-600">{syncMessage}</p>
             )}
+          </div>
+        </div>
+      ) : justConnected ? (
+        // ── Just connected — Loading state while verifying ──
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">
+                {t("emailConnecting")}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {t("emailConnectDesc")}
+              </p>
+            </div>
           </div>
         </div>
       ) : (

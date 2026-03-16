@@ -160,7 +160,13 @@ export async function GET(request: Request) {
         })
         .eq("id", user.id);
 
-      // Create email_connection
+      // Upsert email_connection (handles re-connections without unique constraint errors)
+      // First, delete any existing connections for this user to avoid conflicts
+      await (adminClient as any)
+        .from("email_connections")
+        .delete()
+        .eq("user_id", user.id);
+
       const { data: newConn, error: connError } = await (adminClient as any)
         .from("email_connections")
         .insert({
@@ -183,13 +189,6 @@ export async function GET(request: Request) {
           "[microsoft-connect] email_connection insert error:",
           connError
         );
-      } else if (newConn) {
-        // Clean up old connections
-        await (adminClient as any)
-          .from("email_connections")
-          .delete()
-          .eq("user_id", user.id)
-          .neq("id", newConn.id);
       }
 
       console.log(
