@@ -185,19 +185,39 @@ function ProfileSection() {
     saveProfile
   );
 
-  // Load user data
+  // Load user data — prefer DB (always up-to-date) over user_metadata (may be stale/empty after OAuth)
   useEffect(() => {
-    if (user) {
-      form.setInitial({
-        first_name: user.user_metadata?.first_name || "",
-        last_name: user.user_metadata?.last_name || "",
-        phone: user.user_metadata?.phone || "",
-        preferred_language: user.user_metadata?.preferred_language || "fr",
-        job_title: user.user_metadata?.job_title || "",
-        age_range: user.user_metadata?.age_range || "",
-        gender: user.user_metadata?.gender || "",
-      });
-    }
+    if (!user) return;
+
+    // Set from user_metadata immediately (may be empty for Microsoft OAuth users)
+    const metaValues = {
+      first_name: user.user_metadata?.first_name || "",
+      last_name: user.user_metadata?.last_name || "",
+      phone: user.user_metadata?.phone || "",
+      preferred_language: user.user_metadata?.preferred_language || "fr",
+      job_title: user.user_metadata?.job_title || "",
+      age_range: user.user_metadata?.age_range || "",
+      gender: user.user_metadata?.gender || "",
+    };
+    form.setInitial(metaValues);
+
+    // Always fetch from DB to fill in gaps
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.profile) {
+          form.setInitial({
+            first_name: data.profile.first_name || metaValues.first_name,
+            last_name: data.profile.last_name || metaValues.last_name,
+            phone: data.profile.phone || metaValues.phone,
+            preferred_language: data.profile.preferred_language || metaValues.preferred_language,
+            job_title: data.profile.job_title || metaValues.job_title,
+            age_range: data.profile.age_range || metaValues.age_range,
+            gender: data.profile.gender || metaValues.gender,
+          });
+        }
+      })
+      .catch(() => {});
   }, [user]);
 
   const userEmail = user?.email || "";

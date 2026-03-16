@@ -20,7 +20,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from("users")
-    .select("organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects")
+    .select("organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, age_range, gender, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects")
     .eq("id", user.id)
     .maybeSingle();
 

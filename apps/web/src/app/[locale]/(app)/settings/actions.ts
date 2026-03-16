@@ -15,16 +15,41 @@ export async function updateProfileAction(data: UpdateUserInput) {
     return { error: "Not authenticated" };
   }
 
+  // Use admin client to bypass RLS — the users table RLS policy references
+  // itself (SELECT organization_id FROM users WHERE id = auth.uid()), which
+  // causes "infinite recursion detected in policy" on UPDATE via regular client.
+  const admin = createAdminClient();
+
+  // Fetch current DB values so we never wipe fields with empty strings.
+  // This handles the case where LanguageSection only passes preferred_language
+  // but first_name/last_name come from user_metadata which may be empty.
+  const { data: currentProfile } = await (admin as any)
+    .from("users")
+    .select("first_name, last_name, phone, preferred_language, job_title, age_range, gender")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Merge: use provided value if non-empty, otherwise keep DB value
+  const merged = {
+    first_name: data.first_name || currentProfile?.first_name || "",
+    last_name: data.last_name || currentProfile?.last_name || "",
+    phone: data.phone || currentProfile?.phone || "",
+    preferred_language: data.preferred_language || currentProfile?.preferred_language || "fr",
+    job_title: data.job_title !== undefined ? (data.job_title || currentProfile?.job_title || "") : currentProfile?.job_title,
+    age_range: data.age_range !== undefined ? (data.age_range || currentProfile?.age_range || null) : currentProfile?.age_range,
+    gender: data.gender !== undefined ? (data.gender || currentProfile?.gender || null) : currentProfile?.gender,
+  };
+
   // Update Supabase Auth user metadata
   const { error: authError } = await supabase.auth.updateUser({
     data: {
-      first_name: data.first_name,
-      last_name: data.last_name,
-      phone: data.phone,
-      preferred_language: data.preferred_language,
-      job_title: data.job_title,
-      age_range: data.age_range,
-      gender: data.gender,
+      first_name: merged.first_name,
+      last_name: merged.last_name,
+      phone: merged.phone,
+      preferred_language: merged.preferred_language,
+      job_title: merged.job_title,
+      age_range: merged.age_range,
+      gender: merged.gender,
     },
   });
 
@@ -33,22 +58,16 @@ export async function updateProfileAction(data: UpdateUserInput) {
   }
 
   // Update user row in database
-  // Note: type assertion needed due to @supabase/ssr v0.5.2 / supabase-js v2.95.3 generic mismatch
   const updateData: Record<string, unknown> = {
-    first_name: data.first_name,
-    last_name: data.last_name,
-    phone: data.phone,
-    preferred_language: data.preferred_language,
+    first_name: merged.first_name,
+    last_name: merged.last_name,
+    phone: merged.phone,
+    preferred_language: merged.preferred_language,
   };
-  // Only include extra fields if they are present (migration 041 may not be applied yet)
-  if (data.job_title !== undefined) updateData.job_title = data.job_title;
-  if (data.age_range !== undefined) updateData.age_range = data.age_range;
-  if (data.gender !== undefined) updateData.gender = data.gender;
+  if (merged.job_title !== undefined) updateData.job_title = merged.job_title;
+  if (merged.age_range !== undefined) updateData.age_range = merged.age_range;
+  if (merged.gender !== undefined) updateData.gender = merged.gender;
 
-  // Use admin client to bypass RLS — the users table RLS policy references
-  // itself (SELECT organization_id FROM users WHERE id = auth.uid()), which
-  // causes "infinite recursion detected in policy" on UPDATE via regular client.
-  const admin = createAdminClient();
   const { error: dbError } = await (admin as any)
     .from("users")
     .update(updateData)
