@@ -161,39 +161,49 @@ export async function GET(request: Request) {
 
       if (updateError) {
         console.error("[microsoft-connect] users UPDATE error:", updateError);
-      } else {
-        console.log("[microsoft-connect] users UPDATE OK for:", user.id);
       }
 
-      // Upsert email_connection (handles re-connections without unique constraint errors)
-      // First, delete any existing connections for this user to avoid conflicts
-      await (adminClient as any)
-        .from("email_connections")
-        .delete()
-        .eq("user_id", user.id);
+      // Verify the token was actually stored
+      const { data: verify } = await adminClient
+        .from("users")
+        .select("microsoft_access_token")
+        .eq("id", user.id)
+        .maybeSingle();
 
-      const { error: connError } = await (adminClient as any)
-        .from("email_connections")
-        .insert({
-          user_id: user.id,
-          organization_id: orgId,
-          provider: "microsoft",
-          oauth_access_token: accessToken,
-          oauth_refresh_token: refreshToken || null,
-          oauth_token_expires_at: expiresAt.toISOString(),
-          oauth_scopes: scopes,
-          email_address: microsoftEmail,
-          display_name: user.user_metadata?.full_name || null,
-          status: "active",
-        })
-        .select("id")
-        .single();
-
-      if (connError) {
-        console.error(
-          "[microsoft-connect] email_connection insert error:",
-          connError
+      if (!verify?.microsoft_access_token) {
+        console.error("[microsoft-connect] Token NOT stored! UPDATE matched 0 rows or column missing. user.id:", user.id, "updateError:", updateError);
+        return NextResponse.redirect(
+          `${appUrl}/${userLocale}/settings?tab=outlook&connect_error=${encodeURIComponent(
+            "token_not_stored: " + (updateError?.message || "UPDATE matched 0 rows or column does not exist")
+          )}`
         );
+      }
+
+      console.log("[microsoft-connect] Token stored OK for:", user.id);
+
+      // Try to create email_connection (best-effort, not required for detection)
+      try {
+        await (adminClient as any)
+          .from("email_connections")
+          .delete()
+          .eq("user_id", user.id);
+
+        await (adminClient as any)
+          .from("email_connections")
+          .insert({
+            user_id: user.id,
+            organization_id: orgId,
+            provider: "microsoft",
+            oauth_access_token: accessToken,
+            oauth_refresh_token: refreshToken || null,
+            oauth_token_expires_at: expiresAt.toISOString(),
+            oauth_scopes: scopes,
+            email_address: microsoftEmail,
+            display_name: user.user_metadata?.full_name || null,
+            status: "active",
+          });
+      } catch (connErr) {
+        console.warn("[microsoft-connect] email_connection insert failed (non-fatal):", connErr);
       }
 
       console.log(
