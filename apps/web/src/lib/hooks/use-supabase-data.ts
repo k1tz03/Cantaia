@@ -56,19 +56,21 @@ export function useEmails(userId: string | undefined) {
   return { emails, loading, syncing, hasRealData, syncEmails, refetch: fetchEmails };
 }
 
-export function useProjects(organizationId: string | undefined) {
+export function useProjects(organizationId?: string | undefined) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasRealData, setHasRealData] = useState(false);
+  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (!organizationId) {
-      setLoading(false);
+    // Fetch via API route (admin client) — handles auth + org internally
+    // We re-fetch when organizationId changes (in case it becomes available later)
+    if (fetched && !organizationId) {
+      // Already fetched once without org, don't re-fetch until org is available
       return;
     }
     setLoading(true);
 
-    // Fetch via API route (admin client) to bypass RLS
     fetch("/api/projects/list")
       .then((res) => res.json())
       .then((data) => {
@@ -77,11 +79,13 @@ export function useProjects(organizationId: string | undefined) {
           setHasRealData(true);
         }
         setLoading(false);
+        setFetched(true);
       })
       .catch(() => {
         setLoading(false);
+        setFetched(true);
       });
-  }, [organizationId]);
+  }, [organizationId, fetched]);
 
   return { projects, loading, hasRealData };
 }

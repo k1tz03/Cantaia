@@ -1339,8 +1339,8 @@ Audit de sécurité exhaustif couvrant 136 routes API, l'authentification, la ge
 | ID | Sévérité | Module | Description | Fix |
 |----|----------|--------|-------------|-----|
 | SEC2.FIX27 | HAUTE | `next.config.ts` | Aucun Content-Security-Policy header — toute XSS peut exfiltrer des données, charger des scripts externes | Ajouté CSP complet : `default-src 'self'`, script/style/img/font/connect/frame-src avec domaines autorisés, `frame-ancestors 'none'`, `object-src 'none'` |
-| SEC2.FIX28 | MOYENNE | `supabase/server.ts` | Flag `httpOnly` non explicitement défini sur les cookies de session — dépendance sur le default de la librairie | Ajouté `httpOnly: true` explicitement |
-| SEC2.FIX29 | MOYENNE | `supabase/middleware.ts` | Même problème `httpOnly` sur les cookies middleware | Ajouté `httpOnly: true` explicitement |
+| SEC2.FIX28 | ~~MOYENNE~~ REVERT | `supabase/server.ts` | ~~Flag `httpOnly` non explicitement défini~~ REVERTED: `httpOnly: true` cassait le client-side `createBrowserClient` qui lit les cookies via `document.cookie`. Avec httpOnly, le browser client ne peut pas lire les tokens auth → `user` toujours null côté client → projets vides, profil vide, connexion email invisible | Retiré `httpOnly: true` — la sécurité est assurée par CSP + SameSite=Lax + tokens courte durée |
+| SEC2.FIX29 | ~~MOYENNE~~ REVERT | `supabase/middleware.ts` | Même revert que FIX28 — `httpOnly: true` empêchait le browser Supabase client de fonctionner | Retiré `httpOnly: true` |
 | SEC2.FIX30 | MOYENNE | `env.ts` | `MICROSOFT_TOKEN_ENCRYPTION_KEY` et `OUTLOOK_WEBHOOK_SECRET` absents du schéma de validation — défaillance silencieuse en production | Ajouté au schéma Zod : `MICROSOFT_TOKEN_ENCRYPTION_KEY: z.string().length(64).optional()`, `OUTLOOK_WEBHOOK_SECRET: z.string().min(16).optional()` |
 
 #### Auth Client (MOYENNE)
