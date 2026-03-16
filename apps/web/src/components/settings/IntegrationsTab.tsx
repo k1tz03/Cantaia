@@ -107,54 +107,35 @@ export function IntegrationsTab() {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [justConnected, setJustConnected] = useState(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("connected") === "email";
-    }
-    return false;
-  });
+  const [loading, setLoading] = useState(true);
 
   // Determine if connected via legacy check or email_connections
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
 
-  // Load email connection (also refresh when returning from OAuth via ?connected=email)
+  // Load email connection
   useEffect(() => {
     if (!user?.id) return;
 
-    const loadConnection = async (): Promise<boolean> => {
-      try {
-        const res = await fetch("/api/emails/get-connection");
-        const data = await res.json();
-        if (data.connection) {
-          setConnection(data.connection);
-          return true;
-        }
-      } catch { /* ignore */ }
-      return false;
+    const loadConnection = () => {
+      fetch("/api/emails/get-connection")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.connection) setConnection(data.connection);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
     };
 
     loadConnection();
 
-    // If returning from OAuth callback, retry aggressively until connection is found
+    // If returning from OAuth, retry once after delay + clean URL
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "email") {
-      setJustConnected(true);
-      let attempt = 0;
-      const maxAttempts = 5;
-      const retryInterval = setInterval(async () => {
-        attempt++;
-        const found = await loadConnection();
-        if (found || attempt >= maxAttempts) {
-          clearInterval(retryInterval);
-          setJustConnected(false);
-          // Clean up URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete("connected");
-          window.history.replaceState({}, "", url.toString());
-        }
-      }, 1500);
-      return () => clearInterval(retryInterval);
+      setTimeout(loadConnection, 2000);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("connected");
+      window.history.replaceState({}, "", url.toString());
     }
 
     // Show connect error if any
@@ -167,17 +148,10 @@ export function IntegrationsTab() {
     }
   }, [user?.id]);
 
-  // Also detect connection from profile when it loads (handles case where
-  // email_connections table doesn't exist but tokens are in users table)
+  // When profile loads with microsoft token, stop loading
   useEffect(() => {
-    if (isLegacyOutlook && justConnected) {
-      setJustConnected(false);
-      // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete("connected");
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, [isLegacyOutlook, justConnected]);
+    if (profile?.loaded) setLoading(false);
+  }, [profile?.loaded]);
 
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);
   const displayEmail = connection?.email_address || user?.email || "";
@@ -686,19 +660,12 @@ export function IntegrationsTab() {
             )}
           </div>
         </div>
-      ) : justConnected ? (
-        // ── Just connected — Loading state while verifying ──
+      ) : loading ? (
+        // ── Loading connection status ──
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">
-                {t("emailConnecting")}
-              </h3>
-              <p className="text-sm text-gray-500">
-                {t("emailConnectDesc")}
-              </p>
-            </div>
+            <p className="text-sm text-gray-500">{t("emailConnecting")}</p>
           </div>
         </div>
       ) : (
