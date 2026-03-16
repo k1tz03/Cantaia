@@ -578,15 +578,11 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
         setPhotos(data.photos || []);
       }
 
-      // Get org ID for upload
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await (supabase.from("users") as any)
-          .select("organization_id")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (userData?.organization_id) setOrgId(userData.organization_id);
+      // Get org ID for upload (via API route to bypass RLS recursion on users table)
+      const profileRes = await fetch("/api/user/profile");
+      const profileData = await profileRes.json();
+      if (profileData?.profile?.organization_id) {
+        setOrgId(profileData.profile.organization_id);
       }
     } catch {
       // ignore

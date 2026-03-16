@@ -125,30 +125,13 @@ export default function DirectionPage() {
         setTasks(tasksRes?.tasks ?? tasksRes?.data?.tasks ?? []);
         setSubmissions(submissionsRes?.submissions ?? submissionsRes?.data?.submissions ?? []);
 
-        // Fetch members + receptions/reserves via Supabase client
+        // Fetch members via API route (bypasses RLS recursion on users table)
+        const membersRes = await fetch("/api/admin/clients").then((r) => r.json()).catch(() => ({ members: [] }));
+        if (cancelled) return;
+        setMembers(membersRes?.members ?? []);
+
+        // Fetch receptions/reserves via Supabase client
         const supabase = createClient();
-
-        // Get current user's org
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
-
-        const { data: profile } = await (supabase.from("users") as any)
-          .select("organization_id")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!profile?.organization_id || cancelled) return;
-
-        // Members
-        const { data: membersData } = await (supabase.from("users") as any)
-          .select("id, first_name, last_name, role")
-          .eq("organization_id", profile.organization_id);
-
-        if (!cancelled) {
-          setMembers(membersData ?? []);
-        }
 
         // Receptions & reserves (tables may not exist yet)
         try {

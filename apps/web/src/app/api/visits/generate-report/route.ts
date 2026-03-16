@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 interface ClientRequest {
@@ -77,8 +78,10 @@ export async function POST(request: NextRequest) {
       .update({ report_status: "generating" })
       .eq("id", visit_id);
 
-    // Get user info for the prompt
-    const { data: userData } = await (supabase.from("users") as any)
+    // Get user info for the prompt (use admin client to bypass RLS recursion on users table)
+    const admin = createAdminClient();
+    const { data: userData } = await admin
+      .from("users")
       .select("first_name, last_name, organization_id")
       .eq("id", user.id)
       .maybeSingle();

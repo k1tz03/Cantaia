@@ -237,6 +237,7 @@ export default function MailPage() {
       setThisWeek(data.thisWeek);
       setInfo(data.info);
       setStats(data.stats);
+      setDecisionsToday(data.stats?.decisionsToday || data.stats?.processedToday || 0);
       setIsAloneInOrg(data.isAloneInOrg ?? true);
       setOrgMembers(data.orgMembers || []);
     } catch {

@@ -150,13 +150,30 @@ export default function UploadPlanPage() {
     setUploading(true);
     setGlobalError("");
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Get user info via API route (bypasses RLS recursion on users table)
+    let userId: string;
+    try {
+      const profileRes = await fetch("/api/user/profile");
+      const profileData = await profileRes.json();
+      userId = profileData?.profile?.id || profileData?.user?.id;
+      if (!userId) {
+        // Fallback: try Supabase auth directly
+        const supabase2 = createClient();
+        const { data: { user: authUser } } = await supabase2.auth.getUser();
+        if (!authUser) {
+          setGlobalError("Non authentifié");
+          setUploading(false);
+          return;
+        }
+        userId = authUser.id;
+      }
+    } catch {
       setGlobalError("Non authentifié");
       setUploading(false);
       return;
     }
+
+    const supabase = createClient();
 
     for (const entry of pending) {
       updateFile(entry.id, { status: "uploading", error: undefined });
@@ -165,7 +182,7 @@ export default function UploadPlanPage() {
         // 1. Upload file directly to Supabase Storage (bypasses Vercel payload limit)
         const timestamp = Date.now();
         const safeName = entry.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const storagePath = `${user.id}/${projectId}/${timestamp}_${safeName}`;
+        const storagePath = `${userId}/${projectId}/${timestamp}_${safeName}`;
 
         const { error: storageError } = await supabase.storage
           .from("plans")

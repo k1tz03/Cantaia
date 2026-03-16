@@ -56,34 +56,18 @@ export default function AdminMembersPage() {
 
   async function loadMembers() {
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // Use API route to bypass RLS recursion on users table
+      const res = await fetch("/api/admin/clients");
+      const data = await res.json();
 
-      const { data: userData } = await (supabase.from("users") as any)
-        .select("organization_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!userData?.organization_id) { setLoading(false); return; }
-      const oid = userData.organization_id;
+      if (!data?.organization_id) { setLoading(false); return; }
+      const oid = data.organization_id;
       setOrgId(oid);
+      setMaxUsers(data.max_users || 20);
+      setMembers(data.members || []);
 
-      // Get org limits
-      const { data: org } = await (supabase.from("organizations") as any)
-        .select("max_users")
-        .eq("id", oid)
-        .maybeSingle();
-      if (org) setMaxUsers(org.max_users || 20);
-
-      // Get members
-      const { data: membersData } = await (supabase.from("users") as any)
-        .select("id, first_name, last_name, email, role, is_active, last_sync_at, created_at")
-        .eq("organization_id", oid)
-        .order("created_at", { ascending: true });
-      setMembers(membersData || []);
-
-      // Get pending invites
+      // Get pending invites via Supabase client (organization_invites is not affected by users RLS)
+      const supabase = createClient();
       const { data: invitesData } = await (supabase.from("organization_invites") as any)
         .select("*")
         .eq("organization_id", oid)

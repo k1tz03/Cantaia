@@ -70,22 +70,22 @@ export default function NewVisitPage() {
   }, []);
 
   async function loadProjects() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      // Use API route (admin client) to bypass RLS recursion on users table
+      const profileRes = await fetch("/api/user/profile");
+      const profileData = await profileRes.json();
+      const userOrgId = profileData?.profile?.organization_id;
+      if (!userOrgId) return;
 
-    const { data: userData } = await (supabase.from("users") as any)
-      .select("organization_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (userData?.organization_id) {
-      setOrgId(userData.organization_id);
+      setOrgId(userOrgId);
+      const supabase = createClient();
       const { data } = await (supabase.from("projects") as any)
         .select("id, name")
-        .eq("organization_id", userData.organization_id)
+        .eq("organization_id", userOrgId)
         .order("name");
       setProjects(data || []);
+    } catch {
+      // ignore
     }
   }
 

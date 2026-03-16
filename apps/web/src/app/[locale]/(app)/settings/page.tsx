@@ -327,14 +327,20 @@ function LanguageSection() {
   const { user } = useAuth();
 
   const saveLanguage = useCallback(async (data: Record<string, unknown>) => {
+    // Save language to DB (updateProfileAction merges with existing DB values)
     const result = await updateProfileAction({
-      first_name: user?.user_metadata?.first_name || "",
-      last_name: user?.user_metadata?.last_name || "",
-      phone: user?.user_metadata?.phone || "",
+      first_name: "",
+      last_name: "",
+      phone: "",
       preferred_language: data.preferred_language as "fr" | "en" | "de",
     });
     if (result.error) throw new Error(result.error);
-  }, [user]);
+    // Save date_format and timezone to localStorage (not in DB schema)
+    try {
+      localStorage.setItem("cantaia_date_format", data.date_format as string);
+      localStorage.setItem("cantaia_timezone", data.timezone as string);
+    } catch { /* localStorage unavailable */ }
+  }, []);
 
   const form = useFormSection(
     {
@@ -346,13 +352,32 @@ function LanguageSection() {
   );
 
   useEffect(() => {
-    if (user) {
-      form.setInitial({
-        preferred_language: user.user_metadata?.preferred_language || "fr",
-        date_format: "dd.MM.yyyy",
-        timezone: "Europe/Zurich",
-      });
-    }
+    if (!user) return;
+
+    // Load from user_metadata first
+    const metaLang = user.user_metadata?.preferred_language || "fr";
+    const storedDateFormat = typeof window !== "undefined" ? localStorage.getItem("cantaia_date_format") : null;
+    const storedTimezone = typeof window !== "undefined" ? localStorage.getItem("cantaia_timezone") : null;
+
+    form.setInitial({
+      preferred_language: metaLang,
+      date_format: storedDateFormat || "dd.MM.yyyy",
+      timezone: storedTimezone || "Europe/Zurich",
+    });
+
+    // Fetch from DB to get the real preferred_language
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.profile?.preferred_language) {
+          form.setInitial({
+            preferred_language: data.profile.preferred_language,
+            date_format: storedDateFormat || "dd.MM.yyyy",
+            timezone: storedTimezone || "Europe/Zurich",
+          });
+        }
+      })
+      .catch(() => {});
   }, [user]);
 
   return (
@@ -492,19 +517,32 @@ function NotificationsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveNotifs = useCallback(async (_data: Record<string, unknown>) => {
-    await new Promise((r) => setTimeout(r, 500));
+  const saveNotifs = useCallback(async (data: Record<string, unknown>) => {
+    try {
+      localStorage.setItem("cantaia_notif_prefs", JSON.stringify(data));
+    } catch { /* localStorage unavailable */ }
   }, []);
 
-  const notifsForm = useFormSection(
-    {
-      emailNotif: true,
-      pushNotif: false,
-      desktopNotif: false,
-      weeklyReport: true,
-    },
-    saveNotifs
-  );
+  const defaultNotifs = {
+    emailNotif: true,
+    pushNotif: false,
+    desktopNotif: false,
+    weeklyReport: true,
+  };
+
+  const notifsForm = useFormSection(defaultNotifs, saveNotifs);
+
+  // Load saved notification prefs from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cantaia_notif_prefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        notifsForm.setInitial({ ...defaultNotifs, ...parsed });
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6">

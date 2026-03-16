@@ -146,21 +146,17 @@ export default function AdminBrandingPage() {
 
   useEffect(() => {
     async function loadBranding() {
+      // Use API route to get org_id (bypasses RLS recursion on users table)
+      const profileRes = await fetch("/api/user/profile");
+      const profileData = await profileRes.json();
+      const userOrgId = profileData?.profile?.organization_id;
+      if (!userOrgId) { setLoading(false); return; }
+      setOrgId(userOrgId);
+
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userData } = await (supabase.from("users") as any)
-        .select("organization_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!userData?.organization_id) { setLoading(false); return; }
-      setOrgId(userData.organization_id);
-
       const { data: org } = await (supabase.from("organizations") as any)
         .select("*")
-        .eq("id", userData.organization_id)
+        .eq("id", userOrgId)
         .maybeSingle();
 
       if (org) {

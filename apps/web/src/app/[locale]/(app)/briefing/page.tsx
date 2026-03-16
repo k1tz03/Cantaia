@@ -74,15 +74,16 @@ export default function BriefingPage() {
   useEffect(() => {
     async function loadVisits() {
       try {
+        // Use API route (admin client) to bypass RLS recursion on users table
+        const profileRes = await fetch("/api/user/profile");
+        const profileData = await profileRes.json();
+        const userOrgId = profileData?.profile?.organization_id;
+        if (!userOrgId) return;
+
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data: userData } = await (supabase.from("users") as any)
-          .select("organization_id").eq("id", user.id).maybeSingle();
-        if (!userData?.organization_id) return;
         const { data } = await (supabase.from("client_visits") as any)
           .select("id, client_name, status, visit_date, report_status")
-          .eq("organization_id", userData.organization_id)
+          .eq("organization_id", userOrgId)
           .in("status", ["recording", "transcribing", "report_ready"])
           .order("visit_date", { ascending: false })
           .limit(5);

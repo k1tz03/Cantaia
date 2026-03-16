@@ -160,20 +160,42 @@ export async function GET() {
       avgResponseTimeHours = Math.round((totalMs / recentProcessed.length / (1000 * 60 * 60)) * 10) / 10;
     }
 
-    // Savings generated
+    // Savings generated — count won visits revenue (visits with status "won" and budget in report)
     let savingsGenerated: number | null = null;
     try {
-      const { data: savings } = await (admin as any)
-        .from("submission_quotes")
-        .select("unit_price_ht, item_id, submission_items!inner(cfc_code, quantity)")
-        .not("unit_price_ht", "is", null)
-        .limit(500);
+      const { data: wonVisits } = await (admin as any)
+        .from("client_visits")
+        .select("report")
+        .eq("organization_id", profile.organization_id)
+        .eq("status", "won");
 
-      if (savings && savings.length > 0) {
-        savingsGenerated = 0;
+      if (wonVisits && wonVisits.length > 0) {
+        savingsGenerated = wonVisits.reduce((sum: number, v: any) => {
+          return sum + (v.report?.budget?.range_min || 0);
+        }, 0);
       }
     } catch {
-      // Table might not exist yet
+      // Table might not exist
+    }
+
+    // Also check awarded submissions
+    try {
+      const { data: awardedSubs } = await (admin as any)
+        .from("submissions")
+        .select("budget_estimate")
+        .eq("organization_id", profile.organization_id)
+        .eq("status", "awarded");
+
+      if (awardedSubs && awardedSubs.length > 0) {
+        if (savingsGenerated === null) savingsGenerated = 0;
+        for (const sub of awardedSubs) {
+          if (sub.budget_estimate?.total_median) {
+            savingsGenerated += sub.budget_estimate.total_median;
+          }
+        }
+      }
+    } catch {
+      // Table might not exist
     }
 
     // Check if user is alone in org + get org members for delegation
@@ -199,6 +221,7 @@ export async function GET() {
         totalUnprocessed: totalUnprocessedCount || 0,
         totalToday: (processedTodayCount || 0) + (totalUnprocessedCount || 0),
         savingsGenerated,
+        decisionsToday: processedTodayCount || 0,
         decisionsUrgent: urgent.length,
         decisionsThisWeek: thisWeek.length,
         decisionsInfo: info.length,

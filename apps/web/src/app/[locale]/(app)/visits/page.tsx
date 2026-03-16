@@ -58,20 +58,16 @@ export default function VisitsPage() {
 
   async function loadVisits() {
     try {
+      // Use API route (admin client) to bypass RLS recursion on users table
+      const profileRes = await fetch("/api/user/profile");
+      const profileData = await profileRes.json();
+      const userOrgId = profileData?.profile?.organization_id;
+      if (!userOrgId) { setLoading(false); return; }
+
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userData } = await (supabase.from("users") as any)
-        .select("organization_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!userData?.organization_id) { setLoading(false); return; }
-
       const { data } = await (supabase.from("client_visits") as any)
         .select("id, client_name, title, client_address, client_city, visit_date, duration_minutes, status, report, is_prospect, photos_count")
-        .eq("organization_id", userData.organization_id)
+        .eq("organization_id", userOrgId)
         .order("visit_date", { ascending: false });
 
       setVisits(data || []);

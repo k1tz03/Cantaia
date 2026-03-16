@@ -9,7 +9,7 @@ import {
   FileText,
   CheckSquare,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+// createClient removed — members fetched via /api/admin/clients (bypasses RLS recursion)
 
 interface OrgStats {
   members: number;
@@ -33,26 +33,9 @@ export default function AdminOverviewPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Fetch members count via Supabase client (same pattern as members page)
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        let membersCount = 0;
-        if (user) {
-          const { data: userData } = await (supabase.from("users") as any)
-            .select("organization_id")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          if (userData?.organization_id) {
-            const { data: membersData } = await (supabase.from("users") as any)
-              .select("id")
-              .eq("organization_id", userData.organization_id);
-            membersCount = membersData?.length || 0;
-          }
-        }
+        // Fetch members count via API route (bypasses RLS recursion on users table)
+        const membersRes = await fetch("/api/admin/clients").then((r) => r.json()).catch(() => ({ members: [] }));
+        const membersCount = membersRes?.members?.length || 0;
 
         // Fetch projects, emails, PVs, and tasks in parallel
         const [projectsRes, emailsRes, pvsRes, tasksRes] = await Promise.all([
