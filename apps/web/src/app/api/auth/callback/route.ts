@@ -505,6 +505,7 @@ export async function GET(request: Request) {
           hasAccessToken: !!providerToken,
           hasRefreshToken: !!providerRefreshToken,
           provider: authProvider,
+          sessionKeys: Object.keys(data.session),
         });
 
         if (providerToken) {

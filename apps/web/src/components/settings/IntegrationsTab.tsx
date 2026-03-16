@@ -17,10 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useUserProfile } from "@/lib/hooks/use-supabase-data";
-import {
-  signInWithMicrosoftAction,
-  signInWithGoogleAction,
-} from "@/app/[locale]/(auth)/actions";
+import { signInWithGoogleAction } from "@/app/[locale]/(auth)/actions";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-CH");
@@ -136,6 +133,15 @@ export function IntegrationsTab() {
       url.searchParams.delete("connected");
       window.history.replaceState({}, "", url.toString());
     }
+
+    // Show connect error if any
+    const connectError = params.get("connect_error");
+    if (connectError) {
+      setSyncMessage(`Erreur de connexion : ${decodeURIComponent(connectError)}`);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("connect_error");
+      window.history.replaceState({}, "", url.toString());
+    }
   }, [user?.id]);
 
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);
@@ -191,10 +197,10 @@ export function IntegrationsTab() {
         } catch { /* fall through to OAuth */ }
       }
 
-      // Pass current org_id so the callback reuses it instead of creating a new one
-      const orgId = profile?.profile?.organization_id;
-      const result = await signInWithMicrosoftAction(orgId ? { linkToOrg: orgId } : undefined);
-      if (result.url) window.location.href = result.url;
+      // Use direct Microsoft OAuth flow (bypasses Supabase provider_token
+      // which is unreliable in PKCE mode). This route handles the full
+      // OAuth flow and stores tokens directly.
+      window.location.href = "/api/auth/microsoft-connect";
     } finally {
       setConnecting(false);
     }
