@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       }
 
       if (data.user && data.session) {
-        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Session established for:", data.user.email);
+        console.log("[auth/callback] Session established for:", data.user.email, "id:", data.user.id);
         const adminClient = createAdminClient();
 
         // Determine auth provider from Supabase identity
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
             ? "google"
             : "email";
 
-        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Auth provider:", authProvider);
+        console.log("[auth/callback] Auth provider:", authProvider);
 
         // ────────────────────────────────────────────────────────────────
         // ORGANIZATION RESOLUTION: Find the right org for this user
@@ -97,7 +97,11 @@ export async function GET(request: Request) {
         //   3. Existing user row with same email → reuse org + migrate data
         //   4. email_connections with same email → reuse org (user connecting with provider email)
         //   5. Create new org (truly first-time user)
+        //
+        // IMPORTANT: Session is already established at this point.
+        // If org resolution fails, redirect to /mail anyway (never to /login).
         // ────────────────────────────────────────────────────────────────
+        try {
 
         // Check 1: User exists by auth ID (needed by multiple branches)
         const { data: existingUser } = await adminClient
@@ -441,7 +445,7 @@ export async function GET(request: Request) {
 
             } else {
               // Check 5: Truly new user — create org + profile
-              if (process.env.NODE_ENV === "development") console.log("[auth/callback] First-time user, creating org + profile...");
+              console.log("[auth/callback] First-time user, creating org + profile...");
               const metadata = data.user.user_metadata || {};
               const fullName = metadata.full_name || metadata.name || data.user.email || "";
               const nameParts = fullName.split(" ");
@@ -476,21 +480,28 @@ export async function GET(request: Request) {
                   last_name: lastName,
                   role: "project_manager",
                   preferred_language: locale,
+                  onboarding_completed: true,
                 } as any, { onConflict: "id" });
                 if (userError) {
                   console.error("[auth/callback] User creation error:", userError.message);
                 }
+                console.log("[auth/callback] Org + user created successfully, org:", org.id);
               }
             }
           }
+        }
+        } catch (orgResolutionErr) {
+          // Org resolution failed, but session is valid — continue to redirect (never to /login)
+          console.error("[auth/callback] Org resolution error (non-fatal):", orgResolutionErr);
         }
 
         // ────────────────────────────────────────────────────────────────
         // OAUTH TOKENS: Store provider tokens for email sync
         // ────────────────────────────────────────────────────────────────
+        try {
         const providerToken = data.session.provider_token;
         const providerRefreshToken = data.session.provider_refresh_token;
-        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Provider tokens:", {
+        console.log("[auth/callback] Provider tokens:", {
           hasAccessToken: !!providerToken,
           hasRefreshToken: !!providerRefreshToken,
           provider: authProvider,
@@ -575,26 +586,31 @@ export async function GET(request: Request) {
             }
           }
         }
+        } catch (tokenErr) {
+          // Token storage failed, but session is valid — continue to redirect
+          console.error("[auth/callback] Token storage error (non-fatal):", tokenErr);
+        }
 
         // ────────────────────────────────────────────────────────────────
         // REDIRECT: Use preferred language, redirect to target page
-        // If onboarding not completed, redirect to /onboarding instead
+        // Session is valid — ALWAYS redirect to app, NEVER to login
         // ────────────────────────────────────────────────────────────────
         let userLocale = locale;
-        const { data: profile } = await (adminClient as any)
-          .from("users")
-          .select("preferred_language, onboarding_completed")
-          .eq("id", data.user.id)
-          .maybeSingle();
-        if (profile?.preferred_language) {
-          userLocale = profile.preferred_language;
+        try {
+          const { data: profile } = await (adminClient as any)
+            .from("users")
+            .select("preferred_language, onboarding_completed")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          if (profile?.preferred_language) {
+            userLocale = profile.preferred_language;
+          }
+        } catch {
+          // Profile fetch failed — use default locale
         }
 
-        // Redirect to onboarding if not completed (unless already heading there)
-        let finalNext = next;
-        if (profile && (profile as any).onboarding_completed === false && !next.includes("onboarding")) {
-          finalNext = "/onboarding";
-        }
+        // Default redirect: /mail (post-login destination)
+        let finalNext = next === "/dashboard" ? "/mail" : next;
 
         // If this was an email connection flow, redirect to the integrations tab with refresh signal
         if (linkOrgId && finalNext.startsWith("/settings")) {
@@ -602,11 +618,12 @@ export async function GET(request: Request) {
         }
 
         const redirectUrl = `${origin}/${userLocale}${finalNext}`;
-        if (process.env.NODE_ENV === "development") console.log("[auth/callback] Redirecting to:", redirectUrl);
+        console.log("[auth/callback] Redirecting to:", redirectUrl);
         return NextResponse.redirect(redirectUrl);
       }
     } catch (err) {
       console.error("[auth/callback] Unexpected error:", err);
+      // If we reach here, the session exchange itself failed — redirect to login
       return NextResponse.redirect(
         `${origin}/${locale}/login?error=callback_exception`
       );

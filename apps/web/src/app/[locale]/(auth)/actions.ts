@@ -4,7 +4,26 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
+
+/**
+ * Get the app URL from the current request headers (works on any domain).
+ * Falls back to NEXT_PUBLIC_APP_URL or localhost.
+ */
+async function getAppUrl(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") || h.get("host");
+    if (host) {
+      const proto = h.get("x-forwarded-proto") || "https";
+      return `${proto}://${host}`;
+    }
+  } catch {
+    // headers() not available in some contexts
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
 
 interface AuthResult {
   error?: string;
@@ -125,7 +144,7 @@ export async function forgotPasswordAction(formData: {
   email: string;
 }): Promise<AuthResult> {
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = await getAppUrl();
   const locale = await getLocale();
 
   await supabase.auth.resetPasswordForEmail(formData.email, {
@@ -144,7 +163,7 @@ export async function signInWithMicrosoftAction(options?: {
   error?: string;
 }> {
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = await getAppUrl();
 
   const scopes = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
@@ -267,7 +286,7 @@ export async function signInWithGoogleAction(options?: {
   error?: string;
 }> {
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = await getAppUrl();
 
   const scopes = "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify";
 
