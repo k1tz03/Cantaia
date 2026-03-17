@@ -16,7 +16,7 @@ export function MarketingFooter() {
 
   return (
     <footer className="bg-[#111827]">
-      <div className="mx-auto max-w-[1200px] px-6 py-16">
+      <div className="mx-auto max-w-[1200px] px-6 py-16 lg:py-20">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
@@ -34,14 +34,14 @@ export function MarketingFooter() {
               {t("description")}
             </p>
             {/* Language switcher */}
-            <div className="mt-6 flex items-center gap-2">
+            <div className="mt-6 flex items-center gap-1 rounded-lg bg-white/5 p-1">
               {(["fr", "de", "en"] as const).map((lang) => (
                 <button
                   key={lang}
                   onClick={() => switchLocale(lang)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium uppercase transition-colors ${
+                  className={`rounded-md px-3 py-1 text-xs font-medium uppercase transition-all ${
                     locale === lang
-                      ? "bg-white/10 text-white"
+                      ? "bg-white/15 text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >

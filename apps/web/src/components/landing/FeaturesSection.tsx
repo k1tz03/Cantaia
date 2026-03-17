@@ -5,14 +5,14 @@ import { AnimatedSection } from "./AnimatedSection";
 
 function InboxMockup() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[#F9FAFB] border-b border-gray-200">
+    <div className="rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-200/50 overflow-hidden ring-1 ring-gray-900/5">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-b from-gray-50 to-gray-100/80 border-b border-gray-200/60">
         <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444] shadow-sm shadow-red-200" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] shadow-sm shadow-amber-200" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#10B981] shadow-sm shadow-emerald-200" />
         </div>
-        <div className="flex-1 text-center text-[10px] text-gray-400">CANTAIA — Emails</div>
+        <div className="flex-1 text-center text-[10px] font-medium text-gray-400">CANTAIA — Emails</div>
       </div>
 
       <div className="p-3 space-y-2">
@@ -91,11 +91,15 @@ export function FeaturesSection() {
 
   return (
     <section id="features" className="bg-white">
-      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-28">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-20">
           {/* Text left */}
           <AnimatedSection>
             <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#2563EB]/20 bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#2563EB] mb-5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                Cantaia Mail
+              </div>
               <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
                 {t("emailTitle")}
               </h2>
@@ -109,7 +113,7 @@ export function FeaturesSection() {
                 <BulletPoint>{t("emailBullet3")}</BulletPoint>
               </div>
 
-              <a href="#how-it-works" className="group mt-8 inline-flex items-center gap-1 text-[#2563EB] font-medium hover:underline">
+              <a href="#how-it-works" className="group mt-8 inline-flex items-center gap-2 rounded-lg bg-[#EFF6FF] px-4 py-2 text-sm font-semibold text-[#2563EB] transition-all hover:bg-[#DBEAFE]">
                 {t("emailCta")}
                 <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>

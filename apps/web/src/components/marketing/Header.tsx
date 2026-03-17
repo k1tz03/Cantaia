@@ -65,7 +65,7 @@ export function MarketingHeader() {
           </Link>
           <Link
             href="/register"
-            className="rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1D4ED8] hover:shadow-md"
+            className="rounded-xl bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1D4ED8] hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
           >
             {t("freeTrial")}
           </Link>

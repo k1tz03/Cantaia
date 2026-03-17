@@ -34,26 +34,26 @@ const stats = [
 
 export function ProofSection() {
   return (
-    <section className="bg-white border-y border-[#E5E7EB]">
-      <div className="mx-auto max-w-[1200px] px-6 py-12">
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-[#E5E7EB]">
+    <section className="bg-white border-y border-gray-100">
+      <div className="mx-auto max-w-[1200px] px-6 py-14">
+        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-gray-200">
           {stats.map((stat, i) => (
             <motion.div
               key={i}
-              className="flex flex-col items-center px-8 md:px-12"
+              className="flex flex-col items-center px-8 md:px-14"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
             >
-              <div className="font-display text-3xl font-bold text-[#2563EB]">
+              <div className="font-display text-3xl font-bold bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">
                 {stat.target != null ? (
                   <CountUp target={stat.target} suffix={stat.suffix} />
                 ) : (
                   stat.display
                 )}
               </div>
-              <div className="mt-1 text-sm text-[#6B7280]">{stat.label}</div>
+              <div className="mt-1.5 text-sm font-medium text-[#6B7280]">{stat.label}</div>
             </motion.div>
           ))}
         </div>

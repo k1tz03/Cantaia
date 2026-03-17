@@ -14,16 +14,16 @@ function CheckIcon() {
 
 function DashboardMockup() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+    <div className="rounded-2xl border border-gray-100 bg-white shadow-2xl shadow-gray-200/60 overflow-hidden ring-1 ring-gray-900/5">
       {/* Browser bar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[#F9FAFB] border-b border-gray-200">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-b from-gray-50 to-gray-100/80 border-b border-gray-200/60">
         <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
-          <div className="w-3 h-3 rounded-full bg-[#F59E0B]" />
-          <div className="w-3 h-3 rounded-full bg-[#10B981]" />
+          <div className="w-3 h-3 rounded-full bg-[#EF4444] shadow-sm shadow-red-200" />
+          <div className="w-3 h-3 rounded-full bg-[#F59E0B] shadow-sm shadow-amber-200" />
+          <div className="w-3 h-3 rounded-full bg-[#10B981] shadow-sm shadow-emerald-200" />
         </div>
         <div className="flex-1 mx-4">
-          <div className="mx-auto max-w-[200px] rounded-md bg-white px-3 py-1 text-[11px] text-gray-400 text-center border border-gray-100">
+          <div className="mx-auto max-w-[200px] rounded-md bg-white px-3 py-1 text-[11px] text-gray-400 text-center border border-gray-100 shadow-inner">
             app.cantaia.ch
           </div>
         </div>
@@ -136,23 +136,29 @@ export function HeroSection() {
   const t = useTranslations("landing.hero");
 
   return (
-    <section className="bg-[#FAFAFA] overflow-hidden">
-      <div className="mx-auto max-w-[1200px] px-6 py-16 lg:py-24">
+    <section className="relative bg-gradient-to-b from-[#F8FAFC] to-white overflow-hidden">
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTVlN2ViIiBzdHJva2Utd2lkdGg9IjAuNSIgc3Ryb2tlLW9wYWNpdHk9IjAuMyIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-50" />
+      {/* Gradient orb */}
+      <div className="absolute -top-40 right-0 h-[500px] w-[500px] rounded-full bg-[#2563EB]/5 blur-3xl" />
+
+      <div className="relative mx-auto max-w-[1200px] px-6 py-16 lg:py-24">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-7">
             <motion.div {...fadeUp(stagger.badge.delay)}>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#2563EB]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#2563EB]/20 bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#2563EB] shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB] animate-pulse" />
                 {t("badge")}
               </div>
             </motion.div>
 
             <motion.h1
               {...fadeUp(stagger.title.delay)}
-              className="mt-6 font-display text-4xl font-bold leading-[1.1] text-[#111827] sm:text-5xl lg:text-[52px]"
+              className="mt-6 font-display text-4xl font-bold leading-[1.08] text-[#111827] sm:text-5xl lg:text-[56px]"
             >
               {t("titleLine1")}<br />
               {t("titleLine2")}<br />
-              {t("titleLine3")}
+              <span className="bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">{t("titleLine3")}</span>
             </motion.h1>
 
             <motion.p
@@ -163,18 +169,18 @@ export function HeroSection() {
             </motion.p>
 
             <motion.div {...fadeUp(stagger.buttons.delay)} className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/register" className="rounded-lg bg-[#2563EB] px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]">
+              <Link href="/register" className="rounded-xl bg-[#2563EB] px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]">
                 {t("cta")}
               </Link>
-              <a href="#features" className="rounded-lg border border-[#E5E7EB] px-6 py-3.5 text-base font-semibold text-[#111827] transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+              <a href="#features" className="rounded-xl border border-gray-200 bg-white px-7 py-3.5 text-base font-semibold text-[#111827] shadow-sm transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:border-gray-300 hover:scale-[1.02] active:scale-[0.98]">
                 {t("ctaSecondary")}
               </a>
             </motion.div>
 
-            <motion.div {...fadeUp(stagger.trust.delay)} className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[#6B7280]">
-              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust1")}</span>
-              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust2")}</span>
-              <span className="flex items-center gap-1.5"><CheckIcon /> {t("trust3")}</span>
+            <motion.div {...fadeUp(stagger.trust.delay)} className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="flex items-center gap-1.5 rounded-full bg-[#10B981]/10 px-3 py-1 text-sm font-medium text-[#059669]"><CheckIcon /> {t("trust1")}</span>
+              <span className="flex items-center gap-1.5 rounded-full bg-[#10B981]/10 px-3 py-1 text-sm font-medium text-[#059669]"><CheckIcon /> {t("trust2")}</span>
+              <span className="flex items-center gap-1.5 rounded-full bg-[#10B981]/10 px-3 py-1 text-sm font-medium text-[#059669]"><CheckIcon /> {t("trust3")}</span>
             </motion.div>
           </div>
 

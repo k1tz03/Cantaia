@@ -26,9 +26,12 @@ export function HowItWorksSection() {
 
   return (
     <section id="how-it-works" className="bg-[#FAFAFA]">
-      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-24">
+      <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-28">
         <AnimatedSection>
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-500 mb-5 shadow-sm">
+              Comment ça marche
+            </div>
             <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
               {t("title")}
             </h2>
@@ -36,23 +39,28 @@ export function HowItWorksSection() {
         </AnimatedSection>
 
         <div className="relative">
-          {/* Dashed line connecting steps (desktop) */}
-          <div className="hidden md:block absolute top-12 left-[16.67%] right-[16.67%] h-0.5 border-t-2 border-dashed border-[#E5E7EB]" />
+          {/* Gradient line connecting steps (desktop) */}
+          <div className="hidden md:block absolute top-14 left-[16.67%] right-[16.67%] h-0.5">
+            <div className="h-full bg-gradient-to-r from-[#2563EB]/20 via-[#2563EB]/40 to-[#2563EB]/20 rounded-full" />
+          </div>
 
           <div className="grid grid-cols-1 gap-12 md:grid-cols-3 md:gap-8">
             {steps.map((step, i) => (
               <AnimatedSection key={i} delay={i * 0.15}>
                 <div className="flex flex-col items-center text-center">
-                  {/* Circle */}
-                  <div className="relative z-10 flex h-24 w-24 flex-col items-center justify-center rounded-full bg-[#2563EB] shadow-lg shadow-blue-500/20">
-                    {step.icon}
-                    <span className="mt-1 text-xs font-bold text-white/80">{step.number}</span>
+                  {/* Circle with ring */}
+                  <div className="relative z-10">
+                    <div className="absolute inset-0 rounded-full bg-[#2563EB]/10 scale-[1.2]" />
+                    <div className="relative flex h-28 w-28 flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] shadow-xl shadow-blue-500/25">
+                      {step.icon}
+                      <span className="mt-1 text-xs font-bold text-white/80">{step.number}</span>
+                    </div>
                   </div>
 
                   <h3 className="mt-6 font-display text-lg font-bold text-[#111827]">
                     {step.title}
                   </h3>
-                  <p className="mt-2 text-sm text-[#6B7280] max-w-[240px]">
+                  <p className="mt-2 text-sm text-[#6B7280] max-w-[260px] leading-relaxed">
                     {step.description}
                   </p>
                 </div>
