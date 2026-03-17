@@ -77,19 +77,25 @@ export async function POST(request: NextRequest) {
       lot_code: lot_code || null,
     };
 
-    // Only include optional columns if values provided (avoids errors if migration 006 not applied)
+    // Only include optional columns if values provided
     if (status) insertData.status = status;
+
+    const BASE_SELECT = "id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at";
+
+    // Try insert with reminder column first (if migration 006 applied)
     if (reminder && reminder !== "none") insertData.reminder = reminder;
 
     let { data: task, error } = await (admin as any)
       .from("tasks")
       .insert(insertData)
-      .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, reminder, created_at, updated_at")
+      .select(insertData.reminder ? `${BASE_SELECT}, reminder` : BASE_SELECT)
       .single();
 
-    // If insert failed (likely due to enum mismatch), retry with fallback values
-    if (error && error.message?.includes("invalid input value")) {
-      if (process.env.NODE_ENV === "development") console.warn("[Tasks Create] Enum error, retrying with legacy values:", error.message);
+    // If insert failed due to missing column or enum mismatch, retry with fallback values
+    if (error && (error.message?.includes("does not exist") || error.message?.includes("invalid input value"))) {
+      console.warn("[Tasks Create] Error, retrying with fallback:", error.message);
+      // Remove reminder column (doesn't exist without migration 006)
+      delete insertData.reminder;
       // Map new enum values to old ones (migration 006 might not be applied)
       const statusMap: Record<string, string> = { todo: "open", done: "completed" };
       const sourceMap: Record<string, string> = { meeting: "meeting_pv", reserve: "ai_suggestion" };
@@ -99,13 +105,11 @@ export async function POST(request: NextRequest) {
       if (insertData.source && sourceMap[insertData.source as string]) {
         insertData.source = sourceMap[insertData.source as string];
       }
-      // Remove reminder column (doesn't exist without migration 006)
-      delete insertData.reminder;
 
       const retry = await (admin as any)
         .from("tasks")
         .insert(insertData)
-        .select("id, project_id, created_by, title, description, priority, status, source, source_id, source_reference, due_date, assigned_to_name, assigned_to_company, lot_code, created_at, updated_at")
+        .select(BASE_SELECT)
         .single();
       task = retry.data;
       error = retry.error;

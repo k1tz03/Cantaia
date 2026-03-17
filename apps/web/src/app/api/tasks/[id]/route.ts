@@ -88,14 +88,14 @@ export async function PATCH(
       .select("*")
       .single();
 
-    // If update failed due to enum mismatch, retry with legacy values
-    if (error && error.message?.includes("invalid input value")) {
-      console.warn("[Tasks PATCH] Enum error, retrying with legacy values:", error.message);
+    // If update failed due to missing column or enum mismatch, retry with fallback values
+    if (error && (error.message?.includes("does not exist") || error.message?.includes("invalid input value"))) {
+      console.warn("[Tasks PATCH] Error, retrying with fallback:", error.message);
+      delete update.reminder;
       const statusMap: Record<string, string> = { todo: "open", done: "completed" };
       if (update.status && statusMap[update.status as string]) {
         update.status = statusMap[update.status as string];
       }
-      delete update.reminder;
       const retry = await (admin as any)
         .from("tasks")
         .update(update)
