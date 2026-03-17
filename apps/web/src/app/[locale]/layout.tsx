@@ -88,7 +88,7 @@ export async function generateMetadata({
       alternateLocale: ["fr_CH", "en_US", "de_CH"].filter((l) => l !== seo.ogLocale),
       images: [
         {
-          url: "/og-image.png",
+          url: "/opengraph-image",
           width: 1200,
           height: 630,
           alt: "Cantaia — AI-powered construction management",
@@ -112,13 +112,6 @@ export async function generateMetadata({
       },
     },
     manifest: "/manifest.json",
-    icons: {
-      icon: [
-        { url: "/favicon.ico", sizes: "32x32" },
-        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      ],
-      apple: "/apple-icon.png",
-    },
     other: {
       "theme-color": "#0A1F30",
       "apple-mobile-web-app-capable": "yes",

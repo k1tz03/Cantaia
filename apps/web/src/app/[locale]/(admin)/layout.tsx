@@ -18,7 +18,7 @@ import {
 const adminNavItems = [
   { href: "/admin", icon: LayoutDashboard, labelKey: "overview" },
   { href: "/admin/members", icon: Users, labelKey: "members" },
-  { href: "/admin/subscription", icon: CreditCard, labelKey: "subscription" },
+  { href: "/admin/finances", icon: CreditCard, labelKey: "subscription" },
   { href: "/admin/time-savings", icon: Clock, labelKey: "timeSavings" },
 ];
 

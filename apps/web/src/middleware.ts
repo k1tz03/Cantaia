@@ -151,6 +151,7 @@ export const config = {
     // - API routes (handled separately above for auth callback)
     // - _next (Next.js internals)
     // - static files (images, fonts, etc.)
-    "/((?!_next|.*\\..*).*)",
+    // - Next.js special image convention routes (opengraph-image, icon, apple-icon, favicon, sitemap, robots)
+    "/((?!_next|.*\\..*|opengraph-image|apple-icon|icon|favicon\\.ico|sitemap\\.xml|robots\\.txt|manifest\\.json).*)",
   ],
 };
