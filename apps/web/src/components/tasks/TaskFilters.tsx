@@ -37,12 +37,14 @@ export function TaskFilters({
 }: TaskFiltersProps) {
   const t = useTranslations("tasks");
 
+  const selectClass = "rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition-all cursor-pointer hover:border-gray-300";
+
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <select
         value={filterProject}
         onChange={(e) => setFilterProject(e.target.value)}
-        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+        className={selectClass}
       >
         <option value="all">{t("allProjects")}</option>
         {projects.map((p) => (
@@ -55,7 +57,7 @@ export function TaskFilters({
       <select
         value={filterStatus}
         onChange={(e) => setFilterStatus(e.target.value)}
-        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+        className={selectClass}
       >
         <option value="active">{t("filterActive")}</option>
         <option value="all">{t("filterAll")}</option>
@@ -68,7 +70,7 @@ export function TaskFilters({
       <select
         value={filterPriority}
         onChange={(e) => setFilterPriority(e.target.value)}
-        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+        className={selectClass}
       >
         <option value="all">{t("allPriorities")}</option>
         <option value="urgent">{t("priorityUrgent")}</option>
@@ -80,7 +82,7 @@ export function TaskFilters({
       <select
         value={filterSource}
         onChange={(e) => setFilterSource(e.target.value)}
-        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+        className={selectClass}
       >
         <option value="all">{t("allSources")}</option>
         <option value="email">{t("sourceEmail")}</option>
@@ -92,7 +94,7 @@ export function TaskFilters({
       <select
         value={filterDeadline}
         onChange={(e) => setFilterDeadline(e.target.value)}
-        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+        className={selectClass}
       >
         <option value="all">{t("allDeadlines")}</option>
         <option value="overdue">{t("overdue")}</option>
@@ -101,14 +103,14 @@ export function TaskFilters({
         <option value="later">{t("later")}</option>
       </select>
 
-      <div className="relative w-full sm:w-56 sm:ml-auto">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+      <div className="relative w-full sm:w-60 sm:ml-auto">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
-          className="w-full rounded-md border border-gray-300 bg-white py-1.5 pl-8 pr-3 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm text-gray-700 placeholder-gray-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
         />
       </div>
     </div>

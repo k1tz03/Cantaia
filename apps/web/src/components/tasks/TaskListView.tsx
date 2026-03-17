@@ -37,52 +37,52 @@ export function TaskListView({
   }
 
   return (
-    <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-gray-200 bg-white">
+    <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-xl sm:border border-gray-100 bg-white shadow-sm">
       <table className="w-full min-w-[600px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-gray-100 bg-gray-50/80">
             <th className="w-10 px-3 py-2.5">
               <input
                 type="checkbox"
                 checked={selected.size === tasks.length && tasks.length > 0}
                 onChange={onToggleSelectAll}
-                className="h-3.5 w-3.5 rounded border-gray-300"
+                className="h-3.5 w-3.5 rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB]/20"
               />
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-xs font-semibold text-gray-500"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600 transition-colors"
               onClick={() => onToggleSort("title")}
             >
               <span className="flex items-center gap-1">
                 {t("colTask")}
-                <ArrowUpDown className="h-3 w-3" />
+                <ArrowUpDown className="h-3 w-3 text-gray-300" />
               </span>
             </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {t("colProject")}
             </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {t("colAssigned")}
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-xs font-semibold text-gray-500"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600 transition-colors"
               onClick={() => onToggleSort("due_date")}
             >
               <span className="flex items-center gap-1">
                 {t("colDeadline")}
-                <ArrowUpDown className="h-3 w-3" />
+                <ArrowUpDown className="h-3 w-3 text-gray-300" />
               </span>
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-xs font-semibold text-gray-500"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600 transition-colors"
               onClick={() => onToggleSort("priority")}
             >
               <span className="flex items-center gap-1">
                 {t("colPriority")}
-                <ArrowUpDown className="h-3 w-3" />
+                <ArrowUpDown className="h-3 w-3 text-gray-300" />
               </span>
             </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {t("colSource")}
             </th>
           </tr>
@@ -100,10 +100,10 @@ export function TaskListView({
               <tr
                 key={task.id}
                 onClick={() => onOpenTask(task)}
-                className={`cursor-pointer transition-colors hover:bg-gray-50 ${
-                  overdue ? "bg-red-50/50" : ""
-                } ${isDone ? "opacity-60" : ""} ${
-                  selectedTaskId === task.id ? "bg-blue-50" : ""
+                className={`cursor-pointer transition-colors duration-100 hover:bg-gray-50/80 border-b border-gray-50 last:border-b-0 ${
+                  overdue ? "bg-red-50/30" : ""
+                } ${isDone ? "opacity-50" : ""} ${
+                  selectedTaskId === task.id ? "bg-[#EFF6FF] hover:bg-[#EFF6FF]" : ""
                 }`}
               >
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
