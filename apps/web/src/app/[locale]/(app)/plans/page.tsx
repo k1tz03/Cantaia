@@ -18,7 +18,6 @@ import {
   ArrowUp,
   ArrowDown,
   FileText,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
@@ -252,7 +251,7 @@ export default function PlansPage() {
   }, [plans]);
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-slate-300" />;
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-gray-300" />;
     return sortDir === "asc"
       ? <ArrowUp className="h-3 w-3 ml-1 text-brand" />
       : <ArrowDown className="h-3 w-3 ml-1 text-brand" />;
@@ -260,8 +259,38 @@ export default function PlansPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+          <div className="mb-6 flex items-start justify-between">
+            <div>
+              <div className="h-6 w-40 animate-pulse rounded-lg bg-gray-200" />
+              <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-gray-100" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-9 w-36 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-200" />
+            </div>
+          </div>
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 animate-pulse rounded-lg bg-gray-100" />
+                  <div>
+                    <div className="h-5 w-10 animate-pulse rounded bg-gray-200 mb-1" />
+                    <div className="h-3 w-20 animate-pulse rounded bg-gray-100" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100 mb-4" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-14 w-full animate-pulse rounded-xl bg-white border border-gray-100 shadow-sm" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -272,21 +301,21 @@ export default function PlansPage() {
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
-            <p className="mt-0.5 text-sm text-slate-500">{t("subtitle")}</p>
+            <h1 className="font-display text-xl font-bold text-[#111827]">{t("title")}</h1>
+            <p className="mt-0.5 text-[13px] text-gray-500">{t("subtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleRescan}
               disabled={rescanning}
-              className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all"
             >
               <RefreshCw className={cn("h-4 w-4", rescanning && "animate-spin")} />
               {rescanning ? t("rescanning") : t("rescanEmails")}
             </button>
             <Link
               href="/plans/upload"
-              className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand/90 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1D4ED8] hover:shadow transition-all"
             >
               <Plus className="h-4 w-4" />
               {t("uploadPlan")}
@@ -296,47 +325,47 @@ export default function PlansPage() {
 
         {/* Stats */}
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-50">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
                 <FileStack className="h-4 w-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">{totalPlans}</p>
-                <p className="text-[11px] text-slate-500">{t("totalPlans")}</p>
+                <p className="text-lg font-bold text-[#111827]">{totalPlans}</p>
+                <p className="text-[11px] font-medium text-gray-500">{t("totalPlans")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
-                <FileText className="h-4 w-4 text-green-600" />
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+                <FileText className="h-4 w-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">{totalVersions}</p>
-                <p className="text-[11px] text-slate-500">{t("totalVersions")}</p>
+                <p className="text-lg font-bold text-[#111827]">{totalVersions}</p>
+                <p className="text-[11px] font-medium text-gray-500">{t("totalVersions")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">{outdatedAlerts}</p>
-                <p className="text-[11px] text-slate-500">{t("outdatedAlerts")}</p>
+                <p className="text-lg font-bold text-[#111827]">{outdatedAlerts}</p>
+                <p className="text-[11px] font-medium text-gray-500">{t("outdatedAlerts")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-50">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
                 <Clock className="h-4 w-4 text-purple-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-900">{pendingApproval}</p>
-                <p className="text-[11px] text-slate-500">{t("pendingApproval")}</p>
+                <p className="text-lg font-bold text-[#111827]">{pendingApproval}</p>
+                <p className="text-[11px] font-medium text-gray-500">{t("pendingApproval")}</p>
               </div>
             </div>
           </div>
@@ -346,13 +375,13 @@ export default function PlansPage() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder={t("searchPlans")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
             />
           </div>
 
@@ -362,17 +391,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowProjectDropdown(!showProjectDropdown); setShowDisciplineDropdown(false); setShowStatusDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 {t("filterProject")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showProjectDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     onClick={() => { setProjectFilter("all"); setShowProjectDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                       projectFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -383,7 +412,7 @@ export default function PlansPage() {
                       key={p.id}
                       onClick={() => { setProjectFilter(p.id); setShowProjectDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                         projectFilter === p.id && "font-semibold text-brand"
                       )}
                     >
@@ -399,17 +428,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowDisciplineDropdown(!showDisciplineDropdown); setShowProjectDropdown(false); setShowStatusDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 {t("filterDiscipline")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showDisciplineDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     onClick={() => { setDisciplineFilter("all"); setShowDisciplineDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                       disciplineFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -420,7 +449,7 @@ export default function PlansPage() {
                       key={d}
                       onClick={() => { setDisciplineFilter(d); setShowDisciplineDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                         disciplineFilter === d && "font-semibold text-brand"
                       )}
                     >
@@ -435,17 +464,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowProjectDropdown(false); setShowDisciplineDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 {t("filterStatus")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showStatusDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     onClick={() => { setStatusFilter("all"); setShowStatusDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                       statusFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -456,7 +485,7 @@ export default function PlansPage() {
                       key={s}
                       onClick={() => { setStatusFilter(s); setShowStatusDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors",
                         statusFilter === s && "font-semibold text-brand"
                       )}
                     >
@@ -468,12 +497,12 @@ export default function PlansPage() {
             </div>
 
             {/* View toggle */}
-            <div className="ml-2 flex items-center rounded-md border border-slate-200 bg-white">
+            <div className="ml-2 flex items-center rounded-md border border-gray-200 bg-white">
               <button
                 onClick={() => toggleView("list")}
                 className={cn(
                   "flex items-center gap-1 rounded-l-md px-2.5 py-2 text-xs font-medium transition-colors",
-                  viewMode === "list" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-50"
+                  viewMode === "list" ? "bg-brand text-white" : "text-gray-500 hover:bg-gray-50 transition-colors"
                 )}
                 title={t("viewList")}
               >
@@ -483,7 +512,7 @@ export default function PlansPage() {
                 onClick={() => toggleView("grid")}
                 className={cn(
                   "flex items-center gap-1 rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors",
-                  viewMode === "grid" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-50"
+                  viewMode === "grid" ? "bg-brand text-white" : "text-gray-500 hover:bg-gray-50 transition-colors"
                 )}
                 title={t("viewGrid")}
               >
@@ -505,10 +534,10 @@ export default function PlansPage() {
 
         {/* Empty state */}
         {filteredPlans.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white py-16">
-            <FileStack className="h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-sm font-medium text-slate-600">{t("noPlans")}</p>
-            <p className="mt-1 text-xs text-slate-400 max-w-sm text-center">{t("noPlansDescription")}</p>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white py-16">
+            <FileStack className="h-12 w-12 text-gray-300 mb-3" />
+            <p className="text-sm font-medium text-gray-600">{t("noPlans")}</p>
+            <p className="mt-1 text-xs text-gray-400 max-w-sm text-center">{t("noPlansDescription")}</p>
             {!rescanning && !rescanResult && (
               <button
                 onClick={handleRescan}
@@ -523,12 +552,12 @@ export default function PlansPage() {
 
         {/* List view */}
         {filteredPlans.length > 0 && viewMode === "list" && (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
+                <tr className="border-b border-gray-100 bg-gray-50/50">
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("plan_number")}
                   >
                     <span className="flex items-center">
@@ -537,7 +566,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("plan_title")}
                   >
                     <span className="flex items-center">
@@ -545,11 +574,11 @@ export default function PlansPage() {
                       <SortIcon field="plan_title" />
                     </span>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                     {t("colProject")}
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("discipline")}
                   >
                     <span className="flex items-center">
@@ -558,7 +587,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("version")}
                   >
                     <span className="flex items-center">
@@ -567,7 +596,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("version_date")}
                   >
                     <span className="flex items-center">
@@ -575,11 +604,11 @@ export default function PlansPage() {
                       <SortIcon field="version_date" />
                     </span>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                     {t("colAuthor")}
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
                     onClick={() => toggleSort("status")}
                   >
                     <span className="flex items-center">
@@ -596,7 +625,7 @@ export default function PlansPage() {
                   return (
                     <tr
                       key={plan.id}
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className="hover:bg-gray-50/50 transition-colors"
                     >
                       <td className="px-3 py-2.5">
                         <Link
@@ -608,9 +637,9 @@ export default function PlansPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <Link href={`/plans/${plan.id}`} className="hover:text-brand transition-colors">
-                          <p className="text-sm font-medium text-slate-800">{plan.plan_title}</p>
+                          <p className="text-sm font-medium text-gray-800">{plan.plan_title}</p>
                           {plan.zone && (
-                            <p className="text-[11px] text-slate-400">{plan.zone}</p>
+                            <p className="text-[11px] text-gray-400">{plan.zone}</p>
                           )}
                         </Link>
                       </td>
@@ -618,7 +647,7 @@ export default function PlansPage() {
                         {plan.project && (
                           <div className="flex items-center gap-1.5">
                             <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
-                            <span className="text-xs text-slate-600 truncate max-w-[120px]">{plan.project.name}</span>
+                            <span className="text-xs text-gray-600 truncate max-w-[120px]">{plan.project.name}</span>
                           </div>
                         )}
                       </td>
@@ -634,18 +663,18 @@ export default function PlansPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-slate-700">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-700">
                             {plan.current_version?.version_code || "—"}
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-gray-400">
                             ({plan.version_count})
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-slate-500">
+                      <td className="px-3 py-2.5 text-xs text-gray-500">
                         {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-slate-600 truncate max-w-[140px]">
+                      <td className="px-3 py-2.5 text-xs text-gray-600 truncate max-w-[140px]">
                         {plan.author_company || "—"}
                       </td>
                       <td className="px-3 py-2.5">
@@ -675,7 +704,7 @@ export default function PlansPage() {
                 <Link
                   key={plan.id}
                   href={`/plans/${plan.id}`}
-                  className="group rounded-lg border border-slate-200 bg-white p-4 transition-all hover:shadow-md hover:bg-slate-50/50"
+                  className="group rounded-lg border border-gray-200 bg-white p-4 transition-all hover:shadow-md hover:bg-gray-50/50"
                 >
                   {/* Header: number + status */}
                   <div className="flex items-start justify-between mb-2">
@@ -690,7 +719,7 @@ export default function PlansPage() {
                   </div>
 
                   {/* Title */}
-                  <p className="text-sm font-medium text-slate-800 mb-1 line-clamp-2 group-hover:text-brand transition-colors">
+                  <p className="text-sm font-medium text-gray-800 mb-1 line-clamp-2 group-hover:text-brand transition-colors">
                     {plan.plan_title}
                   </p>
 
@@ -698,7 +727,7 @@ export default function PlansPage() {
                   {plan.project && (
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
-                      <span className="text-[11px] text-slate-500 truncate">{plan.project.name}</span>
+                      <span className="text-[11px] text-gray-500 truncate">{plan.project.name}</span>
                     </div>
                   )}
 
@@ -713,33 +742,33 @@ export default function PlansPage() {
                       </span>
                     )}
                     {plan.zone && (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
                         {plan.zone}
                       </span>
                     )}
                     {plan.scale && (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
                         {plan.scale}
                       </span>
                     )}
                   </div>
 
                   {/* Footer: version + date + author */}
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-slate-700">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-700">
                         {plan.current_version?.version_code || "—"}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-gray-400">
                         {plan.version_count > 1 ? `${plan.version_count} versions` : "1 version"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-gray-400">
                       {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
                     </span>
                   </div>
                   {plan.author_company && (
-                    <p className="mt-1 text-[10px] text-slate-400 truncate">{plan.author_company}</p>
+                    <p className="mt-1 text-[10px] text-gray-400 truncate">{plan.author_company}</p>
                   )}
                 </Link>
               );
