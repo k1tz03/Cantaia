@@ -128,6 +128,9 @@
 
 ### 5.2 Nouveau projet `/projects/new`
 - [x] Lien "Nouveau projet" présent et fonctionnel
+- [x] Formulaire complet : nom, code, statut (Planification/Actif/En pause), maître d'ouvrage, ville (défaut: Lausanne), adresse, dates début/fin, budget, devise (CHF/EUR), couleur (10 options), description
+- [x] Section "Classification des emails" : mots-clés (champ ajout libre), expéditeurs connus (champ ajout email)
+- [x] Bouton "Créer le projet" + lien "Annuler"
 
 ### 5.3 Détail projet `/projects/[id]`
 - [x] Projet "Central Malley" cliquable → lien vers le détail
@@ -372,7 +375,7 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 ## 20. Landing & Marketing
 
 - [x] Homepage `/` — toutes les sections rendues (Hero, Problem, Features, Spotlight, HowItWorks, Pricing, FAQ, CTA)
-- [x] Textes traduits (FR/EN/DE selon locale)
+- [x] Textes traduits (FR/EN/DE selon locale) — vérifié DE: header, hero, problem, features, pricing (99 CHF/Monat), footer (Produkt, Ressourcen, Rechtliches, AGB) tous en allemand
 - [x] Page `/pricing` — 3 plans (Starter/Pro/Enterprise) avec tarifs et features
 - [x] Page `/about` — à propos
 - [x] Pages légales (`/legal/cgv`, `/legal/mentions`, `/legal/privacy`)
@@ -438,7 +441,7 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 | Navigation | 11 | 11 | 0 | 0 | 0 | 0 |
 | Mail | 14 | 11 | 0 | 3 | 0 | 0 |
 | Plans | 15 | 13 | 0 | 0 | 0 | 2 |
-| Projets | 17 | 16 | 0 | 0 | 0 | 1 |
+| Projets | 20 | 19 | 0 | 0 | 0 | 1 |
 | Soumissions | 6 | 4 | 0 | 0 | 1 | 1 |
 | Fournisseurs | 8 | 8 | 0 | 0 | 0 | 0 |
 | Cantaia Prix | 6 | 6 | 0 | 0 | 0 | 0 |
@@ -458,7 +461,7 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 | Sécurité | 10 | 8 | 0 | 0 | 0 | 2 |
 | Performance & UX | 6 | 4 | 0 | 2 | 0 | 0 |
 | i18n | 6 | 5 | 0 | 1 | 0 | 0 |
-| **TOTAL** | **~210** | **~179** | **0** | **9** | **9** | **~14** |
+| **TOTAL** | **~214** | **~182** | **0** | **9** | **9** | **~14** |
 
 ---
 
