@@ -74,10 +74,10 @@ export default function DashboardPage() {
   }, []);
 
   const stats: StatCard[] = [
-    { icon: Mail, value: unreadCount > 0 ? String(unreadCount) : "0", label: "Emails non lus", iconBg: "bg-blue-50", iconColor: "text-[#2563EB]", href: "/mail" },
-    { icon: CheckSquare, value: statsLoading ? "—" : String(statsData.tasks), label: "Tâches en cours", iconBg: "bg-green-50", iconColor: "text-[#10B981]", href: "/tasks" },
-    { icon: FileText, value: statsLoading ? "—" : String(statsData.pvs), label: "PV cette semaine", iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]", href: "/pv-chantier" },
-    { icon: FolderKanban, value: statsLoading ? "—" : String(statsData.projects), label: "Projets actifs", iconBg: "bg-purple-50", iconColor: "text-purple-600", href: "/projects" },
+    { icon: Mail, value: unreadCount > 0 ? String(unreadCount) : "0", label: t("unreadEmails"), iconBg: "bg-blue-50", iconColor: "text-[#2563EB]", href: "/mail" },
+    { icon: CheckSquare, value: statsLoading ? "—" : String(statsData.tasks), label: t("pendingTasks"), iconBg: "bg-green-50", iconColor: "text-[#10B981]", href: "/tasks" },
+    { icon: FileText, value: statsLoading ? "—" : String(statsData.pvs), label: t("pvThisWeek"), iconBg: "bg-amber-50", iconColor: "text-[#F59E0B]", href: "/pv-chantier" },
+    { icon: FolderKanban, value: statsLoading ? "—" : String(statsData.projects), label: t("activeProjects"), iconBg: "bg-purple-50", iconColor: "text-purple-600", href: "/projects" },
   ];
 
   const modules: ModuleCard[] = [

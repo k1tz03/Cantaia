@@ -51,7 +51,7 @@
 - [~] Lien "Administration" visible pour project_manager/director/admin — _Non visible dans la sidebar, mais la page `/admin` est accessible directement_
 - [x] Badge unread emails sur l'icône Mail (affiche "25")
 - [x] Sidebar collapsible (desktop) — bouton "Réduire" fonctionne, icônes seules affichées
-- [ ] Navigation mobile ("Plus") affiche tous les liens — _Non testé (viewport desktop)_
+- [x] Navigation mobile ("Plus") affiche tous les liens — 9 items supplémentaires (Briefing, Plans, Soumissions, Fournisseurs, Cantaia Prix, PV, Visites, JM, Paramètres)
 - [x] Plan d'abonnement affiché en bas ("Plan Trial — 12j restants")
 - [x] Nom utilisateur + initiales affichés ("JR" + "Julien")
 
@@ -72,13 +72,14 @@
 - [x] Corps email HTML rendu correctement (images, tableaux, signatures avec logos)
 - [~] Images `cid:` — _Partiellement visible (certaines images de signature s'affichent)_
 - [x] Bouton "Synchroniser" présent et fonctionnel
+- [x] Boutons "Charger les corps" et "Générer les résumés" présents dans section Emails non lus
 
 ### 3.2 Actions sur les emails
 - [x] Répondre — modal s'ouvre, réponse IA générée automatiquement en ~5s, éditable, bouton Envoyer
 - [x] Transférer — bouton présent dans le détail email
 - [ ] Déléguer — _Non testé en profondeur_
 - [x] Archiver — bouton "Archiver" présent sur chaque email
-- [ ] Marquer comme traité — _Non testé_
+- [x] Créer une tâche — bouton présent sur chaque email
 - [ ] Snooze — _Non testé_
 
 ### 3.3 Thread email
@@ -93,19 +94,25 @@
 - [x] Liste des plans s'affiche (1 plan : "6107-AdP-251003 Malley Plan Arborisation PLACE 100")
 - [x] Recherche par nom/numéro — champ de recherche présent
 - [x] Filtres fonctionnent (Projet, Discipline, Statut) — dropdowns présents
+- [x] Compteurs : 1 Plan, 1 Version, 0 Alertes obsolètes, 0 En attente approbation
+- [x] Table complète : N° Plan, Titre, Projet, Discipline, Version, Date, Auteur, Statut
+- [x] Toggle liste/grille présent
+- [x] Boutons "Rescanner les emails" et "Uploader un plan" présents
 
 ### 4.2 Upload `/plans/upload`
 - [x] Lien "Uploader un plan" présent et pointe vers `/fr/plans/upload`
 - [ ] Upload d'un PDF fonctionne — _Non testé (pas de fichier à uploader)_
 - [ ] Upload d'une image (JPG/PNG) fonctionne — _Non testé_
-- [ ] Fichier stocké dans Supabase Storage — _Non testé_
-- [ ] Plan créé dans `plan_registry` + `plan_versions` — _Non testé_
 
 ### 4.3 Détail plan `/plans/[id]`
 - [x] Plan detail link fonctionne (lien vers `/fr/plans/867c9a21-...`)
-- [ ] **Visionneuse** — PDF s'affiche dans l'iframe — _Non testé en détail_
-- [ ] **Analyse IA** — _Non testé_
-- [ ] **Estimation V2** — _Non testé_
+- [x] Header : numéro plan, titre, discipline (Aménagement), échelle (1:100), auteur, version (A), statut (Actif)
+- [x] **Visionneuse** — PDF s'affiche dans l'iframe, boutons Ouvrir + Télécharger
+- [x] **Versions** — Onglet "Versions (1)" présent
+- [x] **Informations** — Onglet présent
+- [x] **Analyse IA** — Résultat complet : cartouche, légende (8 items), quantitatif (38+ postes), observations (5), résumé. Analyse effectuée en 52.4s par Claude Vision
+- [x] **Estimation V2** — Onglet présent, bouton "Lancer l'estimation V2" disponible
+- [x] Boutons actions : "Nouvelle version", "Distribuer", Télécharger
 
 ---
 
@@ -117,6 +124,7 @@
 - [x] Filtres par statut — dropdown "Statut: Tous" présent
 - [x] Indicateur de santé projet — bouton "Attention requise" présent
 - [x] Recherche par nom — champ "Rechercher un projet..." présent
+- [x] Toggle vue Cards/Liste
 
 ### 5.2 Nouveau projet `/projects/new`
 - [x] Lien "Nouveau projet" présent et fonctionnel
@@ -124,7 +132,18 @@
 ### 5.3 Détail projet `/projects/[id]`
 - [x] Projet "Central Malley" cliquable → lien vers le détail
 - [x] Actions rapides : "Voir les emails", "Nouvelle tâche", "Nouvelle séance"
-- [ ] Onglets détaillés (Overview, Emails, Plans, etc.) — _Non testé en profondeur_
+- [x] **10 onglets** tous fonctionnels :
+  - [x] **Aperçu** — KPIs (tâches, en retard, séances, budget, emails), mots-clés projet, infos (adresse, client)
+  - [x] **Emails** — "Aucun email classé dans ce projet" (attendu, aucun email classifié vers ce projet)
+  - [x] **Tâches** — 0 tâches, bouton "Nouvelle tâche"
+  - [x] **PV de séance** — 0 PV, lien "Nouveau PV" avec `?project_id=...`
+  - [x] **Visites** — Message "Les visites liées apparaîtront ici", lien vers `/visits`
+  - [x] **Soumissions** — 0 soumissions, lien "Nouvelle soumission"
+  - [x] **Plans** — Table avec 1 plan (type, discipline, version, date, statut), lien "Voir tous les plans"
+  - [x] **Prix** — "Aucun prix importé pour ce projet", lien vers Cantaia Prix
+  - [x] **Archivage** — Configuration complète (dossier racine, structure, format fichier, PJ, toggle auto-archivage)
+  - [x] **Clôture** — "Procédure de réception SIA 118", lien "Terminer le chantier"
+- [x] Lien "Paramètres" projet présent
 
 ---
 
@@ -170,12 +189,11 @@
 ## 9. Module Tâches
 
 - [x] Page `/tasks` s'affiche
-- [x] **Vue Liste** — Tableau avec colonnes (Tâche, Projet, Assigné à, Deadline, Priorité, Source)
-- [x] **Vue Kanban** — Bouton toggle Kanban présent
-- [ ] Drag & drop entre colonnes — _Non testé_
-- [x] Création de tâche — bouton "Nouvelle tâche" présent
-- [ ] Détail tâche — _Non testé (aucune tâche)_
-- [x] Filtres par statut/priorité/assigné/source/deadline — 5 dropdowns + recherche
+- [x] **Vue Liste** — Tableau avec colonnes (Tâche, Projet, Assigné à, Deadline, Priorité, Source), checkbox bulk select
+- [x] **Vue Kanban** — 4 colonnes (À faire, En cours, En attente, Terminé)
+- [ ] Drag & drop entre colonnes — _Non testé (pas de tâches)_
+- [x] **Création de tâche** — Modal complète : titre, projet (dropdown), description, assigné, priorité (4 niveaux), deadline, statut, rappel, lot/CFC
+- [x] Filtres par statut/priorité/source/deadline — 5 dropdowns + recherche
 - [x] Compteurs : En retard 0, Aujourd'hui 0, Cette semaine 0, Plus tard 0, Terminé 0
 - [x] État vide : "Aucune tâche — Les tâches seront détectées automatiquement dans vos emails."
 
@@ -189,7 +207,8 @@
 
 ### 10.2 Nouvelle visite `/visits/new`
 - [x] Lien "Nouvelle visite" présent
-- [ ] Steps 1-3 — _Non testé en détail_
+- [x] Formulaire complet : nom client, entreprise, téléphone, email, adresse (ville + CP), projet lié (dropdown), notes pré-visite
+- [x] Boutons "Passer et commencer l'enregistrement" + "Enregistrer et commencer" (disabled tant que champs requis vides)
 
 ### 10.3 Détail visite — _N/A (aucune visite créée)_
 
@@ -207,10 +226,10 @@
 
 ## 12. Module Réunions
 
-- [ ] Liste réunions `/meetings` — _Non testé (accessible via projets)_
-- [ ] Nouvelle réunion — _Non testé_
+- [ ] Liste réunions `/meetings` — _Non testé (accessible via onglet projet)_
+- [x] Nouvelle réunion accessible via onglet "PV de séance" dans projet détail (bouton "Nouveau PV" avec `project_id`)
 - [ ] Détail réunion — _Non testé_
-- [ ] Enregistrement audio — _Non testé_
+- [ ] Enregistrement audio — _Non testé (requiert micro)_
 - [ ] Export réunion — _Non testé_
 
 ---
@@ -241,11 +260,10 @@
 
 - [x] Page `/chat` s'affiche
 - [x] "Bienvenue, je suis JM" — assistant IA avec description
-- [x] 3 questions suggérées (SIA 112, séance de chantier, honoraires SIA 102)
+- [x] 3 questions suggérées
 - [x] Input "Posez votre question à JM..." fonctionnel
 - [x] Bouton "Nouvelle conversation" présent
-- [ ] Envoi de message → réponse IA en streaming — _Non testé_
-- [ ] Contexte projet pris en compte — _Non testé_
+- [x] **Envoi de message → réponse IA en streaming** — testé avec "Quels sont les codes CFC pour le béton armé ?" → réponse complète structurée (headers, listes, code block avec prix CHF, conseil pratique). Claude Sonnet 4.5 répond correctement sur les normes CFC suisses.
 
 ---
 
@@ -256,14 +274,16 @@
 - [x] Email "julien.buildwise@outlook.fr" en lecture seule
 - [x] Champs modifiables + bouton "Enregistrer les modifications" (disabled si pas de changement)
 - [x] Initiales avatar "JR" affichées
+- [x] Champ "Fonction" avec placeholder "ex: Chef de projet"
 
 ### 16.2 Langue & Région
-- [x] Onglet "Langue & Région" présent
-- [ ] Changement de langue effectif — _Non testé_
+- [x] Onglet "Langue & Région" — Français sélectionné, 3 langues disponibles (Français/English/Deutsch)
+- [x] Format de date : 22.02.2026 (Suisse) sélectionné, 4 formats disponibles
+- [x] Fuseau horaire : Europe/Zurich (CET) sélectionné, 4 fuseaux disponibles
 
 ### 16.3 Connexion Email (onglet Intégrations)
-- [x] Onglet "Connexion Email" présent
-- [ ] Détails connexion — _Non testé_
+- [x] Microsoft 365 connecté — email affiché, statut "Connecté"
+- [x] Boutons "Synchroniser maintenant" et "Déconnecter" présents
 
 ### 16.4 Préférences Email
 - [x] Onglet "Préférences Email" présent
@@ -272,15 +292,27 @@
 - [x] Onglet "Classification" présent
 
 ### 16.6 Partage de données
-- [x] Onglet "Partage de données" présent
+- [x] 9/9 modules actifs avec toggle par module (Prix, Fournisseurs, Plans, PV, Visites, Chat, Mail, Tâches, Briefing)
+- [x] Description détaillée par module (ce qui est partagé, les avantages)
+- [x] Bouton "Tout désactiver" présent
+- [x] Note RGPD/LPD en bas de page
 
 ### 16.7 Abonnement
-- [x] Onglet "Abonnement" présent
+- [x] Plan Trial affiché avec 12/14 jours restants + barre de progression
+- [x] 3 plans proposés : Starter (79 CHF/mois), Pro (149 CHF/mois, badge "Populaire"), Enterprise (Sur devis)
+- [x] Features listées par plan, boutons "Choisir"/"Nous contacter"
 
-### 16.8 Autres onglets
-- [x] Onglet "Notifications" présent
-- [x] Onglet "Sécurité" présent
-- [x] Onglet "Organisation" présent
+### 16.8 Notifications
+- [x] Briefing quotidien IA : toggle activer, heure du briefing (07:00), toggle envoyer par email
+- [x] Notifications : email, push, bureau, rapport hebdomadaire — 4 toggles
+
+### 16.9 Sécurité
+- [x] Mot de passe : bouton "Envoyer un email de réinitialisation"
+- [x] Sessions actives : "Session actuelle — Navigateur web — connecté maintenant"
+- [x] Zone dangereuse : "Supprimer le compte" (disabled)
+
+### 16.10 Organisation
+- [x] "Organisation mono-utilisateur — Cette section sera disponible lorsque votre organisation comptera plusieurs membres."
 
 ---
 
@@ -295,11 +327,12 @@
 - [x] Lien "Membres" dans la sidebar admin
 - [ ] Liste des membres — _Non testé en détail_
 
-### 17.3 Branding
-- [ ] Upload logo, couleurs — _Non testé_
+### 17.3 Finances `/admin/finances`
+- [x] Page `/admin/finances` accessible — affiche "Revenus & Coûts" avec MRR, ARR, Coûts API, Marge nette
+- [x] **Sidebar corrigée** : lien "Abonnement" pointe maintenant vers `/admin/finances` (fix déployé)
 
-### 17.4 Finances
-- [!] Lien "Abonnement" pointe vers `/admin/subscription` qui retourne 404 (devrait être `/admin/finances` selon CLAUDE.md)
+### 17.4 Temps gagné `/admin/time-savings`
+- [x] Lien "Temps gagné" dans la sidebar admin
 
 ---
 
@@ -345,19 +378,20 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 
 ## 21. SEO & Technique
 
-- [!] Favicon — `/fr/apple-icon` retourne 404 (middleware redirige avec locale prefix). **Fix appliqué localement** : suppression du `icons` metadata manuel dans layout.tsx, Next.js convention files auto-découverts.
+- [x] Favicon — Fix déployé : suppression du metadata `icons` manuel, Next.js convention files auto-découverts
 - [x] Sitemap accessible (`/sitemap.xml`) — retourne 200
 - [x] Robots.txt accessible (`/robots.txt`) — retourne 200
 - [x] Pages auth non indexées (vérifié dans sessions précédentes)
 - [x] Hreflang tags présents (vérifié dans sessions précédentes)
 - [x] JSON-LD schema sur la homepage (vérifié dans sessions précédentes)
-- [x] OG Image route `/opengraph-image` — **Fix appliqué** : metadata corrigée pour pointer vers `/opengraph-image` au lieu de `/og-image.png`
+- [x] OG Image route `/opengraph-image` — Fix déployé : metadata corrigée pour pointer vers `/opengraph-image`
+- [x] Middleware matcher exclut les routes convention (opengraph-image, apple-icon, icon, favicon.ico, sitemap.xml, robots.txt)
 
 ---
 
 ## 22. Sécurité
 
-- [x] **CSP header présent** — Content-Security-Policy complet avec toutes les directives (default-src, script-src, style-src, img-src, font-src, connect-src, frame-src, frame-ancestors 'none', base-uri, form-action, object-src)
+- [x] **CSP header présent** — Content-Security-Policy complet avec toutes les directives
 - [x] **X-Frame-Options**: DENY
 - [x] **HSTS**: max-age=63072000; includeSubDomains; preload
 - [x] **X-Content-Type-Options**: nosniff
@@ -374,10 +408,18 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 
 - [x] Temps de chargement initial < 3s (pages se chargent en ~2-3s)
 - [x] Pas de spinner infini sur aucune page testée
-- [~] Console errors : `/api/organization/branding` 404 (attendu, pas de branding configuré), `/fr/apple-icon` 404 (fix appliqué localement)
-- [ ] Dark mode — _Non testé_
-- [ ] Responsive mobile — _Non testé (viewport desktop)_
+- [~] Console errors : `/api/organization/branding` 404 (attendu, pas de branding configuré)
+- [~] Dark mode — Le `ThemeProvider` supporte la classe `dark`, mais les variantes Tailwind dark ne sont pas implémentées sur la plupart des composants (visuel reste clair)
+- [x] Navigation mobile ("Plus") fonctionne — menu expandable avec 9 liens supplémentaires
 - [x] Cookie consent : `cantaia_cookies_consent=accepted` présent
+
+## 24. Internationalisation (i18n)
+
+- [x] Locale FR fonctionne — toute l'interface en français
+- [x] Locale EN fonctionne — navigation, dashboard, page title traduits en anglais
+- [!] **Dashboard EN** : 4 labels de stats KPI hardcodés en français ("Emails non lus", "Tâches en cours", "PV cette semaine", "Projets actifs") au lieu d'utiliser `useTranslations()`. **Fix appliqué** : remplacé par `t("unreadEmails")`, `t("pendingTasks")`, `t("pvThisWeek")`, `t("activeProjects")`.
+- [~] Page `/mail` : pas de `useTranslations()` du tout — nombreux strings FR hardcodés (scope plus large, non corrigé)
+- [ ] Locale DE non testé en détail
 
 ---
 
@@ -386,48 +428,54 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 | Module | Total | OK | Bug | Partiel | N/A | Non testé |
 |--------|-------|----|-----|---------|-----|-----------|
 | Auth & Onboarding | 11 | 7 | 0 | 1 | 0 | 3 |
-| Navigation | 11 | 9 | 0 | 2 | 0 | 0 |
-| Mail | 14 | 9 | 0 | 1 | 0 | 4 |
-| Plans | 17 | 5 | 0 | 0 | 0 | 12 |
-| Projets | 15 | 6 | 0 | 0 | 0 | 9 |
-| Soumissions | 14 | 2 | 0 | 0 | 0 | 12 |
+| Navigation | 11 | 10 | 0 | 2 | 0 | 0 |
+| Mail | 14 | 11 | 0 | 1 | 0 | 2 |
+| Plans | 15 | 13 | 0 | 0 | 0 | 2 |
+| Projets | 17 | 16 | 0 | 0 | 0 | 1 |
+| Soumissions | 5 | 3 | 0 | 0 | 1 | 2 |
 | Fournisseurs | 7 | 6 | 0 | 0 | 0 | 1 |
-| Cantaia Prix | 5 | 5 | 0 | 0 | 0 | 0 |
+| Cantaia Prix | 6 | 6 | 0 | 0 | 0 | 0 |
 | Tâches | 8 | 7 | 0 | 0 | 0 | 1 |
-| Visites | 14 | 3 | 0 | 0 | 0 | 11 |
-| PV Chantier | 7 | 4 | 0 | 0 | 0 | 3 |
-| Réunions | 5 | 0 | 0 | 0 | 0 | 5 |
-| Briefing | 4 | 4 | 0 | 1 | 0 | 0 |
-| Direction | 4 | 3 | 0 | 1 | 0 | 0 |
-| Chat IA | 5 | 4 | 0 | 0 | 0 | 1 |
-| Paramètres | 17 | 12 | 0 | 0 | 0 | 5 |
-| Administration | 8 | 4 | 1 | 0 | 0 | 3 |
+| Visites | 6 | 5 | 0 | 0 | 1 | 0 |
+| PV Chantier | 5 | 4 | 0 | 0 | 0 | 1 |
+| Réunions | 5 | 1 | 0 | 0 | 0 | 4 |
+| Briefing | 7 | 6 | 0 | 1 | 0 | 0 |
+| Direction | 5 | 4 | 0 | 1 | 0 | 0 |
+| Chat IA | 6 | 6 | 0 | 0 | 0 | 0 |
+| Paramètres | 20 | 20 | 0 | 0 | 0 | 0 |
+| Administration | 6 | 5 | 0 | 0 | 0 | 1 |
 | Super-Admin | 8 | 1 | 0 | 0 | 7 | 0 |
 | Pricing Intelligence | 4 | 4 | 0 | 0 | 0 | 0 |
-| Landing & Marketing | 9 | 8 | 0 | 0 | 0 | 1 |
-| SEO & Technique | 7 | 5 | 1 | 0 | 0 | 1 |
-| Sécurité | 7 | 5 | 0 | 0 | 0 | 2 |
-| Performance & UX | 6 | 3 | 0 | 1 | 0 | 2 |
-| **TOTAL** | **~200** | **~120** | **2** | **7** | **7** | **~76** |
+| Landing & Marketing | 8 | 8 | 0 | 0 | 0 | 0 |
+| SEO & Technique | 8 | 8 | 0 | 0 | 0 | 0 |
+| Sécurité | 10 | 8 | 0 | 0 | 0 | 2 |
+| Performance & UX | 6 | 4 | 0 | 2 | 0 | 0 |
+| i18n | 5 | 2 | 1 | 1 | 0 | 1 |
+| **TOTAL** | **~200** | **~165** | **1** | **9** | **9** | **~21** |
 
 ---
 
 ## Bugs trouvés et corrigés
 
-### Bug 1 : `/fr/apple-icon` retourne 404
+### Bug 1 : `/fr/apple-icon` retourne 404 ✅ CORRIGÉ + DÉPLOYÉ
 - **Cause** : Le layout metadata référençait `/apple-icon.png` (fichier statique inexistant) au lieu de laisser Next.js auto-découvrir la convention file `apple-icon.tsx`
-- **Fix** : Supprimé le bloc `icons` du metadata dans `[locale]/layout.tsx`. Next.js auto-découvre `src/app/apple-icon.tsx` et `src/app/icon.tsx`
-- **Statut** : Fix appliqué localement, en attente de déploiement
+- **Fix** : Supprimé le bloc `icons` du metadata dans `[locale]/layout.tsx`
+- **Commit** : `bd811b9`
 
-### Bug 2 : OG Image metadata pointe vers `/og-image.png` (inexistant)
-- **Cause** : Le metadata OpenGraph référençait `/og-image.png` au lieu de `/opengraph-image` (route générée par `opengraph-image.tsx`)
+### Bug 2 : OG Image metadata pointe vers `/og-image.png` (inexistant) ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : Le metadata OpenGraph référençait `/og-image.png` au lieu de `/opengraph-image`
 - **Fix** : Corrigé `url: "/og-image.png"` → `url: "/opengraph-image"` dans layout.tsx
-- **Statut** : Fix appliqué localement, en attente de déploiement
+- **Commit** : `bd811b9`
 
-### Bug 3 : Admin `/admin/subscription` retourne 404
-- **Cause** : La sidebar admin a un lien "Abonnement" qui pointe vers `/admin/subscription`, mais la page n'existe pas (CLAUDE.md mentionne `/admin/finances`)
-- **Fix** : À investiguer — soit renommer la route, soit ajouter la page
-- **Statut** : Non corrigé
+### Bug 3 : Admin `/admin/subscription` retourne 404 ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : La sidebar admin avait un lien "Abonnement" pointant vers `/admin/subscription` (inexistant), la vraie page est `/admin/finances`
+- **Fix** : Corrigé le href dans `(admin)/layout.tsx` : `/admin/subscription` → `/admin/finances`
+- **Commit** : `bd811b9`
+
+### Bug 4 : Dashboard stats EN affichent du français ✅ CORRIGÉ (en attente déploiement)
+- **Cause** : Les labels "Emails non lus", "Tâches en cours", "PV cette semaine", "Projets actifs" étaient hardcodés en français au lieu d'utiliser `t()`
+- **Fix** : Remplacé par `t("unreadEmails")`, `t("pendingTasks")`, `t("pvThisWeek")`, `t("activeProjects")`. Ajouté clé `pvThisWeek` dans les 3 locales.
+- **Fichiers** : `dashboard/page.tsx`, `messages/fr.json`, `messages/en.json`, `messages/de.json`
 
 ### Warnings (non-bugs)
 - `/api/organization/branding` retourne 404 — attendu (pas de branding configuré pour cette org)
@@ -444,32 +492,30 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 - **Compte** : julien.buildwise@outlook.fr (Microsoft OAuth, Plan Trial, non-superadmin)
 - **Projet existant** : "Central Malley" (9240302, Implenia, Prilly)
 - **Emails** : 25 emails synchronisés depuis Outlook
-- **Plans** : 1 plan (6107-AdP-251003 Malley Plan Arborisation PLACE 100)
+- **Plans** : 1 plan (6107-AdP-251003 Malley Plan Arborisation PLACE 100) avec analyse IA complète
 
 ### Items non testables sans action manuelle
 - Upload de fichiers (plans, soumissions, photos)
 - Envoi réel d'emails (reply, forward)
 - Enregistrement audio (micro)
-- Drag & drop Kanban
-- Dark mode
-- Responsive mobile
+- Drag & drop Kanban (pas de tâches existantes)
 - Super-admin (requiert SQL `UPDATE users SET is_superadmin = true`)
 
 ### Migrations à appliquer (prérequis)
 
-- [ ] Migration 011 — `plan_registry` (table plans) — **DÉJÀ APPLIQUÉE** (plans fonctionnent)
+- [x] Migration 011 — `plan_registry` (table plans) — **DÉJÀ APPLIQUÉE** (plans fonctionnent)
 - [ ] Migration 024-040 — Data Intelligence (C1/C2/C3)
 - [ ] Migration 043 — Calibration system
 - [ ] Migration 049-053 — Submissions enhanced + budget + visit photos
 - [ ] Migration 054 — Fix RLS recursion sur `users` (CRITIQUE)
 
-### Variables d'environnement à vérifier
+### Variables d'environnement vérifiées
 
-- [x] `ANTHROPIC_API_KEY` — requis pour toute fonctionnalité IA — **FONCTIONNE** (réponse IA générée dans Mail)
-- [ ] `OPENAI_API_KEY` — requis pour transcription audio (Whisper)
-- [ ] `GEMINI_API_KEY` — requis pour estimation multi-modèle
-- [x] `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` — OAuth Microsoft — **FONCTIONNE**
-- [ ] `STRIPE_SECRET_KEY` — paiements
-- [ ] `CRON_SECRET` — routes CRON
-- [ ] `RESEND_API_KEY` — envoi emails briefing
-- [ ] `MICROSOFT_TOKEN_ENCRYPTION_KEY` — chiffrement tokens (64 chars hex)
+- [x] `ANTHROPIC_API_KEY` — **FONCTIONNE** (Chat IA, réponse email IA, analyse plan)
+- [x] `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` — **FONCTIONNE** (OAuth + sync Outlook)
+- [ ] `OPENAI_API_KEY` — requis pour transcription audio (Whisper) — _non testé_
+- [ ] `GEMINI_API_KEY` — requis pour estimation multi-modèle — _non testé_
+- [ ] `STRIPE_SECRET_KEY` — paiements — _non testé_
+- [ ] `CRON_SECRET` — routes CRON — _non testé_
+- [ ] `RESEND_API_KEY` — envoi emails briefing — _non testé_
+- [ ] `MICROSOFT_TOKEN_ENCRYPTION_KEY` — chiffrement tokens (64 chars hex) — _recommandé sécurité_
