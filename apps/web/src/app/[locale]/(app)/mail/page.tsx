@@ -302,8 +302,47 @@ export default function MailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F9FAFB]">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <div className="max-w-[860px] mx-auto px-4 pt-8 pb-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="h-7 w-72 animate-pulse rounded-lg bg-gray-200" />
+              <div className="mt-2 h-4 w-48 animate-pulse rounded-lg bg-gray-100" />
+            </div>
+            <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-200" />
+          </div>
+          <div className="flex gap-3 mt-5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 w-36 animate-pulse rounded-full bg-gray-100" />
+            ))}
+          </div>
+        </div>
+        <div className="max-w-[860px] mx-auto px-4 pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <div className="h-3 w-24 animate-pulse rounded bg-gray-100 mb-3" />
+                <div className="h-6 w-16 animate-pulse rounded bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="max-w-[860px] mx-auto px-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-gray-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-5 w-20 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-32 animate-pulse rounded bg-gray-100" />
+              </div>
+              <div className="h-4 w-full animate-pulse rounded bg-gray-100 mb-2" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-gray-100 mb-4" />
+              <div className="flex gap-2">
+                <div className="h-8 w-36 animate-pulse rounded-lg bg-blue-100" />
+                <div className="h-8 w-28 animate-pulse rounded-lg bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -327,19 +366,19 @@ export default function MailPage() {
       <div className="max-w-[860px] mx-auto px-4 pt-8 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Bonjour {firstName} — {formatDate()}
+            <h1 className="text-2xl font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+              Bonjour {firstName}
             </h1>
-            <p className="text-gray-500 mt-1">
-              {filteredUrgent.length} urgente{filteredUrgent.length !== 1 ? "s" : ""}
-              {" · "}{filteredThisWeek.length} cette semaine
-              {" · "}{filteredInfo.length} info{filteredInfo.length !== 1 ? "s" : ""}
+            <p className="text-[13px] text-gray-500 mt-1">
+              {formatDate()}
+              <span className="mx-2 text-gray-300">·</span>
+              {filteredUrgent.length + filteredThisWeek.length + filteredInfo.length} emails en attente
             </p>
           </div>
           <button
             onClick={syncEmails}
             disabled={syncing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Sync..." : "Synchroniser"}
@@ -347,13 +386,13 @@ export default function MailPage() {
         </div>
 
         {syncToast && (
-          <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <div className="mt-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
             <Check className="w-4 h-4" />{syncToast}
           </div>
         )}
 
         {/* Filter pills */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-2.5 mt-5">
           <FilterPill active={activeFilter === "urgent"} color="red" count={filteredUrgent.length} label="Urgentes" onClick={() => setActiveFilter(activeFilter === "urgent" ? "all" : "urgent")} />
           <FilterPill active={activeFilter === "thisWeek"} color="amber" count={filteredThisWeek.length} label="Cette semaine" onClick={() => setActiveFilter(activeFilter === "thisWeek" ? "all" : "thisWeek")} />
           <FilterPill active={activeFilter === "info"} color="gray" count={filteredInfo.length} label="Infos" onClick={() => setActiveFilter(activeFilter === "info" ? "all" : "info")} />
@@ -411,8 +450,8 @@ export default function MailPage() {
       {/* Info section below decisions */}
       {activeFilter !== "info" && filteredInfo.length > 0 && (
         <div className="max-w-[860px] mx-auto px-4 pb-12">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-700">Emails non lus</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>Emails non lus</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
@@ -542,11 +581,16 @@ function FilterPill({ active, color, count, label, onClick }: {
   onClick: () => void;
 }) {
   const colors = {
-    red: active ? "bg-red-100 text-red-800 border-red-300" : "bg-white text-red-700 border-gray-200 hover:border-red-200",
-    amber: active ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-white text-amber-700 border-gray-200 hover:border-amber-200",
-    gray: active ? "bg-gray-200 text-gray-800 border-gray-400" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300",
+    red: active ? "bg-red-50 text-red-800 border-red-200 shadow-sm" : "bg-white text-red-700 border-gray-200 hover:border-red-200 hover:bg-red-50/50",
+    amber: active ? "bg-amber-50 text-amber-800 border-amber-200 shadow-sm" : "bg-white text-amber-700 border-gray-200 hover:border-amber-200 hover:bg-amber-50/50",
+    gray: active ? "bg-gray-100 text-gray-800 border-gray-300 shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50",
   };
   const dots = { red: "bg-red-500", amber: "bg-amber-500", gray: "bg-gray-400" };
+  const countBg = {
+    red: active ? "bg-red-200 text-red-900" : "bg-red-100 text-red-700",
+    amber: active ? "bg-amber-200 text-amber-900" : "bg-amber-100 text-amber-700",
+    gray: active ? "bg-gray-300 text-gray-800" : "bg-gray-100 text-gray-600",
+  };
 
   return (
     <button
@@ -554,7 +598,10 @@ function FilterPill({ active, color, count, label, onClick }: {
       className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all ${colors[color]}`}
     >
       <span className={`w-2 h-2 rounded-full ${dots[color]}`} />
-      {count} {label}
+      {label}
+      <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${countBg[color]}`}>
+        {count}
+      </span>
     </button>
   );
 }
@@ -565,12 +612,14 @@ function FilterPill({ active, color, count, label, onClick }: {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-gray-400 mb-1">
-        {icon}
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-2 text-gray-400 mb-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-50 text-gray-400">
+          {icon}
+        </div>
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <div className="text-xl font-bold text-gray-900">{value}</div>
+      <div className="text-xl font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{value}</div>
     </div>
   );
 }
@@ -985,66 +1034,80 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm overflow-visible relative transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
-      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", zIndex: menuOpen ? 10 : 1 }}
+      className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm hover:shadow-md overflow-visible relative transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
+      style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif", zIndex: menuOpen ? 10 : 1 }}
     >
       <div className="p-5">
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>{badge.label}</span>
-          {email.project_name && <span className="text-xs text-gray-500 font-medium">{email.project_name}</span>}
-          <span className="text-xs text-gray-400 ml-auto">il y a {timeAgo(email.received_at)}</span>
+        {/* Top row: badge + project + time */}
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${badge.color}`}>{badge.label}</span>
+          {email.project_name && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-gray-400 shrink-0" />
+              {email.project_name}
+            </span>
+          )}
+          <span className="text-[11px] text-gray-400 ml-auto shrink-0">il y a {timeAgo(email.received_at)}</span>
         </div>
-        <p className="text-sm text-gray-700 mb-2 line-clamp-2">
+
+        {/* Summary / preview */}
+        <p className="text-[13px] leading-relaxed text-gray-700 mb-2 line-clamp-2">
           {email.ai_summary || email.body_preview || email.subject}
         </p>
-        <div className="flex items-center gap-4 text-xs text-gray-400 mb-3">
-          <span>De : {email.sender_name || email.sender_email}</span>
+
+        {/* Sender + urgency */}
+        <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+          <span className="truncate">De : {email.sender_name || email.sender_email}</span>
           {email.priority === "urgent" && (
-            <span className="text-red-500 font-medium">Répondre sous 24h</span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 shrink-0">
+              <Clock className="w-3 h-3" />Répondre sous 24h
+            </span>
           )}
         </div>
+
+        {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg transition-all shadow-sm hover:shadow">
             <Send className="w-3.5 h-3.5" />Répondre avec IA
           </button>
-          <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+          <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
             <Eye className="w-3.5 h-3.5" />Voir l&apos;email
           </button>
           {isAloneInOrg ? (
-            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
               <Forward className="w-3.5 h-3.5" />Transférer
             </button>
           ) : (
-            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
               <Users className="w-3.5 h-3.5" />Déléguer
             </button>
           )}
 
           {/* More menu */}
           <div className="relative ml-auto" ref={menuRef}>
-            <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+            <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
               <ChevronDown className="w-4 h-4" />
             </button>
             {menuOpen && (
               <div
-                className={`absolute right-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
+                className={`absolute right-0 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
               >
                 {!isAloneInOrg && (
-                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                    <Forward className="w-4 h-4" />Transférer
+                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Forward className="w-4 h-4 text-gray-400" />Transférer
                   </button>
                 )}
-                <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  <ListTodo className="w-4 h-4" />Créer une tâche
+                <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <ListTodo className="w-4 h-4 text-gray-400" />Créer une tâche
                 </button>
-                <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  <Archive className="w-4 h-4" />Archiver
+                <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <Archive className="w-4 h-4 text-gray-400" />Archiver
                 </button>
-                <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  <AlarmClock className="w-4 h-4" />Reporter à demain
+                <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <AlarmClock className="w-4 h-4 text-gray-400" />Reporter à demain
                 </button>
-                <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  <ExternalLink className="w-4 h-4" />Voir dans Mail
+                <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <ExternalLink className="w-4 h-4 text-gray-400" />Voir dans Mail
                 </button>
               </div>
             )}
@@ -1222,12 +1285,14 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
 function EmptyState({ firstName, onRefresh }: { firstName: string; onRefresh: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-        <CheckCircle2 className="w-8 h-8 text-green-600" />
+      <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-5 shadow-sm border border-emerald-100">
+        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
       </div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Tout est traité. Beau travail, {firstName}.</h2>
-      <p className="text-gray-500 text-sm mb-4">Dernière mise à jour il y a quelques instants</p>
-      <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+      <h2 className="text-xl font-bold text-[#111827] mb-1" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+        Tout est traité. Beau travail, {firstName}.
+      </h2>
+      <p className="text-gray-500 text-sm mb-5">Dernière mise à jour il y a quelques instants</p>
+      <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
         <RefreshCw className="w-4 h-4" />Actualiser
       </button>
     </div>
