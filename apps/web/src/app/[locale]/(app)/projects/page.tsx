@@ -16,8 +16,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
-  Loader2,
   FolderOpen,
+  MapPin,
+  Clock,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -46,9 +47,9 @@ function formatMeetingDate(dateStr: string): string {
 }
 
 const healthConfig = {
-  good: { dot: "bg-green-500", text: "text-green-700", bg: "bg-green-50" },
-  warning: { dot: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" },
-  critical: { dot: "bg-red-500", text: "text-red-700", bg: "bg-red-50" },
+  good: { dot: "bg-emerald-500", text: "text-emerald-700", bg: "bg-emerald-50", border: "border-l-emerald-500", ring: "" },
+  warning: { dot: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50", border: "border-l-amber-500", ring: "ring-1 ring-amber-200/60" },
+  critical: { dot: "bg-red-500", text: "text-red-700", bg: "bg-red-50", border: "border-l-red-500", ring: "ring-1 ring-red-200/60" },
 };
 
 export default function ProjectsPage() {
@@ -189,8 +190,34 @@ export default function ProjectsPage() {
   const isLoading = !profileLoaded || projectsLoading;
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="px-4 py-5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-6 w-32 animate-pulse rounded-lg bg-gray-200" />
+            <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-gray-100" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-9 w-24 animate-pulse rounded-lg bg-gray-100" />
+            <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-200" />
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-gray-200" />
+                <div className="flex-1">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+                  <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2 border-t border-gray-100 pt-3">
+                <div className="h-6 w-14 animate-pulse rounded-md bg-gray-100" />
+                <div className="h-6 w-14 animate-pulse rounded-md bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -214,29 +241,36 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-gray-800">{t("title")}</h1>
-          <p className="mt-0.5 text-xs text-gray-500">{t("subtitle")}</p>
+          <h1 className="font-display text-xl font-bold text-[#111827]">{t("title")}</h1>
+          <p className="mt-0.5 text-[13px] text-gray-500">
+            {t("subtitle")}
+            {enrichedProjects.length > 0 && (
+              <span className="ml-2 text-gray-400">
+                ({enrichedProjects.length})
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Sort dropdown */}
           <div className="relative">
             <button
               onClick={() => { setShowSortDropdown(!showSortDropdown); setShowStatusDropdown(false); }}
-              className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              <ArrowUpDown className="h-3 w-3" />
+              <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
               {sortLabels[sortOption]}
-              <ChevronDown className="h-3 w-3" />
+              <ChevronDown className="h-3 w-3 text-gray-400" />
             </button>
             {showSortDropdown && (
-              <div className="absolute right-0 top-full z-30 mt-1 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 {(Object.keys(sortLabels) as SortOption[]).map((key) => (
                   <button
                     key={key}
                     onClick={() => { setSortOption(key); setShowSortDropdown(false); setTableSortCol(null); }}
                     className={cn(
-                      "flex w-full px-3 py-1.5 text-xs transition-colors hover:bg-gray-50",
-                      sortOption === key ? "font-semibold text-brand" : "text-gray-600"
+                      "flex w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50",
+                      sortOption === key ? "font-semibold text-[#2563EB] bg-blue-50/50" : "text-gray-600"
                     )}
                   >
                     {sortLabels[key]}
@@ -247,12 +281,14 @@ export default function ProjectsPage() {
           </div>
 
           {/* View toggle */}
-          <div className="flex rounded-md border border-gray-200">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
             <button
               onClick={() => changeViewMode("cards")}
               className={cn(
-                "flex items-center justify-center rounded-l-md px-2 py-1.5 transition-colors",
-                viewMode === "cards" ? "bg-brand text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                viewMode === "cards"
+                  ? "bg-[#2563EB] text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               )}
               title={t("viewCards")}
             >
@@ -261,8 +297,10 @@ export default function ProjectsPage() {
             <button
               onClick={() => changeViewMode("list")}
               className={cn(
-                "flex items-center justify-center rounded-r-md px-2 py-1.5 transition-colors",
-                viewMode === "list" ? "bg-brand text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                viewMode === "list"
+                  ? "bg-[#2563EB] text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               )}
               title={t("viewList")}
             >
@@ -273,9 +311,9 @@ export default function ProjectsPage() {
           {/* New project */}
           <Link
             href="/projects/new"
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#1D4ED8] hover:shadow"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             {t("newProject")}
           </Link>
         </div>
@@ -284,24 +322,24 @@ export default function ProjectsPage() {
       {/* Search + Filters */}
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-xs text-gray-800 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
           />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {/* Status dropdown */}
           <div className="relative">
             <button
               onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowSortDropdown(false); }}
               className={cn(
-                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
                 statusFilter !== "all"
-                  ? "border-brand/30 bg-brand/5 text-brand"
+                  ? "border-[#2563EB]/30 bg-[#EFF6FF] text-[#2563EB]"
                   : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -309,14 +347,14 @@ export default function ProjectsPage() {
               <ChevronDown className="h-3 w-3" />
             </button>
             {showStatusDropdown && (
-              <div className="absolute left-0 top-full z-30 mt-1 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 {(Object.keys(statusFilterLabel) as StatusFilter[]).map((key) => (
                   <button
                     key={key}
                     onClick={() => { setStatusFilter(key); setShowStatusDropdown(false); }}
                     className={cn(
-                      "flex w-full px-3 py-1.5 text-xs transition-colors hover:bg-gray-50",
-                      statusFilter === key ? "font-semibold text-brand" : "text-gray-600"
+                      "flex w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50",
+                      statusFilter === key ? "font-semibold text-[#2563EB] bg-blue-50/50" : "text-gray-600"
                     )}
                   >
                     {statusFilterLabel[key]}
@@ -330,17 +368,17 @@ export default function ProjectsPage() {
           <button
             onClick={() => setHealthFilter(healthFilter === "all" ? "attention" : "all")}
             className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
               healthFilter === "attention"
                 ? "border-amber-300 bg-amber-50 text-amber-700"
                 : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
             )}
           >
-            <AlertTriangle className="h-3 w-3" />
+            <AlertTriangle className="h-3.5 w-3.5" />
             {t("filterAttention")}
             {attentionCount > 0 && (
               <span className={cn(
-                "rounded-full px-1.5 text-[10px] font-semibold",
+                "ml-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
                 healthFilter === "attention" ? "bg-amber-200 text-amber-800" : "bg-gray-200 text-gray-600"
               )}>
                 {attentionCount}
@@ -352,125 +390,130 @@ export default function ProjectsPage() {
 
       {/* Content */}
       {sortedProjects.length === 0 ? (
-        <div className="mt-12 text-center">
-          <Search className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-2 text-sm text-gray-500">{t("noProjects")}</p>
+        <div className="mt-16 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <p className="mt-3 text-sm font-medium text-gray-600">{t("noProjects")}</p>
         </div>
       ) : viewMode === "cards" ? (
         /* ==================== CARD VIEW ==================== */
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {sortedProjects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}`}
-              className="group relative rounded-md border border-gray-200 bg-white p-4 transition-all duration-150 hover:border-gray-300 hover:bg-gray-50 hover:shadow-md"
-            >
-              {/* Health indicator */}
-              <span className={cn(
-                "absolute right-3 top-3 h-2 w-2 rounded-full",
-                healthConfig[project.health].dot
-              )} />
-
-              {/* Header: color dot + name + code */}
-              <div className="flex items-start gap-2">
-                <span
-                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: project.color }}
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold text-gray-800 group-hover:text-brand">
-                    {project.name}
-                  </h3>
-                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
-                    {project.code && <span>{project.code}</span>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Client + City + Status */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500">
-                {project.client_name && (
-                  <>
-                    <span className="truncate">{project.client_name}</span>
-                    <span className="text-gray-300">·</span>
-                  </>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {sortedProjects.map((project) => {
+            const hcfg = healthConfig[project.health];
+            return (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className={cn(
+                  "group relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-200 border-l-[3px]",
+                  hcfg.border,
+                  hcfg.ring
                 )}
-                <span className="truncate">{project.city}</span>
-                <StatusBadge
-                  status={project.status}
-                  label={t(`status_${project.status}`)}
-                  className="ml-auto !px-1.5 !py-0 !text-[10px]"
-                />
-              </div>
+              >
+                {/* Card content */}
+                <div className="p-4">
+                  {/* Header: color dot + name + code + status */}
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white shadow-sm"
+                      style={{ backgroundColor: project.color || "#2563EB" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="truncate text-[13px] font-semibold text-gray-900 group-hover:text-[#2563EB] transition-colors">
+                          {project.name}
+                        </h3>
+                        <StatusBadge
+                          status={project.status}
+                          label={t(`status_${project.status}`)}
+                          className="!px-2 !py-0.5 !text-[10px] shrink-0"
+                        />
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-400">
+                        {project.code && <span className="font-medium text-gray-500">{project.code}</span>}
+                        {project.code && project.client_name && <span>·</span>}
+                        {project.client_name && <span className="truncate">{project.client_name}</span>}
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Stats row */}
-              <div className="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3 text-[11px] text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Mail className="h-3 w-3 text-gray-400" />
-                  {project.emailCount}
-                </span>
-                <span className="flex items-center gap-1">
-                  <CheckSquare className="h-3 w-3 text-gray-400" />
-                  {project.openTasks}
-                </span>
-                <span className={cn(
-                  "flex items-center gap-1",
-                  project.overdueTasks > 0 ? "font-semibold text-red-600" : "text-gray-500"
-                )}>
-                  {project.overdueTasks > 0 && <AlertTriangle className="h-3 w-3" />}
-                  {project.overdueTasks} {t("overdueTasks")}
-                </span>
-              </div>
+                  {/* Location */}
+                  {project.city && (
+                    <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-400">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{project.city}</span>
+                    </div>
+                  )}
 
-              {/* Next meeting */}
-              {project.nextMeeting && (
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-400">
-                  <Calendar className="h-3 w-3" />
-                  {project.nextMeeting.title}
-                  <span className="text-gray-300">·</span>
-                  {formatMeetingDate(project.nextMeeting.meeting_date)}
+                  {/* Stats row */}
+                  <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-[11px] text-gray-600">
+                      <Mail className="h-3 w-3 text-gray-400" />
+                      <span className="font-medium">{project.emailCount}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-[11px] text-gray-600">
+                      <CheckSquare className="h-3 w-3 text-gray-400" />
+                      <span className="font-medium">{project.openTasks}</span>
+                    </span>
+                    {project.overdueTasks > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        {project.overdueTasks} {t("overdueTasks")}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Next meeting */}
+                  {project.nextMeeting && (
+                    <div className="mt-2.5 flex items-center gap-1.5 rounded-md bg-blue-50/50 px-2 py-1.5 text-[11px] text-blue-700">
+                      <Clock className="h-3 w-3 shrink-0 text-blue-500" />
+                      <span className="truncate font-medium">{project.nextMeeting.title}</span>
+                      <span className="ml-auto shrink-0 text-blue-500">{formatMeetingDate(project.nextMeeting.meeting_date)}</span>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* Quick actions overlay on hover */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 rounded-b-md border-t border-gray-100 bg-white/95 px-3 py-2 opacity-0 backdrop-blur-sm transition-all duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push("/dashboard"); }}
-                  className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  <Mail className="h-2.5 w-2.5" />
-                  {t("viewEmails")}
-                </button>
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
-                  className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  <CheckSquare className="h-2.5 w-2.5" />
-                  {t("createTask")}
-                </button>
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
-                  className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  <Calendar className="h-2.5 w-2.5" />
-                  {t("createMeeting")}
-                </button>
-              </div>
-            </Link>
-          ))}
+                {/* Quick actions overlay on hover */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 rounded-b-xl border-t border-gray-100 bg-white/95 px-3 py-2.5 opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push("/dashboard"); }}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <Mail className="h-3 w-3" />
+                    {t("viewEmails")}
+                  </button>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <CheckSquare className="h-3 w-3" />
+                    {t("createTask")}
+                  </button>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    {t("createMeeting")}
+                  </button>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : (
         /* ==================== LIST/TABLE VIEW ==================== */
-        <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-md sm:border border-gray-200 bg-white">
+        <div className="mt-5 -mx-4 sm:mx-0 overflow-x-auto rounded-xl sm:border border-gray-100 bg-white shadow-sm">
           <table className="min-w-[700px] w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="w-8 px-3 py-2" />
+              <tr className="border-b border-gray-100 bg-gray-50/80">
+                <th className="w-10 px-3 py-2.5" />
                 <TableHeader col="name" label={t("colProject")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="code" label={t("colCode")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden sm:table-cell" />
                 <TableHeader col="client" label={t("colClient")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
                 <TableHeader col="city" label={t("colCity")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden md:table-cell" />
-                <th className="px-3 py-2 font-medium text-gray-500">{t("colStatus")}</th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t("colStatus")}</th>
                 <TableHeader col="emails" label={t("colEmails")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="tasks" label={t("colTasks")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
                 <TableHeader col="overdue" label={t("colOverdue")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
@@ -481,44 +524,56 @@ export default function ProjectsPage() {
                 <tr
                   key={project.id}
                   onClick={() => router.push(`/projects/${project.id}`)}
-                  className="cursor-pointer border-b border-gray-100 transition-colors duration-100 hover:bg-gray-50 last:border-b-0"
+                  className="cursor-pointer border-b border-gray-50 transition-colors duration-100 hover:bg-gray-50/80 last:border-b-0"
                 >
                   {/* Color + health */}
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color }} />
+                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-white shadow-sm" style={{ backgroundColor: project.color || "#2563EB" }} />
                       <span className={cn("h-1.5 w-1.5 rounded-full", healthConfig[project.health].dot)} />
                     </div>
                   </td>
                   {/* Project name */}
-                  <td className="px-3 py-2 font-medium text-gray-800 max-w-[200px] truncate">{project.name}</td>
+                  <td className="px-3 py-2.5 font-medium text-gray-900 max-w-[200px] truncate">{project.name}</td>
                   {/* Code */}
-                  <td className="hidden sm:table-cell px-3 py-2 text-gray-500">{project.code || "—"}</td>
+                  <td className="hidden sm:table-cell px-3 py-2.5 text-gray-500 font-mono text-[11px]">{project.code || "—"}</td>
                   {/* Client */}
-                  <td className="max-w-[150px] truncate px-3 py-2 text-gray-500">{project.client_name || "—"}</td>
+                  <td className="max-w-[150px] truncate px-3 py-2.5 text-gray-500">{project.client_name || "—"}</td>
                   {/* City */}
-                  <td className="hidden md:table-cell px-3 py-2 text-gray-500">{project.city || "—"}</td>
+                  <td className="hidden md:table-cell px-3 py-2.5 text-gray-500">{project.city || "—"}</td>
                   {/* Status */}
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <StatusBadge
                       status={project.status}
                       label={t(`status_${project.status}`)}
-                      className="!px-1.5 !py-0 !text-[10px]"
+                      className="!px-2 !py-0.5 !text-[10px]"
                     />
                   </td>
                   {/* Emails */}
-                  <td className="px-3 py-2 text-center text-gray-600">{project.emailCount}</td>
-                  {/* Tasks */}
-                  <td className="px-3 py-2 text-center text-gray-600">{project.openTasks}</td>
-                  {/* Overdue */}
-                  <td className={cn(
-                    "px-3 py-2 text-center",
-                    project.overdueTasks > 0 ? "font-semibold text-red-600" : "text-gray-400"
-                  )}>
-                    {project.overdueTasks}
-                    {project.overdueTasks > 0 && " ⚠"}
+                  <td className="px-3 py-2.5 text-center">
+                    <span className="inline-flex items-center gap-1 text-gray-600">
+                      <Mail className="h-3 w-3 text-gray-300" />
+                      {project.emailCount}
+                    </span>
                   </td>
-                  {/* Next meeting */}
+                  {/* Tasks */}
+                  <td className="px-3 py-2.5 text-center">
+                    <span className="inline-flex items-center gap-1 text-gray-600">
+                      <CheckSquare className="h-3 w-3 text-gray-300" />
+                      {project.openTasks}
+                    </span>
+                  </td>
+                  {/* Overdue */}
+                  <td className="px-3 py-2.5 text-center">
+                    {project.overdueTasks > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        {project.overdueTasks}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">0</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -548,13 +603,13 @@ function TableHeader({
   const isActive = active === col;
   return (
     <th
-      className={cn("cursor-pointer select-none px-3 py-2 font-medium text-gray-500 hover:text-gray-700", className)}
+      className={cn("cursor-pointer select-none px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600 transition-colors", className)}
       onClick={() => onClick(col)}
     >
       <span className="inline-flex items-center gap-1">
         {label}
         {isActive ? (
-          dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+          dir === "asc" ? <ChevronUp className="h-3 w-3 text-[#2563EB]" /> : <ChevronDown className="h-3 w-3 text-[#2563EB]" />
         ) : (
           <ArrowUpDown className="h-2.5 w-2.5 text-gray-300" />
         )}
