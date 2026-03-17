@@ -18,13 +18,32 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error } = await admin
-    .from("users")
-    .select("id, organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, age_range, gender, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects")
-    .eq("id", user.id)
-    .maybeSingle();
 
-  if (error || !profile) {
+  // Try full SELECT first, then fallback to basic columns if some don't exist yet (migrations not applied)
+  const FULL_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, age_range, gender, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects, is_superadmin";
+  const BASIC_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, avatar_url, outlook_sync_enabled, microsoft_access_token, is_superadmin";
+  const MINIMAL_COLUMNS = "id, organization_id, role, first_name, last_name, email, is_superadmin";
+
+  let profile = null;
+  for (const columns of [FULL_COLUMNS, BASIC_COLUMNS, MINIMAL_COLUMNS]) {
+    const { data, error } = await admin
+      .from("users")
+      .select(columns)
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!error && data) {
+      profile = data;
+      break;
+    }
+    if (!error && !data) {
+      // Row doesn't exist at all
+      break;
+    }
+    // If error (column missing), try simpler query
+    console.warn(`[user/profile] SELECT failed with columns [${columns.substring(0, 50)}...]:`, error?.message);
+  }
+
+  if (!profile) {
     return NextResponse.json({ profile: null, user: { id: user.id } });
   }
 

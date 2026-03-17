@@ -44,12 +44,18 @@ export default function DashboardPage() {
   const unreadCount = emailCtx?.unreadCount || 0;
 
   const tn = useTranslations("nav");
-  const firstName = user?.user_metadata?.first_name || tn("user");
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const firstName = user?.user_metadata?.first_name || profileName || tn("user");
 
   const [statsData, setStatsData] = useState({ tasks: 0, pvs: 0, projects: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch profile name as fallback
+    fetch("/api/user/profile").then((r) => r.json()).then((d) => {
+      if (d.profile?.first_name) setProfileName(d.profile.first_name);
+    }).catch(() => {});
+
     Promise.all([
       fetch("/api/tasks").then((r) => r.json()).catch(() => ({ tasks: [] })),
       fetch("/api/pv").then((r) => r.json()).catch(() => ({ meetings: [] })),

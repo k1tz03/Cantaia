@@ -59,16 +59,21 @@ export function Sidebar() {
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
 
+  const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
+
   useEffect(() => {
     if (!user?.id) return;
     fetch("/api/user/profile")
       .then((r) => r.json())
-      .then((d) => { if (d.profile?.role) setUserRole(d.profile.role); })
+      .then((d) => {
+        if (d.profile?.role) setUserRole(d.profile.role);
+        if (d.profile?.is_superadmin) setProfileSuperAdmin(true);
+      })
       .catch(() => {});
   }, [user?.id]);
 
   const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
-  const isSuperAdmin = !!user?.user_metadata?.is_superadmin;
+  const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;
 
   const navItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", group: "main" },
