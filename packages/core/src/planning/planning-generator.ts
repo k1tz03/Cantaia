@@ -548,34 +548,12 @@ async function fetchSubmissionItems(
   supabase: any,
   submissionId: string,
 ): Promise<SubmissionItemInput[]> {
-  // Fetch lots for material_group context
-  const { data: lots, error: lotsError } = await supabase
-    .from('submission_lots')
-    .select('id, name, cfc_code, sort_order')
-    .eq('submission_id', submissionId)
-    .order('sort_order', { ascending: true });
-
-  if (lotsError) {
-    throw new Error(`Erreur lecture lots: ${lotsError.message}`);
-  }
-
-  if (!lots || lots.length === 0) {
-    return [];
-  }
-
-  // Build lot lookup
-  const lotMap = new Map<string, { name: string; cfc_code: string | null }>();
-  for (const lot of lots) {
-    lotMap.set(lot.id, { name: lot.name, cfc_code: lot.cfc_code });
-  }
-
-  // Fetch items
-  const lotIds = lots.map((l: any) => l.id);
+  // Fetch items directly by submission_id (Cantaia stores items flat, not via lots)
   const { data: items, error: itemsError } = await supabase
     .from('submission_items')
-    .select('id, lot_id, code, description, unit, quantity, cfc_subcode, sort_order')
-    .in('lot_id', lotIds)
-    .order('sort_order', { ascending: true });
+    .select('id, item_number, description, unit, quantity, cfc_code, material_group, product_name, status')
+    .eq('submission_id', submissionId)
+    .order('item_number', { ascending: true });
 
   if (itemsError) {
     throw new Error(`Erreur lecture postes: ${itemsError.message}`);
@@ -587,15 +565,14 @@ async function fetchSubmissionItems(
 
   // Map to SubmissionItemInput
   return items.map((item: any) => {
-    const lot = lotMap.get(item.lot_id);
     return {
       id: item.id,
-      item_number: item.code,
+      item_number: item.item_number,
       description: item.description,
       unit: item.unit,
       quantity: item.quantity ? Number(item.quantity) : null,
-      cfc_code: item.cfc_subcode ?? lot?.cfc_code ?? null,
-      material_group: lot?.name ?? 'Divers',
+      cfc_code: item.cfc_code ?? null,
+      material_group: item.material_group ?? 'Divers',
     };
   });
 }
