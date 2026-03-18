@@ -22,7 +22,8 @@ import GanttTimeline from "./GanttTimeline";
 interface GanttChartProps {
   planning: Planning;
   criticalPath: string[];
-  zoom: ZoomLevel;
+  /** If not provided, auto-selects based on the planning date range */
+  zoom?: ZoomLevel;
   onTaskUpdate?: (taskId: string, updates: Partial<PlanningTask>) => void;
   onDependencyCreate?: (from: string, to: string) => void;
   onDependencyDelete?: (depId: string) => void;
@@ -49,6 +50,16 @@ function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/** Calculate the best zoom level for a given date range */
+function computeAutoZoom(startDate: string, endDate: string): ZoomLevel {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const totalDays = daysBetween(start, end);
+  if (totalDays < 60) return "day";
+  if (totalDays < 365) return "week";
+  return "month";
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function GanttChart({
@@ -62,8 +73,10 @@ export default function GanttChart({
   projectName,
   children,
 }: GanttChartProps) {
-  // Zoom
-  const [zoom, setZoom] = useState<ZoomLevel>(initialZoom);
+  // Zoom — auto-select best zoom level based on planning date range if not provided
+  const [zoom, setZoom] = useState<ZoomLevel>(() =>
+    initialZoom ?? computeAutoZoom(planning.start_date, planning.calculated_end_date),
+  );
 
   // Selected task
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);

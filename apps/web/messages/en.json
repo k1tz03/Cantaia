@@ -2753,6 +2753,17 @@
       "cancel": "Cancel",
       "errorStartDate": "Start date is required"
     },
+    "taskList": {
+      "name": "Name",
+      "duration": "Duration",
+      "start": "Start",
+      "end": "End",
+      "daysShort": "d",
+      "milestones": "Milestones"
+    },
+    "timeline": {
+      "today": "Today"
+    },
     "header": {
       "zoomDay": "Day",
       "zoomWeek": "Week",

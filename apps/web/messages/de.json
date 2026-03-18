@@ -2724,5 +2724,106 @@
     "type_submission": "Submission",
     "type_plan": "Plan",
     "type_guarantee": "Garantie"
+  },
+  "planning": {
+    "title": "Bauzeitplan",
+    "generate": "Zeitplan generieren",
+    "regenerate": "Neu generieren",
+    "generating": "Generierung...",
+    "noPlanning": "Kein Zeitplan erstellt",
+    "noPlanningDesc": "Erstellen Sie einen Zeitplan aus einer analysierten Submission",
+    "taskList": {
+      "name": "Name",
+      "duration": "Dauer",
+      "start": "Beginn",
+      "end": "Ende",
+      "daysShort": "T",
+      "milestones": "Meilensteine"
+    },
+    "timeline": {
+      "today": "Heute"
+    },
+    "config": {
+      "title": "Zeitplan-Konfiguration",
+      "startDate": "Baubeginn",
+      "targetEndDate": "Gewunschtes Enddatum",
+      "endDate": "Gewunschtes Enddatum",
+      "optional": "optional",
+      "projectType": "Projekttyp",
+      "typeNew": "Neubau",
+      "typeNeuf": "Neubau",
+      "typeRenovation": "Renovation",
+      "typeExtension": "Erweiterung",
+      "typeInterior": "Innenausbau",
+      "typeAmenagement": "Innenausbau",
+      "canton": "Kanton",
+      "constraints": "Besondere Einschraenkungen",
+      "constraintsPlaceholder": "Z.B. keine Arbeiten im August, eingeschraenkter Wochenendzugang...",
+      "generate": "Zeitplan generieren",
+      "generating": "Generierung...",
+      "cancel": "Abbrechen",
+      "errorStartDate": "Startdatum ist erforderlich"
+    },
+    "header": {
+      "zoomDay": "Tag",
+      "zoomWeek": "Woche",
+      "zoomMonth": "Monat",
+      "totalDuration": "Gesamtdauer",
+      "days": "Tage",
+      "end": "Geschaetztes Ende",
+      "criticalPath": "Kritischer Pfad"
+    },
+    "zoom": {
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat"
+    },
+    "duration": "Gesamtdauer",
+    "days": "Tage",
+    "estimatedEnd": "Geschaetztes Ende",
+    "criticalPath": "Kritischer Pfad",
+    "export": {
+      "pdf": "PDF A3 exportieren",
+      "png": "PNG exportieren",
+      "share": "Teilen"
+    },
+    "share": {
+      "title": "Freigabelink",
+      "description": "Dieser Link ermoeglicht das Ansehen des Zeitplans ohne Anmeldung",
+      "copy": "Link kopieren",
+      "copied": "Link kopiert!",
+      "revoke": "Link widerrufen",
+      "expired": "Dieser Link ist nicht mehr gueltig"
+    },
+    "task": {
+      "duration": "Dauer",
+      "startDate": "Beginn",
+      "endDate": "Ende",
+      "supplier": "Lieferant",
+      "progress": "Fortschritt",
+      "editDuration": "Dauer bearbeiten"
+    },
+    "tooltip": {
+      "quantity": "Menge",
+      "ratio": "Verhaeltnis",
+      "day": "Tag",
+      "teams": "Teams",
+      "baseDays": "Tage",
+      "source": "Quelle",
+      "baseCalc": "Basisberechnung",
+      "adjustments": "Anpassungen",
+      "finalDuration": "Endgueltige Dauer",
+      "days": "Tage",
+      "editDuration": "Dauer bearbeiten",
+      "season": "Saison",
+      "projectType": "Projekttyp",
+      "regional": "Regionalkoeffizient"
+    },
+    "milestone": {
+      "start": "Baubeginn",
+      "receptionProvisoire": "Provisorische Abnahme (SIA 118)"
+    },
+    "poweredBy": "Bereitgestellt von Cantaia",
+    "tryFree": "Kostenlos testen"
   }
 }

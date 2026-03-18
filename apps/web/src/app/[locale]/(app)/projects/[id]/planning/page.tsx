@@ -22,7 +22,6 @@ import type {
   PlanningPhase,
   PlanningTask,
   PlanningDependency,
-  ZoomLevel,
 } from "@/components/planning/planning-types";
 
 export default function ProjectPlanningPage() {
@@ -39,7 +38,6 @@ export default function ProjectPlanningPage() {
 
   const [showConfig, setShowConfig] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [zoom] = useState<ZoomLevel>("week");
 
   // Share state
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -302,7 +300,6 @@ export default function ProjectPlanningPage() {
           <GanttChart
             planning={planning}
             criticalPath={criticalPath}
-            zoom={zoom}
             onTaskUpdate={handleTaskUpdate}
             projectName={planning.title}
           >

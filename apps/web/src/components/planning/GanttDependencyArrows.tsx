@@ -8,6 +8,8 @@ interface GanttDependencyArrowsProps {
   dependencies: PlanningDependency[];
   taskPositions: Map<string, TaskPosition>;
   criticalPath: string[];
+  totalWidth?: number;
+  totalHeight?: number;
 }
 
 /** Build a smooth bezier path from predecessor end to successor start (FS dependency) */
@@ -89,11 +91,21 @@ export default function GanttDependencyArrows({
   dependencies,
   taskPositions,
   criticalPath,
+  totalWidth,
+  totalHeight,
 }: GanttDependencyArrowsProps) {
   const criticalSet = new Set(criticalPath);
 
+  // Skip rendering if no dependencies or no task positions
+  if (!dependencies.length || !taskPositions.size) return null;
+
   return (
-    <svg className="absolute inset-0 pointer-events-none overflow-visible" style={{ zIndex: 5 }}>
+    <svg
+      className="absolute inset-0 pointer-events-none overflow-visible"
+      width={totalWidth || "100%"}
+      height={totalHeight || "100%"}
+      style={{ zIndex: 5 }}
+    >
       <defs>
         {/* Arrowhead marker for non-critical */}
         <marker

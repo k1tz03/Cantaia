@@ -30,12 +30,24 @@ function formatShortDate(dateStr: string): string {
 }
 
 function phaseTotalDuration(phase: PlanningPhase): number {
-  if (!phase.tasks.length) return 0;
+  if (!phase.tasks?.length) return 0;
+  // Phase duration = span from phase start to phase end (NOT sum of task durations)
   const start = new Date(phase.start_date);
   const end = new Date(phase.end_date);
-  return Math.round(
+  const days = Math.round(
     (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
   );
+  return Math.max(days, 0);
+}
+
+/** Safe days suffix — falls back to literal "j" if translation missing */
+function daysSuffix(t: (key: string) => string): string {
+  try {
+    const val = t("taskList.daysShort");
+    return val || "j";
+  } catch {
+    return "j";
+  }
 }
 
 export default function GanttTaskList({
@@ -137,7 +149,7 @@ export default function GanttTaskList({
               </span>
             </div>
             <div className="w-16 text-center text-xs text-gray-500 font-medium">
-              {phaseTotalDuration(phase)}{t("taskList.daysShort")}
+              {phaseTotalDuration(phase)}{daysSuffix(t)}
             </div>
             <div className="w-20 text-center text-xs text-gray-500">
               {formatShortDate(phase.start_date)}
@@ -190,7 +202,7 @@ export default function GanttTaskList({
                           handleDurationDoubleClick(task.id, task.duration_days)
                         }
                       >
-                        {task.duration_days}{t("taskList.daysShort")}
+                        {task.duration_days}{daysSuffix(t)}
                       </span>
                     )}
                   </div>

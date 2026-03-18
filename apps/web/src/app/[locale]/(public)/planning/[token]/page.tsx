@@ -120,7 +120,6 @@ export default function PublicPlanningPage() {
         <GanttChart
           planning={planning}
           criticalPath={[]}
-          zoom="week"
           readOnly
           projectName={projectName}
         />

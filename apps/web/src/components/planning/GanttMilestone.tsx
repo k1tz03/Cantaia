@@ -24,15 +24,27 @@ export default function GanttMilestone({
 }: GanttMilestoneProps) {
   const cy = rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
 
+  // Guard against invalid positions
+  if (!isFinite(x) || !isFinite(cy)) return null;
+
   return (
     <motion.g
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 400, damping: 20, delay: rowIndex * 0.03 }}
-      style={{ transformOrigin: `${x}px ${cy}px` }}
+      transition={{ type: "spring", stiffness: 400, damping: 20, delay: Math.min(rowIndex * 0.03, 0.5) }}
+      style={{ transformOrigin: `${x}px ${cy}px`, pointerEvents: "auto" }}
       className="cursor-pointer"
       onClick={onSelect}
     >
+      {/* Invisible hit area for easier clicking */}
+      <rect
+        x={x - DIAMOND_SIZE}
+        y={cy - DIAMOND_SIZE}
+        width={DIAMOND_SIZE * 2}
+        height={DIAMOND_SIZE * 2}
+        fill="transparent"
+      />
+
       {/* Selected ring */}
       {isSelected && (
         <rect
@@ -48,7 +60,7 @@ export default function GanttMilestone({
         />
       )}
 
-      {/* Diamond shape */}
+      {/* Diamond shape — 16x16px minimum, amber fill */}
       <rect
         x={x - DIAMOND_SIZE / 2}
         y={cy - DIAMOND_SIZE / 2}
@@ -61,7 +73,7 @@ export default function GanttMilestone({
         strokeWidth={2}
       />
 
-      {/* Pulse animation on critical milestones */}
+      {/* Pulse animation */}
       <motion.rect
         x={x - DIAMOND_SIZE / 2}
         y={cy - DIAMOND_SIZE / 2}
@@ -77,12 +89,12 @@ export default function GanttMilestone({
         style={{ transformOrigin: `${x}px ${cy}px` }}
       />
 
-      {/* Label */}
+      {/* Label to the right of diamond */}
       <text
         x={x + DIAMOND_SIZE / 2 + 8}
         y={cy + 4}
-        className="fill-gray-700 text-xs"
-        style={{ fontSize: 11, fontFamily: "var(--font-sans)" }}
+        className="fill-gray-700"
+        style={{ fontSize: 11, fontFamily: "var(--font-sans)", fontWeight: 500 }}
       >
         {task.name}
       </text>

@@ -27,6 +27,9 @@ import GanttBar from "./GanttBar";
 import GanttMilestone from "./GanttMilestone";
 import GanttDependencyArrows from "./GanttDependencyArrows";
 
+/** Minimum column width in px — ensures columns are readable even with many months */
+const MIN_COLUMN_WIDTH = 30;
+
 interface GanttTimelineProps {
   phases: PlanningPhase[];
   tasks: PlanningTask[];
@@ -112,17 +115,19 @@ function generateColumns(
   const totalDays = daysBetween(start, end) + 1;
 
   if (zoom === "day") {
+    const colW = Math.max(COLUMN_WIDTH.day, MIN_COLUMN_WIDTH);
     for (let i = 0; i < totalDays; i++) {
       const d = addDays(start, i);
       cols.push({
         label: formatDayLabel(d),
         subLabel: d.getDate() === 1 ? MONTH_NAMES_FR[d.getMonth()] : undefined,
-        x: i * COLUMN_WIDTH.day,
-        width: COLUMN_WIDTH.day,
+        x: i * colW,
+        width: colW,
         isWeekend: isWeekend(d),
       });
     }
   } else if (zoom === "week") {
+    const colW = Math.max(COLUMN_WIDTH.week, MIN_COLUMN_WIDTH);
     let current = startOfWeek(start);
     while (current <= end) {
       const offsetDays = daysBetween(start, current);
@@ -130,12 +135,13 @@ function generateColumns(
       cols.push({
         label: formatWeekLabel(current),
         x,
-        width: COLUMN_WIDTH.week,
+        width: colW,
       });
       current = addDays(current, 7);
     }
   } else {
-    // month
+    // month — enforce minimum column width
+    const colW = Math.max(COLUMN_WIDTH.month, MIN_COLUMN_WIDTH);
     let current = startOfMonth(start);
     while (current <= end) {
       const offsetDays = Math.max(0, daysBetween(start, current));
@@ -143,7 +149,7 @@ function generateColumns(
       cols.push({
         label: formatMonthLabel(current),
         x,
-        width: COLUMN_WIDTH.month,
+        width: colW,
       });
       current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
     }
@@ -386,10 +392,11 @@ export default function GanttTimeline({
             {/* Today line */}
             {showTodayLine && (
               <div
-                className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-30"
+                className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-30 pointer-events-none"
                 style={{ left: todayX }}
               >
-                <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[9px] font-bold px-1 rounded-b leading-tight">
+                {/* Label at top of today line */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-b whitespace-nowrap shadow-sm">
                   {t("timeline.today")}
                 </div>
               </div>
@@ -400,6 +407,8 @@ export default function GanttTimeline({
               dependencies={dependencies}
               taskPositions={taskPositions}
               criticalPath={criticalPath}
+              totalWidth={totalWidth}
+              totalHeight={totalBodyHeight}
             />
 
             {/* Task bars */}
@@ -449,10 +458,12 @@ export default function GanttTimeline({
               return null;
             })}
 
-            {/* Milestones (rendered as SVG) */}
+            {/* Milestones (rendered as SVG) — pointer-events auto on children so clicks work */}
             <svg
-              className="absolute inset-0 pointer-events-none overflow-visible"
-              style={{ zIndex: 15 }}
+              className="absolute inset-0 overflow-visible"
+              width={totalWidth}
+              height={totalBodyHeight}
+              style={{ zIndex: 15, pointerEvents: "none" }}
             >
               {rowItems.map((item, idx) => {
                 if (item.type === "milestone" && item.task) {

@@ -58,9 +58,13 @@ export default function GanttBar({
   const taskStart = new Date(task.start_date);
   const offsetDays = daysBetween(timelineStartDate, taskStart);
   const barX = offsetDays * pixelsPerDay;
-  const barWidth = Math.max(task.duration_days * pixelsPerDay, 4);
+  const rawWidth = task.duration_days * pixelsPerDay;
+  // Minimum 4px so bars are always visible; if label would show, ensure at least 20px
+  const barWidth = Math.max(rawWidth, 4);
   const barHeight = ROW_HEIGHT - BAR_V_PADDING * 2;
   const barY = rowIndex * ROW_HEIGHT + BAR_V_PADDING;
+  // Only show label inside the bar if wide enough (100px+)
+  const showLabelInside = barWidth >= 100;
 
   // dnd-kit draggable
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -130,8 +134,9 @@ export default function GanttBar({
     setShowConnectionPoints(false);
   }, []);
 
+  const effectiveWidth = Math.max(barWidth + resizeDelta, 4);
   const progressWidth =
-    task.progress > 0 ? (barWidth + resizeDelta) * (task.progress / 100) : 0;
+    task.progress > 0 ? effectiveWidth * (task.progress / 100) : 0;
 
   return (
     <>
@@ -154,7 +159,8 @@ export default function GanttBar({
           position: "absolute",
           left: barX + dragOffsetX,
           top: barY,
-          width: Math.max(barWidth + resizeDelta, 4),
+          width: effectiveWidth,
+          minWidth: 4,
           height: barHeight,
           transformOrigin: "left center",
           zIndex: isDragging ? 50 : isSelected ? 10 : 1,
@@ -191,20 +197,20 @@ export default function GanttBar({
               backgroundColor: darkenColor(phaseColor, 0.1),
               opacity: 0.7,
               borderRadius:
-                progressWidth >= barWidth + resizeDelta
+                progressWidth >= effectiveWidth
                   ? "0.375rem"
                   : "0.375rem 0 0 0.375rem",
             }}
           />
         )}
 
-        {/* Task name inside bar */}
-        {barWidth > 60 && (
+        {/* Task name inside bar — only when bar is wide enough */}
+        {showLabelInside && (
           <div
-            className="absolute inset-0 flex items-center px-2 text-xs font-medium truncate"
+            className="absolute inset-0 flex items-center px-2 text-xs font-medium overflow-hidden whitespace-nowrap text-ellipsis"
             style={{ color: darkenColor(phaseColor, 0.35) }}
           >
-            {task.name}
+            <span className="truncate">{task.name}</span>
           </div>
         )}
 

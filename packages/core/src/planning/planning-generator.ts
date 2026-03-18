@@ -2,10 +2,16 @@
 // Cantaia Gantt — Planning Generator (Orchestrator)
 // Generates a full project planning from submission items.
 // Pure algorithmic — no AI calls required.
+//
+// V2 — Realistic construction schedules:
+//   - Aggregates items into 20-40 synthetic tasks (by material_group)
+//   - Maps groups into SIA standard phases (6+1)
+//   - Tasks within a phase run in PARALLEL (not sequential)
+//   - Phases are SEQUENTIAL (finish-to-start)
+//   - Total duration capped at 3 years (1095 days)
 // ═══════════════════════════════════════════════════════════════
 
 import { findProductivityRatio } from './productivity-ratios';
-import { DEPENDENCY_RULES, getMajorCfcGroup } from './dependency-rules';
 import { calculateDuration, addWorkingDays, type DurationResult } from './duration-calculator';
 import { calculateCriticalPath } from './critical-path';
 
@@ -88,92 +94,112 @@ interface SubmissionItemInput {
   material_group: string;
 }
 
-// Phase color palette
-const PHASE_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
-  '#EC4899', '#06B6D4', '#F97316', '#6366F1',
-  '#14B8A6', '#EF4444', '#84CC16', '#A855F7',
-];
-
-// Phase ordering by CFC group (construction sequence)
-const CFC_PHASE_ORDER: Record<string, number> = {
-  '1': 1,    // Travaux preparatoires
-  '113': 1,
-  '114': 1,
-  '116': 1,
-  '117': 1,
-  '151': 2,  // Canalisations
-  '2': 3,    // Gros-oeuvre
-  '211': 3,
-  '213': 3,
-  '214': 4,
-  '215': 4,
-  '216': 5,
-  '221': 6,  // Enveloppe
-  '222': 6,
-  '224': 7,  // Facade
-  '225': 7,
-  '227': 7,
-  '228': 7,
-  '231': 8,  // Techniques
-  '232': 8,
-  '234': 9,
-  '241': 9,
-  '242': 9,
-  '244': 9,
-  '245': 9,
-  '251': 10, // Sanitaire
-  '261': 11, // Amenagement
-  '271': 11,
-  '273': 11,
-  '281': 12, // Finitions
-  '283': 12,
-  '285': 12,
-  '286': 12,
-  '291': 13,
-  '311': 14, // Systemes
-  '421': 15,
-};
-
-function getPhaseOrder(cfcCode: string): number {
-  if (CFC_PHASE_ORDER[cfcCode] != null) return CFC_PHASE_ORDER[cfcCode];
-  const major = getMajorCfcGroup(cfcCode);
-  if (CFC_PHASE_ORDER[major] != null) return CFC_PHASE_ORDER[major];
-  const majorFirst = major.charAt(0);
-  if (CFC_PHASE_ORDER[majorFirst] != null) return CFC_PHASE_ORDER[majorFirst];
-  return 99;
+/** A synthetic task aggregated from multiple submission items */
+interface SyntheticTask {
+  name: string;
+  description: string;
+  source_item_ids: string[];
+  cfc_code: string | null;
+  /** Duration = bottleneck item (the longest individual item) */
+  duration_days: number;
+  quantity: number | null;
+  unit: string | null;
+  productivity_ratio: number | null;
+  productivity_source: string | null;
+  adjustment_factors: Record<string, number> | null;
+  base_duration_days: number | null;
+  team_size: number;
 }
 
-// Phase name mapping by material_group
-const PHASE_NAME_MAP: Record<string, string> = {
-  'Terrassement': 'Terrassement',
-  'Fondations': 'Fondations / Gros-oeuvre',
-  'Beton arme': 'Structure beton',
-  'Coffrage': 'Structure beton',
-  'Ferraillage': 'Structure beton',
-  'Maconnerie': 'Maconnerie',
-  'Etancheite': 'Etancheite',
-  'Isolation thermique': 'Isolation',
-  'Fenetres/Portes': 'Fenetres et portes',
-  'Facades': 'Facades',
-  'Toiture': 'Toiture',
-  'Ferblanterie': 'Toiture',
-  'Electricite': 'Electricite',
-  'CVC/Chauffage': 'CVC / Chauffage',
-  'Sanitaire/Plomberie': 'Sanitaire',
-  'Ventilation': 'CVC / Chauffage',
-  'Revetements sols': 'Revetements',
-  'Revetements murs': 'Revetements',
-  'Peinture': 'Peinture',
-  'Platrerie': 'Platrerie / Cloisons',
-  'Menuiserie interieure': 'Menuiserie',
-  'Faux plafonds': 'Faux plafonds',
-  'Construction metallique': 'Construction metallique',
-  'Amenagements exterieurs': 'Amenagements exterieurs',
-  'Ascenseurs': 'Ascenseurs',
-  'Installations de chantier': 'Installations de chantier',
-  'Divers': 'Divers',
+// ============================================================================
+// SIA Standard Phases (Swiss construction)
+// ============================================================================
+
+interface SIAPhaseDefinition {
+  name: string;
+  /** material_group values that map to this phase (case-insensitive partial match) */
+  groups: string[];
+  color: string;
+  order: number;
+}
+
+const SIA_PHASES: SIAPhaseDefinition[] = [
+  {
+    name: 'Preparation du terrain',
+    groups: [
+      'Terrassement', 'Terre', 'Demolition', 'Fondations',
+      'Installations de chantier', 'Travaux preparatoires',
+    ],
+    color: '#8B5CF6', // violet
+    order: 1,
+  },
+  {
+    name: 'Gros oeuvre',
+    groups: [
+      'Beton arme', 'Coffrage', 'Ferraillage', 'Maconnerie',
+      'Structure beton', 'Beton', 'Construction metallique',
+      'Charpente', 'Charpente metallique', 'Charpente bois',
+    ],
+    color: '#3B82F6', // blue
+    order: 2,
+  },
+  {
+    name: 'Clos et couvert',
+    groups: [
+      'Etancheite', 'Toiture', 'Fenetres', 'Fenetres/Portes',
+      'Facades', 'Isolation', 'Isolation thermique', 'Ferblanterie',
+      'Couverture',
+    ],
+    color: '#10B981', // green
+    order: 3,
+  },
+  {
+    name: 'Second oeuvre',
+    groups: [
+      'Electricite', 'CVC', 'CVC/Chauffage', 'Sanitaire',
+      'Sanitaire/Plomberie', 'Ventilation', 'Reseaux',
+      'Installation', 'Chauffage', 'Plomberie',
+      'Ascenseurs',
+    ],
+    color: '#F59E0B', // amber
+    order: 4,
+  },
+  {
+    name: 'Finitions',
+    groups: [
+      'Revetements', 'Revetements sols', 'Revetements murs',
+      'Peinture', 'Menuiserie', 'Menuiserie interieure',
+      'Carrelage', 'Equipements', 'Platrerie',
+      'Faux plafonds', 'Chapes',
+    ],
+    color: '#EF4444', // red
+    order: 5,
+  },
+  {
+    name: 'Amenagements exterieurs',
+    groups: [
+      'Plantations', 'Amenagements exterieurs', 'Clotures',
+      'Eclairage exterieur', 'Jardinage', 'Paysagisme',
+      'Graves',
+    ],
+    color: '#06B6D4', // cyan
+    order: 6,
+  },
+];
+
+const DIVERS_PHASE: SIAPhaseDefinition = {
+  name: 'Divers',
+  groups: [],
+  color: '#6B7280', // gray
+  order: 7,
 };
+
+/** Max total planning duration in working days (3 years) */
+const MAX_TOTAL_DAYS = 1095;
+/** Max duration per individual task in working days */
+const MAX_TASK_DAYS = 365;
+/** Min duration per individual task in working days */
+const MIN_TASK_DAYS = 1;
 
 // ============================================================================
 // Main generator (async — fetches from DB)
@@ -184,10 +210,10 @@ const PHASE_NAME_MAP: Record<string, string> = {
  *
  * Steps:
  * 1. Fetch submission items grouped by lot/CFC
- * 2. Group items into phases by CFC category
- * 3. Calculate durations for each phase using duration-calculator
- * 4. Apply dependency rules
- * 5. Calculate start/end dates (respecting dependencies)
+ * 2. Aggregate items into synthetic tasks (by material_group)
+ * 3. Map groups into SIA standard phases
+ * 4. Tasks within a phase are PARALLEL
+ * 5. Phases are SEQUENTIAL
  * 6. Add milestones (start + reception provisoire)
  * 7. Calculate critical path
  * 8. Return the full planning structure
@@ -205,7 +231,7 @@ export async function generatePlanning(params: {
   const items = await fetchSubmissionItems(supabase, submission_id);
 
   if (items.length === 0) {
-    throw new Error('Aucun poste trouvé pour cette soumission');
+    throw new Error('Aucun poste trouve pour cette soumission');
   }
 
   // ── Fetch project name ──
@@ -235,12 +261,13 @@ export async function generatePlanning(params: {
  * Does not require a database connection.
  *
  * Algorithm:
- * 1. Group items by material_group into phases
- * 2. Calculate duration for each task using productivity ratios
- * 3. Apply CFC-based dependency rules between phases
- * 4. Sequence tasks within phases
- * 5. Insert milestones (start + reception provisoire)
- * 6. Compute critical path
+ * 1. Aggregate items by material_group into synthetic tasks (20-40 max)
+ * 2. Map synthetic tasks into SIA standard phases (6+1)
+ * 3. Tasks within a phase are PARALLEL (phase duration = longest task)
+ * 4. Phases are SEQUENTIAL (finish-to-start, lag=0)
+ * 5. Cap total duration at 3 years; scale down if exceeded
+ * 6. Insert milestones (start + reception provisoire)
+ * 7. Compute critical path
  */
 export function generatePlanningFromItems(
   items: SubmissionItemInput[],
@@ -254,34 +281,34 @@ export function generatePlanningFromItems(
 
   logEntries.push(`[planning] Generating from ${items.length} items, start=${config.start_date}, type=${config.project_type}`);
 
-  // ── Step 1: Group items into phases ──
-  const phaseGroupMap = new Map<string, SubmissionItemInput[]>();
+  // ── Step 1: Aggregate items into synthetic tasks by material_group ──
+  const syntheticTasks = aggregateIntoSyntheticTasks(items, config, startDate, orgCorrections);
+  logEntries.push(`[planning] ${syntheticTasks.size} synthetic tasks from ${items.length} items`);
 
-  for (const item of items) {
-    if (!item.quantity || !item.unit) continue;
-    const phaseName = PHASE_NAME_MAP[item.material_group] ?? item.material_group;
-    if (!phaseGroupMap.has(phaseName)) phaseGroupMap.set(phaseName, []);
-    phaseGroupMap.get(phaseName)!.push(item);
+  // ── Step 2: Map synthetic tasks into SIA phases ──
+  const phaseMap = mapToSIAPhases(syntheticTasks);
+  logEntries.push(`[planning] ${phaseMap.size} SIA phases`);
+
+  // ── Step 3: Calculate total duration and check cap ──
+  let totalDuration = 0;
+  for (const [, tasks] of phaseMap) {
+    // Phase duration = longest task (parallel within phase)
+    const phaseDuration = Math.max(...tasks.map((t) => t.duration_days), 0);
+    totalDuration += phaseDuration;
   }
 
-  logEntries.push(`[planning] ${phaseGroupMap.size} phases from ${items.length} items`);
+  // Scale factor: if total exceeds MAX_TOTAL_DAYS, compress proportionally
+  let scaleFactor = 1.0;
+  if (totalDuration > MAX_TOTAL_DAYS) {
+    scaleFactor = MAX_TOTAL_DAYS / totalDuration;
+    logEntries.push(`[planning] WARNING: Raw duration ${totalDuration} days exceeds cap ${MAX_TOTAL_DAYS}. Scaling by ${scaleFactor.toFixed(3)}`);
+  }
 
-  // Sort phases by CFC construction sequence
-  const sortedPhaseNames = Array.from(phaseGroupMap.keys()).sort((a, b) => {
-    const itemsA = phaseGroupMap.get(a)!;
-    const itemsB = phaseGroupMap.get(b)!;
-    const orderA = Math.min(...itemsA.map((i) => getPhaseOrder(i.cfc_code ?? '999')));
-    const orderB = Math.min(...itemsB.map((i) => getPhaseOrder(i.cfc_code ?? '999')));
-    return orderA - orderB;
-  });
-
-  // ── Step 2: Calculate durations and build phases ──
+  // ── Step 4: Build phases with parallel tasks and sequential phases ──
   const phases: GeneratedPhase[] = [];
   const flatTasks: GeneratedTask[] = [];
-  const taskCfcMap: { cfcCode: string; taskIndex: number }[] = [];
-
-  let currentDate = new Date(startDate);
   let globalSortOrder = 0;
+  let currentDate = new Date(startDate);
 
   // Insert "Start" milestone
   const startMilestone: GeneratedTask = {
@@ -305,61 +332,55 @@ export function generatePlanningFromItems(
     sort_order: globalSortOrder++,
   };
 
-  for (let pi = 0; pi < sortedPhaseNames.length; pi++) {
-    const phaseName = sortedPhaseNames[pi];
-    const phaseItems = phaseGroupMap.get(phaseName)!;
-    const color = PHASE_COLORS[pi % PHASE_COLORS.length];
-    const cfcCodes = [...new Set(phaseItems.map((i) => i.cfc_code).filter(Boolean))] as string[];
+  // Sort phases by SIA order
+  const sortedPhaseEntries = Array.from(phaseMap.entries()).sort(
+    (a, b) => getSIAPhaseOrder(a[0]) - getSIAPhaseOrder(b[0]),
+  );
 
+  for (let pi = 0; pi < sortedPhaseEntries.length; pi++) {
+    const [phaseName, phaseSyntheticTasks] = sortedPhaseEntries[pi];
+    const phaseDef = findSIAPhase(phaseName);
+    const color = phaseDef?.color ?? DIVERS_PHASE.color;
+
+    // All CFC codes in this phase
+    const cfcCodes = [
+      ...new Set(
+        phaseSyntheticTasks
+          .map((t) => t.cfc_code)
+          .filter(Boolean) as string[],
+      ),
+    ];
+
+    const phaseStartDate = new Date(currentDate);
     const phaseTasks: GeneratedTask[] = [];
-    let phaseStartDate = new Date(currentDate);
-    let phaseEndDate = new Date(currentDate);
 
-    for (const item of phaseItems) {
-      if (!item.quantity || !item.unit) continue;
+    // Within this phase, all tasks start at the same date (PARALLEL)
+    let maxPhaseDuration = 0;
 
-      const cfcCode = item.cfc_code ?? '000';
-      let durationResult: DurationResult;
+    for (const synTask of phaseSyntheticTasks) {
+      // Apply scale factor if total was capped
+      const scaledDuration = Math.max(
+        MIN_TASK_DAYS,
+        Math.ceil(synTask.duration_days * scaleFactor),
+      );
 
-      try {
-        durationResult = calculateDuration({
-          quantity: item.quantity,
-          unit: item.unit,
-          cfc_code: cfcCode,
-          team_size: findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2,
-          start_date: currentDate,
-          project_type: config.project_type,
-          canton: config.canton,
-          org_corrections: orgCorrections,
-        });
-      } catch {
-        durationResult = {
-          duration_days: 5,
-          base_duration_days: 5,
-          productivity_ratio: 0,
-          productivity_source: 'ai_estimate',
-          adjustment_factors: {},
-        };
-      }
-
-      const taskStartDate = new Date(currentDate);
-      const taskEndDate = addWorkingDays(taskStartDate, durationResult.duration_days);
+      const taskEndDate = addWorkingDays(phaseStartDate, scaledDuration);
 
       const task: GeneratedTask = {
-        submission_item_id: item.id,
-        name: item.description.substring(0, 120),
-        description: item.description,
-        cfc_code: cfcCode,
-        start_date: formatDate(taskStartDate),
+        submission_item_id: null, // Aggregated task — maps to multiple items
+        name: synTask.name,
+        description: synTask.description,
+        cfc_code: synTask.cfc_code,
+        start_date: formatDate(phaseStartDate),
         end_date: formatDate(taskEndDate),
-        duration_days: durationResult.duration_days,
-        quantity: item.quantity,
-        unit: item.unit,
-        productivity_ratio: durationResult.productivity_ratio,
-        productivity_source: durationResult.productivity_source,
-        adjustment_factors: durationResult.adjustment_factors,
-        base_duration_days: durationResult.base_duration_days,
-        team_size: findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2,
+        duration_days: scaledDuration,
+        quantity: synTask.quantity,
+        unit: synTask.unit,
+        productivity_ratio: synTask.productivity_ratio,
+        productivity_source: synTask.productivity_source,
+        adjustment_factors: synTask.adjustment_factors,
+        base_duration_days: synTask.base_duration_days,
+        team_size: synTask.team_size,
         progress: 0,
         is_milestone: false,
         milestone_type: null,
@@ -367,15 +388,15 @@ export function generatePlanningFromItems(
       };
 
       phaseTasks.push(task);
-      const taskIndex = flatTasks.length + 1; // +1 for start milestone at index 0
       flatTasks.push(task);
-      taskCfcMap.push({ cfcCode, taskIndex });
 
-      if (taskEndDate > phaseEndDate) phaseEndDate = taskEndDate;
-
-      // Tasks within same phase start sequentially
-      currentDate = new Date(taskEndDate);
+      if (scaledDuration > maxPhaseDuration) {
+        maxPhaseDuration = scaledDuration;
+      }
     }
+
+    // Phase end = start + longest task duration
+    const phaseEndDate = addWorkingDays(phaseStartDate, maxPhaseDuration);
 
     phases.push({
       name: phaseName,
@@ -386,93 +407,64 @@ export function generatePlanningFromItems(
       end_date: formatDate(phaseEndDate),
       tasks: phaseTasks,
     });
+
+    // Next phase starts when this phase ends (sequential)
+    currentDate = new Date(phaseEndDate);
   }
 
-  // ── Step 3: Apply CFC-based dependencies ──
+  logEntries.push(`[planning] ${flatTasks.length} tasks across ${phases.length} phases`);
+
+  // ── Step 5: Create phase-to-phase FS dependencies ──
   const dependencies: GeneratedDependency[] = [];
-
-  for (const rule of DEPENDENCY_RULES) {
-    const fromTasks = taskCfcMap.filter(
-      (t) => t.cfcCode === rule.from_cfc || t.cfcCode.startsWith(rule.from_cfc + '.'),
-    );
-    const toTasks = taskCfcMap.filter(
-      (t) => t.cfcCode === rule.to_cfc || t.cfcCode.startsWith(rule.to_cfc + '.'),
-    );
-
-    if (fromTasks.length > 0 && toTasks.length > 0) {
-      const fromLast = fromTasks[fromTasks.length - 1];
-      const toFirst = toTasks[0];
-
-      // Avoid duplicates
-      const exists = dependencies.some(
-        (d) => d.predecessor_index === fromLast.taskIndex && d.successor_index === toFirst.taskIndex,
-      );
-      if (!exists) {
-        dependencies.push({
-          predecessor_index: fromLast.taskIndex,
-          successor_index: toFirst.taskIndex,
-          dependency_type: rule.type,
-          lag_days: rule.lag_days,
-          source: 'auto',
-        });
-      }
-    }
-  }
-
-  logEntries.push(`[planning] ${dependencies.length} dependencies from CFC rules`);
-
-  // ── Step 4: Recalculate dates based on dependencies ──
   const allTasksFlat = [startMilestone, ...flatTasks];
 
-  for (const dep of dependencies) {
-    const pred = allTasksFlat[dep.predecessor_index];
-    const succ = allTasksFlat[dep.successor_index];
-    if (!pred || !succ) continue;
-
-    let requiredStart: Date;
-    switch (dep.dependency_type) {
-      case 'FS':
-        requiredStart = new Date(pred.end_date);
-        requiredStart.setDate(requiredStart.getDate() + dep.lag_days);
-        break;
-      case 'SS':
-        requiredStart = new Date(pred.start_date);
-        requiredStart.setDate(requiredStart.getDate() + dep.lag_days);
-        break;
-      case 'FF':
-        requiredStart = new Date(pred.end_date);
-        requiredStart.setDate(requiredStart.getDate() + dep.lag_days - succ.duration_days);
-        break;
-      case 'SF':
-        requiredStart = new Date(pred.start_date);
-        requiredStart.setDate(requiredStart.getDate() + dep.lag_days - succ.duration_days);
-        break;
-      default:
-        requiredStart = new Date(pred.end_date);
-        requiredStart.setDate(requiredStart.getDate() + dep.lag_days);
-    }
-
-    const currentStart = new Date(succ.start_date);
-    if (requiredStart > currentStart) {
-      succ.start_date = formatDate(requiredStart);
-      const newEnd = addWorkingDays(requiredStart, succ.duration_days);
-      succ.end_date = formatDate(newEnd);
-    }
+  // Start milestone → first task of first phase
+  if (phases.length > 0 && phases[0].tasks.length > 0) {
+    // The first task after the start milestone is at index 1
+    dependencies.push({
+      predecessor_index: 0, // start milestone
+      successor_index: 1,   // first task of first phase
+      dependency_type: 'FS',
+      lag_days: 0,
+      source: 'auto',
+    });
   }
 
-  // Update phase dates from tasks
-  for (const phase of phases) {
-    if (phase.tasks.length > 0) {
-      const starts = phase.tasks.map((t) => t.start_date).sort();
-      const ends = phase.tasks.map((t) => t.end_date).sort();
-      phase.start_date = starts[0];
-      phase.end_date = ends[ends.length - 1];
+  // Phase N last task → Phase N+1 first task (FS, lag=0)
+  let taskOffset = 1; // skip start milestone
+  for (let pi = 0; pi < phases.length - 1; pi++) {
+    const currentPhaseTaskCount = phases[pi].tasks.length;
+    const nextPhaseFirstTaskIndex = taskOffset + currentPhaseTaskCount;
+
+    // Use the longest task in the current phase as the predecessor
+    // (it determines when the phase actually ends)
+    let longestTaskIndex = taskOffset;
+    let longestDuration = 0;
+    for (let ti = 0; ti < currentPhaseTaskCount; ti++) {
+      const task = allTasksFlat[taskOffset + ti];
+      if (task && task.duration_days > longestDuration) {
+        longestDuration = task.duration_days;
+        longestTaskIndex = taskOffset + ti;
+      }
     }
+
+    if (nextPhaseFirstTaskIndex < allTasksFlat.length) {
+      dependencies.push({
+        predecessor_index: longestTaskIndex,
+        successor_index: nextPhaseFirstTaskIndex,
+        dependency_type: 'FS',
+        lag_days: 0,
+        source: 'auto',
+      });
+    }
+
+    taskOffset += currentPhaseTaskCount;
   }
 
-  // ── Step 5: Insert "Reception provisoire" milestone ──
-  const allEndDates = allTasksFlat.map((t) => t.end_date).sort();
-  const projectEndDate = allEndDates[allEndDates.length - 1] || config.start_date;
+  // ── Step 6: Insert "Reception provisoire" milestone ──
+  const projectEndDate = phases.length > 0
+    ? phases[phases.length - 1].end_date
+    : config.start_date;
 
   const receptionMilestone: GeneratedTask = {
     submission_item_id: null,
@@ -495,18 +487,45 @@ export function generatePlanningFromItems(
     sort_order: globalSortOrder++,
   };
 
-  // Add milestones to the first and last phase
+  // Add dependency from last phase longest task to reception milestone
+  if (phases.length > 0) {
+    // Find longest task in the last phase (before milestones are added)
+    let longestIdx = -1;
+    let longestDur = 0;
+    const lastPhaseTasks = phases[phases.length - 1].tasks;
+    for (const t of lastPhaseTasks) {
+      if (!t.is_milestone && t.duration_days > longestDur) {
+        longestDur = t.duration_days;
+        longestIdx = t.sort_order;
+      }
+    }
+    if (longestIdx >= 0) {
+      dependencies.push({
+        predecessor_index: longestIdx,
+        successor_index: receptionMilestone.sort_order,
+        dependency_type: 'FS',
+        lag_days: 0,
+        source: 'auto',
+      });
+    }
+  }
+
+  logEntries.push(`[planning] ${dependencies.length} dependencies (phase-to-phase + milestones)`);
+
+  // Add milestones to phases
   if (phases.length > 0) {
     phases[0].tasks.unshift(startMilestone);
     phases[phases.length - 1].tasks.push(receptionMilestone);
   }
 
-  // ── Step 6: Critical path ──
-  const cpmTasks = allTasksFlat.map((t) => ({
+  // ── Step 7: Critical path ──
+  const allForCpm = [startMilestone, ...flatTasks, receptionMilestone];
+  const cpmTasks = allForCpm.map((t) => ({
     id: t.sort_order.toString(),
     duration_days: t.duration_days,
     is_milestone: t.is_milestone,
   }));
+
   const cpmDeps = dependencies.map((d) => ({
     predecessor_id: d.predecessor_index.toString(),
     successor_id: d.successor_index.toString(),
@@ -516,6 +535,7 @@ export function generatePlanningFromItems(
   const criticalPath = calculateCriticalPath(cpmTasks, cpmDeps);
 
   logEntries.push(`[planning] Critical path: ${criticalPath.length} tasks`);
+  logEntries.push(`[planning] Total duration: ${projectEndDate} (scale factor: ${scaleFactor.toFixed(3)})`);
   logEntries.push(`[planning] Generated in ${Date.now() - generationStart}ms`);
 
   return {
@@ -531,13 +551,223 @@ export function generatePlanningFromItems(
       generated_at: new Date().toISOString(),
       generation_time_ms: Date.now() - generationStart,
       items_count: items.length,
+      synthetic_tasks_count: flatTasks.length,
       phases_count: phases.length,
       dependencies_count: dependencies.length,
+      scale_factor: scaleFactor,
       critical_path_task_ids: criticalPath,
       config,
       log: logEntries,
     },
   };
+}
+
+// ============================================================================
+// Step 1: Aggregate items into synthetic tasks by material_group
+// ============================================================================
+
+function aggregateIntoSyntheticTasks(
+  items: SubmissionItemInput[],
+  config: PlanningConfig,
+  startDate: Date,
+  orgCorrections?: Array<{ cfc_code: string; corrected_ratio: number }>,
+): Map<string, SyntheticTask> {
+  // Group items by material_group
+  const groupMap = new Map<string, SubmissionItemInput[]>();
+
+  for (const item of items) {
+    if (!item.quantity || !item.unit) continue;
+    const groupName = item.material_group || 'Divers';
+    if (!groupMap.has(groupName)) groupMap.set(groupName, []);
+    groupMap.get(groupName)!.push(item);
+  }
+
+  const syntheticTasks = new Map<string, SyntheticTask>();
+
+  for (const [groupName, groupItems] of groupMap) {
+    // Calculate duration for each item individually, then take the BOTTLENECK (longest)
+    let bottleneckDuration = 0;
+    let bottleneckResult: DurationResult | null = null;
+    let bottleneckTeamSize = 2;
+    let bottleneckCfc: string | null = null;
+
+    // Aggregate quantities if same unit
+    const unitCounts = new Map<string, number>();
+    for (const item of groupItems) {
+      if (item.unit && item.quantity) {
+        const normUnit = item.unit.toLowerCase().replace(/[²³]/g, (m) => m === '²' ? '2' : '3');
+        unitCounts.set(normUnit, (unitCounts.get(normUnit) || 0) + item.quantity);
+      }
+    }
+
+    // Find dominant unit (most items)
+    let dominantUnit: string | null = null;
+    let dominantQty: number | null = null;
+    if (unitCounts.size === 1) {
+      const entries = Array.from(unitCounts.entries());
+      dominantUnit = entries[0][0];
+      dominantQty = entries[0][1];
+    } else if (unitCounts.size > 1) {
+      // Mixed units: use item count as quantity
+      dominantUnit = 'postes';
+      dominantQty = groupItems.length;
+    }
+
+    for (const item of groupItems) {
+      if (!item.quantity || !item.unit) continue;
+
+      const cfcCode = item.cfc_code ?? '000';
+      let durationResult: DurationResult;
+
+      try {
+        durationResult = calculateDuration({
+          quantity: item.quantity,
+          unit: item.unit,
+          cfc_code: cfcCode,
+          team_size: findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2,
+          start_date: startDate,
+          project_type: config.project_type,
+          canton: config.canton,
+          org_corrections: orgCorrections,
+        });
+      } catch {
+        durationResult = {
+          duration_days: 5,
+          base_duration_days: 5,
+          productivity_ratio: 0,
+          productivity_source: 'ai_estimate',
+          adjustment_factors: {},
+        };
+      }
+
+      // Clamp individual item duration
+      const clampedDuration = Math.min(MAX_TASK_DAYS, Math.max(MIN_TASK_DAYS, durationResult.duration_days));
+
+      if (clampedDuration > bottleneckDuration) {
+        bottleneckDuration = clampedDuration;
+        bottleneckResult = durationResult;
+        bottleneckTeamSize = findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2;
+        bottleneckCfc = item.cfc_code;
+      }
+    }
+
+    // Build description: "{N} postes — first 3 descriptions..."
+    const firstDescriptions = groupItems
+      .slice(0, 3)
+      .map((i) => i.description.substring(0, 80))
+      .join(', ');
+    const suffix = groupItems.length > 3 ? `, ... (+${groupItems.length - 3})` : '';
+    const description = `${groupItems.length} postes — ${firstDescriptions}${suffix}`;
+
+    syntheticTasks.set(groupName, {
+      name: groupName,
+      description,
+      source_item_ids: groupItems.map((i) => i.id),
+      cfc_code: bottleneckCfc,
+      duration_days: bottleneckDuration,
+      quantity: dominantQty,
+      unit: dominantUnit,
+      productivity_ratio: bottleneckResult?.productivity_ratio ?? null,
+      productivity_source: bottleneckResult?.productivity_source ?? null,
+      adjustment_factors: bottleneckResult?.adjustment_factors ?? null,
+      base_duration_days: bottleneckResult?.base_duration_days ?? null,
+      team_size: bottleneckTeamSize,
+    });
+  }
+
+  return syntheticTasks;
+}
+
+// ============================================================================
+// Step 2: Map material_groups into SIA standard phases
+// ============================================================================
+
+/**
+ * Normalize a string for case-insensitive, accent-insensitive comparison.
+ */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[àâä]/g, 'a')
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[ùûü]/g, 'u')
+    .replace(/[ôö]/g, 'o')
+    .replace(/[îï]/g, 'i')
+    .replace(/[ç]/g, 'c')
+    .replace(/[œ]/g, 'oe')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Check if a material_group matches a SIA phase group entry.
+ * Uses case-insensitive partial matching:
+ * - "Structure beton" matches group "Beton arme" if they share the word "beton"
+ * - "Béton armé" matches "Beton arme" after normalization
+ */
+function matchesGroup(materialGroup: string, phaseGroup: string): boolean {
+  const normGroup = normalizeForMatch(materialGroup);
+  const normPhase = normalizeForMatch(phaseGroup);
+
+  // Exact match after normalization
+  if (normGroup === normPhase) return true;
+
+  // Check if one contains the other
+  if (normGroup.includes(normPhase) || normPhase.includes(normGroup)) return true;
+
+  // Word-level partial match: if any significant word (3+ chars) overlaps
+  const groupWords = normGroup.split(' ').filter((w) => w.length >= 3);
+  const phaseWords = normPhase.split(' ').filter((w) => w.length >= 3);
+
+  for (const gw of groupWords) {
+    for (const pw of phaseWords) {
+      if (gw === pw) return true;
+    }
+  }
+
+  return false;
+}
+
+function findSIAPhaseForGroup(materialGroup: string): SIAPhaseDefinition {
+  for (const phase of SIA_PHASES) {
+    for (const group of phase.groups) {
+      if (matchesGroup(materialGroup, group)) {
+        return phase;
+      }
+    }
+  }
+  return DIVERS_PHASE;
+}
+
+function findSIAPhase(phaseName: string): SIAPhaseDefinition | null {
+  return SIA_PHASES.find((p) => p.name === phaseName) ?? null;
+}
+
+function getSIAPhaseOrder(phaseName: string): number {
+  const phase = SIA_PHASES.find((p) => p.name === phaseName);
+  return phase?.order ?? DIVERS_PHASE.order;
+}
+
+function mapToSIAPhases(
+  syntheticTasks: Map<string, SyntheticTask>,
+): Map<string, SyntheticTask[]> {
+  const phaseMap = new Map<string, SyntheticTask[]>();
+
+  for (const [, task] of syntheticTasks) {
+    const phase = findSIAPhaseForGroup(task.name);
+    const phaseName = phase.name;
+
+    if (!phaseMap.has(phaseName)) phaseMap.set(phaseName, []);
+    phaseMap.get(phaseName)!.push(task);
+  }
+
+  // Remove empty phases
+  for (const [key, tasks] of phaseMap) {
+    if (tasks.length === 0) phaseMap.delete(key);
+  }
+
+  return phaseMap;
 }
 
 // ============================================================================
