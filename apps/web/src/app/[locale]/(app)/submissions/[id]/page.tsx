@@ -25,8 +25,6 @@ import {
   ListFilter,
   CalendarRange,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;

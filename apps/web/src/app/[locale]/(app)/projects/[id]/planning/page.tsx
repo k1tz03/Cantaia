@@ -32,9 +32,9 @@ export default function ProjectPlanningPage() {
 
   const [loading, setLoading] = useState(true);
   const [planning, setPlanning] = useState<Planning | null>(null);
-  const [phases, setPhases] = useState<PlanningPhase[]>([]);
-  const [tasks, setTasks] = useState<PlanningTask[]>([]);
-  const [dependencies, setDependencies] = useState<PlanningDependency[]>([]);
+  const [_phases, setPhases] = useState<PlanningPhase[]>([]);
+  const [_tasks, setTasks] = useState<PlanningTask[]>([]);
+  const [_dependencies, setDependencies] = useState<PlanningDependency[]>([]);
   const [planningId, setPlanningId] = useState<string | null>(null);
 
   const [showConfig, setShowConfig] = useState(false);

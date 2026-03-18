@@ -4,14 +4,10 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { CalendarRange, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, ExternalLink } from "lucide-react";
 import GanttChart from "@/components/planning/GanttChart";
 import type {
   Planning,
-  PlanningPhase,
-  PlanningTask,
-  PlanningDependency,
-  ZoomLevel,
 } from "@/components/planning/planning-types";
 
 export default function PublicPlanningPage() {
