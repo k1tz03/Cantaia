@@ -1669,6 +1669,8 @@
     "major": "Major",
     "blocking": "Blocking",
     "deadline": "Deadline",
+    "generalNotes": "General notes",
+    "generalNotesPlaceholder": "General observations, additional remarks...",
     "generatePV": "Generate report",
     "generating": "Generating...",
     "reserves": "Deficiencies",

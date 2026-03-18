@@ -1669,6 +1669,8 @@
     "major": "Majeur",
     "blocking": "Bloquant",
     "deadline": "Deadline",
+    "generalNotes": "Notes générales",
+    "generalNotesPlaceholder": "Observations générales, remarques complémentaires...",
     "generatePV": "Générer le PV",
     "generating": "Génération en cours...",
     "reserves": "Réserves",

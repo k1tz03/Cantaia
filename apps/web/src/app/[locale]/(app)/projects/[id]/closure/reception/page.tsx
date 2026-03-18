@@ -55,7 +55,9 @@ export default function ReceptionFormPage() {
 
   const [receptionType, setReceptionType] = useState<"provisional" | "partial" | "final">("provisional");
   const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split("T")[0]);
-  const [receptionLocation, setReceptionLocation] = useState(project.address ? `${project.address}, ${project.city}` : project.city);
+  const [receptionLocation, setReceptionLocation] = useState(
+    project.address ? `${String(project.address)}, ${String(project.city || "")}` : String(project.city || "")
+  );
 
   const initialParticipants: ReceptionParticipant[] = lastMeeting?.participants?.map((p) => ({
     name: p.name,
@@ -323,7 +325,7 @@ export default function ReceptionFormPage() {
                   onClick={() => setShowNewParticipant(false)}
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                  {t("cancel") || "Annuler"}
+                  Annuler
                 </button>
               </div>
             </div>

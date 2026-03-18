@@ -1669,6 +1669,8 @@
     "major": "Schwerwiegend",
     "blocking": "Blockierend",
     "deadline": "Frist",
+    "generalNotes": "Allgemeine Bemerkungen",
+    "generalNotesPlaceholder": "Allgemeine Beobachtungen, zusätzliche Bemerkungen...",
     "generatePV": "Protokoll erstellen",
     "generating": "Wird erstellt...",
     "reserves": "Mängel",

@@ -6,6 +6,17 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 120;
 
+/** Map frontend project types to DB CHECK constraint values */
+function mapProjectType(frontendType: string | undefined): string {
+  const map: Record<string, string> = {
+    neuf: "new",
+    renovation: "renovation",
+    extension: "extension",
+    amenagement: "interior",
+  };
+  return map[frontendType || ""] || frontendType || "new";
+}
+
 /**
  * POST /api/planning/generate
  * Generates a project planning from a submission's analyzed items.
@@ -71,7 +82,7 @@ export async function POST(request: NextRequest) {
       config: {
         start_date: config.start_date,
         target_end_date: config.target_end_date,
-        project_type: config.project_type || "new",
+        project_type: mapProjectType(config.project_type),
         canton: config.canton,
         constraints: config.constraints,
       },
@@ -101,7 +112,7 @@ export async function POST(request: NextRequest) {
         start_date: config.start_date,
         target_end_date: config.target_end_date || null,
         calculated_end_date: planning.calculated_end_date,
-        project_type: config.project_type || "new",
+        project_type: mapProjectType(config.project_type),
         location_canton: config.canton || null,
         config: { constraints: config.constraints },
         ai_generation_log: planning.ai_generation_log,
