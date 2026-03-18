@@ -7,7 +7,6 @@ import { Link } from "@/i18n/navigation";
 import {
   ArrowLeft,
   CalendarRange,
-  Download,
   Share2,
   RefreshCw,
   Loader2,
