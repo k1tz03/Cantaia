@@ -2823,7 +2823,97 @@
       "start": "Construction start",
       "receptionProvisoire": "Provisional acceptance (SIA 118)"
     },
+    "baseline": {
+      "save": "Save baseline",
+      "show": "Show baseline",
+      "hide": "Hide baseline",
+      "reset": "Reset baseline",
+      "saved": "Baseline saved",
+      "delay": "Delay"
+    },
+    "criticalPathHighlight": "Show critical path",
+    "criticalPathDays": "{days}d on critical path",
+    "wbs": {
+      "column": "WBS",
+      "milestone": "M"
+    },
     "poweredBy": "Powered by Cantaia",
-    "tryFree": "Free trial"
+    "tryFree": "Free trial",
+    "toolbar": {
+      "addPhase": "Phase",
+      "addTask": "Task",
+      "addMilestone": "Milestone",
+      "selectionMode": "Selection",
+      "undo": "Undo",
+      "redo": "Redo"
+    },
+    "contextMenu": {
+      "addTaskInPhase": "Add a task",
+      "rename": "Rename",
+      "changeColor": "Change color",
+      "duplicate": "Duplicate",
+      "insertBefore": "Insert phase before",
+      "insertAfter": "Insert phase after",
+      "delete": "Delete",
+      "edit": "Edit",
+      "moveToPhase": "Move to...",
+      "convertToMilestone": "Convert to milestone",
+      "createDependency": "Create dependency",
+      "deleteSelection": "Delete selection",
+      "moveSelection": "Move selection",
+      "duplicateSelection": "Duplicate selection",
+      "addPhaseHere": "Add a phase here",
+      "addMilestoneHere": "Add a milestone here",
+      "paste": "Paste",
+      "confirmDeletePhase": "Delete this phase and all its tasks?",
+      "confirmDeleteTask": "Delete this task?",
+      "confirmDeleteSelection": "Delete selected items?"
+    },
+    "emptyPlanning": {
+      "createEmpty": "Create empty schedule",
+      "title": "Schedule title",
+      "or": "or",
+      "startDate": "Start date",
+      "endDate": "Target end date",
+      "create": "Create",
+      "creating": "Creating..."
+    },
+    "defaults": {
+      "newPhase": "New phase",
+      "newTask": "New task",
+      "newMilestone": "New milestone",
+      "copy": "(copy)",
+      "startMilestone": "Construction start",
+      "endMilestone": "Provisional acceptance"
+    },
+    "sidePanel": {
+      "dates": "Dates and duration",
+      "details": "Details",
+      "progress": "Progress",
+      "dependencies": "Dependencies",
+      "noDependencies": "No dependencies",
+      "notes": "Notes",
+      "addPredecessor": "Add a predecessor",
+      "selectTask": "Select a task",
+      "depType": "Type",
+      "lag": "Lag",
+      "lagDays": "d",
+      "confirm": "Confirm",
+      "team": "Team",
+      "teamSize": "people",
+      "supplier": "Supplier",
+      "noSupplier": "None",
+      "phase": "Phase",
+      "cfcCode": "CFC code",
+      "convertToMilestone": "Convert to milestone",
+      "deleteConfirm": "Delete this task?",
+      "deleteConfirmDesc": "This action cannot be undone."
+    },
+    "selection": {
+      "selected": "{count} tasks selected",
+      "move": "Move",
+      "moveDays": "Number of days (+/-)",
+      "deselect": "Deselect"
+    }
   }
 }

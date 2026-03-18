@@ -2823,7 +2823,97 @@
       "start": "Debut de chantier",
       "receptionProvisoire": "Reception provisoire (SIA 118)"
     },
+    "baseline": {
+      "save": "Figer la baseline",
+      "show": "Afficher la baseline",
+      "hide": "Masquer la baseline",
+      "reset": "Reinitialiser la baseline",
+      "saved": "Baseline figee",
+      "delay": "Retard"
+    },
+    "criticalPathHighlight": "Afficher le chemin critique",
+    "criticalPathDays": "{days}j sur le chemin critique",
+    "wbs": {
+      "column": "WBS",
+      "milestone": "J"
+    },
     "poweredBy": "Propulse par Cantaia",
-    "tryFree": "Essai gratuit"
+    "tryFree": "Essai gratuit",
+    "toolbar": {
+      "addPhase": "Phase",
+      "addTask": "Tache",
+      "addMilestone": "Jalon",
+      "selectionMode": "Selection",
+      "undo": "Annuler",
+      "redo": "Retablir"
+    },
+    "contextMenu": {
+      "addTaskInPhase": "Ajouter une tache",
+      "rename": "Renommer",
+      "changeColor": "Changer la couleur",
+      "duplicate": "Dupliquer",
+      "insertBefore": "Inserer une phase avant",
+      "insertAfter": "Inserer une phase apres",
+      "delete": "Supprimer",
+      "edit": "Editer",
+      "moveToPhase": "Deplacer vers...",
+      "convertToMilestone": "Convertir en jalon",
+      "createDependency": "Creer une dependance",
+      "deleteSelection": "Supprimer la selection",
+      "moveSelection": "Deplacer la selection",
+      "duplicateSelection": "Dupliquer la selection",
+      "addPhaseHere": "Ajouter une phase ici",
+      "addMilestoneHere": "Ajouter un jalon ici",
+      "paste": "Coller",
+      "confirmDeletePhase": "Supprimer cette phase et toutes ses taches ?",
+      "confirmDeleteTask": "Supprimer cette tache ?",
+      "confirmDeleteSelection": "Supprimer les elements selectionnes ?"
+    },
+    "emptyPlanning": {
+      "createEmpty": "Creer un planning vide",
+      "title": "Titre du planning",
+      "or": "ou",
+      "startDate": "Date de debut",
+      "endDate": "Date de fin souhaitee",
+      "create": "Creer",
+      "creating": "Creation..."
+    },
+    "defaults": {
+      "newPhase": "Nouvelle phase",
+      "newTask": "Nouvelle tache",
+      "newMilestone": "Nouveau jalon",
+      "copy": "(copie)",
+      "startMilestone": "Debut de chantier",
+      "endMilestone": "Reception provisoire"
+    },
+    "sidePanel": {
+      "dates": "Dates et duree",
+      "details": "Details",
+      "progress": "Avancement",
+      "dependencies": "Dependances",
+      "noDependencies": "Aucune dependance",
+      "notes": "Notes",
+      "addPredecessor": "Ajouter un predecesseur",
+      "selectTask": "Selectionner une tache",
+      "depType": "Type",
+      "lag": "Decalage",
+      "lagDays": "j",
+      "confirm": "Confirmer",
+      "team": "Equipe",
+      "teamSize": "personnes",
+      "supplier": "Fournisseur",
+      "noSupplier": "Aucun",
+      "phase": "Phase",
+      "cfcCode": "Code CFC",
+      "convertToMilestone": "Convertir en jalon",
+      "deleteConfirm": "Supprimer cette tache ?",
+      "deleteConfirmDesc": "Cette action est irreversible."
+    },
+    "selection": {
+      "selected": "{count} taches selectionnees",
+      "move": "Deplacer",
+      "moveDays": "Nombre de jours (+/-)",
+      "deselect": "Deselectionner"
+    }
   }
 }

@@ -19,6 +19,16 @@ interface GanttBarProps {
   onResizeEnd: (newDuration: number) => void;
   readOnly?: boolean;
   rowIndex: number;
+  /** Dependency drag — called when user starts dragging from a connection point */
+  onDependencyDragStart?: (taskId: string, side: "left" | "right") => void;
+  /** Dependency drag — called when user finishes dragging (null = cancelled) */
+  onDependencyDragEnd?: (targetTaskId: string | null) => void;
+  /** True when another bar is being dragged and this bar is a valid drop target */
+  isDependencyTarget?: boolean;
+  /** Critical path chain highlighting — dim when chain is active but task is not in it */
+  dimmed?: boolean;
+  /** Critical path chain highlighting — glow when task is part of highlighted chain */
+  criticalGlow?: boolean;
 }
 
 function daysBetween(a: Date, b: Date): number {
@@ -46,6 +56,11 @@ export default function GanttBar({
   onResizeEnd,
   readOnly,
   rowIndex,
+  onDependencyDragStart,
+  onDependencyDragEnd,
+  isDependencyTarget,
+  dimmed,
+  criticalGlow,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -109,6 +124,17 @@ export default function GanttBar({
     [readOnly, pixelsPerDay, task.duration_days, onResizeEnd],
   );
 
+  // Connection point drag start (for dependency creation)
+  const handleConnectionPointerDown = useCallback(
+    (e: React.PointerEvent, side: "left" | "right") => {
+      if (readOnly) return;
+      e.stopPropagation();
+      e.preventDefault();
+      onDependencyDragStart?.(task.id, side);
+    },
+    [readOnly, task.id, onDependencyDragStart],
+  );
+
   // Handle drag end (called from parent DndContext)
   // Note: actual drag end is handled in GanttTimeline via DndContext onDragEnd
 
@@ -134,6 +160,15 @@ export default function GanttBar({
     setShowConnectionPoints(false);
   }, []);
 
+  // Handle mouse up on connection point — used as drop target for dependency drag
+  const handleConnectionMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDependencyDragEnd?.(task.id);
+    },
+    [task.id, onDependencyDragEnd],
+  );
+
   const effectiveWidth = Math.max(barWidth + resizeDelta, 4);
   const progressWidth =
     task.progress > 0 ? effectiveWidth * (task.progress / 100) : 0;
@@ -148,7 +183,7 @@ export default function GanttBar({
             node;
         }}
         initial={{ scaleX: 0, opacity: 0 }}
-        animate={{ scaleX: 1, opacity: 1 }}
+        animate={{ scaleX: 1, opacity: dimmed ? 0.4 : 1 }}
         transition={{
           type: "spring",
           stiffness: 300,
@@ -169,6 +204,8 @@ export default function GanttBar({
           "rounded-md cursor-pointer select-none group/bar",
           isDragging ? "opacity-80 shadow-lg" : "",
           isSelected ? "ring-2 ring-blue-500 ring-offset-1" : "",
+          isDependencyTarget ? "ring-2 ring-green-500 ring-offset-1" : "",
+          criticalGlow ? "shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -204,7 +241,7 @@ export default function GanttBar({
           />
         )}
 
-        {/* Task name inside bar — only when bar is wide enough */}
+        {/* Task name inside bar -- only when bar is wide enough */}
         {showLabelInside && (
           <div
             className="absolute inset-0 flex items-center px-2 text-xs font-medium overflow-hidden whitespace-nowrap text-ellipsis"
@@ -223,13 +260,25 @@ export default function GanttBar({
           />
         )}
 
-        {/* Connection points */}
-        {showConnectionPoints && !readOnly && (
+        {/* Connection points for dependency creation */}
+        {(showConnectionPoints || isDependencyTarget) && !readOnly && (
           <>
             {/* Left connection point */}
-            <div className="absolute left-[-5px] top-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10" />
+            <div
+              className="absolute left-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10 cursor-crosshair"
+              onPointerDown={(e) => handleConnectionPointerDown(e, "left")}
+              onMouseUp={handleConnectionMouseUp}
+            >
+              <div className="absolute inset-[-4px]" />
+            </div>
             {/* Right connection point */}
-            <div className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-[10px] h-[10px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10" />
+            <div
+              className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10 cursor-crosshair"
+              onPointerDown={(e) => handleConnectionPointerDown(e, "right")}
+              onMouseUp={handleConnectionMouseUp}
+            >
+              <div className="absolute inset-[-4px]" />
+            </div>
           </>
         )}
       </motion.div>

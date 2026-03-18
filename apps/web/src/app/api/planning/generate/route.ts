@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { submission_id, project_id, config } = body;
+    const { submission_id, project_id, config, source } = body;
 
-    if (!submission_id || !project_id || !config?.start_date) {
+    if (!project_id || !config?.start_date) {
       return NextResponse.json(
-        { error: "submission_id, project_id, and config.start_date are required" },
+        { error: "project_id and config.start_date are required" },
         { status: 400 },
       );
     }
@@ -60,6 +60,120 @@ export async function POST(request: NextRequest) {
     if (!project || project.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // ─── Manual / empty planning ────────────────────────────────────────────────
+    if (source === "manual" || !submission_id) {
+      console.log(`[planning/generate] Creating empty planning for project=${project.name}`);
+
+      const startDate = config.start_date;
+      const targetEnd = config.target_end_date || (() => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + 180);
+        return d.toISOString().split("T")[0];
+      })();
+
+      const planningTitle = config.title || `Planning — ${project.name}`;
+
+      // Delete existing planning for this project
+      try {
+        await (admin as any)
+          .from("project_plannings")
+          .delete()
+          .eq("project_id", project_id)
+          .eq("organization_id", userProfile.organization_id);
+      } catch {
+        // Ignore
+      }
+
+      // Insert planning record
+      const { data: planningRow, error: planningError } = await (admin as any)
+        .from("project_plannings")
+        .insert({
+          project_id,
+          submission_id: null,
+          organization_id: userProfile.organization_id,
+          title: planningTitle,
+          status: "draft",
+          start_date: startDate,
+          target_end_date: targetEnd,
+          calculated_end_date: targetEnd,
+          project_type: "new",
+          location_canton: null,
+          config: {},
+          ai_generation_log: null,
+          created_by: user.id,
+        })
+        .select("id")
+        .single();
+
+      if (planningError || !planningRow) {
+        console.error("[planning/generate] Insert empty planning error:", planningError);
+        return NextResponse.json({ error: "Failed to save planning" }, { status: 500 });
+      }
+
+      const planningId = planningRow.id;
+
+      // Insert 2 milestones as tasks (no phases needed for milestones)
+      // Create a default phase to hold future tasks
+      const { data: phaseRow } = await (admin as any)
+        .from("planning_phases")
+        .insert({
+          planning_id: planningId,
+          name: "Phase 1",
+          cfc_codes: [],
+          color: "#3B82F6",
+          sort_order: 0,
+          start_date: startDate,
+          end_date: targetEnd,
+        })
+        .select("id")
+        .single();
+
+      // Milestone: Start
+      await (admin as any)
+        .from("planning_tasks")
+        .insert({
+          planning_id: planningId,
+          phase_id: phaseRow?.id || null,
+          name: "Debut de chantier",
+          start_date: startDate,
+          end_date: startDate,
+          duration_days: 0,
+          team_size: 1,
+          progress: 0,
+          is_milestone: true,
+          milestone_type: "start",
+          sort_order: 0,
+        });
+
+      // Milestone: End
+      await (admin as any)
+        .from("planning_tasks")
+        .insert({
+          planning_id: planningId,
+          phase_id: phaseRow?.id || null,
+          name: "Reception provisoire",
+          start_date: targetEnd,
+          end_date: targetEnd,
+          duration_days: 0,
+          team_size: 1,
+          progress: 0,
+          is_milestone: true,
+          milestone_type: "reception_provisoire",
+          sort_order: 1,
+        });
+
+      console.log(`[planning/generate] Empty planning created: id=${planningId}`);
+
+      return NextResponse.json({
+        success: true,
+        planning_id: planningId,
+        phases_count: 1,
+        calculated_end_date: targetEnd,
+      });
+    }
+
+    // ─── Submission-based planning ──────────────────────────────────────────────
 
     // Verify submission belongs to the same project
     const { data: submission } = await (admin as any)

@@ -2823,7 +2823,97 @@
       "start": "Baubeginn",
       "receptionProvisoire": "Provisorische Abnahme (SIA 118)"
     },
+    "baseline": {
+      "save": "Baseline speichern",
+      "show": "Baseline anzeigen",
+      "hide": "Baseline ausblenden",
+      "reset": "Baseline zurucksetzen",
+      "saved": "Baseline gespeichert",
+      "delay": "Verzug"
+    },
+    "criticalPathHighlight": "Kritischen Pfad anzeigen",
+    "criticalPathDays": "{days}T auf dem kritischen Pfad",
+    "wbs": {
+      "column": "PSP",
+      "milestone": "M"
+    },
     "poweredBy": "Bereitgestellt von Cantaia",
-    "tryFree": "Kostenlos testen"
+    "tryFree": "Kostenlos testen",
+    "toolbar": {
+      "addPhase": "Phase",
+      "addTask": "Aufgabe",
+      "addMilestone": "Meilenstein",
+      "selectionMode": "Auswahl",
+      "undo": "Ruckgangig",
+      "redo": "Wiederherstellen"
+    },
+    "contextMenu": {
+      "addTaskInPhase": "Aufgabe hinzufugen",
+      "rename": "Umbenennen",
+      "changeColor": "Farbe andern",
+      "duplicate": "Duplizieren",
+      "insertBefore": "Phase davor einfugen",
+      "insertAfter": "Phase danach einfugen",
+      "delete": "Loschen",
+      "edit": "Bearbeiten",
+      "moveToPhase": "Verschieben nach...",
+      "convertToMilestone": "In Meilenstein umwandeln",
+      "createDependency": "Abhangigkeit erstellen",
+      "deleteSelection": "Auswahl loschen",
+      "moveSelection": "Auswahl verschieben",
+      "duplicateSelection": "Auswahl duplizieren",
+      "addPhaseHere": "Phase hier hinzufugen",
+      "addMilestoneHere": "Meilenstein hier hinzufugen",
+      "paste": "Einfugen",
+      "confirmDeletePhase": "Diese Phase und alle Aufgaben loschen?",
+      "confirmDeleteTask": "Diese Aufgabe loschen?",
+      "confirmDeleteSelection": "Ausgewahlte Elemente loschen?"
+    },
+    "emptyPlanning": {
+      "createEmpty": "Leeren Zeitplan erstellen",
+      "title": "Zeitplan-Titel",
+      "or": "oder",
+      "startDate": "Startdatum",
+      "endDate": "Gewunschtes Enddatum",
+      "create": "Erstellen",
+      "creating": "Wird erstellt..."
+    },
+    "defaults": {
+      "newPhase": "Neue Phase",
+      "newTask": "Neue Aufgabe",
+      "newMilestone": "Neuer Meilenstein",
+      "copy": "(Kopie)",
+      "startMilestone": "Baubeginn",
+      "endMilestone": "Provisorische Abnahme"
+    },
+    "sidePanel": {
+      "dates": "Daten und Dauer",
+      "details": "Details",
+      "progress": "Fortschritt",
+      "dependencies": "Abhangigkeiten",
+      "noDependencies": "Keine Abhangigkeiten",
+      "notes": "Notizen",
+      "addPredecessor": "Vorganger hinzufugen",
+      "selectTask": "Aufgabe auswahlen",
+      "depType": "Typ",
+      "lag": "Versatz",
+      "lagDays": "T",
+      "confirm": "Bestatigen",
+      "team": "Team",
+      "teamSize": "Personen",
+      "supplier": "Lieferant",
+      "noSupplier": "Keiner",
+      "phase": "Phase",
+      "cfcCode": "CFC-Code",
+      "convertToMilestone": "In Meilenstein umwandeln",
+      "deleteConfirm": "Diese Aufgabe loschen?",
+      "deleteConfirmDesc": "Diese Aktion kann nicht ruckgangig gemacht werden."
+    },
+    "selection": {
+      "selected": "{count} Aufgaben ausgewahlt",
+      "move": "Verschieben",
+      "moveDays": "Anzahl Tage (+/-)",
+      "deselect": "Auswahl aufheben"
+    }
   }
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import type { PlanningDependency, TaskPosition } from "./planning-types";
-// ROW_HEIGHT available from planning-types if needed
 
 interface GanttDependencyArrowsProps {
   dependencies: PlanningDependency[];
@@ -10,6 +9,8 @@ interface GanttDependencyArrowsProps {
   criticalPath: string[];
   totalWidth?: number;
   totalHeight?: number;
+  /** When set, dependencies between tasks in this chain are highlighted red + thicker */
+  highlightedChain?: string[];
 }
 
 /** Build a smooth bezier path from predecessor end to successor start (FS dependency) */
@@ -82,8 +83,6 @@ function buildArrowhead(
   }
 
   const size = 5;
-  // For FS/SS the arrow points right toward the bar, so triangle opens left
-  // For FF/SF the arrow points left away
   return `M ${x} ${y} L ${x - size * dx} ${y - size} L ${x - size * dx} ${y + size} Z`;
 }
 
@@ -93,8 +92,14 @@ export default function GanttDependencyArrows({
   criticalPath,
   totalWidth,
   totalHeight,
+  highlightedChain,
 }: GanttDependencyArrowsProps) {
-  const criticalSet = new Set(criticalPath);
+  const criticalSet = useMemo(() => new Set(criticalPath), [criticalPath]);
+  const chainSet = useMemo(
+    () => new Set(highlightedChain || []),
+    [highlightedChain],
+  );
+  const hasChain = chainSet.size > 0;
 
   // Skip rendering if no dependencies or no task positions
   if (!dependencies.length || !taskPositions.size) return null;
@@ -129,6 +134,17 @@ export default function GanttDependencyArrows({
         >
           <path d="M 0 0 L 8 4 L 0 8 Z" fill="#EF4444" />
         </marker>
+        {/* Arrowhead marker for highlighted chain */}
+        <marker
+          id="arrow-red-thick"
+          markerWidth="10"
+          markerHeight="10"
+          refX="7"
+          refY="5"
+          orient="auto"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="#DC2626" />
+        </marker>
       </defs>
 
       {dependencies.map((dep) => {
@@ -140,24 +156,45 @@ export default function GanttDependencyArrows({
           criticalSet.has(dep.predecessor_id) &&
           criticalSet.has(dep.successor_id);
 
+        const isInChain =
+          hasChain &&
+          chainSet.has(dep.predecessor_id) &&
+          chainSet.has(dep.successor_id);
+
+        // Dim non-chain arrows when chain is active
+        const isDimmed = hasChain && !isInChain;
+
         const pathD = buildArrowPath(dep, fromPos, toPos);
         const arrowD = buildArrowhead(dep, toPos);
 
+        const strokeColor = isInChain
+          ? "#DC2626"
+          : isCritical
+            ? "#EF4444"
+            : "#9CA3AF";
+        const strokeW = isInChain ? 3 : isCritical ? 2 : 1.5;
+        const markerId = isInChain
+          ? "arrow-red-thick"
+          : isCritical
+            ? "arrow-red"
+            : "arrow-gray";
+
         return (
-          <g key={dep.id}>
+          <g key={dep.id} opacity={isDimmed ? 0.3 : 1}>
             {/* Arrow path */}
             <path
               d={pathD}
               fill="none"
-              stroke={isCritical ? "#EF4444" : "#9CA3AF"}
-              strokeWidth={isCritical ? 2 : 1.5}
+              stroke={strokeColor}
+              strokeWidth={strokeW}
               strokeDasharray={dep.source === "auto" ? "6,3" : undefined}
-              markerEnd={`url(#arrow-${isCritical ? "red" : "gray"})`}
+              markerEnd={`url(#${markerId})`}
             />
             {/* Arrowhead fill */}
             <path
               d={arrowD}
-              fill={isCritical ? "#EF4444" : "#9CA3AF"}
+              fill={strokeColor}
+              opacity={isDimmed ? 0.3 : 1}
             />
           </g>
         );
