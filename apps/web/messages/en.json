@@ -445,6 +445,7 @@
     "tab_visits": "Visits",
     "tab_submissions": "Submissions",
     "tab_plans": "Plans",
+    "tab_planning": "Planning",
     "tab_prix": "Prices",
     "tab_archiving": "Archiving",
     "tab_closure": "Closure",
@@ -2721,5 +2722,95 @@
     "type_submission": "Submission",
     "type_plan": "Plan",
     "type_guarantee": "Guarantee"
+  },
+  "planning": {
+    "title": "Construction schedule",
+    "generate": "Generate schedule",
+    "regenerate": "Regenerate",
+    "generating": "Generating...",
+    "noPlanning": "No schedule created",
+    "noPlanningDesc": "Generate a schedule from an analyzed submission",
+    "config": {
+      "title": "Schedule configuration",
+      "startDate": "Construction start date",
+      "targetEndDate": "Target completion date",
+      "endDate": "Target completion date",
+      "optional": "optional",
+      "projectType": "Project type",
+      "typeNew": "New construction",
+      "typeNeuf": "New construction",
+      "typeRenovation": "Renovation",
+      "typeExtension": "Extension",
+      "typeInterior": "Interior fit-out",
+      "typeAmenagement": "Interior fit-out",
+      "canton": "Canton",
+      "constraints": "Special constraints",
+      "constraintsPlaceholder": "E.g., no work in August, limited weekend access...",
+      "generate": "Generate schedule",
+      "generating": "Generating...",
+      "cancel": "Cancel",
+      "errorStartDate": "Start date is required"
+    },
+    "header": {
+      "zoomDay": "Day",
+      "zoomWeek": "Week",
+      "zoomMonth": "Month",
+      "totalDuration": "Total duration",
+      "days": "days",
+      "end": "Estimated end",
+      "criticalPath": "Critical path"
+    },
+    "zoom": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "duration": "Total duration",
+    "days": "days",
+    "estimatedEnd": "Estimated end",
+    "criticalPath": "Critical path",
+    "export": {
+      "pdf": "Export PDF A3",
+      "png": "Export PNG",
+      "share": "Share"
+    },
+    "share": {
+      "title": "Share link",
+      "description": "This link allows viewing the schedule without logging in",
+      "copy": "Copy link",
+      "copied": "Link copied!",
+      "revoke": "Revoke link",
+      "expired": "This link is no longer valid"
+    },
+    "task": {
+      "duration": "Duration",
+      "startDate": "Start",
+      "endDate": "End",
+      "supplier": "Supplier",
+      "progress": "Progress",
+      "editDuration": "Edit duration"
+    },
+    "tooltip": {
+      "quantity": "Quantity",
+      "ratio": "Ratio",
+      "day": "day",
+      "teams": "teams",
+      "baseDays": "days",
+      "source": "Source",
+      "baseCalc": "Base calculation",
+      "adjustments": "Adjustments",
+      "finalDuration": "Final duration",
+      "days": "days",
+      "editDuration": "Edit duration",
+      "season": "Season",
+      "projectType": "Project type",
+      "regional": "Regional coefficient"
+    },
+    "milestone": {
+      "start": "Construction start",
+      "receptionProvisoire": "Provisional acceptance (SIA 118)"
+    },
+    "poweredBy": "Powered by Cantaia",
+    "tryFree": "Free trial"
   }
 }

@@ -23,7 +23,9 @@ import {
   Calculator,
   CheckSquare,
   ListFilter,
+  CalendarRange,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
@@ -279,15 +281,26 @@ export default function SubmissionDetailPage() {
               <span>{new Date(submission.created_at).toLocaleDateString("fr-CH")}</span>
             </div>
           </div>
-          {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
-            <button
-              onClick={handleReanalyze}
-              className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 flex items-center gap-1.5"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Ré-analyser
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {submission.analysis_status === "done" && submission.project_id && (
+              <Link
+                href={`/projects/${submission.project_id}/planning`}
+                className="text-xs px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-50 text-blue-600 flex items-center gap-1.5"
+              >
+                <CalendarRange className="h-3 w-3" />
+                Planning
+              </Link>
+            )}
+            {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
+              <button
+                onClick={handleReanalyze}
+                className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 flex items-center gap-1.5"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Ré-analyser
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}

@@ -446,6 +446,7 @@
     "tab_visits": "Visites",
     "tab_submissions": "Soumissions",
     "tab_plans": "Plans",
+    "tab_planning": "Planning",
     "tab_prix": "Prix",
     "tab_archiving": "Archivage",
     "tab_closure": "Clôture",
@@ -2721,5 +2722,95 @@
     "type_submission": "Soumission",
     "type_plan": "Plan",
     "type_guarantee": "Garantie"
+  },
+  "planning": {
+    "title": "Planning de chantier",
+    "generate": "Generer le planning",
+    "regenerate": "Regenerer",
+    "generating": "Generation en cours...",
+    "noPlanning": "Aucun planning cree",
+    "noPlanningDesc": "Generez un planning a partir d'une soumission analysee",
+    "config": {
+      "title": "Configuration du planning",
+      "startDate": "Date de debut du chantier",
+      "targetEndDate": "Date de fin souhaitee",
+      "endDate": "Date de fin souhaitee",
+      "optional": "optionnel",
+      "projectType": "Type de projet",
+      "typeNew": "Construction neuve",
+      "typeNeuf": "Construction neuve",
+      "typeRenovation": "Renovation",
+      "typeExtension": "Extension",
+      "typeInterior": "Amenagement interieur",
+      "typeAmenagement": "Amenagement interieur",
+      "canton": "Canton",
+      "constraints": "Contraintes speciales",
+      "constraintsPlaceholder": "Ex: pas de travaux en aout, acces limite le weekend...",
+      "generate": "Generer le planning",
+      "generating": "Generation...",
+      "cancel": "Annuler",
+      "errorStartDate": "La date de debut est obligatoire"
+    },
+    "header": {
+      "zoomDay": "Jour",
+      "zoomWeek": "Semaine",
+      "zoomMonth": "Mois",
+      "totalDuration": "Duree totale",
+      "days": "jours",
+      "end": "Fin estimee",
+      "criticalPath": "Chemin critique"
+    },
+    "zoom": {
+      "day": "Jour",
+      "week": "Semaine",
+      "month": "Mois"
+    },
+    "duration": "Duree totale",
+    "days": "jours",
+    "estimatedEnd": "Fin estimee",
+    "criticalPath": "Chemin critique",
+    "export": {
+      "pdf": "Exporter PDF A3",
+      "png": "Exporter PNG",
+      "share": "Partager"
+    },
+    "share": {
+      "title": "Lien de partage",
+      "description": "Ce lien permet de voir le planning sans connexion",
+      "copy": "Copier le lien",
+      "copied": "Lien copie !",
+      "revoke": "Revoquer le lien",
+      "expired": "Ce lien n'est plus valide"
+    },
+    "task": {
+      "duration": "Duree",
+      "startDate": "Debut",
+      "endDate": "Fin",
+      "supplier": "Fournisseur",
+      "progress": "Avancement",
+      "editDuration": "Modifier la duree"
+    },
+    "tooltip": {
+      "quantity": "Quantite",
+      "ratio": "Ratio",
+      "day": "jour",
+      "teams": "equipes",
+      "baseDays": "jours",
+      "source": "Source",
+      "baseCalc": "Calcul de base",
+      "adjustments": "Ajustements",
+      "finalDuration": "Duree finale",
+      "days": "jours",
+      "editDuration": "Modifier la duree",
+      "season": "Saison",
+      "projectType": "Type projet",
+      "regional": "Coefficient regional"
+    },
+    "milestone": {
+      "start": "Debut de chantier",
+      "receptionProvisoire": "Reception provisoire (SIA 118)"
+    },
+    "poweredBy": "Propulse par Cantaia",
+    "tryFree": "Essai gratuit"
   }
 }

@@ -24,7 +24,8 @@
     "./emails": "./src/emails/index.ts",
     "./platform": "./src/platform/index.ts",
     "./visits": "./src/visits/index.ts",
-    "./pricing": "./src/pricing/index.ts"
+    "./pricing": "./src/pricing/index.ts",
+    "./planning": "./src/planning/index.ts"
   },
   "dependencies": {
     "@cantaia/database": "workspace:*",
