@@ -88,6 +88,97 @@ export async function GET(
   }
 }
 
+// PATCH — update submission items (DB persistence for editor)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const admin = createAdminClient();
+
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    const { data: submission } = await admin
+      .from("submissions")
+      .select("id, project_id, projects!inner(organization_id)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!submission) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const projectOrg = (submission as any).projects?.organization_id;
+    if (projectOrg !== userProfile.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { items } = body;
+
+    if (!Array.isArray(items)) {
+      return NextResponse.json({ error: "items must be an array" }, { status: 400 });
+    }
+
+    // Delete existing items
+    await (admin as any)
+      .from("submission_items")
+      .delete()
+      .eq("submission_id", id);
+
+    // Insert updated items
+    if (items.length > 0) {
+      const rows = items.map((item: any, index: number) => ({
+        submission_id: id,
+        item_number: item.item_number || item.position_number || String(index + 1),
+        description: item.description || "",
+        unit: item.unit || null,
+        quantity: item.quantity != null ? item.quantity : null,
+        cfc_code: item.cfc_code || item.can_code || null,
+        material_group: item.material_group || null,
+        product_name: item.product_name || null,
+      }));
+
+      const { error: insertError } = await (admin as any)
+        .from("submission_items")
+        .insert(rows);
+
+      if (insertError) {
+        console.error("[submissions/[id]] PATCH insert error:", insertError);
+        return NextResponse.json({ error: "Failed to save items" }, { status: 500 });
+      }
+    }
+
+    // Update submission timestamp
+    await (admin as any)
+      .from("submissions")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    return NextResponse.json({
+      success: true,
+      updated_at: new Date().toISOString(),
+      items_count: items.length,
+    });
+  } catch (err: any) {
+    console.error("[submissions/[id]] PATCH error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 // DELETE — delete submission and all related data
 export async function DELETE(
   _request: NextRequest,

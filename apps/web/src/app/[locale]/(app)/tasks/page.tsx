@@ -331,6 +331,11 @@ export default function TasksPage() {
           projects={projects}
           selectedTaskId={selectedTask?.id ?? null}
           onOpenTask={setSelectedTask}
+          onUpdateTasks={(updatedFiltered) => {
+            // Merge optimistic updates back into the full tasks list
+            const updateMap = new Map(updatedFiltered.map(t => [t.id, t]));
+            setTasks(prev => prev.map(t => updateMap.get(t.id) || t));
+          }}
         />
       )}
 

@@ -179,5 +179,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Calculate initial auto-score (will be neutral/default since no data exists yet)
+  try {
+    const { recalculateAndPersistScore } = await import("@cantaia/core/suppliers");
+    await recalculateAndPersistScore(
+      supplier.id,
+      userOrg.organization_id,
+      adminClient
+    );
+  } catch (scoreErr) {
+    console.warn("[suppliers] Initial score calculation failed (non-fatal):", scoreErr);
+  }
+
   return NextResponse.json({ supplier }, { status: 201 });
 }

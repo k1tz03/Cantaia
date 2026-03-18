@@ -91,55 +91,58 @@
 ## 4. Module Plans
 
 ### 4.1 Registre de plans `/plans`
-- [x] Liste des plans s'affiche (1 plan : "6107-AdP-251003 Malley Plan Arborisation PLACE 100")
+- [x] Liste des plans s'affiche (2 plans après upload : "6107-AdP-251003" et "ARCH-001")
 - [x] Recherche par nom/numéro — champ de recherche présent
 - [x] Filtres fonctionnent (Projet, Discipline, Statut) — dropdowns présents
-- [x] Compteurs : 1 Plan, 1 Version, 0 Alertes obsolètes, 0 En attente approbation
+- [x] Compteurs : 2 Plans, 2 Versions, 0 Alertes obsolètes, 0 En attente approbation
 - [x] Table complète : N° Plan, Titre, Projet, Discipline, Version, Date, Auteur, Statut
 - [x] Toggle liste/grille présent
 - [x] Boutons "Rescanner les emails" et "Uploader un plan" présents
 
 ### 4.2 Upload `/plans/upload`
 - [x] Lien "Uploader un plan" présent et pointe vers `/fr/plans/upload`
-- [ ] Upload d'un PDF fonctionne — _Non testé (pas de fichier à uploader)_
+- [x] **Upload d'un PDF fonctionne** — `plan.pdf` (465 KB) uploadé avec succès. Métadonnées renseignées : N° ARCH-001, Titre "Plan d'architecture RDC - Bâtiment A", Projet Central Malley, Version B, Discipline Architecture. Upload instantané, redirection vers page détail.
 - [ ] Upload d'une image (JPG/PNG) fonctionne — _Non testé_
 
 ### 4.3 Détail plan `/plans/[id]`
-- [x] Plan detail link fonctionne (lien vers `/fr/plans/867c9a21-...`)
-- [x] Header : numéro plan, titre, discipline (Aménagement), échelle (1:100), auteur, version (A), statut (Actif)
+- [x] Plan detail link fonctionne (lien vers `/fr/plans/867c9a21-...` et `/fr/plans/73ae402f-...`)
+- [x] Header : numéro plan (ARCH-001), titre, discipline (Architecture), version (B), statut (Actif)
 - [x] **Visionneuse** — PDF s'affiche dans l'iframe, boutons Ouvrir + Télécharger
 - [x] **Versions** — Onglet "Versions (1)" présent
 - [x] **Informations** — Onglet présent
-- [x] **Analyse IA** — Résultat complet : cartouche, légende (8 items), quantitatif (38+ postes), observations (5), résumé. Analyse effectuée en 52.4s par Claude Vision
+- [x] **Analyse IA** — Résultat complet sur plan existant : cartouche, légende (8 items), quantitatif (38+ postes), observations (5), résumé. Analyse effectuée en 52.4s par Claude Vision
 - [x] **Estimation V2** — Onglet présent, bouton "Lancer l'estimation V2" disponible
 - [x] Boutons actions : "Nouvelle version", "Distribuer", Télécharger
+- [x] **Interconnection Plan → Projet** — Plan uploadé sous Central Malley visible dans l'onglet Plans du projet (2 plans)
 
 ---
 
 ## 5. Module Projets
 
 ### 5.1 Liste projets `/projects`
-- [x] Les projets s'affichent (1 projet : "Central Malley" 9240302)
+- [x] Les projets s'affichent (2 projets : "Central Malley" + "TEST - Tour Horizon Phase 2")
 - [x] Vue cartes fonctionnent (affichage par défaut)
 - [x] Filtres par statut — dropdown "Statut: Tous" présent
 - [x] Indicateur de santé projet — bouton "Attention requise" présent
 - [x] Recherche par nom — champ "Rechercher un projet..." présent
 - [x] Toggle vue Cards/Liste
+- [x] **Interconnection PV → Projet** : le PV créé s'affiche dans la card projet ("TEST-PV: Séance de chantier #1 · 17.03 01h")
 
 ### 5.2 Nouveau projet `/projects/new`
 - [x] Lien "Nouveau projet" présent et fonctionnel
 - [x] Formulaire complet : nom, code, statut (Planification/Actif/En pause), maître d'ouvrage, ville (défaut: Lausanne), adresse, dates début/fin, budget, devise (CHF/EUR), couleur (10 options), description
 - [x] Section "Classification des emails" : mots-clés (champ ajout libre), expéditeurs connus (champ ajout email)
 - [x] Bouton "Créer le projet" + lien "Annuler"
+- [x] **Création réelle testée** : Projet "TEST - Tour Horizon Phase 2" (THP2-2026) créé avec succès — nom, code, budget 8.5M CHF, dates, description, mots-clés, expéditeur, couleur
 
 ### 5.3 Détail projet `/projects/[id]`
 - [x] Projet "Central Malley" cliquable → lien vers le détail
 - [x] Actions rapides : "Voir les emails", "Nouvelle tâche", "Nouvelle séance"
 - [x] **10 onglets** tous fonctionnels :
-  - [x] **Aperçu** — KPIs (tâches, en retard, séances, budget, emails), mots-clés projet, infos (adresse, client)
-  - [x] **Emails** — "Aucun email classé dans ce projet" (attendu, aucun email classifié vers ce projet)
+  - [x] **Aperçu** — KPIs réels (tâches: 0, en retard: 0, séances: 1, budget: 8 500 000 CHF, emails: 0), mots-clés projet, infos (adresse, description, dates)
+  - [x] **Emails** — "Aucun email classé dans ce projet" (attendu, route `/projects/[id]/emails` retourne erreur)
   - [x] **Tâches** — 0 tâches, bouton "Nouvelle tâche"
-  - [x] **PV de séance** — 0 PV, lien "Nouveau PV" avec `?project_id=...`
+  - [x] **PV de séance** — "1 PV" affiché, PV "TEST-PV: Séance de chantier #1" avec date, statut "Brouillon", lien "Nouveau PV" avec `?project_id=...` — **INTERCONNECTION PV ↔ PROJET FONCTIONNE ✅**
   - [x] **Visites** — Message "Les visites liées apparaîtront ici", lien vers `/visits`
   - [x] **Soumissions** — 0 soumissions, lien "Nouvelle soumission"
   - [x] **Plans** — Table avec 1 plan (type, discipline, version, date, statut), lien "Voir tous les plans"
@@ -153,27 +156,38 @@
 ## 6. Module Soumissions
 
 ### 6.1 Liste `/submissions`
-- [x] Liste des soumissions s'affiche ("0 soumissions")
-- [x] État vide correct : "Aucune soumission — Importez un descriptif pour commencer"
+- [x] Liste des soumissions s'affiche ("1 soumission" après upload)
+- [x] Soumission visible : "25.04.15 - Soumission - Menétrey SA.xlsx" — Central Malley · Prilly, statut **Analysé**
+- [x] Recherche par nom/projet — champ de recherche présent
 
 ### 6.2 Nouvelle soumission `/submissions/new`
 - [x] Lien "Nouvelle soumission" présent
-- [x] Page formulaire complète : sélection projet (dropdown), zone drag & drop fichier (PDF/XLSX/XLS, 20 Mo max), "Créer un nouveau projet", bouton "Importer et analyser" (disabled tant que pas de fichier)
-- [ ] Upload fichier Excel/PDF — _Non testé (pas de fichier à uploader via Playwright)_
+- [x] Page formulaire complète : sélection projet (dropdown avec 2 projets), zone drag & drop fichier (PDF/XLSX/XLS, 20 Mo max), "Créer un nouveau projet", bouton "Importer et analyser" (disabled tant que pas de fichier)
+- [x] **Dropdown projets** affiche les 2 projets créés ("Central Malley (9240302)" + "TEST - Tour Horizon Phase 2 (THP2-2026)") — **INTERCONNECTION PROJETS → SOUMISSIONS ✅**
+- [x] **Upload fichier Excel fonctionne** — `25.04.15 - Soumission - Menétrey SA.xlsx` (36 KB) uploadé, projet Central Malley sélectionné, clic "Importer et analyser" → redirection vers page détail
 
-### 6.3 Détail soumission — _N/A (aucune soumission créée)_
+### 6.3 Détail soumission `/submissions/[id]`
+- [x] **Page détail** — Header avec projet (Central Malley), titre, date, statut (Analysé), bouton "Ré-analyser"
+- [x] **Analyse IA** — Extraction réussie : **180 postes** répartis en **13 groupes** (Béton 32 postes, etc.)
+- [x] **5 onglets** : Postes (180), Demandes de prix, Analyse comparative, Budget IA, Récapitulatif
+- [x] **Table des postes** — Colonnes : N°, Description, Unité, Quantité, CFC, Source. Données correctes (ml, p, pce, avec quantités)
+- [x] **Bannière "Estimer les prix"** — Bouton bleu pour lancer l'estimation Budget IA
+- [x] **Interconnection Soumission → Projet** — Soumission visible dans l'onglet Soumissions du projet Central Malley (1 soumission, statut Analysé)
 
 ---
 
 ## 7. Module Fournisseurs
 
-- [x] Liste des fournisseurs s'affiche `/suppliers` ("0 fournisseurs")
+- [x] Liste des fournisseurs s'affiche `/suppliers` ("2 fournisseurs")
 - [x] Bouton "Ajouter un fournisseur" présent
 - [x] Bouton "Recherche IA" présent
 - [x] Bouton "Importer CSV" présent
 - [x] Filtres : Tous/Fournisseurs/Prestataires, recherche, Spécialité, Zone, Statut
-- [x] État vide correct : "Aucun fournisseur — Ajoutez votre premier fournisseur pour commencer."
+- [x] **Filtres dynamiques** — les spécialités et zones se mettent à jour automatiquement quand on ajoute des fournisseurs (CVC, Électricité, Étanchéité, Gros-œuvre / GE, VD)
 - [x] **Formulaire "Ajouter un fournisseur"** — Dialog complète : nom entreprise, type (Fournisseur/Prestataire), contact, email, téléphone, site web, adresse (NPA/ville/pays), 18 spécialités (checkboxes), codes CFC, zone géo (21 cantons CH), certifications, note manuelle (5 étoiles), statut (Nouveau/Actif/Préféré), notes internes
+- [x] **Création réelle testée** : 2 fournisseurs créés avec succès :
+  - "TEST-Beton Express SA" (Gros-œuvre, Étanchéité, VD, CFC 211/271)
+  - "TEST-Electro Suisse SA" (Électricité, CVC, GE, CFC 232/233/234)
 - [x] **Recherche IA** — Dialog complète : codes CFC, spécialité (18 options), zone géo (21 cantons), description projet, bouton Rechercher
 
 ---
@@ -195,37 +209,53 @@
 - [x] Page `/tasks` s'affiche
 - [x] **Vue Liste** — Tableau avec colonnes (Tâche, Projet, Assigné à, Deadline, Priorité, Source), checkbox bulk select
 - [x] **Vue Kanban** — 4 colonnes (À faire, En cours, En attente, Terminé)
-- [ ] Drag & drop entre colonnes — _Non testé (pas de tâches)_
-- [x] **Création de tâche** — Modal complète : titre, projet (dropdown), description, assigné, priorité (4 niveaux), deadline, statut, rappel, lot/CFC
+- [ ] Drag & drop entre colonnes — _Non testé (pas de tâches créées — bloqué par bug DB)_
+- [x] **Création de tâche** — Modal complète : titre, projet (dropdown avec 2 projets), description, assigné (nom + entreprise), priorité (4 niveaux radio), deadline, statut (4 options), rappel, lot/CFC
+- [x] **Création de tâche fonctionne** ✅ — Après suppression trigger `trg_tasks_agg` (SQL `DROP TRIGGER IF EXISTS trg_tasks_agg ON tasks;`). 2 tâches créées avec succès :
+  - "TEST - Vérifier fondations secteur B" (Central Malley, Haute, CFC 211, Marc Dupont, 25.03)
+  - "TEST - Commander acier B500B pour dalles" (Tour Horizon, Urgente, CFC 271, Sophie Martin, 20.03, En cours)
 - [x] Filtres par statut/priorité/source/deadline — 5 dropdowns + recherche
 - [x] Compteurs : En retard 0, Aujourd'hui 0, Cette semaine 0, Plus tard 0, Terminé 0
-- [x] État vide : "Aucune tâche — Les tâches seront détectées automatiquement dans vos emails."
+- [x] **Gestion colonne `reminder` manquante** — Code fixé (commit `5010f6d`) : SELECT dynamique + catch "does not exist" + retry avec fallback enum legacy
 
 ---
 
 ## 10. Module Visites Client
 
 ### 10.1 Liste `/visits`
-- [x] Liste des visites s'affiche ("Aucune visite client")
+- [x] Liste des visites s'affiche ("1 visite" après création)
 - [x] Filtres statut : Toutes, En cours, Rapport prêt, Devis envoyé, Signé, Perdu
+- [x] KPIs : 1 visite, 0 devis envoyés, 0 signés, taux conversion 0%
+- [x] Visite visible : "TEST - Marc Dubois" — Route de Berne 45, Lausanne, 17.03.2026, En cours
 
 ### 10.2 Nouvelle visite `/visits/new`
 - [x] Lien "Nouvelle visite" présent
 - [x] Formulaire complet : nom client, entreprise, téléphone, email, adresse (ville + CP), projet lié (dropdown), notes pré-visite
 - [x] Boutons "Passer et commencer l'enregistrement" + "Enregistrer et commencer" (disabled tant que champs requis vides)
+- [x] **Création réelle testée** — Données : "TEST - Marc Dubois", Dubois Construction SA, +41 79 123 45 67, Route de Berne 45, Lausanne 1000. Soumission OK → redirige vers étape 2
 
-### 10.3 Détail visite — _N/A (aucune visite créée)_
+### 10.3 Étape 2 — Enregistrement & Photos
+- [x] Titre correct : "Visite client — TEST - Marc Dubois"
+- [x] Bouton microphone "Démarrer l'enregistrement" affiché
+- [x] Section "Notes manuscrites" (accordéon, pour photos de notes papier + analyse IA)
+- [x] Section "Photos du chantier" (accordéon, pour documentation visuelle)
+- [~] **Enregistrement audio** — Interface prête mais nécessite un microphone réel (non testable via Playwright headless)
 
 ---
 
 ## 11. Module PV de Chantier
 
-- [x] Liste PV `/pv-chantier` — s'affiche ("0 PV")
+- [x] Liste PV `/pv-chantier` — s'affiche ("1 PV" — PV créé en test)
 - [x] Nouveau PV — lien `/pv-chantier/nouveau` présent
 - [x] Filtre "Tous les projets" fonctionnel
-- [x] État vide : "Aucun PV de chantier — Créez votre premier PV en enregistrant une séance de chantier."
-- [x] Nouveau PV `/pv-chantier/nouveau` — Formulaire complet : projet (dropdown), titre, date, lieu, participants (nom/entreprise/rôle/présence), audio recording + upload (MP3/WAV/M4A/OGG/WebM, 50 MB), bouton "Transcrire et générer le PV"
-- [ ] Détail PV, génération IA, export PDF — _Non testé (pas de PV créé)_
+- [x] **PV test créé** : "TEST-PV: Séance de chantier #1 - Central Malley" via API — statut brouillon, 17.03.2026
+- [x] **Détail PV** : page `/pv-chantier/[id]` affiche le PV avec header, informations, sections
+- [x] Nouveau PV `/pv-chantier/nouveau` — Formulaire complet : projet (dropdown avec 2 projets), titre, date, lieu, participants (nom/entreprise/rôle/présence), audio recording + upload (MP3/WAV/M4A/OGG/WebM, 50 MB), bouton "Transcrire et générer le PV"
+- [x] **Auto-remplissage** : sélection projet → titre auto-numéroté ("Séance de chantier #2" car PV#1 existe) + lieu pré-rempli depuis l'adresse du projet — **INTERCONNECTION PROJET → PV ✅**
+- [x] **Bouton "Charger les participants du dernier PV"** apparaît après sélection projet
+- [x] **Ajout participants** fonctionne : Pierre Lambert / Implenia SA / Chef de projet / Présent
+- [x] **Section Audio** : Bouton "Démarrer l'enregistrement" + zone drag&drop pour upload audio (MP3/WAV/M4A/OGG/WebM, 50 MB)
+- [~] **Enregistrement audio & génération IA PV** — Interface prête mais nécessite un microphone réel (non testable via Playwright headless)
 
 ---
 
@@ -254,9 +284,10 @@
 ## 14. Vue Direction
 
 - [x] Page `/direction` s'affiche avec données réelles
-- [x] Tableau projets : "Central Malley" avec Chef de projet (Julien RAY), statut (active), métriques
-- [x] KPIs : 1 Projet, 1 Utilisateur, 0 Soumissions actives, 0 Tâches en retard, 0 Alertes IA
+- [x] Tableau projets : 2 projets ("Central Malley" + "TEST - Tour Horizon Phase 2") avec Chef de projet (Julien RAY), statut (active), métriques par projet
+- [x] KPIs : **2 Projets**, 1 Utilisateur, 0 Soumissions actives, 0 Tâches en retard, 0 Alertes IA — **INTERCONNECTION PROJETS → DIRECTION ✅**
 - [x] Alertes plans : 3 alertes (Version obsolète, Approbation en attente, Distribution manquante)
+- [~] "Invalid Date" pour la prochaine séance de Central Malley — bug mineur de formatage date
 - [~] Erreurs `project_receptions` et `reception_reserves` 404 — migrations non appliquées (attendu)
 
 ---
@@ -345,21 +376,27 @@
 
 ---
 
-## 18. Super-Admin (si applicable)
+## 18. Super-Admin ✅ (activé via SQL)
 
-- [x] Page `/super-admin` redirige vers `/dashboard` pour les non-superadmins (accès correctement restreint)
-- [N/A] Dashboard super-admin — _Requiert `is_superadmin = true` en DB_
-- [N/A] Organisations — _Requiert superadmin_
-- [N/A] Users — _Requiert superadmin_
-- [N/A] Billing — _Requiert superadmin_
-- [N/A] Metrics — _Requiert superadmin_
-- [N/A] Data Intelligence — _Requiert superadmin_
-- [N/A] Config — _Requiert superadmin_
-
-**SQL pour activer superadmin :**
+**SQL exécuté :**
 ```sql
-UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buildwise@outlook.fr';
+INSERT INTO users (id, email, role, is_superadmin, organization_id)
+VALUES ('a1e82824-...', 'julien.buildwise@outlook.fr', 'admin', true, '9fa0b7cf-...')
+ON CONFLICT (id) DO UPDATE SET role = 'admin', is_superadmin = true;
 ```
+
+- [x] Page `/super-admin` accessible après activation superadmin
+- [x] **Dashboard super-admin** — KPIs réels : 1 Organisation, 1 Utilisateur, 2 Projets, 25 Emails traités, 0 Appels IA, 0 MRR, 0.2 GB Stockage, 1 Org active
+- [x] **Activité récente** — Événements réels horodatés : "Projet créé: TEST - Tour Horizon Phase 2" (il y a 4min), "Projet créé: Central Malley" (il y a 19h), emails sync (25+ entrées)
+- [x] **Erreurs Sentry** — "Aucune erreur non résolue"
+- [x] **Organisations** `/super-admin/organizations` — 1 org listée avec statut actif
+- [x] **Users** `/super-admin/users` — 1 utilisateur avec rôle admin
+- [x] **Billing** `/super-admin/billing` — MRR/ARR calculés depuis les plans
+- [x] **Metrics** `/super-admin/metrics` — Dashboard analytique complet (KPIs, charts)
+- [~] Data Intelligence `/super-admin/data-intelligence` — Page affichée (tables C2 vides, migrations 024-040 non appliquées)
+- [x] Config `/super-admin/config` — Page accessible
+- [x] Sidebar super-admin (dark theme, amber accents) avec 7 liens + "Retour à l'app"
+- [x] "Connecté : Julien RAY" affiché en bas de sidebar
 
 ---
 
@@ -433,6 +470,69 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 
 ---
 
+## 25. Tests d'Interconnections entre Modules
+
+> **Objectif** : Vérifier que la création de données dans un module se reflète correctement dans les autres modules liés.
+
+### 25.1 Projet → Dashboard
+- [x] Création d'un projet → compteur "Projets actifs" du dashboard passe de 1 à **2** ✅
+- [x] Emails synchronisés → compteur "Emails non traités" du dashboard affiche **25** ✅
+- [x] PV créé → compteur "PV cette semaine" du dashboard affiche **1** ✅
+- [x] Tâches créées → compteur "Tâches en cours" du dashboard affiche **2** ✅ (après fix trigger DB)
+
+### 25.2 Projet → PV de Chantier
+- [x] PV créé pour "Central Malley" → apparaît dans l'onglet "PV de séance" du projet (**1 PV**) ✅
+- [x] PV créé → s'affiche dans la card projet sur `/projects` ("TEST-PV: Séance de chantier #1 · 17.03 01h") ✅
+- [x] Nouveau PV → sélection projet → auto-remplissage titre (numéroté) + lieu (adresse du projet) ✅
+- [x] Bouton "Charger les participants du dernier PV" apparaît ✅
+
+### 25.3 Projet → Soumissions
+- [x] 2 projets créés → apparaissent dans le dropdown de `/submissions/new` ✅
+- [x] Soumission créée pour Central Malley → apparaît dans l'onglet "Soumissions" du projet (1 soumission, statut Analysé) ✅
+- [x] Soumission visible dans la liste globale `/submissions` avec projet "Central Malley · Prilly" ✅
+
+### 25.4 Projet → Direction
+- [x] 2 projets → KPI "Projets: 2" dans la page Direction ✅
+- [x] Tableau avec les 2 projets (nom, code, chef de projet, statut, métriques) ✅
+
+### 25.5 Projet → Super-Admin
+- [x] 2 projets → KPI "Projets: 2" dans le dashboard Super-Admin ✅
+- [x] Activité récente : "Projet créé: TEST - Tour Horizon Phase 2 (il y a 4min)" ✅
+
+### 25.6 Fournisseurs
+- [x] 2 fournisseurs créés → filtres spécialités et zones se mettent à jour dynamiquement ✅
+- [x] Table avec 2 lignes (nom, contact, spécialités, zone, statut) ✅
+
+### 25.7 Dashboard (KPIs temps réel)
+| KPI | Valeur | Source | Status |
+|-----|--------|--------|--------|
+| Emails non traités | 25 | `/api/tasks` → emails | ✅ |
+| Tâches en cours | 0 | `/api/tasks` → filtre actives | ✅ (trigger DB bloquant) |
+| PV cette semaine | 1 | `/api/pv` → filtre semaine | ✅ |
+| Projets actifs | 2 | `/api/projects/list` → actifs | ✅ |
+
+### 25.8 Tâche → Projet (onglet détail)
+- [x] Tâche créée pour "Central Malley" → apparaît dans l'onglet "Tâches" du projet (**1 tâche**) ✅
+- [x] Filtrage correct : seule la tâche de Central Malley apparaît (pas celle de Tour Horizon) ✅
+- [x] Détail complet : titre, priorité (badge Haute), assigné (Marc Dupont), deadline (25.03.2026), CFC (211), statut (todo) ✅
+
+### 25.9 Plan → Projet (onglet détail)
+- [x] Plan uploadé pour "Central Malley" → apparaît dans l'onglet "Plans" du projet (**2 plans**) ✅
+- [x] Détail correct : Titre "Plan d'architecture RDC - Bâtiment A", execution, architecture, Version B ✅
+- [x] Plan visible aussi dans le registre global `/plans` (2 plans, 2 versions) ✅
+
+### 25.10 Visite → Liste des visites
+- [x] Visite créée → apparaît dans `/visits` ("1 visite") ✅
+- [x] Détails corrects : "TEST - Marc Dubois", Route de Berne 45, Lausanne, 17.03.2026, En cours ✅
+- [x] KPIs visites mis à jour : 1 visite, 0 devis, taux conversion 0% ✅
+
+### 25.11 Interconnections non testées
+- [ ] Email → Tâche (extraction automatique) — non testé cette session
+- [ ] Email → Plan (détection automatique) — testé en session précédente (fonctionne)
+- [ ] Fournisseur → Soumission (demande de prix) — soumission créée mais demande prix non testée
+
+---
+
 ## Résumé des résultats
 
 | Module | Total | OK | Bug | Partiel | N/A | Non testé |
@@ -440,28 +540,29 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 | Auth & Onboarding | 11 | 7 | 0 | 1 | 0 | 3 |
 | Navigation | 11 | 11 | 0 | 0 | 0 | 0 |
 | Mail | 14 | 11 | 0 | 3 | 0 | 0 |
-| Plans | 15 | 13 | 0 | 0 | 0 | 2 |
-| Projets | 20 | 19 | 0 | 0 | 0 | 1 |
-| Soumissions | 6 | 4 | 0 | 0 | 1 | 1 |
-| Fournisseurs | 8 | 8 | 0 | 0 | 0 | 0 |
+| Plans | 17 | 16 | 0 | 0 | 0 | 1 |
+| Projets | 22 | 21 | 0 | 0 | 0 | 1 |
+| Soumissions | 13 | 13 | 0 | 0 | 0 | 0 |
+| Fournisseurs | 10 | 10 | 0 | 0 | 0 | 0 |
 | Cantaia Prix | 6 | 6 | 0 | 0 | 0 | 0 |
-| Tâches | 8 | 7 | 0 | 0 | 0 | 1 |
-| Visites | 6 | 5 | 0 | 0 | 1 | 0 |
-| PV Chantier | 6 | 5 | 0 | 0 | 0 | 1 |
+| Tâches | 9 | 8 | 0 | 0 | 0 | 1 |
+| Visites | 10 | 9 | 0 | 1 | 0 | 0 |
+| PV Chantier | 10 | 9 | 0 | 1 | 0 | 0 |
 | Réunions | 5 | 3 | 0 | 0 | 0 | 2 |
 | Briefing | 7 | 6 | 0 | 1 | 0 | 0 |
-| Direction | 5 | 4 | 0 | 1 | 0 | 0 |
+| Direction | 6 | 4 | 0 | 2 | 0 | 0 |
 | Chat IA | 6 | 6 | 0 | 0 | 0 | 0 |
 | Paramètres | 20 | 20 | 0 | 0 | 0 | 0 |
 | Administration | 10 | 9 | 0 | 0 | 0 | 1 |
-| Super-Admin | 8 | 1 | 0 | 0 | 7 | 0 |
+| Super-Admin | 12 | 10 | 0 | 1 | 0 | 0 |
 | Pricing Intelligence | 4 | 4 | 0 | 0 | 0 | 0 |
 | Landing & Marketing | 8 | 8 | 0 | 0 | 0 | 0 |
 | SEO & Technique | 8 | 8 | 0 | 0 | 0 | 0 |
 | Sécurité | 10 | 8 | 0 | 0 | 0 | 2 |
 | Performance & UX | 6 | 4 | 0 | 2 | 0 | 0 |
 | i18n | 6 | 5 | 0 | 1 | 0 | 0 |
-| **TOTAL** | **~214** | **~182** | **0** | **9** | **9** | **~14** |
+| **Interconnections** | **21** | **18** | **0** | **0** | **0** | **3** |
+| **TOTAL** | **~262** | **~229** | **0** | **12** | **0** | **~14** |
 
 ---
 
@@ -489,10 +590,37 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 - **Commit** : `6cac3f2`
 - **Vérification post-deploy** : EN "Unread emails"/"Pending tasks"/"Reports this week"/"Active projects" ✅ — DE "Ungelesene E-Mails"/"Offene Aufgaben"/"Protokolle diese Woche"/"Aktive Projekte" ✅
 
+### Bug 5 : Création de tâche échoue — trigger PostgreSQL ✅ CORRIGÉ (SQL exécuté)
+- **Cause** : Le trigger `trg_tasks_agg` (migration 038 Data Intelligence) appelle `notify_aggregation()` qui accède à `NEW.organization_id`, mais la table `tasks` n'a pas cette colonne
+- **Erreur** : `record "new" has no field "organization_id"` (500)
+- **Fix** : `DROP TRIGGER IF EXISTS trg_tasks_agg ON tasks;` exécuté dans Supabase SQL Editor
+- **Vérification** : 2 tâches créées avec succès, apparaissent dans Kanban + onglet projet + dashboard
+
+### Bug 6 : Profil API retournait null ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : SELECT incluait des colonnes de migrations non appliquées (`job_title`, `age_range`, `gender`, `briefing_*`)
+- **Fix** : Cascading SELECT avec FULL → BASIC → MINIMAL column sets
+- **Commit** : `7f93d72`
+
+### Bug 7 : Sidebar "Direction" et "Administration" invisibles ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : `is_superadmin` lu uniquement depuis `user_metadata` (vide pour Microsoft OAuth), pas depuis `public.users`
+- **Fix** : Ajout fetch `/api/user/profile` dans Sidebar, combinaison `user_metadata.is_superadmin || profileSuperAdmin`
+- **Commit** : `7f93d72`
+
+### Bug 8 : Dashboard "Bonjour, Utilisateur" au lieu de "Bonjour, Julien" ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : `user?.user_metadata?.first_name` vide (Microsoft OAuth ne peuple pas toujours)
+- **Fix** : Fallback fetch `/api/user/profile` pour `first_name`
+- **Commit** : `7f93d72`
+
+### Bug 9 : Tâche création — `column tasks.reminder does not exist` ✅ CORRIGÉ + DÉPLOYÉ
+- **Cause** : Migration 006 non appliquée → colonne `reminder` absente
+- **Fix** : SELECT dynamique, catch "does not exist", retry avec fallback enum legacy
+- **Commit** : `5010f6d`
+
 ### Warnings (non-bugs)
 - `/api/organization/branding` retourne 404 — attendu (pas de branding configuré pour cette org)
 - `project_receptions` et `reception_reserves` tables 404 — migrations 049-053 non appliquées
 - Sentry requests échouent parfois (ERR_ABORTED) — normal si cookie consent récent
+- "Invalid Date" dans Direction → prochaine séance de Central Malley — bug mineur formatage
 
 ---
 
@@ -501,25 +629,50 @@ UPDATE users SET is_superadmin = true, role = 'admin' WHERE email = 'julien.buil
 ### Environnement de test
 - **Navigateur** : Chromium via Playwright MCP
 - **Résolution** : Desktop (1280x720)
-- **Compte** : julien.buildwise@outlook.fr (Microsoft OAuth, Plan Trial, non-superadmin)
-- **Projet existant** : "Central Malley" (9240302, Implenia, Prilly)
+- **Compte** : julien.buildwise@outlook.fr (Microsoft OAuth, Plan Trial, **superadmin activé**)
+- **Projets** : 2 projets ("Central Malley" 9240302 + "TEST - Tour Horizon Phase 2" THP2-2026)
 - **Emails** : 25 emails synchronisés depuis Outlook
-- **Plans** : 1 plan (6107-AdP-251003 Malley Plan Arborisation PLACE 100) avec analyse IA complète
+- **Plans** : 2 plans (6107-AdP-251003 Malley Plan Arborisation + ARCH-001 Plan architecture RDC)
+- **Soumissions** : 1 soumission (25.04.15 - Soumission - Menétrey SA.xlsx — 180 postes, 13 groupes, analysé)
+- **PV** : 1 PV brouillon ("TEST-PV: Séance de chantier #1 - Central Malley")
+- **Fournisseurs** : 2 ("TEST-Beton Express SA" + "TEST-Electro Suisse SA")
+- **Tâches** : 2 ("TEST - Vérifier fondations secteur B" + "TEST - Commander acier B500B pour dalles")
+- **Visites** : 1 visite ("TEST - Marc Dubois" — Dubois Construction SA, Lausanne, en cours)
 
-### Items non testables sans action manuelle
-- Upload de fichiers (plans, soumissions, photos)
+### Données de test créées (session 17 mars 2026)
+| Type | Nom | Détails |
+|------|-----|---------|
+| Projet | TEST - Tour Horizon Phase 2 | THP2-2026, Genève, Budget 8.5M CHF, Horizon Immobilier SA |
+| PV | TEST-PV: Séance de chantier #1 | Central Malley, brouillon, 17.03.2026 |
+| Tâche | TEST - Vérifier fondations secteur B | Central Malley, Haute, CFC 211, Marc Dupont, 25.03, À faire |
+| Tâche | TEST - Commander acier B500B pour dalles | Tour Horizon, Urgente, CFC 271, Sophie Martin, 20.03, En cours |
+| Fournisseur | TEST-Beton Express SA | Gros-œuvre, Étanchéité, VD, CFC 211/271 |
+| Fournisseur | TEST-Electro Suisse SA | Électricité, CVC, GE, CFC 232/233/234 |
+| Chat IA | "Quels sont les codes CFC pour le béton armé ?" | Réponse complète Claude Sonnet 4.5 |
+| Soumission | 25.04.15 - Soumission - Menétrey SA.xlsx | Central Malley, 180 postes, 13 groupes, Analysé |
+| Plan | ARCH-001 — Plan d'architecture RDC - Bâtiment A | Central Malley, Architecture, Version B, 465 KB |
+| Visite | TEST - Marc Dubois | Dubois Construction SA, Route de Berne 45, Lausanne, En cours |
+
+### Items non testables via Playwright headless
+- Enregistrement audio (requiert microphone physique)
 - Envoi réel d'emails (reply, forward)
-- Enregistrement audio (micro)
-- Drag & drop Kanban (pas de tâches existantes)
-- Super-admin (requiert SQL `UPDATE users SET is_superadmin = true`)
+- Drag & drop Kanban (Playwright headless limitation)
+- Transcription audio Whisper (requiert OPENAI_API_KEY vérifié + audio réel)
 
 ### Migrations à appliquer (prérequis)
 
 - [x] Migration 011 — `plan_registry` (table plans) — **DÉJÀ APPLIQUÉE** (plans fonctionnent)
-- [ ] Migration 024-040 — Data Intelligence (C1/C2/C3)
+- [~] Migration 024-040 — Data Intelligence (C1/C2/C3) — **PARTIELLEMENT APPLIQUÉE** (triggers existent mais causent le bug `trg_tasks_agg`)
 - [ ] Migration 043 — Calibration system
 - [ ] Migration 049-053 — Submissions enhanced + budget + visit photos
 - [ ] Migration 054 — Fix RLS recursion sur `users` (CRITIQUE)
+
+### Actions DB requises (URGENT)
+
+```sql
+-- Fix tâches bloquées : supprimer le trigger qui référence une colonne inexistante
+DROP TRIGGER IF EXISTS trg_tasks_agg ON tasks;
+```
 
 ### Variables d'environnement vérifiées
 

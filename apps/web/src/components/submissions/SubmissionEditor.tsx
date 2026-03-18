@@ -67,6 +67,7 @@ export function SubmissionEditor({
   // Save state
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(
     initialSubmission.updated_at
       ? new Date(initialSubmission.updated_at)
@@ -91,6 +92,7 @@ export function SubmissionEditor({
       return;
     }
     setHasUnsavedChanges(true);
+    setSaveError(null); // Clear previous save error on new edits
   }, [positions]);
 
   // Auto-save every 30s
@@ -117,9 +119,34 @@ export function SubmissionEditor({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // ---- Save to DB ----
+  async function saveToDb(items: ExtractedPosition[]): Promise<boolean> {
+    const res = await fetch(`/api/submissions/${submission.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((p) => ({
+          item_number: p.position_number,
+          description: p.description,
+          unit: p.unit,
+          quantity: p.quantity,
+          cfc_code: p.can_code,
+          material_group: p.material_group,
+          product_name: p.product_name,
+        })),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(data.error || `Save failed (${res.status})`);
+    }
+    return true;
+  }
+
   // ---- Save ----
-  function handleSave(_showFeedback = true) {
+  async function handleSave(_showFeedback = true) {
     setSaving(true);
+    setSaveError(null);
     try {
       const updatedSub: SavedSubmission = {
         ...submission,
@@ -129,7 +156,7 @@ export function SubmissionEditor({
         updated_at: new Date().toISOString(),
       };
 
-      // Update in storage
+      // Always update localStorage as cache/fallback
       const all = loadSubmissionsFromStorage();
       const idx = all.findIndex((s) => s.id === updatedSub.id);
       if (idx >= 0) {
@@ -139,11 +166,18 @@ export function SubmissionEditor({
       }
       saveSubmissionsToStorage(all);
 
+      // Persist to database — await the result
+      await saveToDb(positions);
+
       setSubmission(updatedSub);
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
     } catch (err) {
-      console.error("Save error:", err);
+      console.error("[SubmissionEditor] Save error:", err);
+      setSaveError(
+        err instanceof Error ? err.message : "Erreur de sauvegarde"
+      );
+      // Keep hasUnsavedChanges true so the user knows data is not persisted
     } finally {
       setSaving(false);
     }
@@ -301,8 +335,8 @@ export function SubmissionEditor({
         {/* Left: back + title */}
         <div className="flex items-center gap-3 min-w-0">
           <button
-            onClick={() => {
-              if (hasUnsavedChanges) handleSave(false);
+            onClick={async () => {
+              if (hasUnsavedChanges) await handleSave(false);
               onBack();
             }}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
@@ -330,6 +364,13 @@ export function SubmissionEditor({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span className="hidden sm:inline">{t("saving")}</span>
               </>
+            ) : saveError ? (
+              <>
+                <AlertTriangle className="h-3 w-3 text-red-500" />
+                <span className="hidden sm:inline text-red-600" title={saveError}>
+                  {t("save_error")}
+                </span>
+              </>
             ) : hasUnsavedChanges ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-amber-400" />
@@ -350,7 +391,7 @@ export function SubmissionEditor({
           {/* Save button */}
           <button
             onClick={() => handleSave(true)}
-            disabled={saving || !hasUnsavedChanges}
+            disabled={saving || (!hasUnsavedChanges && !saveError)}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
           >
             <Save className="h-3.5 w-3.5" />

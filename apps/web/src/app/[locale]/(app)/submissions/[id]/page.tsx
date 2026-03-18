@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
+import { formatCHF } from "@/lib/format";
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -475,9 +476,12 @@ function ItemsTabContent({
     <div className="space-y-3">
       {!hasBudget && items.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-blue-900">Aucun prix estimé</p>
-            <p className="text-xs text-blue-600">Lancez l&apos;estimation pour voir les prix unitaires et totaux par poste</p>
+          <div className="flex items-center gap-3">
+            <Calculator className="h-5 w-5 text-blue-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">Estimer les prix de cette soumission</p>
+              <p className="text-xs text-blue-600">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
+            </div>
           </div>
           <button
             onClick={handleEstimateBudget}
@@ -521,7 +525,7 @@ function ItemsTabContent({
                 )}
                 {hasBudget && groupTotal > 0 && (
                   <span className="text-sm font-semibold text-gray-700">
-                    CHF {groupTotal.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {formatCHF(groupTotal)}
                   </span>
                 )}
               </div>
@@ -577,12 +581,12 @@ function ItemsTabContent({
                           </td>
                           {hasBudget && (
                             <td className="px-4 py-2 text-right font-medium text-gray-900">
-                              {unitPrice != null ? `${unitPrice.toFixed(2)}` : "—"}
+                              {unitPrice != null ? formatCHF(unitPrice) : "—"}
                             </td>
                           )}
                           {hasBudget && (
                             <td className="px-4 py-2 text-right text-gray-600">
-                              {totalPrice != null ? totalPrice.toLocaleString("fr-CH", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}
+                              {totalPrice != null ? formatCHF(totalPrice) : "—"}
                             </td>
                           )}
                           <td className="px-4 py-2 text-center">
@@ -591,8 +595,8 @@ function ItemsTabContent({
                                 Fournisseur
                               </span>
                             ) : source === "historique_interne" ? (
-                              <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
-                                Réel
+                              <span className="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                                Fournisseur
                               </span>
                             ) : source === "referentiel_crb" ? (
                               <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>

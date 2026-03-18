@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import {
   Clock,
   Mail,
@@ -128,26 +129,28 @@ interface ThreadMessage {
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-function timeAgo(dateStr: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function timeAgo(dateStr: string, t?: (key: string, values?: any) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}min`;
+  if (minutes < 60) return t ? t("time.minutesAgo", { count: minutes }) : `${minutes}min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t ? t("time.hoursAgo", { count: hours }) : `${hours}h`;
   const days = Math.floor(hours / 24);
-  return `${days}j`;
+  return t ? t("time.daysAgo", { count: days }) : `${days}j`;
 }
 
-function formatDate(): string {
+function formatDate(t?: (key: string) => string): string {
   const now = new Date();
-  const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-  const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-  return `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+  const dayName = t ? t(`days.${now.getDay()}`) : ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"][now.getDay()];
+  const monthName = t ? t(`months.${now.getMonth()}`) : ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"][now.getMonth()];
+  return `${dayName} ${now.getDate()} ${monthName}`;
 }
 
-function formatFullDate(dateStr: string): string {
+function formatFullDate(dateStr: string, locale?: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const l = locale === "de" ? "de-CH" : locale === "en" ? "en-CH" : "fr-CH";
+  return d.toLocaleDateString(l, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function getInitials(name: string): string {
@@ -165,10 +168,11 @@ function getAvatarColor(name: string, isCurrentUser: boolean): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function formatThreadDate(dateStr: string): string {
+function formatThreadDate(dateStr: string, locale?: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })
-    + " " + d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
+  const l = locale === "de" ? "de-CH" : locale === "en" ? "en-CH" : "fr-CH";
+  return d.toLocaleDateString(l, { day: "2-digit", month: "2-digit" })
+    + " " + d.toLocaleTimeString(l, { hour: "2-digit", minute: "2-digit" });
 }
 
 /** FIX 5 — Lock body scroll when a popup is open */
@@ -189,6 +193,7 @@ function useBodyScrollLock(locked: boolean) {
 
 export default function MailPage() {
   const router = useRouter();
+  const t = useTranslations("mail.decisions");
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [firstName, setFirstName] = useState("");
@@ -259,13 +264,13 @@ export default function MailPage() {
       const data = await res.json();
       if (res.ok && data.success !== false) {
         const synced = data.emails_synced ?? data.newEmails ?? 0;
-        setSyncToast(`${synced} email${synced !== 1 ? "s" : ""} synchronisé${synced !== 1 ? "s" : ""}`);
+        setSyncToast(t("syncSuccess", { count: synced }));
         await fetchData();
       } else {
-        setSyncToast(data.error || "Erreur de synchronisation");
+        setSyncToast(data.error || t("syncError"));
       }
     } catch {
-      setSyncToast("Erreur de connexion");
+      setSyncToast(t("connectionError"));
     }
     setSyncing(false);
     setTimeout(() => setSyncToast(null), 4000);
@@ -367,12 +372,12 @@ export default function MailPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
-              Bonjour {firstName}
+              {t("greeting", { firstName })}
             </h1>
             <p className="text-[13px] text-gray-500 mt-1">
-              {formatDate()}
+              {formatDate(t)}
               <span className="mx-2 text-gray-300">·</span>
-              {filteredUrgent.length + filteredThisWeek.length + filteredInfo.length} emails en attente
+              {t("pendingEmails", { count: filteredUrgent.length + filteredThisWeek.length + filteredInfo.length })}
             </p>
           </div>
           <button
@@ -381,7 +386,7 @@ export default function MailPage() {
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Sync..." : "Synchroniser"}
+            {syncing ? t("syncing") : t("sync")}
           </button>
         </div>
 
@@ -393,9 +398,9 @@ export default function MailPage() {
 
         {/* Filter pills */}
         <div className="flex gap-2.5 mt-5">
-          <FilterPill active={activeFilter === "urgent"} color="red" count={filteredUrgent.length} label="Urgentes" onClick={() => setActiveFilter(activeFilter === "urgent" ? "all" : "urgent")} />
-          <FilterPill active={activeFilter === "thisWeek"} color="amber" count={filteredThisWeek.length} label="Cette semaine" onClick={() => setActiveFilter(activeFilter === "thisWeek" ? "all" : "thisWeek")} />
-          <FilterPill active={activeFilter === "info"} color="gray" count={filteredInfo.length} label="Infos" onClick={() => setActiveFilter(activeFilter === "info" ? "all" : "info")} />
+          <FilterPill active={activeFilter === "urgent"} color="red" count={filteredUrgent.length} label={t("filters.urgent")} onClick={() => setActiveFilter(activeFilter === "urgent" ? "all" : "urgent")} />
+          <FilterPill active={activeFilter === "thisWeek"} color="amber" count={filteredThisWeek.length} label={t("filters.thisWeek")} onClick={() => setActiveFilter(activeFilter === "thisWeek" ? "all" : "thisWeek")} />
+          <FilterPill active={activeFilter === "info"} color="gray" count={filteredInfo.length} label={t("filters.info")} onClick={() => setActiveFilter(activeFilter === "info" ? "all" : "info")} />
         </div>
       </div>
 
@@ -403,10 +408,10 @@ export default function MailPage() {
       {stats && (
         <div className="max-w-[860px] mx-auto px-4 pb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={<Clock className="w-4 h-4" />} label="Temps moyen de réponse" value={`${stats.avgResponseTime}h`} />
-            <StatCard icon={<Mail className="w-4 h-4" />} label="Emails traités" value={`${stats.processedToday} / ${stats.totalToday}`} />
-            <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label="Décisions aujourd'hui" value={String(decisionsToday)} />
-            <StatCard icon={<TrendingDown className="w-4 h-4" />} label="Économies générées" value={stats.savingsGenerated != null ? `CHF ${stats.savingsGenerated.toLocaleString("fr-CH")}` : "—"} />
+            <StatCard icon={<Clock className="w-4 h-4" />} label={t("stats.responseTime")} value={`${stats.avgResponseTime}h`} />
+            <StatCard icon={<Mail className="w-4 h-4" />} label={t("stats.emailsProcessed")} value={`${stats.processedToday} / ${stats.totalToday}`} />
+            <StatCard icon={<CheckCircle2 className="w-4 h-4" />} label={t("stats.decisionsToday")} value={String(decisionsToday)} />
+            <StatCard icon={<TrendingDown className="w-4 h-4" />} label={t("stats.savingsGenerated")} value={stats.savingsGenerated != null ? `CHF ${stats.savingsGenerated.toLocaleString("fr-CH")}` : "—"} />
           </div>
         </div>
       )}
@@ -451,7 +456,7 @@ export default function MailPage() {
       {activeFilter !== "info" && filteredInfo.length > 0 && (
         <div className="max-w-[860px] mx-auto px-4 pb-12">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>Emails non lus</h2>
+            <h2 className="text-lg font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{t("unreadEmails")}</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
@@ -461,10 +466,10 @@ export default function MailPage() {
                     const res = await fetch("/api/mail/backfill-bodies", { method: "POST" });
                     const json = await res.json();
                     if (json.success) {
-                      setBackfillToast(`${json.updated}/${json.total} corps chargés${json.errors ? ` (${json.errors} erreurs)` : ""}`);
+                      setBackfillToast(json.errors ? t("bodiesLoadedErrors", { updated: json.updated, total: json.total, errors: json.errors }) : t("bodiesLoaded", { updated: json.updated, total: json.total }));
                       if (json.updated > 0) fetchData();
                     } else {
-                      setBackfillToast(json.error || "Erreur");
+                      setBackfillToast(json.error || t("serverError"));
                     }
                   } catch {}
                   setBackfilling(false);
@@ -474,7 +479,7 @@ export default function MailPage() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
                 {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
-                Charger les corps
+                {t("loadBodies")}
               </button>
               <button
                 onClick={async () => {
@@ -484,7 +489,7 @@ export default function MailPage() {
                     const res = await fetch("/api/mail/generate-summaries", { method: "POST" });
                     const json = await res.json();
                     if (json.success) {
-                      setSummaryToast(`${json.updated} résumé${json.updated !== 1 ? "s" : ""} généré${json.updated !== 1 ? "s" : ""}`);
+                      setSummaryToast(t("summariesGenerated", { count: json.updated }));
                       if (json.updated > 0) fetchData();
                     }
                   } catch {}
@@ -495,7 +500,7 @@ export default function MailPage() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
               >
                 {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                Générer les résumés
+                {t("generateSummaries")}
               </button>
             </div>
           </div>
@@ -638,6 +643,8 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
   onArchive: () => void;
   isAloneInOrg: boolean;
 }) {
+  const t = useTranslations("mail.decisions");
+  const locale = useLocale();
   const [thread, setThread] = useState<ThreadMessage[] | null>(null);
   const [threadLoading, setThreadLoading] = useState(true);
   const [threadError, setThreadError] = useState<string | null>(null);
@@ -667,11 +674,11 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
             setFallbackBody(body);
           }
           if (data.error) {
-            setThreadError("Conversation complète indisponible — affichage du dernier message");
+            setThreadError(t("email.threadUnavailable"));
           }
         }
       } catch {
-        setThreadError("Conversation complète indisponible — affichage du dernier message");
+        setThreadError(t("email.threadUnavailable"));
       }
       setThreadLoading(false);
     }
@@ -688,10 +695,10 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
   }, [onClose]);
 
   const priorityBadge = email.priority === "urgent"
-    ? { label: "URGENT", cls: "bg-red-500/20 text-red-200" }
+    ? { label: t("badges.urgent"), cls: "bg-red-500/20 text-red-200" }
     : email.priority === "action"
-    ? { label: "ACTION", cls: "bg-amber-500/20 text-amber-200" }
-    : { label: "INFO", cls: "bg-white/15 text-blue-200" };
+    ? { label: t("badges.action"), cls: "bg-amber-500/20 text-amber-200" }
+    : { label: t("badges.info"), cls: "bg-white/15 text-blue-200" };
 
   return (
     <>
@@ -714,15 +721,15 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
                   <span className={`px-2 py-0.5 rounded text-xs font-bold ${priorityBadge.cls}`}>{priorityBadge.label}</span>
                   {thread && thread.length > 1 && (
                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/15 text-blue-100">
-                      {thread.length} messages
+                      {t("email.messages", { count: thread.length })}
                     </span>
                   )}
                 </div>
                 <h2 className="text-lg font-semibold text-white truncate">{email.subject}</h2>
                 <div className="flex items-center gap-2 mt-1 text-sm text-[#93C5FD]">
-                  <span>De : {email.sender_name || email.sender_email} &lt;{email.sender_email}&gt;</span>
+                  <span>{t("email.from")} : {email.sender_name || email.sender_email} &lt;{email.sender_email}&gt;</span>
                   <span className="text-blue-300/50">·</span>
-                  <span>{formatFullDate(email.received_at)}</span>
+                  <span>{formatFullDate(email.received_at, locale)}</span>
                 </div>
               </div>
               <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors flex-shrink-0">
@@ -741,14 +748,14 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
               <>
                 <div className="rounded-lg overflow-hidden mb-5" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
                   <div className="px-4 py-3">
-                    <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-1.5">Résumé IA</div>
+                    <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-1.5">{t("badges.aiSummary")}</div>
                     <p className="text-sm leading-relaxed" style={{ color: "#1E3A5F" }}>{email.ai_summary}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 mb-5">
                   <div className="flex-1 h-px bg-gray-200" />
                   <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">
-                    {thread && thread.length > 1 ? "Fil de conversation" : "Contenu de l'email"}
+                    {thread && thread.length > 1 ? t("email.thread") : t("email.emailContent")}
                   </span>
                   <div className="flex-1 h-px bg-gray-200" />
                 </div>
@@ -768,7 +775,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
               <div className="bg-[#F9FAFB] rounded-lg p-4">
                 {threadLoading && !fallbackBody ? (
                   <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
-                    <Loader2 className="w-4 h-4 animate-spin" />Chargement du contenu...
+                    <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                   </div>
                 ) : fallbackIsHtml ? (
                   <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
@@ -782,22 +789,22 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
           {/* Footer */}
           <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
             <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
-              <Send className="w-3.5 h-3.5" />Répondre avec IA
+              <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
             </button>
             {isAloneInOrg ? (
               <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-                <Forward className="w-3.5 h-3.5" />Transférer
+                <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
               </button>
             ) : (
               <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-                <Users className="w-3.5 h-3.5" />Déléguer
+                <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
               </button>
             )}
             <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-              <ListTodo className="w-3.5 h-3.5" />Créer une tâche
+              <ListTodo className="w-3.5 h-3.5" />{t("actions.createTask")}
             </button>
             <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white hover:bg-red-50 border border-red-200 rounded-lg transition-colors">
-              <Archive className="w-3.5 h-3.5" />Archiver
+              <Archive className="w-3.5 h-3.5" />{t("actions.archive")}
             </button>
           </div>
         </div>
@@ -814,6 +821,8 @@ function ThreadView({ thread, currentUserEmail }: {
   thread: ThreadMessage[];
   currentUserEmail?: string;
 }) {
+  const t = useTranslations("mail.decisions");
+  const locale = useLocale();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     // Last message is always expanded
     if (thread.length === 0) return new Set<string>();
@@ -861,7 +870,7 @@ function ThreadView({ thread, currentUserEmail }: {
                     {msg.from.name || msg.from.email}
                   </span>
                   {msg.isCurrentMessage && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">Message principal</span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">{t("email.mainMessage")}</span>
                   )}
                 </div>
                 {!isExpanded && (
@@ -871,7 +880,7 @@ function ThreadView({ thread, currentUserEmail }: {
 
               {/* Date + chevron */}
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-400">{formatThreadDate(msg.receivedDateTime)}</span>
+                <span className="text-xs text-gray-400">{formatThreadDate(msg.receivedDateTime, locale)}</span>
                 {isExpanded ? (
                   <ChevronDown className="w-4 h-4 text-gray-400" />
                 ) : (
@@ -885,12 +894,12 @@ function ThreadView({ thread, currentUserEmail }: {
               <div className="border-t border-gray-100">
                 {/* Recipients line */}
                 <div className="px-4 py-2 text-xs text-gray-500 space-y-0.5 bg-gray-50/50">
-                  <p>De : {msg.from.name} &lt;{msg.from.email}&gt;</p>
+                  <p>{t("email.from")} : {msg.from.name} &lt;{msg.from.email}&gt;</p>
                   {msg.to.length > 0 && (
-                    <p>À : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
+                    <p>{t("email.to")} : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
                   )}
                   {msg.cc.length > 0 && (
-                    <p>CC : {msg.cc.map((r) => r.name || r.email).join(", ")}</p>
+                    <p>{t("email.cc")} : {msg.cc.map((r) => r.name || r.email).join(", ")}</p>
                   )}
                 </div>
 
@@ -912,7 +921,7 @@ function ThreadView({ thread, currentUserEmail }: {
             {!isLast && idx < thread.length - 1 && (
               <div className="px-4 pb-1">
                 <span className="text-[10px] text-gray-400">
-                  Réponse · il y a {timeAgo(thread[idx + 1].receivedDateTime)}
+                  {t("email.replyAgo", { time: timeAgo(thread[idx + 1].receivedDateTime, t) })}
                 </span>
               </div>
             )}
@@ -941,6 +950,7 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
   onNegotiate: () => void;
   onRefuse: () => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [menuOpen, setMenuOpen] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
@@ -966,10 +976,10 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
 
   const borderColor = email.priority === "urgent" ? "border-l-red-600" : email.priority === "action" ? "border-l-amber-500" : "border-l-gray-400";
   const badge = email.is_quote
-    ? { label: "DEVIS RECU", color: "bg-amber-100 text-amber-800" }
+    ? { label: t("badges.quoteReceived"), color: "bg-amber-100 text-amber-800" }
     : email.priority === "urgent"
-    ? { label: "URGENT", color: "bg-red-100 text-red-800" }
-    : { label: "ACTION REQUISE", color: "bg-amber-100 text-amber-800" };
+    ? { label: t("badges.urgent"), color: "bg-red-100 text-red-800" }
+    : { label: t("badges.action"), color: "bg-amber-100 text-amber-800" };
 
   const handleAction = (action: () => void) => {
     setExiting(true);
@@ -988,7 +998,7 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
             {email.project_name && <span className="text-xs text-gray-500 font-medium">{email.project_name}</span>}
           </div>
           <p className="text-gray-800 font-medium mb-1">
-            {email.sender_name || email.sender_email} a répondu à ta demande de prix
+            {t("email.respondedToPriceRequest", { sender: email.sender_name || email.sender_email })}
           </p>
           {email.ai_summary && (
             <p className="text-sm text-gray-500 mb-3 line-clamp-2">{email.ai_summary}</p>
@@ -996,35 +1006,35 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
           {email.price_indicator?.extracted_price != null && (
             <div className="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium text-gray-700">
-                Prix extrait : CHF {email.price_indicator.extracted_price.toLocaleString("fr-CH")}
+                {t("email.priceExtracted")} : CHF {email.price_indicator.extracted_price.toLocaleString("fr-CH")}
               </span>
               {email.price_indicator.diff_percent != null ? (
                 email.price_indicator.diff_percent > 5 ? (
                   <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />+{email.price_indicator.diff_percent.toFixed(0)}% vs marché
+                    <AlertTriangle className="w-3.5 h-3.5" />{t("email.vsMarket", { percent: email.price_indicator.diff_percent.toFixed(0) })}
                   </span>
                 ) : (
                   <span className="text-sm text-green-600 font-medium flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" />Dans la norme
+                    <Check className="w-3.5 h-3.5" />{t("email.withinNorm")}
                   </span>
                 )
               ) : (
-                <span className="text-xs text-gray-400">Pas de référence marché</span>
+                <span className="text-xs text-gray-400">{t("email.noMarketRef")}</span>
               )}
             </div>
           )}
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => handleAction(onAccept)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
-              <ThumbsUp className="w-3.5 h-3.5" />Accepter
+              <ThumbsUp className="w-3.5 h-3.5" />{t("actions.accept")}
             </button>
             <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors">
-              <MessageSquare className="w-3.5 h-3.5" />Négocier
+              <MessageSquare className="w-3.5 h-3.5" />{t("actions.negotiate")}
             </button>
             <button onClick={() => handleAction(onRefuse)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors">
-              <ThumbsDown className="w-3.5 h-3.5" />Refuser
+              <ThumbsDown className="w-3.5 h-3.5" />{t("actions.refuse")}
             </button>
             <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
-              <Eye className="w-3.5 h-3.5" />Voir détail
+              <Eye className="w-3.5 h-3.5" />{t("actions.viewDetail")}
             </button>
           </div>
         </div>
@@ -1047,7 +1057,7 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
               {email.project_name}
             </span>
           )}
-          <span className="text-[11px] text-gray-400 ml-auto shrink-0">il y a {timeAgo(email.received_at)}</span>
+          <span className="text-[11px] text-gray-400 ml-auto shrink-0">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
         </div>
 
         {/* Summary / preview */}
@@ -1057,10 +1067,10 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
 
         {/* Sender + urgency */}
         <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
-          <span className="truncate">De : {email.sender_name || email.sender_email}</span>
+          <span className="truncate">{t("email.from")} : {email.sender_name || email.sender_email}</span>
           {email.priority === "urgent" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 shrink-0">
-              <Clock className="w-3 h-3" />Répondre sous 24h
+              <Clock className="w-3 h-3" />{t("email.respondWithin24h")}
             </span>
           )}
         </div>
@@ -1068,18 +1078,18 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg transition-all shadow-sm hover:shadow">
-            <Send className="w-3.5 h-3.5" />Répondre avec IA
+            <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
           </button>
           <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
-            <Eye className="w-3.5 h-3.5" />Voir l&apos;email
+            <Eye className="w-3.5 h-3.5" />{t("actions.viewEmail")}
           </button>
           {isAloneInOrg ? (
             <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
-              <Forward className="w-3.5 h-3.5" />Transférer
+              <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
             </button>
           ) : (
             <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
-              <Users className="w-3.5 h-3.5" />Déléguer
+              <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
             </button>
           )}
 
@@ -1094,20 +1104,20 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
               >
                 {!isAloneInOrg && (
                   <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Forward className="w-4 h-4 text-gray-400" />Transférer
+                    <Forward className="w-4 h-4 text-gray-400" />{t("actions.transfer")}
                   </button>
                 )}
                 <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <ListTodo className="w-4 h-4 text-gray-400" />Créer une tâche
+                  <ListTodo className="w-4 h-4 text-gray-400" />{t("actions.createTask")}
                 </button>
                 <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <Archive className="w-4 h-4 text-gray-400" />Archiver
+                  <Archive className="w-4 h-4 text-gray-400" />{t("actions.archive")}
                 </button>
                 <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <AlarmClock className="w-4 h-4 text-gray-400" />Reporter à demain
+                  <AlarmClock className="w-4 h-4 text-gray-400" />{t("actions.snooze")}
                 </button>
                 <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <ExternalLink className="w-4 h-4 text-gray-400" />Voir dans Mail
+                  <ExternalLink className="w-4 h-4 text-gray-400" />{t("actions.viewInMail")}
                 </button>
               </div>
             )}
@@ -1130,6 +1140,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
   onCreateTask: (id: string) => void;
   onReply: (email: DecisionEmail) => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [confirmArchiveAll, setConfirmArchiveAll] = useState(false);
   const [dismissedLocal, setDismissedLocal] = useState<Set<string>>(new Set());
 
@@ -1139,13 +1150,14 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
 
   const groups: Record<string, DecisionEmail[]> = {};
   for (const email of visible) {
-    const key = email.project_name || "Sans projet";
+    const key = email.project_name || t("email.noProject");
     if (!groups[key]) groups[key] = [];
     groups[key].push(email);
   }
+  const noProjectLabel = t("email.noProject");
   const groupEntries = Object.entries(groups).sort(([a], [b]) => {
-    if (a === "Sans projet") return 1;
-    if (b === "Sans projet") return -1;
+    if (a === noProjectLabel) return 1;
+    if (b === noProjectLabel) return -1;
     return a.localeCompare(b);
   });
 
@@ -1169,7 +1181,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
         <div key={projectName}>
           {groupEntries.length > 1 && (
             <div className="text-sm font-semibold text-gray-500 mb-2 pl-1">
-              {projectName} ({groupEmails.length} email{groupEmails.length !== 1 ? "s" : ""})
+              {projectName} ({groupEmails.length !== 1 ? t("email.emailCountPlural", { count: groupEmails.length }) : t("email.emailCountSingular", { count: groupEmails.length })})
             </div>
           )}
           <div className={`space-y-2 ${groupEntries.length > 1 ? "pl-2" : ""}`}>
@@ -1193,7 +1205,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
             onClick={handleArchiveAll}
             className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${confirmArchiveAll ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100" : "text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:bg-gray-50"}`}
           >
-            {confirmArchiveAll ? `Archiver ${visible.length} emails info ?` : "Tout archiver"}
+            {confirmArchiveAll ? t("actions.archiveAllConfirm", { count: visible.length }) : t("actions.archiveAll")}
           </button>
         </div>
       )}
@@ -1212,6 +1224,7 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
   onArchive: () => void;
   onReply: () => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [exiting, setExiting] = useState(false);
 
   const handleAction = (action: () => void) => {
@@ -1228,7 +1241,7 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
         {/* Header row */}
         <div className="flex items-center justify-between mb-1">
           {email.project_name && <span className="text-xs font-medium text-gray-500">{email.project_name}</span>}
-          <span className="text-xs text-gray-400">il y a {timeAgo(email.received_at)}</span>
+          <span className="text-xs text-gray-400">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
         </div>
 
         {/* Subject */}
@@ -1237,20 +1250,20 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
         </p>
 
         {/* Sender */}
-        <p className="text-xs text-gray-400 mb-2">De : {email.sender_name || email.sender_email}</p>
+        <p className="text-xs text-gray-400 mb-2">{t("email.from")} : {email.sender_name || email.sender_email}</p>
 
         {/* Summary / preview block */}
         {email.ai_summary ? (
           <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ RÉSUMÉ IA</div>
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ {t("badges.aiSummary")}</div>
               <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
             </div>
           </div>
         ) : (
           <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #9CA3AF", background: "#F3F4F6" }}>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase font-semibold tracking-wide text-gray-400 mb-1">APERÇU</div>
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-gray-400 mb-1">{t("badges.preview")}</div>
               <p className="text-xs leading-relaxed text-gray-500">
                 {email.body_preview ? (email.body_preview.length > 150 ? email.body_preview.slice(0, 150) + "..." : email.body_preview) : ""}
               </p>
@@ -1261,16 +1274,16 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
         {/* Actions — FIX 1: added reply button */}
         <div className="flex items-center gap-2">
           <button onClick={onReply} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-md transition-colors">
-            <Send className="w-3 h-3" />Répondre avec IA
+            <Send className="w-3 h-3" />{t("actions.replyWithAI")}
           </button>
           <button onClick={onView} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
-            <Eye className="w-3 h-3" />Lire l&apos;email
+            <Eye className="w-3 h-3" />{t("actions.readEmail")}
           </button>
           <button onClick={() => handleAction(onCreateTask)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
-            <ListTodo className="w-3 h-3" />Créer une tâche
+            <ListTodo className="w-3 h-3" />{t("actions.createTask")}
           </button>
           <button onClick={() => handleAction(onArchive)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
-            <Archive className="w-3 h-3" />Archiver
+            <Archive className="w-3 h-3" />{t("actions.archive")}
           </button>
         </div>
       </div>
@@ -1283,17 +1296,18 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
    ═══════════════════════════════════════════════════════════ */
 
 function EmptyState({ firstName, onRefresh }: { firstName: string; onRefresh: () => void }) {
+  const t = useTranslations("mail.decisions");
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-5 shadow-sm border border-emerald-100">
         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
       </div>
       <h2 className="text-xl font-bold text-[#111827] mb-1" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
-        Tout est traité. Beau travail, {firstName}.
+        {t("empty.title", { firstName })}
       </h2>
-      <p className="text-gray-500 text-sm mb-5">Dernière mise à jour il y a quelques instants</p>
+      <p className="text-gray-500 text-sm mb-5">{t("empty.subtitle")}</p>
       <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
-        <RefreshCw className="w-4 h-4" />Actualiser
+        <RefreshCw className="w-4 h-4" />{t("actions.refresh")}
       </button>
     </div>
   );
@@ -1308,6 +1322,7 @@ function ReplyModal({ email, onClose, onDone }: {
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [replyText, setReplyText] = useState("");
   const [replyLoading, setReplyLoading] = useState(false);
   const [thread, setThread] = useState<ThreadMessage[] | null>(null);
@@ -1406,7 +1421,7 @@ function ReplyModal({ email, onClose, onDone }: {
     try {
       const payload: Record<string, any> = {
         to: [email.sender_email],
-        subject: `Re: ${email.subject}`,
+        subject: t("email.rePrefix", { subject: email.subject }),
         body: replyText.replace(/\n/g, "<br>"),
         reply_to_id: email.outlook_message_id,
       };
@@ -1419,14 +1434,14 @@ function ReplyModal({ email, onClose, onDone }: {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Erreur serveur" }));
-        setSendError(data.error || `Erreur ${res.status}`);
+        const data = await res.json().catch(() => ({ error: t("serverError") }));
+        setSendError(data.error || `${t("replyModal.sendError")} (${res.status})`);
         setSending(false);
         return;
       }
       onDone(email.id);
     } catch {
-      setSendError("Erreur de connexion — vérifiez votre réseau");
+      setSendError(t("connectionErrorNetwork"));
     }
     setSending(false);
   };
@@ -1445,7 +1460,7 @@ function ReplyModal({ email, onClose, onDone }: {
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
             <div>
               <h2 className="text-lg font-semibold text-white">
-                Répondre à {email.sender_name || email.sender_email}
+                {t("replyModal.title", { sender: email.sender_name || email.sender_email })}
               </h2>
               <p className="text-sm text-[#93C5FD] truncate mt-0.5">{email.subject}</p>
             </div>
@@ -1460,7 +1475,7 @@ function ReplyModal({ email, onClose, onDone }: {
             <div className="md:w-[40%] border-r border-gray-200 flex flex-col min-h-0">
               <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
                 <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">
-                  {thread && thread.length > 1 ? `Conversation (${thread.length})` : "Email original"}
+                  {thread && thread.length > 1 ? t("email.conversation", { count: thread.length }) : t("email.originalEmail")}
                 </span>
               </div>
               <div
@@ -1473,10 +1488,10 @@ function ReplyModal({ email, onClose, onDone }: {
                 ) : (
                   <>
                     <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
-                    <div className="text-xs text-gray-500 mb-3">De : {email.sender_name || email.sender_email}</div>
+                    <div className="text-xs text-gray-500 mb-3">{t("email.from")} : {email.sender_name || email.sender_email}</div>
                     {threadLoading && !fallbackBody ? (
                       <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                        <Loader2 className="w-4 h-4 animate-spin" />Chargement...
+                        <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
                       <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
@@ -1493,28 +1508,28 @@ function ReplyModal({ email, onClose, onDone }: {
               {/* Recipients */}
               <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-[#F9FAFB] space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500 w-8 text-right">À :</span>
+                  <span className="text-gray-500 w-8 text-right">{t("email.to")} :</span>
                   <span className="text-gray-900 font-medium">{email.sender_email}</span>
                 </div>
                 {showCcBcc ? (
                   <>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500 w-8 text-right">CC :</span>
+                      <span className="text-gray-500 w-8 text-right">{t("email.cc")} :</span>
                       <input
                         type="text"
                         value={cc}
                         onChange={(e) => setCc(e.target.value)}
-                        placeholder="email1@ex.com, email2@ex.com"
+                        placeholder={t("replyModal.ccPlaceholder")}
                         className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500 w-8 text-right">CCI :</span>
+                      <span className="text-gray-500 w-8 text-right">{t("email.bcc")} :</span>
                       <input
                         type="text"
                         value={bcc}
                         onChange={(e) => setBcc(e.target.value)}
-                        placeholder="email@ex.com"
+                        placeholder={t("replyModal.bccPlaceholder")}
                         className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
@@ -1524,7 +1539,7 @@ function ReplyModal({ email, onClose, onDone }: {
                     onClick={() => setShowCcBcc(true)}
                     className="text-xs text-blue-600 hover:underline ml-10"
                   >
-                    + Ajouter CC/CCI
+                    {t("replyModal.addCcBcc")}
                   </button>
                 )}
               </div>
@@ -1537,19 +1552,19 @@ function ReplyModal({ email, onClose, onDone }: {
                 <div className="rounded-lg overflow-hidden" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs uppercase font-semibold tracking-wide text-[#2563EB]">Réponse IA suggérée</span>
+                      <span className="text-xs uppercase font-semibold tracking-wide text-[#2563EB]">{t("replyModal.aiSuggestion")}</span>
                       {!replyLoading && (
                         <button
                           onClick={generateReply}
                           className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
                         >
-                          <RotateCcw className="w-3 h-3" />Régénérer
+                          <RotateCcw className="w-3 h-3" />{t("replyModal.regenerate")}
                         </button>
                       )}
                     </div>
                     {replyLoading ? (
                       <div className="flex items-center gap-2 text-blue-400 text-sm py-8">
-                        <Loader2 className="w-4 h-4 animate-spin" />Génération en cours...
+                        <Loader2 className="w-4 h-4 animate-spin" />{t("replyModal.generating")}
                       </div>
                     ) : (
                       <textarea
@@ -1580,10 +1595,10 @@ function ReplyModal({ email, onClose, onDone }: {
                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Envoyer
+                {t("replyModal.send")}
               </button>
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
-                Annuler
+                {t("replyModal.cancel")}
               </button>
             </div>
           </div>
@@ -1603,6 +1618,7 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [selectedMember, setSelectedMember] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -1647,7 +1663,7 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: [member.email],
-            subject: `Fwd: ${email.subject}`,
+            subject: t("email.fwdPrefix", { subject: email.subject }),
             body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
             forward_id: email.outlook_message_id,
           }),
@@ -1659,8 +1675,8 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: `Délégué: ${email.subject}`,
-              description: message || `Email transféré de ${email.sender_name || email.sender_email}`,
+              title: t("delegateModal.taskTitle", { subject: email.subject }),
+              description: message || t("delegateModal.taskDescription", { sender: email.sender_name || email.sender_email }),
               assigned_to: member.id,
               project_id: email.project_id,
               source: "email",
@@ -1671,7 +1687,7 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
       }
       onDone(email.id);
     } catch {
-      setDelegateError("Erreur lors de la délégation — vérifiez votre connexion");
+      setDelegateError(t("delegateModal.error"));
     }
     setSending(false);
   };
@@ -1687,7 +1703,7 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
-            <h2 className="text-lg font-semibold text-white">Déléguer à un collègue</h2>
+            <h2 className="text-lg font-semibold text-white">{t("delegateModal.title")}</h2>
             <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -1696,33 +1712,33 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
           <div className="p-6 space-y-4">
             <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="font-medium text-gray-800 truncate">{email.subject}</p>
-              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+              <p className="text-xs text-gray-500 mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Déléguer à</label>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
               {orgMembers.length > 0 ? (
                 <select
                   value={selectedMember}
                   onChange={(e) => setSelectedMember(e.target.value)}
                   className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  <option value="">Choisir un membre...</option>
+                  <option value="">{t("delegateModal.selectMember")}</option>
                   {orgMembers.map((m) => (
                     <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
                   ))}
                 </select>
               ) : (
-                <p className="text-sm text-gray-500">Aucun autre membre dans votre organisation.</p>
+                <p className="text-sm text-gray-500">{t("delegateModal.noMembers")}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("delegateModal.message")}</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ajouter un message au transfert..."
+                placeholder={t("delegateModal.messagePlaceholder")}
                 className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1741,10 +1757,10 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                Déléguer
+                {t("delegateModal.confirm")}
               </button>
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
-                Annuler
+                {t("delegateModal.cancel")}
               </button>
             </div>
           </div>
@@ -1763,6 +1779,7 @@ function TransferModal({ email, onClose, onDone }: {
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
+  const t = useTranslations("mail.decisions");
   const [toEmail, setToEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -1804,14 +1821,14 @@ function TransferModal({ email, onClose, onDone }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: [toEmail.trim()],
-          subject: `Fwd: ${email.subject}`,
+          subject: t("email.fwdPrefix", { subject: email.subject }),
           body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
           forward_id: email.outlook_message_id,
         }),
       });
       onDone(email.id);
     } catch {
-      setTransferError("Erreur lors du transfert — vérifiez votre connexion");
+      setTransferError(t("transferModal.error"));
     }
     setSending(false);
   };
@@ -1827,7 +1844,7 @@ function TransferModal({ email, onClose, onDone }: {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
-            <h2 className="text-lg font-semibold text-white">Transférer l&apos;email</h2>
+            <h2 className="text-lg font-semibold text-white">{t("transferModal.title")}</h2>
             <button onClick={onClose} className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -1836,26 +1853,26 @@ function TransferModal({ email, onClose, onDone }: {
           <div className="p-6 space-y-4">
             <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="font-medium text-gray-800 truncate">{email.subject}</p>
-              <p className="text-xs text-gray-500 mt-1">De : {email.sender_name || email.sender_email}</p>
+              <p className="text-xs text-gray-500 mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Transférer à</label>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>
               <input
                 type="email"
                 value={toEmail}
                 onChange={(e) => setToEmail(e.target.value)}
-                placeholder="destinataire@example.com"
+                placeholder={t("transferModal.recipientPlaceholder")}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">Message (optionnel)</label>
+              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("transferModal.message")}</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ajouter un message au transfert..."
+                placeholder={t("transferModal.messagePlaceholder")}
                 className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1874,10 +1891,10 @@ function TransferModal({ email, onClose, onDone }: {
                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
-                Transférer
+                {t("transferModal.confirm")}
               </button>
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
-                Annuler
+                {t("transferModal.cancel")}
               </button>
             </div>
           </div>

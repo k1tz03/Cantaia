@@ -31,8 +31,8 @@ export async function GET(request: Request) {
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
   // Validate next parameter to prevent open redirect attacks
-  const rawNext = searchParams.get("next") ?? "/dashboard";
-  const next = (rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : "/dashboard";
+  const rawNext = searchParams.get("next") ?? "/action-board";
+  const next = (rawNext.startsWith("/") && !rawNext.startsWith("//")) ? rawNext : "/action-board";
   // link_org is set when connecting email from Settings (preserves current org)
   const linkOrgId = searchParams.get("link_org");
   // link_user is the ID of the user who initiated the connection (may differ from OAuth user)
@@ -610,8 +610,8 @@ export async function GET(request: Request) {
           // Profile fetch failed — use default locale
         }
 
-        // Default redirect: /mail (post-login destination)
-        let finalNext = next === "/dashboard" ? "/mail" : next;
+        // Default redirect: /action-board (post-login destination)
+        let finalNext = next === "/dashboard" ? "/action-board" : next;
 
         // If this was an email connection flow, redirect to the integrations tab with refresh signal
         if (linkOrgId && finalNext.startsWith("/settings")) {

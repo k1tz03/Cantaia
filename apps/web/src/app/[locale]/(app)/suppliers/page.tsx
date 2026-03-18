@@ -21,6 +21,8 @@ import {
   Pencil,
   Trash2,
   Users,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { SPECIALTY_LABELS, type SupplierSpecialty } from "@cantaia/core/suppliers";
 import type { Supplier, SupplierStatus, SupplierType } from "@cantaia/database";
@@ -29,6 +31,8 @@ import { SupplierFormDialog } from "@/components/suppliers/SupplierFormDialog";
 import { SupplierImportDialog } from "@/components/suppliers/SupplierImportDialog";
 import { AISearchDialog } from "@/components/suppliers/AISearchDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SupplierTimeline, type TimelineItem } from "@/components/suppliers/SupplierTimeline";
+import { SupplierPriceChart, type PriceTrendPoint } from "@/components/suppliers/SupplierPriceChart";
 
 const STATUS_CONFIG: Record<SupplierStatus, { color: string; dotColor: string }> = {
   active: { color: "text-green-700 bg-green-50", dotColor: "bg-green-500" },
@@ -94,6 +98,16 @@ export default function SuppliersPage() {
   const [supplierPrices, setSupplierPrices] = useState<any[] | null>(null);
   const [pricesLoading, setPricesLoading] = useState(false);
 
+  // History / Timeline
+  const [historyItems, setHistoryItems] = useState<TimelineItem[]>([]);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [priceTrend, setPriceTrend] = useState<PriceTrendPoint[]>([]);
+  const [historyAlerts, setHistoryAlerts] = useState<{ type: string; message: string; severity: string }[]>([]);
+
+  // Score recalculation
+  const [recalculating, setRecalculating] = useState(false);
+
   // Fetch suppliers from API
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -131,6 +145,48 @@ export default function SuppliersPage() {
       .catch(() => setSupplierPrices([]))
       .finally(() => setPricesLoading(false));
   }, [selectedSupplier]);
+
+  // Load supplier history when selected
+  useEffect(() => {
+    if (!selectedSupplier) {
+      setHistoryItems([]);
+      setPriceTrend([]);
+      setHistoryAlerts([]);
+      return;
+    }
+    setHistoryLoading(true);
+    fetch(`/api/suppliers/${selectedSupplier}/history`)
+      .then((r) => r.json())
+      .then((d) => {
+        setHistoryItems(d.items || []);
+        setHistoryHasMore(d.has_more || false);
+        setPriceTrend(d.price_trend || []);
+        setHistoryAlerts(d.alerts || []);
+      })
+      .catch(() => {
+        setHistoryItems([]);
+        setPriceTrend([]);
+        setHistoryAlerts([]);
+      })
+      .finally(() => setHistoryLoading(false));
+  }, [selectedSupplier]);
+
+  // Recalculate supplier score
+  async function handleRecalculateScore(supplierId: string) {
+    setRecalculating(true);
+    try {
+      const res = await fetch(`/api/suppliers/${supplierId}/recalculate-score`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await fetchSuppliers();
+      }
+    } catch (err) {
+      console.error("[SuppliersPage] Recalculate error:", err);
+    } finally {
+      setRecalculating(false);
+    }
+  }
 
   // Client-side filtering
   const filtered = useMemo(() => {
@@ -559,10 +615,21 @@ export default function SuppliersPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-700">{t("overallScore")}</span>
-                  <span className={`text-2xl font-bold ${getScoreColor(selected.overall_score)}`}>
-                    {Math.round(selected.overall_score)}
-                    <span className="text-sm text-gray-400 font-normal">/100</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-2xl font-bold ${getScoreColor(selected.overall_score)}`}>
+                      {Math.round(selected.overall_score)}
+                      <span className="text-sm text-gray-400 font-normal">/100</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRecalculateScore(selected.id)}
+                      disabled={recalculating}
+                      className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                      title="Recalculer le score"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${recalculating ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2">
@@ -580,6 +647,25 @@ export default function SuppliersPage() {
                   {renderStars(selected.manual_rating)}
                 </div>
               </div>
+
+              {/* Alerts */}
+              {historyAlerts.length > 0 && (
+                <div className="mb-6 space-y-2">
+                  {historyAlerts.map((alert, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs ring-1 ring-inset ${
+                        alert.severity === "warning"
+                          ? "bg-amber-50 text-amber-700 ring-amber-200"
+                          : "bg-blue-50 text-blue-700 ring-blue-200"
+                      }`}
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>{alert.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Contact */}
               <div className="space-y-3 mb-6">
@@ -731,6 +817,34 @@ export default function SuppliersPage() {
                     Aucune offre de prix enregistrée
                   </p>
                 )}
+              </div>
+
+              {/* Price Trend Chart */}
+              {priceTrend.length >= 3 && (
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <SupplierPriceChart data={priceTrend} />
+                </div>
+              )}
+
+              {/* History Timeline */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <SupplierTimeline
+                  items={historyItems}
+                  hasMore={historyHasMore}
+                  loading={historyLoading}
+                  onLoadMore={() => {
+                    if (!selectedSupplier) return;
+                    setHistoryLoading(true);
+                    fetch(`/api/suppliers/${selectedSupplier}/history?limit=50`)
+                      .then((r) => r.json())
+                      .then((d) => {
+                        setHistoryItems(d.items || []);
+                        setHistoryHasMore(d.has_more || false);
+                      })
+                      .catch(() => {})
+                      .finally(() => setHistoryLoading(false));
+                  }}
+                />
               </div>
 
               {/* Notes */}

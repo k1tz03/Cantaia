@@ -1,5 +1,7 @@
 export {
   calculateSupplierScore,
+  calculateAutoScore,
+  recalculateAndPersistScore,
   filterSuppliers,
   SUPPLIER_SPECIALTIES,
   SPECIALTY_LABELS,
@@ -7,6 +9,7 @@ export {
   type SupplierFilters,
   type SupplierScoreInput,
   type SupplierSpecialty,
+  type AutoScoreBreakdown,
 } from "./supplier-service";
 
 export {

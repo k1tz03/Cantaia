@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useBranding } from "@/components/providers/BrandingProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import { cn } from "@cantaia/ui";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FolderKanban,
   CheckSquare,
@@ -30,6 +31,10 @@ import {
   BarChart3,
   Newspaper,
   HardHat,
+  Plus,
+  Camera,
+  Mic,
+  Zap,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -76,6 +81,7 @@ export function Sidebar() {
   const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;
 
   const navItems: NavItem[] = [
+    { href: "/action-board", labelKey: "actionBoard", icon: Zap, status: "active", group: "main" },
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", group: "main" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, group: "daily" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", group: "daily" },
@@ -180,15 +186,18 @@ export function Sidebar() {
   }
 
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+  const router = useRouter();
 
-  const mobileItems: NavItem[] = [
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active" },
-    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+  const mobileBottomItems: NavItem[] = [
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
   ];
 
   const mobileExtraItems: NavItem[] = [
+    { href: "/action-board", labelKey: "actionBoard", icon: Zap, status: "active" },
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
     { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
@@ -203,6 +212,17 @@ export function Sidebar() {
     ] : []),
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
+
+  const fabActions = [
+    { labelKey: "fabNewTask" as const, icon: CheckSquare, action: () => router.push("/tasks?create=true") },
+    { labelKey: "fabTakePhoto" as const, icon: Camera, action: () => router.push("/visits/new") },
+    { labelKey: "fabVoiceNote" as const, icon: Mic, action: () => router.push("/visits/new?mode=audio") },
+  ];
+
+  const handleFabAction = useCallback((action: () => void) => {
+    action();
+    setFabOpen(false);
+  }, []);
 
   return (
     <>
@@ -331,9 +351,14 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom" role="navigation" aria-label="Mobile navigation">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-md lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        role="navigation"
+        aria-label="Mobile navigation"
+      >
         <div className="flex items-center justify-evenly px-1 py-1">
-          {mobileItems.map((item) => {
+          {mobileBottomItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -341,64 +366,138 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-colors",
+                  "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
                   active ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
                 )}
                 style={active && isBranded ? { color: branding.primaryColor } : undefined}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative">
+                  <Icon className="h-6 w-6" />
+                  {item.badge && (
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#2563EB] px-1 text-[9px] font-bold text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
                 <span className="truncate max-w-[56px]">{t(item.labelKey)}</span>
               </Link>
             );
           })}
           <button
-            onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
+            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
-              "relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-colors",
+              "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
               mobileMoreOpen ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
             )}
             aria-expanded={mobileMoreOpen}
             aria-label={t("more")}
           >
-            {mobileMoreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
+            {mobileMoreOpen ? <X className="h-6 w-6" /> : <MoreHorizontal className="h-6 w-6" />}
             <span className="truncate max-w-[56px]">{t("more")}</span>
           </button>
         </div>
       </nav>
 
       {/* Mobile More Sheet */}
-      {mobileMoreOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-4 safe-area-bottom"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="grid grid-cols-4 gap-3">
-              {mobileExtraItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMoreOpen(false)}
-                    className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
-                      active ? "bg-blue-50 text-[#2563EB]" : "text-[#6B7280] hover:bg-gray-50"
-                    )}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="truncate max-w-[64px] text-center">{t(item.labelKey)}</span>
-                  </Link>
-                );
-              })}
-            </div>
+      <AnimatePresence>
+        {mobileMoreOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
+            <motion.div
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            />
+            <motion.div
+              className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-4"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="grid grid-cols-4 gap-3">
+                {mobileExtraItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMoreOpen(false)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
+                        active ? "bg-blue-50 text-[#2563EB]" : "text-[#6B7280] hover:bg-gray-50"
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="truncate max-w-[64px] text-center">{t(item.labelKey)}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* FAB Backdrop */}
+      <AnimatePresence>
+        {fabOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => setFabOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* FAB + Action Buttons */}
+      <div className="fixed right-4 z-[51] bottom-20 md:bottom-6 lg:bottom-6" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {/* Expanded action buttons */}
+        <AnimatePresence>
+          {fabOpen && fabActions.map((fab, i) => {
+            const FabIcon = fab.icon;
+            return (
+              <motion.button
+                key={fab.labelKey}
+                className="flex items-center gap-3 mb-3 group"
+                initial={{ opacity: 0, scale: 0.3, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.3, y: 20 }}
+                transition={{ delay: (fabActions.length - 1 - i) * 0.05, type: "spring", damping: 20, stiffness: 300 }}
+                onClick={() => handleFabAction(fab.action)}
+              >
+                <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-[#374151] shadow-lg whitespace-nowrap">
+                  {t(fab.labelKey)}
+                </span>
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg text-[#2563EB] transition-colors group-hover:bg-blue-50">
+                  <FabIcon className="h-5 w-5" />
+                </span>
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+
+        {/* FAB button */}
+        <motion.button
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-lg hover:bg-[#1D4ED8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2"
+          onClick={() => { setFabOpen(!fabOpen); setMobileMoreOpen(false); }}
+          animate={{ rotate: fabOpen ? 45 : 0 }}
+          transition={{ type: "spring", damping: 15, stiffness: 200 }}
+          aria-label={fabOpen ? "Close" : "Actions"}
+          aria-expanded={fabOpen}
+        >
+          <Plus className="h-7 w-7" />
+        </motion.button>
+      </div>
     </>
   );
 }

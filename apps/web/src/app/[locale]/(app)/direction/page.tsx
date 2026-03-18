@@ -1,23 +1,26 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { cn } from "@cantaia/ui";
+import { motion } from "framer-motion";
 import {
   Building2,
-  Users,
   AlertTriangle,
-  Sparkles,
   Calendar,
-  ShieldCheck,
-  CheckCircle,
-  XCircle,
   FileSpreadsheet,
   Loader2,
+  TrendingUp,
+  Printer,
+  Filter,
+  ChevronDown,
+  Clock,
+  ShieldAlert,
+  AlertCircle,
 } from "lucide-react";
-import { computeGuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
-import { PlanAlertsBanner } from "@/components/plans/PlanAlertsBanner";
 import { createClient } from "@/lib/supabase/client";
+import { formatCHF } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,12 +32,17 @@ interface Project {
   code?: string;
   color: string;
   status: string;
-  created_at: string;
-  updated_at: string;
+  client_name?: string;
+  budget_total?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_by?: string;
   openTasks: number;
   overdueTasks: number;
   emailCount: number;
-  nextMeeting?: string | null;
+  nextMeeting?: { title: string; meeting_date: string } | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Task {
@@ -52,6 +60,7 @@ interface Submission {
   id: string;
   title: string;
   status: string;
+  deadline?: string | null;
   project_id: string;
 }
 
@@ -66,28 +75,401 @@ interface Reception {
   id: string;
   project_id: string;
   status: string;
-  pv_signed_url?: string;
   reception_date?: string;
   guarantee_2y_end?: string;
   guarantee_5y_end?: string;
 }
 
-interface Reserve {
+interface PlanRecord {
   id: string;
   project_id: string;
-  description: string;
-  status: string;
-  deadline?: string;
-  created_at: string;
-  responsible_company?: string;
+  is_current_version?: boolean;
+  validation_status?: string;
+}
+
+type HealthStatus = "critical" | "warning" | "good";
+type StatusFilter = "all" | "active" | "paused" | "closing";
+
+interface ProjectAlert {
+  type: "overdue_tasks" | "plan_outdated" | "guarantee_expiring" | "submission_deadline";
+  message: string;
+  severity: "critical" | "warning";
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("fr-CH");
+function isOverdue(task: { due_date: string | null; status: string }): boolean {
+  if (!task.due_date || task.status === "done" || task.status === "cancelled") return false;
+  return task.due_date < new Date().toISOString().split("T")[0];
+}
+
+function daysBetween(dateStr: string): number {
+  const target = new Date(dateStr);
+  const now = new Date();
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatBudgetCompact(value: number): string {
+  if (value >= 1_000_000) {
+    return `CHF ${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return formatCHF(value);
+  }
+  return formatCHF(value);
+}
+
+function calculateHealth(
+  project: Project,
+  projectTasks: Task[],
+  projectSubmissions: Submission[]
+): HealthStatus {
+  const overdueTasks = projectTasks.filter(
+    (t) => isOverdue(t) && t.status !== "done" && t.status !== "cancelled"
+  );
+  const urgentSubmissions = projectSubmissions.filter((s) => {
+    if (!s.deadline) return false;
+    const daysLeft = daysBetween(s.deadline);
+    return daysLeft >= 0 && daysLeft <= 3;
+  });
+
+  if (overdueTasks.length > 3) return "critical";
+  if (project.budget_total && project.overdueTasks > project.openTasks * 0.5) return "critical";
+  if (overdueTasks.length > 0) return "warning";
+  if (urgentSubmissions.length > 0) return "warning";
+  return "good";
+}
+
+function getProjectAlerts(
+  t: (key: string, values?: Record<string, string | number>) => string,
+  projectId: string,
+  projectTasks: Task[],
+  projectSubmissions: Submission[],
+  plans: PlanRecord[],
+  receptions: Reception[]
+): ProjectAlert[] {
+  const alerts: ProjectAlert[] = [];
+
+  // Task alerts
+  const overdueTasks = projectTasks.filter((tk) => isOverdue(tk));
+  if (overdueTasks.length > 0) {
+    alerts.push({
+      type: "overdue_tasks",
+      message: t("alertOverdueTasks", { count: overdueTasks.length }),
+      severity: overdueTasks.length > 3 ? "critical" : "warning",
+    });
+  }
+
+  // Plan alerts
+  const projectPlans = plans.filter((p) => p.project_id === projectId);
+  const outdatedPlans = projectPlans.filter(
+    (p) => p.is_current_version === false || p.validation_status === "pending"
+  );
+  if (outdatedPlans.length > 0) {
+    alerts.push({
+      type: "plan_outdated",
+      message: t("alertOutdatedPlans", { count: outdatedPlans.length }),
+      severity: "warning",
+    });
+  }
+
+  // Guarantee alerts
+  const projectReceptions = receptions.filter(
+    (r) => r.project_id === projectId && r.status === "signed"
+  );
+  for (const rec of projectReceptions) {
+    if (rec.guarantee_2y_end) {
+      const days = daysBetween(rec.guarantee_2y_end);
+      if (days >= 0 && days <= 30) {
+        alerts.push({
+          type: "guarantee_expiring",
+          message: t("alertGuarantee2y", { days }),
+          severity: days <= 7 ? "critical" : "warning",
+        });
+      }
+    }
+    if (rec.guarantee_5y_end) {
+      const days = daysBetween(rec.guarantee_5y_end);
+      if (days >= 0 && days <= 30) {
+        alerts.push({
+          type: "guarantee_expiring",
+          message: t("alertGuarantee5y", { days }),
+          severity: days <= 7 ? "critical" : "warning",
+        });
+      }
+    }
+  }
+
+  // Submission deadline alerts
+  for (const sub of projectSubmissions) {
+    if (!sub.deadline) continue;
+    const days = daysBetween(sub.deadline);
+    if (days >= 0 && days <= 7) {
+      alerts.push({
+        type: "submission_deadline",
+        message: t("alertSubmissionDeadline", { days, title: sub.title || "" }),
+        severity: days <= 3 ? "critical" : "warning",
+      });
+    }
+  }
+
+  return alerts.slice(0, 3);
+}
+
+// ---------------------------------------------------------------------------
+// Components
+// ---------------------------------------------------------------------------
+
+function KPICard({
+  icon: Icon,
+  label,
+  value,
+  valueColor,
+  iconColor,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  valueColor?: string;
+  iconColor?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <Icon className={cn("h-4 w-4", iconColor || "text-slate-400")} />
+        <span className="text-xs font-medium text-slate-500 truncate">{label}</span>
+      </div>
+      <p className={cn("mt-1.5 text-2xl font-bold tabular-nums", valueColor || "text-slate-800")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function BudgetBar({
+  consumed,
+  total,
+  t,
+}: {
+  consumed: number;
+  total: number;
+  t: (key: string) => string;
+}) {
+  const pct = total > 0 ? Math.min((consumed / total) * 100, 100) : 0;
+  const barColor = pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-green-500";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+        <span>{t("budget")}</span>
+        <span className="tabular-nums">
+          {Math.round(pct)}% {t("of")} {formatBudgetCompact(total)}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-slate-100">
+        <div
+          className={cn("h-1.5 rounded-full transition-all", barColor)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HealthBadge({ health }: { health: HealthStatus }) {
+  const styles: Record<HealthStatus, string> = {
+    good: "bg-green-500",
+    warning: "bg-amber-500",
+    critical: "bg-red-500",
+  };
+
+  return (
+    <span
+      className={cn("inline-block h-2.5 w-2.5 rounded-full shrink-0", styles[health])}
+      title={health}
+    />
+  );
+}
+
+function ProjectCard({
+  project,
+  projectTasks,
+  projectSubmissions,
+  plans,
+  receptions,
+  members,
+  health,
+  index,
+  t,
+  onClick,
+}: {
+  project: Project;
+  projectTasks: Task[];
+  projectSubmissions: Submission[];
+  plans: PlanRecord[];
+  receptions: Reception[];
+  members: Member[];
+  health: HealthStatus;
+  index: number;
+  t: (key: string, values?: Record<string, string | number>) => string;
+  onClick: () => void;
+}) {
+  const overdueTasks = projectTasks.filter((tk) => isOverdue(tk));
+  const activeTasks = projectTasks.filter(
+    (tk) => tk.status !== "done" && tk.status !== "cancelled"
+  );
+
+  const activeSubmissions = projectSubmissions.filter(
+    (s) => s.status !== "completed" && s.status !== "awarded" && s.status !== "archived"
+  );
+
+  // Find nearest submission deadline
+  const nextDeadline = projectSubmissions
+    .filter((s) => s.deadline && daysBetween(s.deadline) >= 0)
+    .sort((a, b) => daysBetween(a.deadline!) - daysBetween(b.deadline!))[0];
+
+  // Last meeting (from project data)
+  const nextMeeting = project.nextMeeting;
+
+  // Manager — find the project creator in members
+  const manager = members.find((m) => m.id === project.created_by) || members[0];
+
+  // Budget progress (no consumed data from API, so show budget_total only)
+  const hasBudget = project.budget_total != null && project.budget_total > 0;
+
+  // Alerts
+  const alerts = getProjectAlerts(t, project.id, projectTasks, projectSubmissions, plans, receptions);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
+      onClick={onClick}
+      className="group cursor-pointer rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+    >
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: project.color }}
+            />
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-800 truncate group-hover:text-brand transition-colors">
+                {project.name}
+              </h3>
+              {project.code && (
+                <p className="text-[11px] text-slate-400 truncate">{project.code}</p>
+              )}
+            </div>
+          </div>
+          <HealthBadge health={health} />
+        </div>
+        {manager && (
+          <p className="mt-1 text-[11px] text-slate-400 truncate">
+            {t("manager")}: {manager.first_name} {manager.last_name}
+          </p>
+        )}
+      </div>
+
+      {/* Metrics */}
+      <div className="px-4 py-2 space-y-2 border-t border-slate-100">
+        {/* Budget */}
+        {hasBudget ? (
+          <BudgetBar consumed={0} total={project.budget_total!} t={t} />
+        ) : (
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <span>{t("budget")}</span>
+            <span>{t("budgetNotDefined")}</span>
+          </div>
+        )}
+
+        {/* Tasks */}
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">{t("tasks")}</span>
+          <span>
+            {overdueTasks.length > 0 && (
+              <span className="font-semibold text-red-600">
+                {overdueTasks.length} {t("overdue")}
+              </span>
+            )}
+            {overdueTasks.length > 0 && activeTasks.length > 0 && (
+              <span className="text-slate-300"> / </span>
+            )}
+            <span className="text-slate-600">
+              {activeTasks.length} {t("active")}
+            </span>
+          </span>
+        </div>
+
+        {/* Submissions */}
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">{t("submissions")}</span>
+          <span>
+            <span className="text-slate-600">
+              {activeSubmissions.length} {t("pending")}
+            </span>
+            <span className="text-slate-300"> / </span>
+            <span className="text-slate-400">
+              {projectSubmissions.length} {t("total")}
+            </span>
+          </span>
+        </div>
+
+        {/* Next deadline */}
+        {nextDeadline?.deadline && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">{t("nextDeadline")}</span>
+            <span className="flex items-center gap-1 text-slate-600">
+              <Clock className="h-3 w-3" />
+              {new Date(nextDeadline.deadline).toLocaleDateString("fr-CH", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </span>
+          </div>
+        )}
+
+        {/* Next meeting or last PV */}
+        {nextMeeting && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">{t("nextMeeting")}</span>
+            <span className="flex items-center gap-1 text-slate-600">
+              <Calendar className="h-3 w-3" />
+              {new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <div className="px-4 py-2 border-t border-slate-100 space-y-1">
+          {alerts.map((alert, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex items-center gap-1.5 text-[11px] rounded px-1.5 py-0.5",
+                alert.severity === "critical"
+                  ? "text-red-700 bg-red-50"
+                  : "text-amber-700 bg-amber-50"
+              )}
+            >
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="truncate">{alert.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +478,7 @@ function formatDate(dateStr: string): string {
 
 export default function DirectionPage() {
   const t = useTranslations("direction");
+  const router = useRouter();
 
   // ---- State ----
   const [loading, setLoading] = useState(true);
@@ -104,7 +487,9 @@ export default function DirectionPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [receptions, setReceptions] = useState<Reception[]>([]);
-  const [reserves, setReserves] = useState<Reserve[]>([]);
+  const [plans, setPlans] = useState<PlanRecord[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // ---- Data fetching ----
   useEffect(() => {
@@ -112,7 +497,6 @@ export default function DirectionPage() {
 
     async function fetchData() {
       try {
-        // Fetch from APIs in parallel
         const [projectsRes, tasksRes, submissionsRes] = await Promise.all([
           fetch("/api/projects/list").then((r) => r.json()),
           fetch("/api/tasks").then((r) => r.json()),
@@ -121,19 +505,20 @@ export default function DirectionPage() {
 
         if (cancelled) return;
 
-        setProjects(projectsRes?.projects ?? projectsRes?.data?.projects ?? []);
+        setProjects(projectsRes?.projects ?? []);
         setTasks(tasksRes?.tasks ?? tasksRes?.data?.tasks ?? []);
-        setSubmissions(submissionsRes?.submissions ?? submissionsRes?.data?.submissions ?? []);
+        setSubmissions(submissionsRes?.submissions ?? []);
 
-        // Fetch members via API route (bypasses RLS recursion on users table)
-        const membersRes = await fetch("/api/admin/clients").then((r) => r.json()).catch(() => ({ members: [] }));
+        // Members
+        const membersRes = await fetch("/api/admin/clients")
+          .then((r) => r.json())
+          .catch(() => ({ members: [] }));
         if (cancelled) return;
         setMembers(membersRes?.members ?? []);
 
-        // Fetch receptions/reserves via Supabase client
+        // Supabase direct queries (tables may not exist)
         const supabase = createClient();
 
-        // Receptions & reserves (tables may not exist yet)
         try {
           const { data: recData } = await (supabase.from("project_receptions") as any).select("*");
           if (!cancelled) setReceptions(recData ?? []);
@@ -142,8 +527,10 @@ export default function DirectionPage() {
         }
 
         try {
-          const { data: resData } = await (supabase.from("reception_reserves") as any).select("*");
-          if (!cancelled) setReserves(resData ?? []);
+          const { data: planData } = await (supabase.from("plan_registry") as any).select(
+            "id, project_id, is_current_version, validation_status"
+          );
+          if (!cancelled) setPlans(planData ?? []);
         } catch {
           // Table may not exist
         }
@@ -161,9 +548,25 @@ export default function DirectionPage() {
   }, []);
 
   // ---- Derived data ----
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const overdueTasks = useMemo(
+  const filteredProjects = useMemo(() => {
+    if (statusFilter === "all") return projects;
+    const statusMap: Record<StatusFilter, string[]> = {
+      all: [],
+      active: ["active", "planning"],
+      paused: ["paused", "on_hold"],
+      closing: ["closing", "completed"],
+    };
+    return projects.filter((p) => statusMap[statusFilter].includes(p.status));
+  }, [projects, statusFilter]);
+
+  const totalBudget = useMemo(
+    () => projects.reduce((sum, p) => sum + (p.budget_total || 0), 0),
+    [projects]
+  );
+
+  const totalOverdue = useMemo(
     () =>
       tasks.filter(
         (t) =>
@@ -171,9 +574,20 @@ export default function DirectionPage() {
           t.due_date < today &&
           t.status !== "done" &&
           t.status !== "cancelled"
-      ),
+      ).length,
     [tasks, today]
   );
+
+  const totalCriticalAlerts = useMemo(() => {
+    let count = 0;
+    for (const project of projects) {
+      const pt = tasks.filter((t) => t.project_id === project.id);
+      const ps = submissions.filter((s) => s.project_id === project.id);
+      const alerts = getProjectAlerts(t, project.id, pt, ps, plans, receptions);
+      count += alerts.filter((a) => a.severity === "critical").length;
+    }
+    return count;
+  }, [projects, tasks, submissions, plans, receptions, t]);
 
   const activeSubmissions = useMemo(
     () =>
@@ -183,65 +597,28 @@ export default function DirectionPage() {
     [submissions]
   );
 
-  const totalProjects = projects.length;
-  const totalUsers = members.length;
-  const totalOverdue = overdueTasks.length;
-
-  // Closure & guarantee computations
-  const closureProjects = useMemo(
-    () =>
-      projects.filter(
-        (p) =>
-          p.status === "closing" ||
-          (p.status === "completed" &&
-            receptions.some((r) => r.project_id === p.id))
-      ),
-    [projects, receptions]
+  // Per-project data lookups
+  const getProjectTasks = useCallback(
+    (projectId: string) => tasks.filter((t) => t.project_id === projectId),
+    [tasks]
   );
 
-  const signedReceptions = useMemo(
-    () => receptions.filter((r) => r.status === "signed"),
-    [receptions]
+  const getProjectSubmissions = useCallback(
+    (projectId: string) => submissions.filter((s) => s.project_id === projectId),
+    [submissions]
   );
 
-  const projectNames = useMemo(
-    () => Object.fromEntries(projects.map((p) => [p.id, p.name])),
-    [projects]
+  const getProjectHealth = useCallback(
+    (project: Project) => {
+      return calculateHealth(project, getProjectTasks(project.id), getProjectSubmissions(project.id));
+    },
+    [getProjectTasks, getProjectSubmissions]
   );
 
-  const allAlerts = useMemo(
-    () =>
-      computeGuaranteeAlerts(
-        signedReceptions as any,
-        reserves as any,
-        projectNames
-      ),
-    [signedReceptions, reserves, projectNames]
-  );
-
-  const hasDanger = allAlerts.some((a) => a.severity === "danger");
-  const hasWarning = allAlerts.some((a) => a.severity === "warning");
-  const totalAlerts = allAlerts.length;
-
-  // Helper: get open tasks count for a project
-  function getOpenTasks(projectId: string): number {
-    return tasks.filter(
-      (t) =>
-        t.project_id === projectId &&
-        t.status !== "done" &&
-        t.status !== "cancelled"
-    ).length;
-  }
-
-  // Helper: get overdue tasks count for a project
-  function getOverdueTasks(projectId: string): number {
-    return overdueTasks.filter((t) => t.project_id === projectId).length;
-  }
-
-  // Helper: get submissions count for a project
-  function getProjectSubmissions(projectId: string): number {
-    return submissions.filter((s) => s.project_id === projectId).length;
-  }
+  // ---- Handlers ----
+  const handleExport = useCallback(() => {
+    window.print();
+  }, []);
 
   // ---- Loading state ----
   if (loading) {
@@ -255,338 +632,129 @@ export default function DirectionPage() {
     );
   }
 
-  // ---- Render ----
-  const statusColors: Record<string, string> = {
-    active: "bg-green-50 text-green-700",
-    planning: "bg-slate-100 text-slate-600",
-    paused: "bg-amber-50 text-amber-700",
-    on_hold: "bg-orange-50 text-orange-700",
-    closing: "bg-purple-50 text-purple-700",
-    completed: "bg-blue-50 text-blue-700",
-    archived: "bg-slate-100 text-slate-400",
-  };
+  // ---- Filter options ----
+  const filterOptions: { value: StatusFilter; label: string }[] = [
+    { value: "all", label: t("filterAll") },
+    { value: "active", label: t("filterActive") },
+    { value: "paused", label: t("filterPaused") },
+    { value: "closing", label: t("filterClosing") },
+  ];
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 lg:p-6 xl:p-8 print:p-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-slate-800">
-          {t("title")}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {t("subtitle")}
-        </p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-brand" />
-            <span className="text-xs font-medium text-slate-500">{t("totalProjects")}</span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">{totalProjects}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-800">{t("title")}</h1>
+          <p className="mt-0.5 text-sm text-slate-500">{t("subtitle")}</p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-blue-500" />
-            <span className="text-xs font-medium text-slate-500">{t("totalUsers")}</span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">{totalUsers}</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4 text-indigo-500" />
-            <span className="text-xs font-medium text-slate-500">{t("activeSubmissions")}</span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-indigo-600">
-            {activeSubmissions.length}
-          </p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <span className="text-xs font-medium text-slate-500">{t("overdueGlobal")}</span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-red-600">{totalOverdue}</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-medium text-slate-500">{t("aiAlerts")}</span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-amber-600">{totalAlerts}</p>
-        </div>
-      </div>
-
-      {/* Closure & Guarantees section */}
-      {(closureProjects.length > 0 || signedReceptions.length > 0) && (
-        <div className="mt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="h-4 w-4 text-brand" />
-            <h2 className="text-sm font-semibold text-slate-800">{t("closureSection")}</h2>
-            {hasDanger && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
-                <AlertTriangle className="h-3 w-3" />
-                {allAlerts.filter((a) => a.severity === "danger").length}
-              </span>
-            )}
-            {hasWarning && !hasDanger && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                <AlertTriangle className="h-3 w-3" />
-                {allAlerts.filter((a) => a.severity === "warning").length}
-              </span>
+        <div className="flex items-center gap-2 print:hidden">
+          {/* Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setFilterOpen(!filterOpen)}
+              className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {filterOptions.find((f) => f.value === statusFilter)?.label}
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {filterOpen && (
+              <div className="absolute right-0 top-full mt-1 z-10 w-40 rounded-md border border-slate-200 bg-white shadow-lg py-1">
+                {filterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setStatusFilter(opt.value);
+                      setFilterOpen(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-xs transition-colors",
+                      statusFilter === opt.value
+                        ? "bg-brand/5 text-brand font-medium"
+                        : "text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
+          {/* Export */}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            {t("exportButton")}
+          </button>
+        </div>
+      </div>
 
-          {/* Closure projects table */}
-          {closureProjects.length > 0 && (
-            <div className="mb-6">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("closureProjects")}</h3>
-              <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colProject")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colConductor")}</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colPvSigned")}</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colReserves")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colClosureStatus")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {closureProjects.map((project) => {
-                      const reception = receptions.find((r) => r.project_id === project.id);
-                      const projectReserves = reserves.filter((r) => r.project_id === project.id);
-                      const openReserves = projectReserves.filter((r) => r.status === "open").length;
-                      const verifiedReserves = projectReserves.filter((r) => r.status === "verified").length;
-                      const totalReserves = openReserves + verifiedReserves;
-                      const pvSigned = reception?.pv_signed_url ? true : false;
+      {/* KPI Summary Bar */}
+      <div className="sticky top-0 z-10 -mx-4 lg:-mx-6 xl:-mx-8 px-4 lg:px-6 xl:px-8 py-3 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 mb-5 print:static print:bg-white print:border-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <KPICard
+            icon={Building2}
+            label={t("kpiProjects")}
+            value={projects.length}
+            iconColor="text-brand"
+          />
+          <KPICard
+            icon={TrendingUp}
+            label={t("kpiBudget")}
+            value={totalBudget > 0 ? formatBudgetCompact(totalBudget) : "---"}
+            iconColor="text-emerald-500"
+          />
+          <KPICard
+            icon={AlertCircle}
+            label={t("kpiOverdue")}
+            value={totalOverdue}
+            valueColor={totalOverdue > 0 ? "text-red-600" : "text-slate-800"}
+            iconColor={totalOverdue > 0 ? "text-red-500" : "text-slate-400"}
+          />
+          <KPICard
+            icon={ShieldAlert}
+            label={t("kpiAlerts")}
+            value={totalCriticalAlerts}
+            valueColor={totalCriticalAlerts > 0 ? "text-red-600" : "text-slate-800"}
+            iconColor={totalCriticalAlerts > 0 ? "text-red-500" : "text-slate-400"}
+          />
+          <KPICard
+            icon={FileSpreadsheet}
+            label={t("kpiSubmissions")}
+            value={activeSubmissions.length}
+            iconColor="text-indigo-500"
+          />
+        </div>
+      </div>
 
-                      return (
-                        <tr key={project.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
-                              <p className="font-medium text-slate-800">{project.name}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">
-                            {members.length > 0
-                              ? `${members[0].first_name} ${members[0].last_name}`
-                              : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {pvSigned ? (
-                              <span className="inline-flex items-center gap-1 text-green-600">
-                                <CheckCircle className="h-3.5 w-3.5" />
-                                <span className="text-xs">{t("pvSigned")}</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-red-500">
-                                <XCircle className="h-3.5 w-3.5" />
-                                <span className="text-xs">{t("pvNotSigned")}</span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {totalReserves > 0 ? (
-                              <span className={cn("text-xs font-medium", openReserves > 0 ? "text-red-600" : "text-green-600")}>
-                                {openReserves > 0 ? t("reservesOpen", { count: openReserves }) : t("reservesAll")}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">&mdash;</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-1.5 w-20 rounded-full bg-slate-100">
-                                <div
-                                  className={cn("h-1.5 rounded-full transition-all", pvSigned && openReserves === 0 ? "bg-green-500" : "bg-amber-400")}
-                                  style={{
-                                    width: `${pvSigned ? (openReserves === 0 ? 100 : 60) : reception ? 40 : 10}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-xs text-slate-500">
-                                {pvSigned && openReserves === 0 ? "100%" : pvSigned ? "60%" : reception ? "40%" : "10%"}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Active guarantees table */}
-          {signedReceptions.length > 0 && (
-            <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("activeGuarantees")}</h3>
-              <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colProject")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colReceptionDate")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("col2yEnd")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("col5yEnd")}</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colAlertLevel")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {signedReceptions.map((rec) => {
-                      const project = projects.find((p) => p.id === rec.project_id);
-                      const recAlerts = allAlerts.filter((a) => a.project_id === rec.project_id);
-                      const maxSeverity = recAlerts.length > 0
-                        ? recAlerts.some((a) => a.severity === "danger") ? "danger" : "warning"
-                        : "none";
-
-                      return (
-                        <tr key={rec.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {project && (
-                                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
-                              )}
-                              <p className="font-medium text-slate-800">{project?.name || rec.project_id}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{rec.reception_date ? formatDate(rec.reception_date) : "—"}</td>
-                          <td className="px-4 py-3 text-slate-600">{rec.guarantee_2y_end ? formatDate(rec.guarantee_2y_end) : "—"}</td>
-                          <td className="px-4 py-3 text-slate-600">{rec.guarantee_5y_end ? formatDate(rec.guarantee_5y_end) : "—"}</td>
-                          <td className="px-4 py-3 text-center">
-                            {maxSeverity === "danger" ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                                <AlertTriangle className="h-3 w-3" />
-                                {t("alertDanger")}
-                              </span>
-                            ) : maxSeverity === "warning" ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                                <Calendar className="h-3 w-3" />
-                                {t("alertWarning")}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                <CheckCircle className="h-3 w-3" />
-                                {t("alertNone")}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+      {/* Project Cards Grid */}
+      {filteredProjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <Building2 className="h-10 w-10 mb-3 text-slate-300" />
+          <p className="text-sm">{t("noProjects")}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-2">
+          {filteredProjects.map((project, index) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              projectTasks={getProjectTasks(project.id)}
+              projectSubmissions={getProjectSubmissions(project.id)}
+              plans={plans}
+              receptions={receptions}
+              members={members}
+              health={getProjectHealth(project)}
+              index={index}
+              t={t}
+              onClick={() => router.push(`/projects/${project.id}`)}
+            />
+          ))}
         </div>
       )}
-
-      {/* Projects table */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-sm font-semibold text-slate-800">{t("allProjects")}</h2>
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colProject")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colManager")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colStatus")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colOpenTasks")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colOverdue")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colEmails")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500">{t("colSubmissions")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">{t("colNextMeeting")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {projects.map((project) => {
-                const openTasksCount = getOpenTasks(project.id);
-                const overdueCount = getOverdueTasks(project.id);
-                const emailCount = project.emailCount ?? 0;
-                const submissionCount = getProjectSubmissions(project.id);
-                const nextMeeting = project.nextMeeting;
-                // Pick the first member as a fallback "manager" — a real project_members lookup
-                // would be ideal, but we work with what the API gives us.
-                const manager = members.length > 0 ? members[0] : null;
-
-                return (
-                  <tr key={project.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: project.color }}
-                        />
-                        <div>
-                          <p className="font-medium text-slate-800">{project.name}</p>
-                          <p className="text-xs text-slate-400">{project.code}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {manager ? (
-                        <div>
-                          <p className="text-slate-700">{manager.first_name} {manager.last_name}</p>
-                          <p className="text-xs text-slate-400">{manager.role === "project_manager" ? t("roleProjectManager") : t("roleSiteManager")}</p>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">&mdash;</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusColors[project.status] || "bg-slate-100 text-slate-600")}>
-                        {project.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-slate-600">
-                      {openTasksCount}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={cn(overdueCount > 0 ? "font-semibold text-red-600" : "text-slate-400")}>
-                        {overdueCount}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-slate-600">
-                      {emailCount}
-                    </td>
-                    <td className="px-4 py-3 text-center text-slate-600">
-                      {submissionCount}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {nextMeeting ? (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(nextMeeting)}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">&mdash;</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {projects.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">
-                    {t("noProjects", { fallback: "Aucun projet" })}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Plan alerts section */}
-      <div className="mt-6">
-        <PlanAlertsBanner maxAlerts={3} />
-      </div>
     </div>
   );
 }

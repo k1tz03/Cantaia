@@ -85,6 +85,25 @@ export async function POST(request: NextRequest) {
       .update({ status: "responded" })
       .eq("id", priceRequest.id);
 
+    // Recalculate supplier score after receiving a quote
+    try {
+      const { recalculateAndPersistScore } = await import("@cantaia/core/suppliers");
+      const { data: supplierData } = await (admin as any)
+        .from("suppliers")
+        .select("organization_id")
+        .eq("id", priceRequest.supplier_id)
+        .maybeSingle();
+      if (supplierData?.organization_id) {
+        await recalculateAndPersistScore(
+          priceRequest.supplier_id,
+          supplierData.organization_id,
+          admin
+        );
+      }
+    } catch (scoreErr) {
+      console.warn("[receive-quote] Score recalculation failed (non-fatal):", scoreErr);
+    }
+
     return NextResponse.json({
       success: true,
       quotes_extracted: quotesToInsert.length,

@@ -14,6 +14,8 @@ export interface ExtractedPosition {
   confidence: number;
   flags: string[];
   is_new?: boolean;
+  material_group?: string;
+  product_name?: string;
 }
 
 export interface ExtractionMetadata {

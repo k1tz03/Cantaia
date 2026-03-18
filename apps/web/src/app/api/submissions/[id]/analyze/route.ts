@@ -6,20 +6,131 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Allow up to 300s on Vercel serverless (Pro plan) — 60s for Hobby
 export const maxDuration = 300;
 
-const ANALYSIS_PROMPT = `Expert soumissions construction suisse (CFC/NPK). Extrais TOUS les postes.
+const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (normes CFC/NPK). Extrais TOUS les postes du document fourni.
 
-JSON uniquement: {"items":[{"item_number":"1.1","description":"...","unit":"m2","quantity":10,"cfc_code":"211","material_group":"Terrassement","product_name":"Sika 101"}]}
+# FORMAT DE SORTIE
+JSON uniquement — aucun texte avant ou après.
+{"items":[{"item_number":"1.1","description":"...","unit":"m²","quantity":10,"cfc_code":"211","material_group":"Béton armé","product_name":"Sika 101"}]}
 
-Champs:
-- item_number: numéro de poste
-- description: prestation complète
-- unit: m2/m3/ml/m/kg/pce/fft/gl/h/j/t
-- quantity: nombre ou null
-- cfc_code: code CFC estimé (211/241/271...)
-- material_group: groupe cohérent (Graves/Béton/Plantations/Maçonnerie/Étanchéité/Revêtements/Terrassement/Coffrage/Ferraillage/Isolation...)
-- product_name: nom de produit/marque spécifique si mentionné (ex: "OH-ch-Gravierflora Myko", "Sika", "Weber", "Geberit"). null si générique.
+# CHAMPS PAR POSTE
+- item_number: numéro de poste tel qu'il apparaît dans le document (ex: "1.1", "2.3.1", "401")
+- description: description complète de la prestation, traduite en français si nécessaire
+- unit: unité normalisée (voir table ci-dessous)
+- quantity: nombre extrait. null si absent. NE PAS inventer de quantité.
+- cfc_code: code CFC suisse estimé (voir table ci-dessous)
+- material_group: groupe de matériaux (voir liste ci-dessous)
+- product_name: nom de produit/marque spécifique si mentionné. null si générique.
 
-Règles: extrais CHAQUE poste, estime CFC, regroupe par material_group, traduis DE→FR si nécessaire, sois exhaustif.`;
+# NORMALISATION DES UNITÉS
+| Document        | Normalisé |
+|-----------------|-----------|
+| m, ml, lfm, Lfm| ml        |
+| m², qm, Qm     | m²        |
+| m³, cbm, Cbm   | m³        |
+| pce, pièce, St, St., Stk, Stück | pce |
+| forfait, fft, gl, Psch, Pauschale, global | fft |
+| kg, Kg          | kg        |
+| t, to, To       | t         |
+| h, Std, Stunde  | h         |
+| j, jour, Tag    | j         |
+Ignore les cellules qui contiennent uniquement une unité sans quantité associée.
+
+# DOCUMENTS MULTILINGUES (FR/DE/IT)
+Les documents suisses mélangent souvent français, allemand et italien. Traduis TOUTES les descriptions en français.
+Termes courants DE→FR:
+- Schalung/Schalen → Coffrage
+- Bewehrung/Armierung → Ferraillage/Armature
+- Beton/Ortbeton → Béton/Béton coulé en place
+- Mauerwerk/Backsteinmauerwerk → Maçonnerie/Maçonnerie en briques
+- Abdichtung/Bauwerksabdichtung → Étanchéité/Imperméabilisation
+- Wärmedämmung/Isolation → Isolation thermique
+- Fenster → Fenêtres
+- Türen → Portes
+- Fassade/Aussenwandbekleidung → Façade/Revêtement extérieur
+- Dach/Bedachung → Toiture
+- Bodenbelag → Revêtement de sol
+- Wandbelag → Revêtement mural
+- Anstrich/Malerarbeiten → Peinture
+- Elektro/Elektroinstallation → Électricité
+- Heizung → Chauffage
+- Sanitär → Sanitaire/Plomberie
+- Lüftung/Lüftungsanlage → Ventilation
+- Aushub/Erdarbeiten → Terrassement/Excavation
+- Fundament/Fundation → Fondations
+- Gipserarbeiten → Plâtrerie
+- Schreinerarbeiten → Menuiserie
+- Metallbau/Stahlbau → Construction métallique
+
+# CODES CFC SUISSES — TABLE DE RÉFÉRENCE
+| CFC   | Description                                      |
+|-------|--------------------------------------------------|
+| 113   | Installations de chantier                        |
+| 117   | Terrassement, excavation, déblais                |
+| 151   | Canalisations, drainage                          |
+| 211   | Béton armé (fourniture + coulage uniquement)     |
+| 211.1 | Coffrage (séparé du béton !)                     |
+| 211.2 | Ferraillage, armature (séparé du béton !)        |
+| 213   | Éléments préfabriqués en béton                   |
+| 214   | Maçonnerie, briques, blocs                       |
+| 215   | Imperméabilisation, étanchéité souterraine       |
+| 221   | Fenêtres et portes extérieures                   |
+| 222   | Portes intérieures                               |
+| 224   | Ferblanterie, zinguerie                          |
+| 225   | Couverture, toiture                              |
+| 227   | Façades, revêtements extérieurs                  |
+| 228   | Stores, protections solaires                     |
+| 231   | Électricité courant fort                         |
+| 232   | Installations électriques (courant faible, comm) |
+| 234   | Ascenseurs, monte-charges                        |
+| 241   | Chauffage, production de chaleur                 |
+| 242   | Installations de chauffage (distribution)        |
+| 244   | Ventilation, climatisation                       |
+| 245   | Installations frigorifiques                      |
+| 251   | Sanitaire, plomberie, conduites d'eau            |
+| 261   | Plâtrerie, cloisons sèches                       |
+| 271   | Étanchéité, imperméabilisation (superstructure)  |
+| 273   | Isolation thermique                              |
+| 281   | Revêtements de sols (carrelage, parquet, etc.)   |
+| 283   | Revêtements muraux                               |
+| 285   | Faux plafonds                                    |
+| 286   | Peinture, tapisserie                             |
+| 291   | Menuiserie intérieure, agencement                |
+| 311   | Aménagements extérieurs, espaces verts           |
+| 421   | Cuisine (appareils et agencement)                |
+
+ATTENTION :
+- CFC 211 = UNIQUEMENT le béton (fourniture + coulage). NE PAS y mettre coffrage ni ferraillage.
+- CFC 211.1 = coffrage → toujours séparé du béton armé
+- CFC 211.2 = ferraillage/armature → toujours séparé du béton armé
+- CFC 271 = étanchéité en SUPERSTRUCTURE (toitures, terrasses). CFC 215 = étanchéité SOUTERRAINE.
+- CFC 231/232 = électricité. CFC 241/242 = chauffage. NE PAS confondre.
+- En cas de doute, attribue le code CFC le plus précis possible. Ne laisse jamais cfc_code vide si tu peux deviner la discipline.
+
+# GROUPES DE MATÉRIAUX
+Utilise UNIQUEMENT ces groupes (en français) :
+Terrassement, Fondations, Béton armé, Coffrage, Ferraillage, Maçonnerie, Étanchéité, Isolation thermique, Fenêtres/Portes, Façades, Toiture, Ferblanterie, Électricité, CVC/Chauffage, Sanitaire/Plomberie, Ventilation, Revêtements sols, Revêtements murs, Peinture, Plâtrerie, Menuiserie intérieure, Faux plafonds, Construction métallique, Aménagements extérieurs, Ascenseurs, Installations de chantier, Divers
+
+# VALIDATION DES QUANTITÉS
+- REJETTE les cellules qui ressemblent à des numéros de page (1, 2, 3... en séquence)
+- REJETTE les valeurs > 100'000 (ce sont probablement des montants monétaires, pas des quantités)
+- SIGNALE les quantités de 0 ou négatives en mettant quantity: null
+- Si une cellule combine quantité et unité (ex: "150 m²"), extrais quantity=150 et unit="m²"
+- Les sous-totaux et totaux NE SONT PAS des postes — ne les inclus pas
+
+# EXTRACTION DE NOMS DE PRODUITS
+Cherche les marques/produits spécifiques et normalise :
+- "Sika 101" = "Sika® 101" = "Sikaflex-101" → product_name: "Sika 101"
+- "Weber.tec" = "Webertec" → product_name: "Weber.tec"
+- "Hilti HIT-RE 500" = "HILTI HIT RE500" → product_name: "Hilti HIT-RE 500"
+- "Geberit Silent-db20" → product_name: "Geberit Silent-db20"
+- Si pas de marque spécifique, product_name: null
+
+# RÈGLES FINALES
+1. Extrais CHAQUE poste du document — sois exhaustif, ne saute aucune ligne
+2. En cas de doute sur le CFC, attribue celui qui correspond le mieux à la discipline
+3. Traduis systématiquement DE/IT → FR pour les descriptions
+4. Regroupe les postes par material_group cohérent
+5. Conserve les numéros de poste originaux du document`;
 
 export async function POST(
   _request: NextRequest,
