@@ -7,14 +7,14 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 export const maxDuration = 120;
 
 /** Map frontend project types to DB CHECK constraint values */
-function mapProjectType(frontendType: string | undefined): string {
-  const map: Record<string, string> = {
+function mapProjectType(frontendType: string | undefined): "new" | "renovation" | "extension" | "interior" {
+  const map: Record<string, "new" | "renovation" | "extension" | "interior"> = {
     neuf: "new",
     renovation: "renovation",
     extension: "extension",
     amenagement: "interior",
   };
-  return map[frontendType || ""] || frontendType || "new";
+  return map[frontendType || ""] || "new";
 }
 
 /**
