@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Sparkles,
   Shield,
   Map,
   FileSpreadsheet,
