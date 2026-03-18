@@ -49,6 +49,7 @@ export default function ProjectPlanningPage() {
   // Submissions for the config modal
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Fetch planning by project
   const fetchPlanning = useCallback(async () => {
@@ -95,7 +96,7 @@ export default function ProjectPlanningPage() {
       const json = await res.json();
       if (json.success && json.submissions) {
         const analyzed = json.submissions.filter(
-          (s: any) => s.analysis_status === "done",
+          (s: any) => s.analysis_status === "done" || s.analysis_status === "completed" || s.items_count > 0,
         );
         setSubmissions(analyzed);
         if (analyzed.length > 0 && !selectedSubmissionId) {
@@ -114,8 +115,12 @@ export default function ProjectPlanningPage() {
 
   // Generate planning
   const handleGenerate = async (config: any) => {
-    if (!selectedSubmissionId) return;
+    if (!selectedSubmissionId) {
+      setGenerateError("Aucune soumission analysée trouvée. Analysez d'abord une soumission.");
+      return;
+    }
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch("/api/planning/generate", {
         method: "POST",
@@ -133,12 +138,17 @@ export default function ProjectPlanningPage() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Generation failed");
+      if (!res.ok) {
+        setGenerateError(json.error || "Échec de la génération du planning");
+        return;
+      }
 
       setShowConfig(false);
+      setGenerateError(null);
       await fetchPlanning();
     } catch (err: any) {
-      throw err; // Let the modal handle the error
+      console.error("[planning] Generate error:", err);
+      setGenerateError(err.message || "Erreur inattendue lors de la génération");
     } finally {
       setGenerating(false);
     }
@@ -324,11 +334,19 @@ export default function ProjectPlanningPage() {
 
       {/* Config modal */}
       {showConfig && (
-        <GanttConfigModal
-          onGenerate={handleGenerate}
-          onCancel={() => setShowConfig(false)}
-          isGenerating={generating}
-        />
+        <>
+          <GanttConfigModal
+            onGenerate={handleGenerate}
+            onCancel={() => { setShowConfig(false); setGenerateError(null); }}
+            isGenerating={generating}
+          />
+          {generateError && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
+              <p className="font-medium">Erreur</p>
+              <p>{generateError}</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Share panel */}
