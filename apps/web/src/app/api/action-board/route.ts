@@ -68,15 +68,9 @@ export async function GET() {
     try {
       const { data: projects } = await admin
         .from("projects")
-        .select("id, name, color")
+        .select("id, name, color, status")
         .eq("organization_id", orgId)
-        .in("status", [
-          "planning",
-          "active",
-          "paused",
-          "on_hold",
-          "closing",
-        ]);
+        .not("status", "eq", "archived");
       if (projects) {
         for (const p of projects) {
           projectMap[p.id] = { name: p.name, color: p.color };
@@ -312,6 +306,19 @@ async function fetchTasks(
     .order("priority", { ascending: true })
     .limit(20);
 
+  // Due this week (next 7 days, excluding today and overdue)
+  const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const { data: weekTasks } = await (admin as any)
+    .from("tasks")
+    .select("id, title, due_date, priority, project_id, created_at")
+    .in("project_id", activeProjectIds)
+    .in("status", ["todo", "in_progress", "waiting"])
+    .gte("due_date", tomorrowStr)
+    .lte("due_date", sevenDaysLater)
+    .order("due_date", { ascending: true })
+    .limit(20);
+
   const items: ActionItem[] = [];
 
   for (const task of overdueTasks || []) {
@@ -352,6 +359,30 @@ async function fetchTasks(
       actions: [
         { label: "mark_done", action: "mark_done", variant: "primary" },
         { label: "postpone", action: "postpone", variant: "secondary" },
+        { label: "view", action: "view", variant: "ghost" },
+      ],
+    });
+  }
+
+  for (const task of weekTasks || []) {
+    // Skip if already in today or overdue
+    if (items.some((i) => i.entityId === task.id)) continue;
+    const proj = projectMap[task.project_id];
+    const daysUntil = Math.ceil(
+      (new Date(task.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+    items.push({
+      id: `task-${task.id}`,
+      type: "task",
+      priority: "medium",
+      title: task.title,
+      subtitle: `Dans ${daysUntil}j`,
+      projectName: proj?.name || null,
+      projectColor: proj?.color || null,
+      entityId: task.id,
+      createdAt: task.created_at,
+      actions: [
+        { label: "mark_done", action: "mark_done", variant: "primary" },
         { label: "view", action: "view", variant: "ghost" },
       ],
     });

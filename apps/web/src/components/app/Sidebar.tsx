@@ -294,23 +294,7 @@ export function Sidebar() {
           )}
         </nav>
 
-        {/* Plan indicator */}
-        {!collapsed && (
-          <div className="mx-3 mb-2 rounded-lg bg-gray-100 border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5">
-              <Sparkles
-                className="h-3.5 w-3.5 text-gray-400"
-                style={isBranded ? { color: branding.accentColor } : undefined}
-              />
-              <span className="text-[11px] font-semibold text-gray-600">
-                {t("planTrial")}
-              </span>
-              <span className="ml-auto text-[11px] text-gray-500">
-                {t("trialDaysLeft", { days: 12 })}
-              </span>
-            </div>
-          </div>
-        )}
+        {/* Plan indicator — hidden for pro/enterprise plans */}
 
         {/* User & Collapse */}
         <div className="border-t border-[#E5E7EB] p-3">
