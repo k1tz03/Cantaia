@@ -43,7 +43,7 @@ Chaque interaction contenant un signal prix est interceptée et stockée.
 | Événement | Déclencheur | Données capturées | Table cible |
 |-----------|-------------|-------------------|-------------|
 | Offre fournisseur reçue | `POST /api/submissions/receive-quote` | Tous les `offer_line_items` : CFC, description, prix unitaire, unité | `offer_line_items` (existe) |
-| Offre retenue (adjudication) | Bouton "Attribuer" sur ComparisonTab | `price_requests.status` passé à `'awarded'` → identifie le fournisseur retenu → auto-calibration déclenchée | `price_calibrations` (existe, jamais alimentée auto) |
+| Offre retenue (adjudication) | Bouton "Attribuer" sur ComparisonTab (à créer — n'existe pas encore) | `submission_items.status` passé à `'awarded'` (migration 049, CHECK constraint) → identifie le fournisseur retenu → auto-calibration déclenchée | `price_calibrations` (existe, jamais alimentée auto) |
 | Correction manuelle de prix | Modal correction sur EstimationResultV2 | Prix estimé vs prix réel, écart, CFC, discipline | `price_calibrations` (existe) |
 | Import de prix historiques | Cantaia Prix > Import | Lignes importées avec source, date, fournisseur | `ingested_offer_lines` (existe) |
 | Email avec prix détecté | Sync Outlook > `isPriceResponseEmail()` | Prix extraits automatiquement, liés au fournisseur | `offer_line_items` (partiellement câblé) |
@@ -53,7 +53,7 @@ Chaque interaction contenant un signal prix est interceptée et stockée.
 2. `cfc_code` → `cfc_subcode` (sur `offer_line_items`)
 3. `.eq('analysis_type', 'estimation_v2')` → colonne inexistante sur `plan_analyses`
 
-Ces 3 bugs causent des erreurs PostgREST 400 silencieuses. Il faut corriger les 3 puis câbler sur l'événement "Attribuer" (via `price_requests.status = 'awarded'`).
+Ces 3 bugs causent des erreurs PostgREST 400 silencieuses. Il faut corriger les 3 puis câbler sur l'événement "Attribuer". **Note :** Le bouton "Attribuer" n'existe pas encore dans ComparisonTab — il faut le créer. L'adjudication se fait via `submission_items.status = 'awarded'` (migration 049). L'implémentation doit aussi mettre à jour `supplier_offers.status` et stocker le `awarded_supplier_id` si pertinent.
 
 ### 5.2 Price Resolver V3 — scoring multi-critères
 
@@ -86,7 +86,8 @@ Quand un fournisseur est retenu dans Soumissions :
 
 **Fichiers impactés :**
 - `packages/core/src/plans/estimation/auto-calibration.ts` (existe, corriger les noms de colonnes puis connecter)
-- `apps/web/src/app/api/submissions/[id]/route.ts` (trigger quand `price_requests.status` passe à `'awarded'`)
+- `apps/web/src/app/api/submissions/[id]/route.ts` (trigger quand `submission_items.status` passe à `'awarded'`)
+- `apps/web/src/components/submissions/detail/ComparisonTab.tsx` (créer bouton "Attribuer")
 
 ### 5.4 Indexation inflation
 
