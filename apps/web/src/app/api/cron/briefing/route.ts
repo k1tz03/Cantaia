@@ -232,7 +232,7 @@ async function sendBriefingEmail(
   const html = buildBriefingEmailHtml(briefing, userName, locale);
 
   const { error } = await resend.emails.send({
-    from: "Cantaia <briefing@cantaia.ch>",
+    from: "Cantaia <briefing@cantaia.io>",
     to: [to],
     subject: subjectMap[locale] || subjectMap.fr,
     html,
@@ -301,7 +301,7 @@ ${alertsHtml}${deadlinesHtml}${projectsHtml}${meetingsHtml}
   <p style="margin:0;font-size:13px;color:#4B5563">${briefing.global_summary}</p>
 </div>
 <div style="text-align:center;margin-top:24px">
-  <a href="https://cantaia.ch/fr/briefing" style="display:inline-block;background:#2563EB;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600">${l.open}</a>
+  <a href="https://cantaia.io/fr/briefing" style="display:inline-block;background:#2563EB;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600">${l.open}</a>
 </div>
 <p style="text-align:center;font-size:10px;color:#9CA3AF;margin-top:24px">Cantaia — L'IA au service du chantier</p>
 </body></html>`;

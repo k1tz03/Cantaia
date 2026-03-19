@@ -36,7 +36,7 @@ const hasSupabaseConfig =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
   !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const BASE_DOMAIN = process.env.BASE_DOMAIN || "cantaia.ch";
+const BASE_DOMAIN = process.env.BASE_DOMAIN || "cantaia.io";
 
 const RESERVED_SUBDOMAINS = [
   "www", "app", "api", "admin", "super-admin", "superadmin",
@@ -46,7 +46,7 @@ const RESERVED_SUBDOMAINS = [
 
 /**
  * Resolve subdomain from the request host.
- * In production: "hrs.cantaia.ch" → "hrs"
+ * In production: "hrs.cantaia.io" → "hrs"
  * In dev: uses ?org=hrs query param or x-organization-subdomain header
  */
 function resolveSubdomain(request: NextRequest): string | null {

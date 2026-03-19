@@ -28,6 +28,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: "https://cantaia.ch/sitemap.xml",
+    sitemap: "https://cantaia.io/sitemap.xml",
   };
 }

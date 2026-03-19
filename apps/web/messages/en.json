@@ -1113,7 +1113,7 @@
       "formMessage": "Message (optional)",
       "formSubmit": "Send request",
       "formSuccess": "Request sent! We'll get back to you within 24 hours.",
-      "contactEmail": "contact@cantaia.ch",
+      "contactEmail": "contact@cantaia.io",
       "contactPhone": "+41 XX XXX XX XX"
     },
     "footer": {
@@ -2473,13 +2473,13 @@
       "rightsTitle": "5. Your rights",
       "rightsContent": "In accordance with GDPR and the Swiss DPA, you have the right to access, rectify, delete, and port your personal data. You can exercise these rights at any time by contacting us by email or from your management portal.",
       "contactTitle": "6. Contact",
-      "contactContent": "For any questions regarding the protection of your personal data, you can contact us at: privacy@cantaia.ch"
+      "contactContent": "For any questions regarding the protection of your personal data, you can contact us at: privacy@cantaia.io"
     },
     "mentions": {
       "title": "Legal Notice",
       "lastUpdated": "Last updated: February 2026",
       "editorTitle": "1. Publisher",
-      "editorContent": "Cantaia is published by [Company Name], registered in the Commercial Register of the Canton of Geneva. Registered office: Geneva, Switzerland. Contact: contact@cantaia.ch",
+      "editorContent": "Cantaia is published by [Company Name], registered in the Commercial Register of the Canton of Geneva. Registered office: Geneva, Switzerland. Contact: contact@cantaia.io",
       "hostingTitle": "2. Hosting",
       "hostingContent": "The website and application are hosted by Vercel Inc. (San Francisco, CA, USA) for the front-end and Supabase (Swiss infrastructure) for data storage. All user data is stored exclusively on servers located in Switzerland.",
       "intellectualTitle": "3. Intellectual property",

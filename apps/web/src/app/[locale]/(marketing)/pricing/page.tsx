@@ -32,11 +32,11 @@ export async function generateMetadata({
     title: seo.title,
     description: seo.description,
     alternates: {
-      canonical: `https://cantaia.ch/${locale}/pricing`,
+      canonical: `https://cantaia.io/${locale}/pricing`,
       languages: {
-        fr: "https://cantaia.ch/fr/pricing",
-        en: "https://cantaia.ch/en/pricing",
-        de: "https://cantaia.ch/de/pricing",
+        fr: "https://cantaia.io/fr/pricing",
+        en: "https://cantaia.io/en/pricing",
+        de: "https://cantaia.io/de/pricing",
       },
     },
   };
@@ -51,7 +51,7 @@ const pricingJsonLd = {
   brand: { "@type": "Brand", name: "Cantaia" },
   offers: {
     "@type": "Offer",
-    url: "https://cantaia.ch/fr/pricing",
+    url: "https://cantaia.io/fr/pricing",
     priceCurrency: "CHF",
     price: "99",
     priceValidUntil: "2027-01-01",
@@ -183,7 +183,7 @@ export default function PricingPage() {
               </ul>
 
               <Link
-                href={isEnterprise ? "mailto:contact@cantaia.ch" : "/register"}
+                href={isEnterprise ? "mailto:contact@cantaia.io" : "/register"}
                 className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-all duration-200 ${
                   highlight
                     ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/25 hover:bg-[#1D4ED8]"

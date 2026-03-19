@@ -1113,7 +1113,7 @@
       "formMessage": "Nachricht (optional)",
       "formSubmit": "Anfrage senden",
       "formSuccess": "Anfrage gesendet! Wir melden uns innerhalb von 24 Stunden.",
-      "contactEmail": "contact@cantaia.ch",
+      "contactEmail": "contact@cantaia.io",
       "contactPhone": "+41 XX XXX XX XX"
     },
     "footer": {
@@ -2473,13 +2473,13 @@
       "rightsTitle": "5. Ihre Rechte",
       "rightsContent": "Gemäss DSGVO und dem Schweizer DSG haben Sie das Recht auf Zugang, Berichtigung, Löschung und Übertragbarkeit Ihrer personenbezogenen Daten. Sie können diese Rechte jederzeit per E-Mail oder über Ihr Verwaltungsportal ausüben.",
       "contactTitle": "6. Kontakt",
-      "contactContent": "Bei Fragen zum Schutz Ihrer personenbezogenen Daten können Sie uns unter folgender Adresse kontaktieren: privacy@cantaia.ch"
+      "contactContent": "Bei Fragen zum Schutz Ihrer personenbezogenen Daten können Sie uns unter folgender Adresse kontaktieren: privacy@cantaia.io"
     },
     "mentions": {
       "title": "Impressum",
       "lastUpdated": "Letzte Aktualisierung: Februar 2026",
       "editorTitle": "1. Herausgeber",
-      "editorContent": "Cantaia wird herausgegeben von [Firmenname], eingetragen im Handelsregister des Kantons Genf. Sitz: Genf, Schweiz. Kontakt: contact@cantaia.ch",
+      "editorContent": "Cantaia wird herausgegeben von [Firmenname], eingetragen im Handelsregister des Kantons Genf. Sitz: Genf, Schweiz. Kontakt: contact@cantaia.io",
       "hostingTitle": "2. Hosting",
       "hostingContent": "Die Website und Anwendung werden von Vercel Inc. (San Francisco, CA, USA) für das Front-End und Supabase (Schweizer Infrastruktur) für die Datenspeicherung gehostet. Alle Benutzerdaten werden ausschliesslich auf Servern in der Schweiz gespeichert.",
       "intellectualTitle": "3. Geistiges Eigentum",

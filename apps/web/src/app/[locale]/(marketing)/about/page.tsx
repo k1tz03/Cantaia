@@ -30,11 +30,11 @@ export async function generateMetadata({
     title: seo.title,
     description: seo.description,
     alternates: {
-      canonical: `https://cantaia.ch/${locale}/about`,
+      canonical: `https://cantaia.io/${locale}/about`,
       languages: {
-        fr: "https://cantaia.ch/fr/about",
-        en: "https://cantaia.ch/en/about",
-        de: "https://cantaia.ch/de/about",
+        fr: "https://cantaia.io/fr/about",
+        en: "https://cantaia.io/en/about",
+        de: "https://cantaia.io/de/about",
       },
     },
   };

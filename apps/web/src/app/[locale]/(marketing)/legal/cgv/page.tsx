@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   title: "Conditions Generales de Vente (CGV)",
   description: "Conditions generales de vente de Cantaia, logiciel SaaS de gestion de chantier IA en Suisse.",
   alternates: {
-    canonical: "https://cantaia.ch/fr/legal/cgv",
-    languages: { fr: "https://cantaia.ch/fr/legal/cgv", en: "https://cantaia.ch/en/legal/cgv", de: "https://cantaia.ch/de/legal/cgv" },
+    canonical: "https://cantaia.io/fr/legal/cgv",
+    languages: { fr: "https://cantaia.io/fr/legal/cgv", en: "https://cantaia.io/en/legal/cgv", de: "https://cantaia.io/de/legal/cgv" },
   },
 };
 

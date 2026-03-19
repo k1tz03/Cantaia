@@ -14,7 +14,7 @@ const serverSchema = z.object({
   MICROSOFT_CLIENT_SECRET: z.string().min(10).optional(),
   MICROSOFT_TOKEN_ENCRYPTION_KEY: z.string().length(64).optional(),
   OUTLOOK_WEBHOOK_SECRET: z.string().min(16).optional(),
-  BASE_DOMAIN: z.string().default("cantaia.ch"),
+  BASE_DOMAIN: z.string().default("cantaia.io"),
 });
 
 const clientSchema = z.object({

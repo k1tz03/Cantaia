@@ -1113,7 +1113,7 @@
       "formMessage": "Message (optionnel)",
       "formSubmit": "Envoyer la demande",
       "formSuccess": "Demande envoyée ! Nous vous recontactons sous 24h.",
-      "contactEmail": "contact@cantaia.ch",
+      "contactEmail": "contact@cantaia.io",
       "contactPhone": "+41 XX XXX XX XX"
     },
     "footer": {
@@ -2473,13 +2473,13 @@
       "rightsTitle": "5. Vos droits",
       "rightsContent": "Conformément au RGPD et à la LPD suisse, vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données personnelles. Vous pouvez exercer ces droits à tout moment en nous contactant par email ou depuis votre espace de gestion.",
       "contactTitle": "6. Contact",
-      "contactContent": "Pour toute question relative à la protection de vos données personnelles, vous pouvez nous contacter à l'adresse : privacy@cantaia.ch"
+      "contactContent": "Pour toute question relative à la protection de vos données personnelles, vous pouvez nous contacter à l'adresse : privacy@cantaia.io"
     },
     "mentions": {
       "title": "Mentions Légales",
       "lastUpdated": "Dernière mise à jour : février 2026",
       "editorTitle": "1. Éditeur",
-      "editorContent": "Cantaia est édité par [Nom de la société], société inscrite au Registre du Commerce du canton de Genève. Siège social : Genève, Suisse. Contact : contact@cantaia.ch",
+      "editorContent": "Cantaia est édité par [Nom de la société], société inscrite au Registre du Commerce du canton de Genève. Siège social : Genève, Suisse. Contact : contact@cantaia.io",
       "hostingTitle": "2. Hébergement",
       "hostingContent": "Le site et l'application sont hébergés par Vercel Inc. (San Francisco, CA, USA) pour le front-end et Supabase (infrastructure suisse) pour les données. L'ensemble des données utilisateur est stocké exclusivement sur des serveurs situés en Suisse.",
       "intellectualTitle": "3. Propriété intellectuelle",

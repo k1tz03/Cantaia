@@ -72,7 +72,7 @@ export function MarketingFooter() {
               <li><Link href="/about" className="text-sm text-gray-500 transition-colors hover:text-white">{t("about")}</Link></li>
               <li><span className="text-sm text-gray-600">{t("blog")} <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">{t("comingSoon")}</span></span></li>
               <li><span className="text-sm text-gray-600">{t("docs")} <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-600">{t("comingSoon")}</span></span></li>
-              <li><a href="mailto:support@cantaia.ch" className="text-sm text-gray-500 transition-colors hover:text-white">{t("support")}</a></li>
+              <li><a href="mailto:support@cantaia.io" className="text-sm text-gray-500 transition-colors hover:text-white">{t("support")}</a></li>
             </ul>
           </div>
 

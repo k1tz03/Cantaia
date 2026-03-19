@@ -38,7 +38,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         // we detect from window.location.hostname
         let sub = orgParam;
         if (!sub && typeof window !== "undefined") {
-          const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || "cantaia.ch";
+          const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || "cantaia.io";
           const host = window.location.hostname;
           if (host.endsWith(`.${baseDomain}`) && !host.startsWith("www.")) {
             sub = host.replace(`.${baseDomain}`, "");

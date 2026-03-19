@@ -143,7 +143,7 @@ export default function SuperAdminOrganizationsPage() {
                         {org.subdomain && (
                           <span className="flex items-center gap-1">
                             <Globe className="h-3.5 w-3.5" />
-                            {org.subdomain}.cantaia.ch
+                            {org.subdomain}.cantaia.io
                           </span>
                         )}
                         <span>Plan : {PLAN_LABELS[org.plan] || org.plan}</span>

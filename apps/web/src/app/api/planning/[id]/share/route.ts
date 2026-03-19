@@ -64,7 +64,7 @@ export async function POST(
       return NextResponse.json({ error: "Failed to create share link" }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.ch";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io";
     const shareUrl = `${appUrl}/fr/planning/${token}`;
 
     return NextResponse.json({

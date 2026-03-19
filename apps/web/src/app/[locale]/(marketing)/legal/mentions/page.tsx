@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   title: "Mentions Legales",
   description: "Mentions legales de Cantaia SA, editeur du logiciel de gestion de chantier IA Cantaia.",
   alternates: {
-    canonical: "https://cantaia.ch/fr/legal/mentions",
-    languages: { fr: "https://cantaia.ch/fr/legal/mentions", en: "https://cantaia.ch/en/legal/mentions", de: "https://cantaia.ch/de/legal/mentions" },
+    canonical: "https://cantaia.io/fr/legal/mentions",
+    languages: { fr: "https://cantaia.io/fr/legal/mentions", en: "https://cantaia.io/en/legal/mentions", de: "https://cantaia.io/de/legal/mentions" },
   },
 };
 

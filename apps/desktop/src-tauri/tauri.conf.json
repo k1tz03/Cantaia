@@ -7,7 +7,7 @@
   },
   "productName": "Cantaia",
   "version": "1.0.0",
-  "identifier": "ch.cantaia.app",
+  "identifier": "io.cantaia.app",
   "app": {
     "windows": [
       {

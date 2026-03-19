@@ -5,8 +5,8 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Cantaia",
-  url: "https://cantaia.ch",
-  logo: "https://cantaia.ch/opengraph-image",
+  url: "https://cantaia.io",
+  logo: "https://cantaia.io/opengraph-image",
   description: "AI-powered construction management SaaS for Swiss project managers.",
   address: {
     "@type": "PostalAddress",

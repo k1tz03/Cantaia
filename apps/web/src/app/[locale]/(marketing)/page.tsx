@@ -58,12 +58,12 @@ export async function generateMetadata({
     description: seo.description,
     keywords: seo.keywords,
     alternates: {
-      canonical: `https://cantaia.ch/${locale}`,
+      canonical: `https://cantaia.io/${locale}`,
       languages: {
-        fr: "https://cantaia.ch/fr",
-        en: "https://cantaia.ch/en",
-        de: "https://cantaia.ch/de",
-        "x-default": "https://cantaia.ch/fr",
+        fr: "https://cantaia.io/fr",
+        en: "https://cantaia.io/en",
+        de: "https://cantaia.io/de",
+        "x-default": "https://cantaia.io/fr",
       },
     },
   };
@@ -74,12 +74,12 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://cantaia.ch/#organization",
+      "@id": "https://cantaia.io/#organization",
       name: "Cantaia",
-      url: "https://cantaia.ch",
+      url: "https://cantaia.io",
       logo: {
         "@type": "ImageObject",
-        url: "https://cantaia.ch/og-image.png",
+        url: "https://cantaia.io/og-image.png",
         width: 1200,
         height: 630,
       },
@@ -91,12 +91,12 @@ const jsonLd = {
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://cantaia.ch/#software",
+      "@id": "https://cantaia.io/#software",
       name: "Cantaia",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description: "AI-powered construction project management: email triage, meeting minutes, CFC submissions, price estimation, plan management.",
-      url: "https://cantaia.ch",
+      url: "https://cantaia.io",
       offers: {
         "@type": "Offer",
         price: "99",
@@ -113,10 +113,10 @@ const jsonLd = {
     },
     {
       "@type": "WebSite",
-      "@id": "https://cantaia.ch/#website",
-      url: "https://cantaia.ch",
+      "@id": "https://cantaia.io/#website",
+      url: "https://cantaia.io",
       name: "Cantaia",
-      publisher: { "@id": "https://cantaia.ch/#organization" },
+      publisher: { "@id": "https://cantaia.io/#organization" },
       inLanguage: ["fr-CH", "en", "de-CH"],
     },
   ],

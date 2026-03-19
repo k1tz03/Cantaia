@@ -33,7 +33,7 @@ export function FinalCTASection() {
                 {t("ctaPrimary")}
               </Link>
               <a
-                href="mailto:demo@cantaia.ch"
+                href="mailto:demo@cantaia.io"
                 className="rounded-xl border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-all hover:border-white/60 hover:bg-white/10"
               >
                 {t("ctaSecondary")}

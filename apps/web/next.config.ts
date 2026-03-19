@@ -12,29 +12,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // Redirect alternate domains to canonical (cantaia.ch)
+      // Redirect www to canonical apex domain
       {
         source: "/:path*",
-        has: [{ type: "host", value: "cantaia.com" }],
-        destination: "https://cantaia.ch/:path*",
-        permanent: true,
-      },
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.cantaia.com" }],
-        destination: "https://cantaia.ch/:path*",
-        permanent: true,
-      },
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "cantaia.app" }],
-        destination: "https://cantaia.ch/:path*",
-        permanent: true,
-      },
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.cantaia.ch" }],
-        destination: "https://cantaia.ch/:path*",
+        has: [{ type: "host", value: "www.cantaia.io" }],
+        destination: "https://cantaia.io/:path*",
         permanent: true,
       },
     ];

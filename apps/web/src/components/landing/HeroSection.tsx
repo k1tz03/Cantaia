@@ -24,7 +24,7 @@ function DashboardMockup() {
         </div>
         <div className="flex-1 mx-4">
           <div className="mx-auto max-w-[200px] rounded-md bg-white px-3 py-1 text-[11px] text-gray-400 text-center border border-gray-100 shadow-inner">
-            app.cantaia.ch
+            app.cantaia.io
           </div>
         </div>
       </div>

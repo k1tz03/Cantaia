@@ -105,7 +105,7 @@ export default async function Image() {
             fontSize: 18,
           }}
         >
-          cantaia.ch
+          cantaia.io
         </div>
       </div>
     ),

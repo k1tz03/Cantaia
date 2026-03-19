@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   title: "Politique de Confidentialite",
   description: "Politique de confidentialite de Cantaia. Hebergement europeen, chiffrement de bout en bout, conforme RGPD et droit suisse.",
   alternates: {
-    canonical: "https://cantaia.ch/fr/legal/privacy",
-    languages: { fr: "https://cantaia.ch/fr/legal/privacy", en: "https://cantaia.ch/en/legal/privacy", de: "https://cantaia.ch/de/legal/privacy" },
+    canonical: "https://cantaia.io/fr/legal/privacy",
+    languages: { fr: "https://cantaia.io/fr/legal/privacy", en: "https://cantaia.io/en/legal/privacy", de: "https://cantaia.io/de/legal/privacy" },
   },
 };
 

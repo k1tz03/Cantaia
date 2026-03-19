@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://cantaia.ch";
+  const baseUrl = "https://cantaia.io";
   const locales = ["fr", "en", "de"];
   const lastModified = new Date("2026-03-12");
 

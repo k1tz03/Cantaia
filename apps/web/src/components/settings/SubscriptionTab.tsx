@@ -165,7 +165,7 @@ export function SubscriptionTab() {
         <Mail className="h-4 w-4 text-gray-400" />
         <p className="text-sm text-gray-500">
           {t("needHelp")} —{" "}
-          <span className="font-medium text-brand">support@cantaia.ch</span>
+          <span className="font-medium text-brand">support@cantaia.io</span>
         </p>
       </div>
 

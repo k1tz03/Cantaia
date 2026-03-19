@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   // Build the redirect_uri from the actual request host so it matches
   // the domain the user is on (and thus the URI registered in Azure AD).
-  // NEXT_PUBLIC_APP_URL may point to a different domain (e.g. cantaia.ch
+  // NEXT_PUBLIC_APP_URL may point to a different domain (e.g. cantaia.io
   // vs cantaia.vercel.app), so we prefer headers.
   const reqHost =
     request.headers.get("x-forwarded-host") ||

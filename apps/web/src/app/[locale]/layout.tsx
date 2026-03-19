@@ -31,7 +31,7 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const BASE_URL = "https://cantaia.ch";
+const BASE_URL = "https://cantaia.io";
 
 const seoData: Record<string, { title: string; description: string; ogLocale: string }> = {
   fr: {

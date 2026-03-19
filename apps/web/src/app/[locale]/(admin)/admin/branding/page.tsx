@@ -221,7 +221,7 @@ export default function AdminBrandingPage() {
           {orgSubdomain && (
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">{t("subdomain")}</label>
-              <p className="text-sm text-gray-500">{orgSubdomain}.cantaia.ch <span className="text-xs text-gray-400">(non modifiable — contacter le support)</span></p>
+              <p className="text-sm text-gray-500">{orgSubdomain}.cantaia.io <span className="text-xs text-gray-400">(non modifiable — contacter le support)</span></p>
             </div>
           )}
         </Section>

@@ -304,7 +304,7 @@ export default function CreateOrganizationPage() {
                       placeholder="hrs"
                     />
                     <span className="border-l border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                      .cantaia.ch
+                      .cantaia.io
                     </span>
                   </div>
                   <button
@@ -564,7 +564,7 @@ export default function CreateOrganizationPage() {
                   onChange={(e) => updateForm("invite_message", e.target.value)}
                   rows={3}
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                  placeholder={`Bonjour, votre espace Cantaia est prêt !\nConnectez-vous sur ${form.subdomain}.cantaia.ch pour commencer.`}
+                  placeholder={`Bonjour, votre espace Cantaia est prêt !\nConnectez-vous sur ${form.subdomain}.cantaia.io pour commencer.`}
                 />
               </div>
             </div>

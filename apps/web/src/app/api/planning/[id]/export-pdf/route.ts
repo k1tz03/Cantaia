@@ -72,7 +72,7 @@ export async function GET(
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Cantaia — cantaia.ch`, 14, 25);
+    doc.text(`Cantaia — cantaia.io`, 14, 25);
 
     // Project info
     const projectName = planning.projects?.name || "Projet";
@@ -157,7 +157,7 @@ export async function GET(
       doc.setFont("helvetica", "normal");
       doc.setTextColor(150);
       doc.text(
-        `Genere par Cantaia — cantaia.ch — ${new Date().toLocaleDateString("fr-CH")}`,
+        `Genere par Cantaia — cantaia.io — ${new Date().toLocaleDateString("fr-CH")}`,
         14,
         pageHeight - 8,
       );

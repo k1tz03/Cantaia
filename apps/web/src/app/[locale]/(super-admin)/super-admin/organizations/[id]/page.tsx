@@ -219,7 +219,7 @@ export default function OrganizationDetailPage() {
           {org.subdomain && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
               <Globe className="h-3.5 w-3.5" />
-              {org.subdomain}.cantaia.ch
+              {org.subdomain}.cantaia.io
             </p>
           )}
         </div>
@@ -293,7 +293,7 @@ export default function OrganizationDetailPage() {
               <div><dt className="text-gray-500">{t("orgPhone")}</dt><dd className="font-medium text-gray-900">{org.phone || "—"}</dd></div>
               <div><dt className="text-gray-500">{t("orgWebsite")}</dt><dd className="font-medium text-gray-900">{org.website || "—"}</dd></div>
               <div><dt className="text-gray-500">{t("createdAt")}</dt><dd className="font-medium text-gray-900">{formatDate(org.created_at)}</dd></div>
-              <div><dt className="text-gray-500">{t("subdomain")}</dt><dd className="font-medium text-gray-900">{org.subdomain || "—"}.cantaia.ch</dd></div>
+              <div><dt className="text-gray-500">{t("subdomain")}</dt><dd className="font-medium text-gray-900">{org.subdomain || "—"}.cantaia.io</dd></div>
             </dl>
             {org.notes && (
               <div className="mt-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
