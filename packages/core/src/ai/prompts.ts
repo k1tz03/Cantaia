@@ -108,7 +108,18 @@ Réponds UNIQUEMENT en JSON :
     "assigned_to_name": "<nom ou null>",
     "assigned_to_company": "<entreprise ou null>",
     "priority": "low" | "medium" | "high" | "urgent"
-  }
+  },
+
+  // Signaux enrichis — toujours présents (null si non détecté) :
+  "prices_detected": [
+    {"description": "<description du poste>", "amount": <montant numérique>, "unit": "<unité ou null>", "currency": "CHF" | "EUR" | null}
+  ],
+  "deadlines_detected": [
+    {"description": "<contexte>", "date": "<YYYY-MM-DD ou null>"}
+  ],
+  "supplier_match": "<nom du fournisseur/prestataire identifiable ou null>",
+  "delay_detected": <true|false>,
+  "order_confirmation": <true|false>
 }`;
 }
 

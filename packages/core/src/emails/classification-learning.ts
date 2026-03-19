@@ -14,17 +14,48 @@ interface LearnFromActionParams {
   projectId: string | null;
   action: "confirm" | "correct" | "reject";
   previousProjectId?: string | null;
+  /** Optional — if provided, a feedback record will be saved in email_classification_feedback */
+  emailId?: string;
+  userId?: string;
+  originalClassification?: string;
+  correctedClassification?: string;
 }
 
 /**
  * Learn from user action on email classification.
  * Creates or updates rules for sender domain, sender email, and subject keywords.
+ * When action is "correct", also checks whether repeated corrections should auto-promote rules.
  */
 export async function learnFromClassificationAction(params: LearnFromActionParams): Promise<void> {
-  const { supabase, organizationId, senderEmail, subject, projectId, action, previousProjectId } = params;
+  const {
+    supabase,
+    organizationId,
+    senderEmail,
+    subject,
+    projectId,
+    action,
+    previousProjectId,
+    emailId,
+    userId,
+    originalClassification,
+    correctedClassification,
+  } = params;
 
   const senderDomain = senderEmail.split("@")[1]?.toLowerCase();
   const senderLower = senderEmail.toLowerCase();
+
+  // Persist feedback record if caller provided email context
+  if (emailId && userId) {
+    await saveFeedbackRecord(supabase, {
+      organizationId,
+      emailId,
+      userId,
+      originalProjectId: previousProjectId ?? null,
+      correctedProjectId: action === "correct" ? (projectId ?? null) : null,
+      originalClassification: originalClassification ?? null,
+      correctedClassification: correctedClassification ?? null,
+    });
+  }
 
   if (action === "confirm" && projectId) {
     // User confirmed AI suggestion → reinforce rules
@@ -49,12 +80,131 @@ export async function learnFromClassificationAction(params: LearnFromActionParam
     if (senderDomain) {
       await upsertRule(supabase, organizationId, "sender_domain", senderDomain, projectId, "project", "confirm");
     }
+
+    // After a correction, check whether repeated corrections should auto-promote rules
+    await autoPromoteRulesFromFeedback(supabase, organizationId, senderLower, subject, projectId);
   } else if (action === "reject") {
     // User rejected — mark as not a project
     await upsertRule(supabase, organizationId, "sender_email", senderLower, null, "personal", "confirm");
     if (senderDomain) {
       await upsertRule(supabase, organizationId, "sender_domain", senderDomain, null, "personal", "confirm");
     }
+  }
+}
+
+/**
+ * Save a feedback record to the email_classification_feedback table.
+ * Called after a user correction so patterns can be analysed later.
+ */
+export async function saveFeedbackRecord(
+  supabase: SupabaseClient,
+  params: {
+    organizationId: string;
+    emailId: string;
+    userId: string;
+    originalProjectId: string | null;
+    correctedProjectId: string | null;
+    originalClassification: string | null;
+    correctedClassification: string | null;
+  }
+): Promise<void> {
+  try {
+    await (supabase as any)
+      .from("email_classification_feedback")
+      .insert({
+        organization_id: params.organizationId,
+        email_id: params.emailId,
+        original_project_id: params.originalProjectId,
+        corrected_project_id: params.correctedProjectId,
+        original_classification: params.originalClassification,
+        corrected_classification: params.correctedClassification,
+        created_by: params.userId,
+      });
+  } catch (err) {
+    // Feedback table might not exist — fail silently
+    console.warn("[classification-learning] saveFeedbackRecord failed:", err);
+  }
+}
+
+/**
+ * Auto-promote rules when the same sender or subject keyword has been corrected
+ * multiple times. This means the system can now skip Claude for these patterns.
+ *
+ * Thresholds:
+ *  - ≥2 corrections from same sender email → auto-create/reinforce sender rule
+ *  - ≥3 corrections sharing a subject keyword → auto-create/reinforce keyword rule
+ *
+ * The `email_classification_feedback` table has no sender/subject columns,
+ * so we join with email_records via email_id to obtain them.
+ */
+export async function autoPromoteRulesFromFeedback(
+  supabase: SupabaseClient,
+  orgId: string,
+  senderEmail: string,
+  subject: string,
+  projectId: string
+): Promise<void> {
+  const senderLower = senderEmail.toLowerCase();
+
+  // ── 1. Count corrections from same sender (join via email_records) ──
+  try {
+    const { data: senderCorrections, error: senderErr } = await (supabase as any)
+      .from("email_classification_feedback")
+      .select("id, email_records!inner(sender_email)")
+      .eq("organization_id", orgId)
+      .not("corrected_project_id", "is", null); // only real corrections
+
+    if (!senderErr && senderCorrections) {
+      const fromSameSender = (senderCorrections as Array<{ id: string; email_records: { sender_email: string | null } }>)
+        .filter((row) => {
+          const rowSender = (row.email_records?.sender_email || "").toLowerCase();
+          return rowSender === senderLower;
+        });
+
+      if (fromSameSender.length >= 2) {
+        // Auto-promote: reinforce sender rule with extra confidence
+        await upsertRule(supabase, orgId, "sender_email", senderLower, projectId, "project", "confirm");
+        if (process.env.NODE_ENV !== "test") {
+          console.log(`[classification-learning] Auto-promoted sender rule for "${senderLower}" (${fromSameSender.length} corrections)`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[classification-learning] autoPromoteRules sender check failed:", err);
+  }
+
+  // ── 2. Count corrections sharing a subject keyword (join via email_records) ──
+  const keywords = extractKeywords(subject);
+  if (keywords.length === 0) return;
+
+  try {
+    const { data: allCorrections, error: kwErr } = await (supabase as any)
+      .from("email_classification_feedback")
+      .select("id, email_records!inner(subject)")
+      .eq("organization_id", orgId)
+      .not("corrected_project_id", "is", null);
+
+    if (!kwErr && allCorrections) {
+      const corrections = allCorrections as Array<{ id: string; email_records: { subject: string | null } }>;
+
+      for (const kw of keywords.slice(0, 5)) {
+        if (kw.length < 4) continue; // skip very short keywords
+
+        const matchingCorrections = corrections.filter((row) => {
+          const rowSubject = (row.email_records?.subject || "").toLowerCase();
+          return rowSubject.includes(kw);
+        });
+
+        if (matchingCorrections.length >= 3) {
+          await upsertRule(supabase, orgId, "subject_keyword", kw, projectId, "project", "confirm");
+          if (process.env.NODE_ENV !== "test") {
+            console.log(`[classification-learning] Auto-promoted keyword rule for "${kw}" (${matchingCorrections.length} corrections)`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[classification-learning] autoPromoteRules keyword check failed:", err);
   }
 }
 

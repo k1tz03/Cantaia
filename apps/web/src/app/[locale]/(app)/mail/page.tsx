@@ -276,7 +276,7 @@ export default function MailPage() {
     setTimeout(() => setSyncToast(null), 4000);
   }, [fetchData]);
 
-  const dismissCard = useCallback(async (emailId: string, action: string) => {
+  const dismissCard = useCallback(async (emailId: string, action: string, email?: DecisionEmail) => {
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setDecisionsToday((d) => d + 1);
     try {
@@ -288,6 +288,20 @@ export default function MailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_id: emailId, action }),
       });
+
+      // Fire-and-forget: notify learning engine for positive confirmation actions
+      // "replied" and "accept" mean the user engaged → classification was correct
+      if ((action === "replied" || action === "accept") && email?.project_id) {
+        fetch("/api/email/learn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email_id: emailId,
+            feedback_type: "confirm",
+            correct_project_id: email.project_id,
+          }),
+        }).catch(() => {});
+      }
     } catch { /* non-blocking */ }
   }, []);
 
@@ -443,7 +457,7 @@ export default function MailPage() {
                 onCreateTask={() => dismissCard(email.id, "task")}
                 onArchive={() => dismissCard(email.id, "archive")}
                 onSnooze={() => snoozeCard(email.id)}
-                onAccept={() => dismissCard(email.id, "accept")}
+                onAccept={() => dismissCard(email.id, "accept", email)}
                 onNegotiate={() => setReplyEmail(email)}
                 onRefuse={() => dismissCard(email.id, "refuse")}
               />
@@ -540,8 +554,9 @@ export default function MailPage() {
           email={replyEmail}
           onClose={() => setReplyEmail(null)}
           onDone={(emailId) => {
+            const sentEmail = replyEmail;
             setReplyEmail(null);
-            dismissCard(emailId, "replied");
+            dismissCard(emailId, "replied", sentEmail);
           }}
         />
       )}

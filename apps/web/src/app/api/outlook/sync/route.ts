@@ -475,6 +475,25 @@ export async function POST(request: Request) {
       // Build update payload based on match_type
       const confidencePercent = Math.round(result.confidence * 100);
 
+      // Collect enriched signals from L3 classification to persist in suggested_project_data
+      const enrichedSignals: Record<string, unknown> = {};
+      if (result.prices_detected && result.prices_detected.length > 0) {
+        enrichedSignals.prices_detected = result.prices_detected;
+      }
+      if (result.deadlines_detected && result.deadlines_detected.length > 0) {
+        enrichedSignals.deadlines_detected = result.deadlines_detected;
+      }
+      if (result.supplier_match) {
+        enrichedSignals.supplier_match = result.supplier_match;
+      }
+      if (result.delay_detected) {
+        enrichedSignals.delay_detected = result.delay_detected;
+      }
+      if (result.order_confirmation) {
+        enrichedSignals.order_confirmation = result.order_confirmation;
+      }
+      const hasEnrichedSignals = Object.keys(enrichedSignals).length > 0;
+
       if (result.match_type === "existing_project") {
         const isAutoClassified = result.confidence >= 0.85;
         await (adminClient as any)
@@ -488,10 +507,15 @@ export async function POST(request: Request) {
             classification_status: isAutoClassified ? "auto_classified" : "suggested",
             email_category: "project",
             ai_reasoning: result.reasoning || null,
+            ...(hasEnrichedSignals ? { suggested_project_data: enrichedSignals } : {}),
           })
           .eq("id", email.id);
 
       } else if (result.match_type === "new_project") {
+        const newProjectData = {
+          ...(result.suggested_project || {}),
+          ...(hasEnrichedSignals ? enrichedSignals : {}),
+        };
         await (adminClient as any)
           .from("email_records")
           .update({
@@ -502,7 +526,7 @@ export async function POST(request: Request) {
             ai_project_match_confidence: 0,
             classification_status: "new_project_suggested",
             email_category: "project",
-            suggested_project_data: result.suggested_project || null,
+            suggested_project_data: Object.keys(newProjectData).length > 0 ? newProjectData : null,
             ai_reasoning: result.reasoning || null,
           })
           .eq("id", email.id);
@@ -522,6 +546,7 @@ export async function POST(request: Request) {
             classification_status: isLowConfidence ? "unprocessed" : "classified_no_project",
             email_category: result.email_category || "personal",
             ai_reasoning: result.reasoning || null,
+            ...(hasEnrichedSignals ? { suggested_project_data: enrichedSignals } : {}),
           })
           .eq("id", email.id);
       }

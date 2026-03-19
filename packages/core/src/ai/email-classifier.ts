@@ -99,7 +99,7 @@ export async function classifyEmail(
     const response = await callAnthropicWithRetry(() =>
       client.messages.create({
         model,
-        max_tokens: 600,
+        max_tokens: 900, // increased to accommodate enriched signals (prices, deadlines, supplier)
         messages: [
           {
             role: "user",

@@ -31,6 +31,19 @@ export const suggestedProjectSchema = z.object({
   ).default([]),
 });
 
+// Enriched signals extracted alongside classification
+export const detectedPriceSchema = z.object({
+  description: z.string(),
+  amount: z.number().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  currency: z.enum(["CHF", "EUR"]).nullable().optional(),
+});
+
+export const detectedDeadlineSchema = z.object({
+  description: z.string(),
+  date: z.string().nullable().optional(),
+});
+
 // Enhanced classification result from Claude (supports 3 cases)
 export const classifyEmailResultSchema = z.object({
   match_type: z.enum(["existing_project", "new_project", "no_project"]),
@@ -67,6 +80,13 @@ export const classifyEmailResultSchema = z.object({
     })
     .nullable()
     .optional(),
+
+  // Enriched signals — optional (only present when Claude extracts them)
+  prices_detected: z.array(detectedPriceSchema).optional().nullable(),
+  deadlines_detected: z.array(detectedDeadlineSchema).optional().nullable(),
+  supplier_match: z.string().nullable().optional(),
+  delay_detected: z.boolean().optional().nullable(),
+  order_confirmation: z.boolean().optional().nullable(),
 });
 
 export const extractTasksResultSchema = z.object({
@@ -86,3 +106,5 @@ export const extractTasksResultSchema = z.object({
 export type ClassifyEmailResult = z.infer<typeof classifyEmailResultSchema>;
 export type SuggestedProject = z.infer<typeof suggestedProjectSchema>;
 export type ExtractTasksResult = z.infer<typeof extractTasksResultSchema>;
+export type DetectedPrice = z.infer<typeof detectedPriceSchema>;
+export type DetectedDeadline = z.infer<typeof detectedDeadlineSchema>;
