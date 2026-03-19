@@ -10,8 +10,8 @@
 
 - **Nom de marque** : Cantaia (anciennement BUILDWISE, renommé le 26/02/2026)
 - **Taglines** : FR "L'IA au service du chantier" / EN "AI-powered construction management" / DE "KI-gestützte Baustellenverwaltung"
-- **Domaines** : cantaia.ch (principal), cantaia.com, cantaia.app
-- **Multi-tenant** : subdomaines (ex: `hrs.cantaia.ch`)
+- **Domaines** : cantaia.io (principal)
+- **Multi-tenant** : subdomaines (ex: `hrs.cantaia.io`)
 
 ### Cinq produits
 
@@ -37,7 +37,7 @@ cantaia/ (racine)
 │   └── outlook-addin/       # Plugin Outlook (prévu)
 ├── packages/
 │   ├── core/                # Logique métier, IA, services (~87 fichiers TS)
-│   ├── database/            # 53 migrations SQL + types TypeScript
+│   ├── database/            # 56 migrations SQL + types TypeScript
 │   ├── ui/                  # Composants React partagés (shadcn-based)
 │   └── config/              # Tailwind, tsconfig, constantes
 ├── scripts/
@@ -88,7 +88,7 @@ cantaia/ (racine)
 | `@cantaia/core` | Logique métier | `./ai`, `./outlook`, `./services`, `./models`, `./plans`, `./plans/estimation`, `./plans/estimation/pipeline`, `./plans/estimation/types`, `./plans/estimation/auto-calibration`, `./suppliers`, `./submissions`, `./emails`, `./pricing`, `./briefing`, `./visits`, `./tracking`, `./utils`, `./platform` |
 | `@cantaia/database` | Types + migrations | `./types.ts` |
 | `@cantaia/ui` | Composants partagés | `./` (StatusBadge, PriorityIndicator, LanguageSwitcher, cn), `./components/*`, `./lib/utils` |
-| `@cantaia/config` | Config partagée | `./tailwind`, `./tsconfig/*`, `./constants` (APP_NAME, LOCALES, CURRENCIES, SUBSCRIPTION_PLANS, AI_MODELS, etc.) |
+| `@cantaia/config` | Config partagée | `./tailwind`, `./tsconfig/*`, `./constants` (APP_NAME, LOCALES, CURRENCIES, SUBSCRIPTION_PLANS, AI_MODELS, etc.), `./plan-features` (PLAN_FEATURES, canAccess, checkUsageLimit) |
 
 ---
 
@@ -132,12 +132,12 @@ locales: ["fr", "en", "de"], defaultLocale: "fr"
 1. `AuthProvider` — session, user, signOut
 2. `BrandingProvider` — couleurs, logos org
 3. `AppEmailProvider` — emails, unreadCount, sync state
-4. Sidebar, CommandPalette, OnboardingChecklist, OnboardingGuard
+4. Sidebar, CommandPalette, OnboardingChecklist, OnboardingGuard, TrialGuard
 
 ### Middleware (`middleware.ts`)
 - **Locale routing** : next-intl sur toutes les routes non-API
 - **Auth** : Supabase session check sur routes protégées (cookies 7 jours, `SameSite=Lax`)
-- **Subdomain** : Production `hrs.cantaia.ch` → org "hrs" ; Dev `?org=hrs` ou header `x-organization-subdomain`
+- **Subdomain** : Production `hrs.cantaia.io` → org "hrs" ; Dev `?org=hrs` ou header `x-organization-subdomain`
 - **Subdomaines réservés** : www, app, api, admin, super-admin, mail, smtp, ftp, dev, staging, test, demo, help, support, docs, status, blog, cdn, static
 - **Routes protégées** (31) : `/dashboard`, `/projects`, `/tasks`, `/meetings`, `/settings`, `/briefing`, `/direction`, `/admin`, `/super-admin`, `/analytics`, `/api-costs`, `/clients`, `/debug`, `/logs`, `/submissions`, `/mail`, `/pv`, `/suppliers`, `/pricing-intelligence`, `/plans`, `/visits`, `/onboarding`
 
@@ -164,6 +164,9 @@ GEMINI_API_KEY                  # Gemini 2.0 Flash (estimation)
 STRIPE_SECRET_KEY
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 STRIPE_WEBHOOK_SECRET
+STRIPE_PRICE_STARTER              # Stripe Price ID for Starter plan
+STRIPE_PRICE_PRO                  # Stripe Price ID for Pro plan
+STRIPE_PRICE_ENTERPRISE           # Stripe Price ID for Enterprise plan
 
 # Sentry
 SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN
@@ -173,7 +176,7 @@ SENTRY_PROJECT
 # App
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_APP_NAME=Cantaia
-BASE_DOMAIN=cantaia.ch
+BASE_DOMAIN=cantaia.io
 
 # CRON
 CRON_SECRET                     # Auth pour routes cron
@@ -299,7 +302,7 @@ ADMIN_SECRET_KEY
 
 ---
 
-## 6. Routes API (~135 endpoints)
+## 6. Routes API (~150 endpoints)
 
 ### Auth
 | Route | Méthode | Description |
@@ -482,6 +485,16 @@ ADMIN_SECRET_KEY
 | `/api/cron/calibrate` | POST | Rafraîchissement calibration (vues matérialisées + model error profiles) |
 | `/api/cron/briefing` | POST | Génération briefings quotidiens + envoi email Resend (6:45 AM) |
 
+### Stripe Billing
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/stripe/create-checkout` | POST | Crée Stripe Checkout Session (get-or-create customer, CHF, metadata org+plan) |
+| `/api/stripe/update-subscription` | POST | Change de plan avec proration |
+| `/api/stripe/cancel-subscription` | POST | Annule l'abonnement à la fin de la période |
+| `/api/stripe/add-seats` | POST | Ajoute des sièges utilisateur (Pro uniquement) |
+| `/api/stripe/invoices` | GET | Liste des factures (limit 24) avec liens PDF |
+| `/api/stripe/create-portal-session` | POST | Session Stripe Billing Portal (moyen de paiement) |
+
 ### Admin & Super-Admin
 | Route | Méthode | Description |
 |-------|---------|-------------|
@@ -489,9 +502,15 @@ ADMIN_SECRET_KEY
 | `/api/admin/compute-daily-metrics` | GET/POST | Métriques quotidiennes |
 | `/api/admin/logs` | GET | Logs d'activité organisation |
 | `/api/admin/usage-stats` | GET | Stats utilisation API |
-| `/api/super-admin` | GET/POST | Vue d'ensemble super-admin + config updates |
+| `/api/admin/team-health` | GET | Santé équipe (tâches en retard, activité, dernière connexion par membre) |
+| `/api/admin/activity-feed` | GET | Flux d'activité org (7 jours : emails, tâches, réunions, soumissions) |
+| `/api/super-admin` | GET/POST | Vue d'ensemble super-admin + config updates (actions: platform-metrics, analytics, recent-activity, list-organizations, all-users) |
 | `/api/super-admin/sentry-errors` | GET | Erreurs Sentry |
 | `/api/super-admin/data-intelligence` | GET/POST | Métriques data intelligence |
+| `/api/super-admin/impersonate` | POST | Génère magic link pour impersonner un utilisateur (superadmin only, audit log) |
+| `/api/super-admin/force-sync` | POST | Force sync email pour un utilisateur |
+| `/api/super-admin/force-briefing` | POST | Force génération briefing pour un utilisateur |
+| `/api/super-admin/run-cron` | POST | Exécute un job CRON manuellement (forwarde CRON_SECRET) |
 
 ### Utilisateur & Organisation
 | Route | Méthode | Description |
@@ -505,7 +524,7 @@ ADMIN_SECRET_KEY
 ### Webhooks
 | Route | Méthode | Description |
 |-------|---------|-------------|
-| `/api/webhooks/stripe` | POST | Stripe (checkout.completed, subscription.updated/deleted, invoice.payment_failed) |
+| `/api/webhooks/stripe` | POST | Stripe (checkout.completed, subscription.updated/deleted, invoice.payment_failed/succeeded) |
 | `/api/transcription/process` | POST | Traitement transcription |
 
 ### Mail (Module Décisions)
@@ -526,7 +545,7 @@ ADMIN_SECRET_KEY
 
 ---
 
-## 7. Pages & Routing (~84 pages)
+## 7. Pages & Routing (~78 pages)
 
 Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 
@@ -585,40 +604,33 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `/pricing-intelligence` — Analytique prix
 - `/settings` — Paramètres (onglets: Profil, Préférences email, Classification, Partage données, Intégrations, Abonnement)
 
-### Admin `(admin)` — Org Admin (~14 pages)
-- `/admin` — Vue d'ensemble admin (métriques org, users, API usage)
-- `/admin/members` — Membres équipe (inviter, supprimer, rôles)
-- `/admin/branding` — Branding organisation (logo, couleurs, domaine)
-- `/admin/finances` — Facturation (Stripe)
-- `/admin/alerts` — Configuration alertes
-- `/admin/logs` — Logs audit
-- `/admin/users` — Gestion utilisateurs
-- `/admin/settings` — Paramètres admin
-- `/admin/time-savings` — Métriques gains de temps (productivité IA)
-- `/admin/organizations/[id]` — Détail organisation
-- `/analytics` — Dashboard analytics
-- `/api-costs` — Coûts API
-- `/branding` — Gestion branding
-- `/clients` — Clients / projets overview
+### Admin `(admin)` — Org Admin (1 page, 4 onglets)
+- `/admin` — Panneau admin unifié (4 onglets via `?tab=`)
+  - **Vue d'ensemble** : 4 KPIs (membres, projets, tâches, emails), TeamHealthCard par membre, ActivityFeed 7 jours
+  - **Membres** : table membres, invitation, changement de rôle, suppression
+  - **Abonnement** : plan actuel, Stripe Checkout (changement/upgrade), annulation, factures PDF, portail paiement
+  - **Paramètres** : infos organisation, branding (logo, couleur), configuration
 - `/debug` — Page debug (diagnostics)
 
-### Super-Admin `(super-admin)` — Superadmin uniquement (9 pages)
-- `/super-admin` — Dashboard (métriques globales, orgs, Sentry errors, revenue)
-- `/super-admin/organizations` — Toutes les orgs
-  - `/super-admin/organizations/[id]` — Détail org (membres, subscription, métriques)
+### Super-Admin `(super-admin)` — Superadmin uniquement (11 pages)
+- `/super-admin` — Dashboard (métriques globales, orgs, Sentry errors, revenue, alertes paiement/trial/inactivité)
+- `/super-admin/organizations` — Toutes les orgs (colonnes: appels IA, coûts IA, marge %)
+  - `/super-admin/organizations/[id]` — Détail org (membres, subscription, métriques IA par membre/fonction)
   - `/super-admin/organizations/create` — Créer org
-- `/super-admin/users` — Tous les utilisateurs
-- `/super-admin/billing` — Facturation globale (Stripe, revenue, analytics)
-- `/super-admin/metrics` — Métriques plateforme (API usage, DAU, coûts)
+- `/super-admin/users` — Tous les utilisateurs (coûts IA, bouton impersonner)
+- `/super-admin/billing` — Facturation globale (Stripe, revenue, analytics, MRR/ARR)
+- `/super-admin/metrics` — Métriques plateforme (API usage, DAU, coûts, rentabilité par org)
+- `/super-admin/ai-costs` — Coûts IA détaillés (KPIs, AreaChart, breakdown par org/user/fonction)
+- `/super-admin/operations` — Outils opérationnels (force sync, force briefing, CRON, impersonation, diagnostics)
 - `/super-admin/data-intelligence` — Dashboard data intel (C2 benchmarks, C3 patterns, agrégation)
-- `/super-admin/config` — Config globale (feature flags, API keys)
+- `/super-admin/config` — Config globale (feature flags, API keys, table PLAN_FEATURES read-only)
 
 ### Layouts (7)
 1. `[locale]/layout.tsx` — Root (fonts, intl, theme, toaster, cookies)
 2. `(marketing)/layout.tsx` — MarketingHeader + MarketingFooter
 3. `(auth)/layout.tsx` — Formulaire centré, grille subtile
 4. `(onboarding)/layout.tsx` — AuthProvider, fond slate-50
-5. `(app)/layout.tsx` — AuthProvider, BrandingProvider, AppEmailProvider, Sidebar, CommandPalette, OnboardingGuard
+5. `(app)/layout.tsx` — AuthProvider, BrandingProvider, AppEmailProvider, Sidebar, CommandPalette, OnboardingGuard, TrialGuard
 6. `(admin)/layout.tsx` — Sidebar admin collapsible
 7. `(super-admin)/layout.tsx` — Sidebar dark (amber accents), vérification accès async
 
@@ -700,6 +712,23 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 #### Emails (`emails/`, 2 fichiers)
 - `ClassificationSuggestions.tsx` — Dropdown suggestions classification
 - `CreateProjectFromEmailModal.tsx` — Modal créer projet depuis email
+
+#### Admin (`admin/`, 6 fichiers)
+- `AdminOverviewTab.tsx` — 4 KPIs + TeamHealthCard grid + ActivityFeed
+- `AdminMembersTab.tsx` — Table membres, invitation, rôles, suppression
+- `AdminSubscriptionTab.tsx` — Plan Stripe, PlanSelector, factures, portail paiement
+- `AdminSettingsTab.tsx` — Formulaire infos org + branding (logo, couleurs)
+- `TeamHealthCard.tsx` — Card santé par membre (tâches en retard, activité)
+- `ActivityFeed.tsx` — Flux activité org 7 jours (emails, tâches, réunions, soumissions)
+
+#### Stripe (`stripe/`, 4 fichiers)
+- `PlanSelector.tsx` — Modal sélection plan (3 cards Starter/Pro/Enterprise)
+- `InvoicesList.tsx` — Liste factures avec liens PDF
+- `UsageLimitBanner.tsx` — Bannière warning (80%) / bloqué (100%)
+- `TrialGuard.tsx` — Client component: overlay trial expiré + UsageLimitBanner
+
+#### Super-Admin (`super-admin/`, 1 fichier)
+- `ImpersonationBanner.tsx` — Bannière rouge lors d'impersonation
 
 #### Providers (`providers/`, 4 fichiers)
 - `AuthProvider.tsx`, `BrandingProvider.tsx`, `AppEmailProvider.tsx`, `OrganizationProvider.tsx`
@@ -950,13 +979,16 @@ pnpm clean
 
 ## 13. État Actuel (Mars 2026)
 
-- **Build** : ~83 pages, ~136 routes API, 0 erreurs
-- **Migrations** : 001-053
-- **Composants** : 126 fichiers dans 23 dossiers
-- **Core** : ~88 fichiers TypeScript
+- **Build** : ~78 pages, ~150 routes API, 0 erreurs
+- **Migrations** : 001-056
+- **Composants** : 140+ fichiers dans 25 dossiers
+- **Core** : ~90 fichiers TypeScript
 - **Post-login redirect** : `/mail`
-- **Admin** : visible aux org admins (role=admin) + superadmins
-- **Super-admin** : 9 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, data-intelligence, config)
+- **Domaine** : cantaia.io (principal, migré depuis cantaia.ch le 2026-03-19)
+- **Admin** : panneau unifié 4 onglets (Overview, Membres, Abonnement, Paramètres), visible aux org admins (role=admin) + superadmins
+- **Super-admin** : 11 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, ai-costs, operations, data-intelligence, config)
+- **Stripe** : Checkout Sessions, Subscriptions, Billing Portal, Webhooks (checkout.completed, subscription.updated/deleted, invoice.payment_failed/succeeded)
+- **Plan enforcement** : `checkUsageLimit()` sur 14 routes IA, `TrialGuard` + `UsageLimitBanner` côté client
 - **Sentry** : configuré, gated derrière cookie consent RGPD
 - **Cookie consent** : bannière RGPD avec `cantaia_cookies_consent` cookie
 
@@ -981,6 +1013,56 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 - Réponse IA : ReplyModal envoie `thread_context` (messages du thread) à `/api/ai/generate-reply`
 - Envoi email : `/api/email/send` (reply, forward, new) avec auto-refresh tokens
 - EmailContext reste utilisé par Sidebar (badge unread) et Dashboard
+
+### Refonte Admin & Super-Admin (2026-03-19)
+
+**Admin org** : panneau unifié 4 onglets remplaçant 14 pages séparées.
+- **Overview** : 4 KPIs (membres actifs, projets actifs, tâches ouvertes, emails non traités) + TeamHealthCard (tâches en retard, in-progress, emails non traités par membre) + ActivityFeed (7 jours)
+- **Membres** : table avec invitation email, changement de rôle, suppression
+- **Abonnement** : plan actuel, PlanSelector modal (Starter/Pro/Enterprise), Stripe Checkout, annulation fin de période, liste factures PDF, portail Stripe pour moyen de paiement
+- **Paramètres** : formulaire infos org + branding (logo upload, color picker)
+
+**Super-admin** : 2 nouvelles pages + enhancements.
+- **AI Costs** (`/super-admin/ai-costs`) : 4 KPIs + AreaChart coûts quotidiens + tables breakdown par org/user/fonction
+- **Operations** (`/super-admin/operations`) : force sync email, force briefing, exécution CRON manuelle, impersonation (magic link), liens diagnostics
+- **Dashboard** : alertes paiement échoué (rouge), trial expirant (ambre), utilisateurs inactifs (gris)
+- **Organizations** : colonnes appels IA, coûts IA, marge %
+- **Users** : bouton impersonner par utilisateur
+- **Config** : table PLAN_FEATURES en lecture seule
+
+**Stripe integration** :
+- 6 routes billing : create-checkout, update-subscription, cancel-subscription, add-seats, invoices, create-portal-session
+- Webhook étendu : `invoice.payment_succeeded` → audit log
+- Webhook sync : écrit `subscription_plan` ET `plan` (backward compat)
+
+**Plan enforcement** :
+- `PLAN_FEATURES` config dans `@cantaia/config/plan-features` (limites AI calls, users, projets, stockage par plan)
+- `checkUsageLimit()` ajouté à 14 routes IA (retourne 403 si quota dépassé)
+- `TrialGuard` : overlay trial expiré + `UsageLimitBanner` (warning 80%, bloqué 100%)
+
+**Migration 054-056** :
+- 054 : `plan_status`, `plan_period_end` sur `organizations`
+- 055 : `extra_seats` sur `organizations`
+- 056 : index `idx_api_usage_logs_org_created` sur `api_usage_logs`
+
+---
+
+## 13b. Plans Tarifaires
+
+| | **Trial** | **Starter** | **Pro** | **Enterprise** |
+|---|-----------|-------------|---------|----------------|
+| **Prix** | 0 CHF | 149 CHF/mois | 349 CHF/mois | 790 CHF/mois |
+| **Durée trial** | 14 jours | — | — | — |
+| **Utilisateurs** | 2 | 5 | 20 | Illimité |
+| **Projets** | 3 | 10 | 50 | Illimité |
+| **Appels IA/mois** | 50 | 500 | 2000 | Illimité |
+| **Stockage** | 1 GB | 10 GB | 50 GB | 500 GB |
+| **Estimation plans** | Non | Oui | Oui | Oui |
+| **Data intelligence** | Non | Non | Oui | Oui |
+| **Support** | — | Email | Prioritaire | Dédié |
+| **Env var Stripe** | — | `STRIPE_PRICE_STARTER` | `STRIPE_PRICE_PRO` | `STRIPE_PRICE_ENTERPRISE` |
+
+Config source : `packages/config/src/plan-features.ts`
 
 ---
 
@@ -1101,7 +1183,7 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | SEO.FIX8 | MOYENNE | `legal/{cgv,mentions,privacy}/page.tsx` | Aucune metadata sur les 3 pages légales | Ajouté `metadata` avec title, description, canonical + alternates hreflang |
 | SEO.FIX9 | CRITIQUE | OG Image | `/og-image.png` référencé dans metadata mais fichier inexistant — aperçu social cassé | Créé `opengraph-image.tsx` dynamique (Next.js ImageResponse) avec branding Cantaia, tagline, feature pills, gradient bleu |
 | SEO.FIX10 | HAUTE | Favicon | Aucun favicon, aucun apple-icon. Onglet navigateur sans icône | Créé `icon.tsx` (32×32) et `apple-icon.tsx` (180×180) dynamiques avec lettre "C" + gradient brand |
-| SEO.FIX11 | HAUTE | `next.config.ts` | Pas de redirects domaines alternatifs → contenu dupliqué | Ajouté 301 redirects: cantaia.com, www.cantaia.com, cantaia.app, www.cantaia.ch → cantaia.ch. Ajouté `images.formats: ["avif", "webp"]` |
+| SEO.FIX11 | HAUTE | `next.config.ts` | Pas de redirects domaines alternatifs → contenu dupliqué | Ajouté 301 redirects: cantaia.com, www.cantaia.com, cantaia.app, www.cantaia.ch, cantaia.ch → cantaia.io. Ajouté `images.formats: ["avif", "webp"]` |
 | SEO.FIX12 | MOYENNE | `(marketing)/layout.tsx` | Pas de données structurées Organization | Ajouté JSON-LD Organization schema (name, url, logo, foundingDate, knowsAbout) dans le layout marketing |
 | SEO.FIX13 | BASSE | `manifest.json` | Description mixte DE/EN incohérente. Icons manquants. start_url "/" au lieu de post-login | Corrigé description FR, start_url `/fr/mail`, lang `fr`, categories `business/productivity`, icons pointent vers les routes dynamiques |
 
@@ -1119,7 +1201,7 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 | **Keywords** | Aucun | 10-12 mots-clés par langue, optimisés construction CH |
 | **Metadata pages** | 1 (root layout FR) | 9 pages avec metadata locale-aware |
 | **Auth noindex** | Non | Oui (layout auth) |
-| **Domain redirects** | Aucun | 4 redirects 301 → cantaia.ch |
+| **Domain redirects** | Aucun | 5 redirects 301 → cantaia.io |
 | **GoogleBot** | Défaut | max-image-preview: large, max-snippet: -1 |
 
 ---
@@ -1611,9 +1693,14 @@ Les chefs de projet peuvent maintenant capturer des photos lors des visites clie
 7. Définir `GEMINI_API_KEY` sur Vercel
 8. Vérifier `OPENAI_API_KEY` (déjà utilisé pour Whisper)
 9. Configurer DNS: cantaia.com et cantaia.app doivent pointer vers Vercel pour que les redirects 301 fonctionnent
-10. Soumettre sitemap dans Google Search Console: `https://cantaia.ch/sitemap.xml`
-11. Vérifier la propriété cantaia.ch dans Google Search Console (si pas déjà fait)
+10. Soumettre sitemap dans Google Search Console: `https://cantaia.io/sitemap.xml`
+11. Vérifier la propriété cantaia.io dans Google Search Console (si pas déjà fait)
 12. **SÉCURITÉ** : Définir `MICROSOFT_TOKEN_ENCRYPTION_KEY` sur Vercel (64 chars hex = 32 bytes AES-256) — SEC2.NC4
 13. **SÉCURITÉ** : Définir `OUTLOOK_WEBHOOK_SECRET` sur Vercel (min 16 chars) — OUTLOOK.6
 14. **SÉCURITÉ** : Migrer bucket "plans" de public à privé + adapter le code pour utiliser signed URLs — SEC2.NC3
 15. **SÉCURITÉ** : Implémenter rate limiting sur les routes IA (recommandé: `@upstash/ratelimit`) — SEC2.NC1
+16. Appliquer migrations 054-056 sur Supabase (plan_status, extra_seats, api_usage index)
+17. Définir `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_ENTERPRISE` sur Vercel (Price IDs depuis Stripe Dashboard)
+18. Configurer DNS: cantaia.io doit pointer vers Vercel
+19. Configurer DNS: cantaia.ch, cantaia.com, cantaia.app → redirect vers cantaia.io
+20. `git push` pour déployer sur Vercel (tous les commits sont locaux)
