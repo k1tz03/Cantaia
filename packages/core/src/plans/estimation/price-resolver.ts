@@ -90,8 +90,138 @@ function keywordOverlap(desc1: string, desc2: string): number {
   return matches / Math.min(kw1.size, kw2.size);
 }
 
-export async function resolvePrice(params: PriceResolverParams): Promise<PrixUnitaire> {
-  const { cfc_code, description, unite, region, quarter, org_id, supabase } = params;
+// ══════════════════════════════════════════════════════
+// V3 — Multi-criteria scoring + inflation adjustment
+// ══════════════════════════════════════════════════════
+
+interface PriceCandidate {
+  prix_unitaire: number;
+  cfc_code?: string;
+  description?: string;
+  unite?: string;
+  region?: string;
+  date?: string; // ISO date
+}
+
+function normalizeUnit(u: string): string {
+  return u
+    .toLowerCase()
+    .replace(/m2/g, 'm²')
+    .replace(/m3/g, 'm³')
+    .replace(/pce/g, 'pièce')
+    .replace(/ml/g, 'm')
+    .trim();
+}
+
+function scorePriceCandidate(
+  candidate: PriceCandidate,
+  query: { cfc_code?: string; description: string; unite?: string; region?: string },
+  inflationRate: number = 0.028
+): { score: number; adjusted_price: number } {
+  let score = 0;
+
+  // CFC matching (40 exact, 25 prefix)
+  if (candidate.cfc_code && query.cfc_code) {
+    if (candidate.cfc_code === query.cfc_code) score += 40;
+    else if (
+      candidate.cfc_code.startsWith(query.cfc_code.split('.')[0]) ||
+      query.cfc_code.startsWith(candidate.cfc_code.split('.')[0])
+    )
+      score += 25;
+  }
+
+  // Keyword overlap (20 if ≥60%, 10 if ≥30%)
+  const candidateKw = extractKeywords(candidate.description || '');
+  const queryKw = extractKeywords(query.description);
+  if (candidateKw.length > 0 && queryKw.length > 0) {
+    const overlap = candidateKw.filter((k) =>
+      queryKw.some((q) => q.includes(k) || k.includes(q))
+    ).length;
+    const ratio = overlap / Math.max(candidateKw.length, queryKw.length);
+    if (ratio >= 0.6) score += 20;
+    else if (ratio >= 0.3) score += 10;
+  }
+
+  // Unit match (10)
+  if (
+    candidate.unite &&
+    query.unite &&
+    normalizeUnit(candidate.unite) === normalizeUnit(query.unite)
+  ) {
+    score += 10;
+  }
+
+  // Region match (5)
+  if (candidate.region && query.region && candidate.region === query.region) {
+    score += 5;
+  }
+
+  // Temporal decay + inflation
+  let adjustedPrice = candidate.prix_unitaire;
+  if (candidate.date) {
+    const ageMs = Date.now() - new Date(candidate.date).getTime();
+    const ageMonths = ageMs / (1000 * 60 * 60 * 24 * 30);
+    const ageYears = ageMonths / 12;
+
+    if (ageMonths > 12) score = Math.round(score * 0.6);
+    else if (ageMonths > 6) score = Math.round(score * 0.8);
+
+    // Inflation adjustment
+    adjustedPrice =
+      candidate.prix_unitaire * Math.pow(1 + inflationRate, ageYears);
+  }
+
+  return { score, adjusted_price: Math.round(adjustedPrice * 100) / 100 };
+}
+
+function weightedPercentiles(
+  scored: { score: number; adjusted_price: number }[]
+): { p25: number; median: number; p75: number } {
+  if (scored.length === 0) return { p25: 0, median: 0, p75: 0 };
+
+  const sorted = [...scored].sort((a, b) => a.adjusted_price - b.adjusted_price);
+  if (sorted.length === 1) {
+    return {
+      p25: sorted[0].adjusted_price,
+      median: sorted[0].adjusted_price,
+      p75: sorted[0].adjusted_price,
+    };
+  }
+
+  const totalWeight = sorted.reduce((s, c) => s + c.score, 0);
+  if (totalWeight === 0) {
+    const prices = sorted.map((s) => s.adjusted_price);
+    return {
+      p25: prices[Math.floor(prices.length * 0.25)],
+      median: prices[Math.floor(prices.length * 0.5)],
+      p75: prices[Math.floor(prices.length * 0.75)],
+    };
+  }
+
+  function getPercentile(target: number): number {
+    let cumWeight = 0;
+    for (const item of sorted) {
+      cumWeight += item.score;
+      if (cumWeight / totalWeight >= target) return item.adjusted_price;
+    }
+    return sorted[sorted.length - 1].adjusted_price;
+  }
+
+  return {
+    p25: getPercentile(0.25),
+    median: getPercentile(0.5),
+    p75: getPercentile(0.75),
+  };
+}
+
+// ══════════════════════════════════════════════════════
+
+interface PriceResolverParamsV3 extends PriceResolverParams {
+  inflation_rate?: number;
+}
+
+export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixUnitaire> {
+  const { cfc_code, description, unite, region, quarter, org_id, supabase, inflation_rate = 0.028 } = params;
 
   const keywords = extractKeywords(description);
   const hasCfcCode = Boolean(cfc_code && cfc_code.trim().length >= 2);
@@ -100,10 +230,11 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
   // ══════════════════════════════════════════════════════
   // 1. Historique interne (offer_line_items de cette org)
   // Colonnes: organization_id, cfc_subcode, normalized_description,
-  //           supplier_description, unit_price, unit_normalized
+  //           supplier_description, unit_price, unit_normalized, created_at
+  // V3: multi-criteria scoring, up to 100 candidates, weighted percentiles
   // ══════════════════════════════════════════════════════
   try {
-    let internalPrices: any[] | null = null;
+    let rawCandidates: any[] = [];
 
     // 1a. Par code CFC (si disponible)
     if (hasCfcCode) {
@@ -111,61 +242,101 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
       const cfcPrefix = sanitizeForFilter(cfc_code.split('.')[0]);
       const { data } = await supabase
         .from('offer_line_items')
-        .select('unit_price, created_at')
+        .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
         .eq('organization_id', org_id)
         .or(`cfc_subcode.eq.${safeCfc},cfc_subcode.like.${cfcPrefix}%`)
         .gt('unit_price', 0)
         .lt('unit_price', maxPrice)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(100);
 
-      if (data && data.length >= 2) {
-        internalPrices = data;
+      if (data && data.length > 0) {
+        rawCandidates = rawCandidates.concat(data);
       }
     }
 
-    // 1b. Par mots-clés de description (si pas assez de résultats CFC)
-    if ((!internalPrices || internalPrices.length < 2) && keywords.length > 0) {
+    // 1b. Par mots-clés de description
+    if (keywords.length > 0) {
       const mainKeyword = sanitizeForFilter(keywords[0]);
       if (mainKeyword.length >= 4) {
         const { data } = await supabase
           .from('offer_line_items')
-          .select('unit_price, created_at')
+          .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
           .eq('organization_id', org_id)
           .or(`normalized_description.ilike.%${mainKeyword}%,supplier_description.ilike.%${mainKeyword}%`)
           .gt('unit_price', 0)
           .lt('unit_price', maxPrice)
           .order('created_at', { ascending: false })
-          .limit(30);
+          .limit(100);
 
-        if (data && data.length >= 2) {
-          internalPrices = data;
+        if (data && data.length > 0) {
+          rawCandidates = rawCandidates.concat(data);
         }
       }
 
-      // 1c. Essayer avec le 2e mot-clé si le 1er n'a rien donné
-      if ((!internalPrices || internalPrices.length < 2) && keywords.length >= 2) {
+      // 1c. Essayer avec le 2e mot-clé
+      if (keywords.length >= 2) {
         const secondKeyword = sanitizeForFilter(keywords[1]);
         if (secondKeyword.length >= 4) {
           const { data } = await supabase
             .from('offer_line_items')
-            .select('unit_price, created_at')
+            .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at')
             .eq('organization_id', org_id)
             .or(`normalized_description.ilike.%${secondKeyword}%,supplier_description.ilike.%${secondKeyword}%`)
             .gt('unit_price', 0)
             .lt('unit_price', maxPrice)
             .order('created_at', { ascending: false })
-            .limit(30);
+            .limit(100);
 
-          if (data && data.length >= 2) {
-            internalPrices = data;
+          if (data && data.length > 0) {
+            rawCandidates = rawCandidates.concat(data);
           }
         }
       }
     }
 
-    if (internalPrices && internalPrices.length >= 2) {
-      const prices = internalPrices
+    if (rawCandidates.length >= 2) {
+      // Deduplicate by (unit_price, created_at)
+      const seen = new Set<string>();
+      const unique = rawCandidates.filter((d: any) => {
+        const key = `${d.unit_price}::${d.created_at}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Score each candidate
+      const scored = unique
+        .map((d: any) => {
+          const candidate: PriceCandidate = {
+            prix_unitaire: Number(d.unit_price),
+            cfc_code: d.cfc_subcode,
+            description: d.normalized_description || d.supplier_description,
+            unite: d.unit_normalized,
+            date: d.created_at,
+          };
+          return scorePriceCandidate(candidate, { cfc_code, description, unite, region }, inflation_rate);
+        })
+        .filter((s) => s.score >= 35 && s.adjusted_price > 0 && s.adjusted_price <= maxPrice)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 30);
+
+      if (scored.length >= 2) {
+        const wp = weightedPercentiles(scored);
+        const latestDate = rawCandidates[0].created_at?.slice(0, 10);
+        return {
+          min: round2(wp.p25),
+          median: round2(wp.median),
+          max: round2(wp.p75),
+          source: 'historique_interne',
+          detail_source: `${scored.length} offres internes (scoring V3), dernière : ${latestDate}`,
+          date_reference: latestDate ?? quarter,
+          ajustements: [],
+        };
+      }
+
+      // Fallback: score too low — accept >= 1 with no threshold if we have enough raw prices
+      const prices = unique
         .map((d: any) => Number(d.unit_price))
         .filter((p: number) => p > 0 && p <= maxPrice);
       if (prices.length >= 2) {
@@ -174,9 +345,9 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
           median: round2(percentile(prices, 0.50)),
           max: round2(percentile(prices, 0.75)),
           source: 'historique_interne',
-          detail_source: `${prices.length} offres internes, dernière : ${internalPrices[0].created_at?.slice(0, 10)}`,
-          date_reference: internalPrices[0].created_at?.slice(0, 10) ?? quarter,
-          ajustements: [],
+          detail_source: `${prices.length} offres internes, dernière : ${rawCandidates[0].created_at?.slice(0, 10)}`,
+          date_reference: rawCandidates[0].created_at?.slice(0, 10) ?? quarter,
+          ajustements: ['Confiance réduite (score scoring < 35)'],
         };
       }
     }
@@ -248,6 +419,7 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
   // 3. Fallback textuel — ingested_offer_lines par description
   // Colonnes: org_id, cfc_code, description, prix_unitaire_ht, unite
   // NOTE: pas de colonne is_forfait dans cette table
+  // V3: scoring sur les candidats textuels + inflation
   // ══════════════════════════════════════════════════════
   try {
     if (keywords.length > 0) {
@@ -255,13 +427,44 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
       if (searchTerm.length >= 4) {
         const { data: textMatches } = await supabase
           .from('ingested_offer_lines')
-          .select('cfc_code, prix_unitaire_ht, description')
+          .select('cfc_code, prix_unitaire_ht, description, unite, date_offre')
           .ilike('description', `%${searchTerm}%`)
           .gt('prix_unitaire_ht', 0)
           .lt('prix_unitaire_ht', maxPrice)
-          .limit(50);
+          .limit(100);
 
         if (textMatches && textMatches.length >= 2) {
+          const scored: Array<{ score: number; adjusted_price: number; cfc_code: string | null }> = textMatches
+            .map((r: any) => {
+              const candidate: PriceCandidate = {
+                prix_unitaire: Number(r.prix_unitaire_ht),
+                cfc_code: r.cfc_code,
+                description: r.description,
+                unite: r.unite,
+                date: r.date_offre,
+              };
+              const sc = scorePriceCandidate(candidate, { cfc_code, description, unite, region }, inflation_rate);
+              return { ...sc, cfc_code: (r.cfc_code as string | null) };
+            })
+            .filter((s: { score: number; adjusted_price: number }) => s.score >= 10 && s.adjusted_price > 0 && s.adjusted_price <= maxPrice)
+            .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+            .slice(0, 30);
+
+          if (scored.length >= 2) {
+            const wp = weightedPercentiles(scored);
+            const cfcFound = scored[0].cfc_code ?? 'N/A';
+            return {
+              min: round2(wp.p25),
+              median: round2(wp.median),
+              max: round2(wp.p75),
+              source: 'historique_interne',
+              detail_source: `${scored.length} offres réelles (recherche texte: "${searchTerm}", CFC ${cfcFound})`,
+              date_reference: quarter,
+              ajustements: [`Recherche textuelle: "${searchTerm}"`, `Confiance réduite (match par description)`],
+            };
+          }
+
+          // Fallback sans seuil de score
           const prices = textMatches
             .map((r: any) => Number(r.prix_unitaire_ht))
             .filter((p: number) => p > 0 && p <= maxPrice)
@@ -350,14 +553,22 @@ export async function resolvePrice(params: PriceResolverParams): Promise<PrixUni
   }
 
   if (ref) {
+    // V3: apply inflation adjustment — CRB prices are dated, adjust to today
+    const refYear = parseInt(ref.periode?.replace(/[^0-9]/g, '').slice(0, 4) || '2025', 10);
+    const ageYears = Math.max(0, new Date().getFullYear() - refYear + (new Date().getMonth() / 12));
+    const inflFactor = Math.pow(1 + inflation_rate, ageYears);
+    const ajustements: string[] = [];
+    if (coeff !== 1.0) ajustements.push(`Coefficient régional ${region}: ${coeff}`);
+    if (ageYears > 0) ajustements.push(`Ajustement inflation ${(inflation_rate * 100).toFixed(1)}%/an × ${ageYears.toFixed(1)} ans`);
+
     return {
-      min: round2(ref.prix_min * coeff),
-      median: round2(ref.prix_median * coeff),
-      max: round2(ref.prix_max * coeff),
+      min: round2(ref.prix_min * coeff * inflFactor),
+      median: round2(ref.prix_median * coeff * inflFactor),
+      max: round2(ref.prix_max * coeff * inflFactor),
       source: 'referentiel_crb',
-      detail_source: `Référentiel CRB ${ref.periode}, coefficient ${region}: ${coeff}`,
+      detail_source: `Référentiel CRB ${ref.periode}, coefficient ${region}: ${coeff}${ageYears > 0 ? `, inflation ×${inflFactor.toFixed(3)}` : ''}`,
       date_reference: ref.periode,
-      ajustements: coeff !== 1.0 ? [`Coefficient régional ${region}: ${coeff}`] : [],
+      ajustements,
     };
   }
 
