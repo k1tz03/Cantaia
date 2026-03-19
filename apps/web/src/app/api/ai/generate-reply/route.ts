@@ -5,6 +5,7 @@ import { generateReply, cleanEmailForAI, classifyAIError } from "@cantaia/core/a
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -59,15 +60,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "User profile not found" }, { status: 404 });
   }
 
-  // Get company name
+  // Get company name + check usage limit
   let companyName = "Cantaia";
   if (userProfile.organization_id) {
     const { data: org } = await adminClient
       .from("organizations")
-      .select("name")
+      .select("name, subscription_plan")
       .eq("id", userProfile.organization_id)
       .maybeSingle();
     if (org) companyName = org.name;
+
+    const usageCheck = await checkUsageLimit(adminClient, userProfile.organization_id, org?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
+    }
   }
 
   // Get project context if assigned

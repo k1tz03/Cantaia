@@ -3,6 +3,7 @@ import { buildPVGeneratePrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 const USE_MOCK_PV = process.env.USE_MOCK_PV === "true";
 
@@ -42,6 +43,21 @@ export async function POST(request: NextRequest) {
 
     if (!userProfile?.organization_id) {
       return NextResponse.json({ error: "User organization not found" }, { status: 403 });
+    }
+
+    // Check AI usage limit
+    const { data: orgData } = await admin
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userProfile.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, orgData?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
     }
 
     // If transcript is passed directly, use it. Otherwise fetch from DB.

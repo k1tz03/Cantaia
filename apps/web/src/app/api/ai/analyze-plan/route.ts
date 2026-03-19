@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzePlan, classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 interface PlanVersion {
   id: string;
@@ -64,6 +65,21 @@ export async function POST(request: NextRequest) {
 
     if (!userOrg?.organization_id) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    // Check AI usage limit
+    const { data: orgData } = await adminClient
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userOrg.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, orgData?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
     }
 
     // Fetch plan with versions

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 /**
  * POST /api/mail/generate-summaries
@@ -14,6 +15,29 @@ export async function POST() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
+
+    // Check AI usage limit
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userProfile?.organization_id) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("subscription_plan")
+        .eq("id", userProfile.organization_id)
+        .single();
+
+      const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, org?.subscription_plan || "trial");
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+          { status: 429 }
+        );
+      }
+    }
 
     // Fetch emails without ai_summary — use body_text OR body_preview from DB only (no Graph)
     const { data: emails } = await (admin as any)

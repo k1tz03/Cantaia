@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, cleanEmailForAI, isRetryableAIError, type ProjectForClassification } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 /** Run promises in batches with concurrency limit */
 async function runWithConcurrency<T>(
@@ -111,6 +112,21 @@ export async function POST() {
 
   let projects: ProjectForClassification[] = [];
   if (userOrg?.organization_id) {
+    // Check AI usage limit
+    const { data: org } = await adminClient
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userOrg.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
+    }
+
     const { data: projectsData } = await adminClient
       .from("projects")
       .select("id, name, code, email_keywords, email_senders, city, client_name")

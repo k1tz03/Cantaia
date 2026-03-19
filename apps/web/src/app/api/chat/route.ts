@@ -9,6 +9,7 @@ import {
 } from "@cantaia/core/ai";
 import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export const maxDuration = 60;
 
@@ -145,12 +146,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Get org name
+  // Get org name + check usage limit
   const { data: org } = await (admin as any)
     .from("organizations")
-    .select("name")
+    .select("name, subscription_plan")
     .eq("id", userOrg.organization_id)
     .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(admin, userOrg.organization_id, org?.subscription_plan || "trial");
+  if (!usageCheck.allowed) {
+    return new Response(
+      JSON.stringify({ error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan }),
+      { status: 429 }
+    );
+  }
 
   const systemPrompt = buildChatSystemPrompt({
     userName: `${userOrg.first_name || ""} ${userOrg.last_name || ""}`.trim(),

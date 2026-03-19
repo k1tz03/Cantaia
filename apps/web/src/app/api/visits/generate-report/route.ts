@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 interface ClientRequest {
   description: string;
@@ -89,10 +90,19 @@ export async function POST(request: NextRequest) {
     let orgName = "";
     if (userData?.organization_id) {
       const { data: org } = await (supabase.from("organizations") as any)
-        .select("name")
+        .select("name, subscription_plan")
         .eq("id", userData.organization_id)
         .maybeSingle();
       orgName = org?.name || "";
+
+      // Check AI usage limit
+      const usageCheck = await checkUsageLimit(admin, userData.organization_id, org?.subscription_plan || "trial");
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+          { status: 429 }
+        );
+      }
     }
 
     const userName = userData ? `${userData.first_name} ${userData.last_name}` : "";

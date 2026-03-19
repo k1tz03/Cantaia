@@ -5,6 +5,7 @@ import { extractTasks, cleanEmailForAI, classifyAIError } from "@cantaia/core/ai
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -67,6 +68,23 @@ export async function POST(request: NextRequest) {
     .select("organization_id")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Check AI usage limit
+  if (userOrg?.organization_id) {
+    const { data: org } = await adminClient
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userOrg.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
+    }
+  }
 
   // Fetch full email body from Microsoft Graph for better task extraction
   let bodyContent = email.body_preview || "";

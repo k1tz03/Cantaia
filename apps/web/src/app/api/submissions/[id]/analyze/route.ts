@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 // Allow up to 300s on Vercel serverless (Pro plan) — 60s for Hobby
 export const maxDuration = 300;
@@ -176,6 +177,21 @@ export async function POST(
       .maybeSingle();
     if (!projCheck || projCheck.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Check AI usage limit
+    const { data: orgData } = await (admin as any)
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userProfile.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, orgData?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
     }
 
     // Mark as analyzing BEFORE returning — also clear stale budget_estimate

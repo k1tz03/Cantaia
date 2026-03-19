@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export const maxDuration = 120;
 
@@ -22,6 +23,21 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!userRow?.organization_id) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    // Check AI usage limit
+    const { data: orgData } = await admin
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userRow.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(admin, userRow.organization_id, orgData?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
     }
 
     const { data: body, error: parseError } = await parseBody(request);

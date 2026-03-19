@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export const maxDuration = 120;
 
@@ -59,6 +60,21 @@ export async function POST(
 
     if (!userProfile?.organization_id) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
+    }
+
+    // Check AI usage limit
+    const { data: orgData } = await (admin as any)
+      .from("organizations")
+      .select("subscription_plan")
+      .eq("id", userProfile.organization_id)
+      .single();
+
+    const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, orgData?.subscription_plan || "trial");
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
+        { status: 429 }
+      );
     }
 
     // Verify org ownership
