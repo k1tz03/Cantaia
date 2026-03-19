@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runEstimationPipeline } from "@cantaia/core/plans/estimation/pipeline";
 import { getBureauProfile, updateBureauProfile } from "@cantaia/core/plans/estimation/calibration-engine";
+import { verifyCrossPlan } from "@cantaia/core/plans/estimation";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 // Multi-model 4-pass pipeline can take several minutes
@@ -196,7 +197,30 @@ export async function POST(request: NextRequest) {
       console.log(`[estimate-v2] Bureau profile updated for "${detectedBureauName}" (quality: ${qualityScore})`);
     }
 
-    return NextResponse.json({ estimation: result });
+    // Lancer la vérification croisée inter-plans si le projet a au moins 2 plans analysés
+    let crossPlanResult = null;
+    if (project_id) {
+      try {
+        const { data: projectPlans } = await (adminClient as any)
+          .from("plan_registry")
+          .select("id")
+          .eq("project_id", project_id)
+          .eq("organization_id", userOrg.organization_id);
+
+        if (projectPlans && projectPlans.length >= 2) {
+          crossPlanResult = await verifyCrossPlan({
+            project_id,
+            org_id: userOrg.organization_id,
+            supabase: adminClient,
+          });
+          console.log(`[estimate-v2] Cross-plan verification: score=${crossPlanResult.score_coherence_projet}, alerts=${crossPlanResult.alertes.length}`);
+        }
+      } catch (crossErr) {
+        console.warn("[estimate-v2] Cross-plan verification failed (non-fatal):", crossErr);
+      }
+    }
+
+    return NextResponse.json({ estimation: result, cross_plan: crossPlanResult });
   } catch (err) {
     console.error("[estimate-v2] Pipeline error:", err);
     const message = err instanceof Error ? err.message : "Internal server error";

@@ -16,6 +16,7 @@ import { PlanAnalysisTab } from "@/components/plans/PlanAnalysisTab";
 import { PlanEstimationTab } from "@/components/plans/PlanEstimationTab";
 import QuantityCorrectionModal from "@/components/plans/QuantityCorrectionModal";
 import PriceCalibrationModal from "@/components/plans/PriceCalibrationModal";
+import type { CrossPlanData } from "@/components/plans/PlanAlertsBanner";
 
 export default function PlanDetailPage() {
   const params = useParams();
@@ -34,6 +35,7 @@ export default function PlanDetailPage() {
   const [estimationV2, setEstimationV2] = useState<any>(null);
   const [estimatingV2, setEstimatingV2] = useState(false);
   const [estimationV2Error, setEstimationV2Error] = useState("");
+  const [crossPlan, setCrossPlan] = useState<CrossPlanData | null>(null);
 
   const [correctionPoste, setCorrectionPoste] = useState<any>(null);
   const [calibrationPoste, setCalibrationPoste] = useState<any>(null);
@@ -151,6 +153,9 @@ export default function PlanDetailPage() {
       const data = await res.json();
       if (res.ok && data.estimation) {
         setEstimationV2(data.estimation);
+        if (data.cross_plan) {
+          setCrossPlan(data.cross_plan);
+        }
       } else {
         setEstimationV2Error(data.error || "Erreur lors de l'estimation");
       }
@@ -292,6 +297,7 @@ export default function PlanDetailPage() {
             }}
             onCorrectQuantity={(poste) => setCorrectionPoste(poste)}
             onCalibratePrice={(poste) => setCalibrationPoste(poste)}
+            crossPlan={crossPlan ?? undefined}
           />
         )}
 

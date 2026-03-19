@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { Building2 } from "lucide-react";
 // Types inline pour éviter les problèmes de résolution de module
 type PriceSource = 'historique_interne' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
 type ConfidenceLevel = 'high' | 'medium' | 'low' | 'assumption';
+type ConsensusMethod = 'concordance_forte' | 'concordance_partielle' | 'divergence' | 'detection_unique' | 'detection_double';
 
 interface PrixUnitaire {
   min: number | null;
@@ -29,13 +31,24 @@ interface PosteChiffre {
   note: string | null;
 }
 
+interface ConsensusPoste {
+  cfc_code: string;
+  description: string;
+  quantite_consensuelle: number;
+  unite: string;
+  methode_consensus: ConsensusMethod;
+  valeurs_par_modele: Array<{ provider: string; quantite: number; ecart_vs_median_pct: number }>;
+  outlier: string | null;
+  note: string | null;
+}
+
 interface EstimationPipelineResult {
   plan_id: string;
   project_id: string;
   org_id: string;
   created_at: string;
   passe1: any;
-  consensus_metrage: { postes: any[]; modeles_utilises: string[]; modeles_en_erreur: { provider: string; error: string }[]; stats: { total_postes: number; concordance_forte_pct: number; concordance_partielle_pct: number; divergence_pct: number; score_consensus_global: number } };
+  consensus_metrage: { postes: ConsensusPoste[]; modeles_utilises: string[]; modeles_en_erreur: { provider: string; error: string }[]; stats: { total_postes: number; concordance_forte_pct: number; concordance_partielle_pct: number; divergence_pct: number; score_consensus_global: number } };
   passe3: { alertes_coherence: { severite: string; poste_concerne: string; probleme: string; suggestion: string }[]; doublons_potentiels: any[]; elements_probablement_manquants: { cfc_code: string; description: string; raison: string; impact_estimation: string; quantite_estimee: string | null }[]; score_fiabilite_metrage: { score: number } };
   passe4: { parametres_estimation: any; estimation_par_cfc: { cfc_code: string; cfc_libelle: string; postes: PosteChiffre[]; sous_total_cfc: { min: number; median: number; max: number } }[]; recapitulatif: { sous_total_travaux: { min: number; median: number; max: number }; frais_generaux: { pourcentage: number; montant_median: number }; benefice_risques: { pourcentage: number; montant_median: number }; divers_imprevus: { pourcentage: number; montant_median: number }; total_estimation: { min: number; median: number; max: number }; prix_au_m2_sbp: { min: number; median: number; max: number }; plage_reference_m2_sbp: { min: number; max: number; source: string } }; analyse_fiabilite: { score_global: number; repartition_sources: Record<string, number>; postes_a_risque: any[]; recommandation_globale: string; prochaines_etapes: string[] }; comparaison_marche: { prix_m2_estime: number; prix_m2_marche_bas: number; prix_m2_marche_median: number; prix_m2_marche_haut: number; position: string; commentaire: string } };
   pipeline_stats: { total_duration_ms: number; passe1_duration_ms: number; passe2_duration_ms: number; consensus_duration_ms: number; passe3_duration_ms: number; passe4_duration_ms: number; total_tokens: number; total_cost_usd: number; models_used: string[] };
@@ -93,6 +106,66 @@ function ScoreDisplay({ score, large }: { score: number; large?: boolean }) {
   return <span className={`${color} font-semibold`}>{score}/100</span>;
 }
 
+// Badge consensus niveau par poste
+const CONSENSUS_CONFIG: Record<ConsensusMethod, { label: string; bg: string; text: string; dot: string }> = {
+  concordance_forte:    { label: "Forte", bg: "bg-green-100",  text: "text-green-800",  dot: "bg-green-500" },
+  concordance_partielle:{ label: "Partielle", bg: "bg-yellow-100", text: "text-yellow-800", dot: "bg-yellow-500" },
+  divergence:           { label: "Divergence", bg: "bg-red-100", text: "text-red-800",   dot: "bg-red-500" },
+  detection_unique:     { label: "1 modèle", bg: "bg-orange-100", text: "text-orange-800", dot: "bg-orange-400" },
+  detection_double:     { label: "2 modèles", bg: "bg-blue-100", text: "text-blue-800",  dot: "bg-blue-400" },
+};
+
+function ConsensusBadge({ methode }: { methode: ConsensusMethod }) {
+  const cfg = CONSENSUS_CONFIG[methode] ?? CONSENSUS_CONFIG.divergence;
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${cfg.bg} ${cfg.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  );
+}
+
+// Tooltip modèles au survol de la quantité
+function ModelTooltip({ consensusPoste, children }: { consensusPoste: ConsensusPoste | undefined; children: React.ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  if (!consensusPoste || consensusPoste.valeurs_par_modele.length === 0) {
+    return <>{children}</>;
+  }
+
+  return (
+    <span
+      ref={ref}
+      className="relative cursor-help"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      {children}
+      {visible && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 min-w-[160px] rounded-md border border-gray-200 bg-white shadow-lg py-2 px-2.5 text-[10px] text-gray-700 whitespace-nowrap">
+          <span className="block text-[9px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">Consensus modèles</span>
+          {consensusPoste.valeurs_par_modele.map((v) => (
+            <span key={v.provider} className="flex justify-between gap-3 mb-0.5">
+              <span className="font-medium capitalize">{v.provider}</span>
+              <span className="font-mono">{v.quantite} {consensusPoste.unite}</span>
+              <span className={v.ecart_vs_median_pct > 15 ? "text-red-500" : "text-gray-400"}>
+                {v.ecart_vs_median_pct > 0 ? "+" : ""}{v.ecart_vs_median_pct.toFixed(0)}%
+              </span>
+            </span>
+          ))}
+          <span className="block border-t border-gray-100 mt-1.5 pt-1.5 font-semibold text-gray-600">
+            Consensus : {consensusPoste.quantite_consensuelle} {consensusPoste.unite}
+          </span>
+          {consensusPoste.methode_consensus && (
+            <span className="block text-[9px] text-gray-400 mt-0.5">{CONSENSUS_CONFIG[consensusPoste.methode_consensus]?.label ?? consensusPoste.methode_consensus}</span>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Barre de répartition des sources
 function SourceDistributionBar({ repartition }: { repartition: Record<string, number> }) {
   const segments = [
@@ -129,14 +202,28 @@ interface Props {
   onCorrectQuantity?: (poste: PosteChiffre) => void;
   onCalibratePrice?: (poste: PosteChiffre) => void;
   onRelaunch?: () => void;
+  /** Nombre de plans connus du bureau (pour afficher le badge bureau) */
+  bureauPlansCount?: number;
 }
 
-export default function EstimationResultV2({ estimation, onCorrectQuantity, onCalibratePrice, onRelaunch }: Props) {
+export default function EstimationResultV2({ estimation, onCorrectQuantity, onCalibratePrice, onRelaunch, bureauPlansCount }: Props) {
   const [expandedCfc, setExpandedCfc] = useState<Set<string>>(new Set());
   const [showTransparency, setShowTransparency] = useState(false);
 
   const { passe4, consensus_metrage, passe3, pipeline_stats } = estimation;
   const { recapitulatif, analyse_fiabilite, comparaison_marche, estimation_par_cfc } = passe4;
+
+  // Construire un index consensus par cfc_code pour lookup rapide dans les postes
+  const consensusByCode = React.useMemo(() => {
+    const map = new Map<string, ConsensusPoste>();
+    for (const p of (consensus_metrage?.postes ?? [])) {
+      if (p.cfc_code) map.set(p.cfc_code, p);
+    }
+    return map;
+  }, [consensus_metrage]);
+
+  // Nom du bureau détecté (Passe 1)
+  const bureauName: string | null = estimation.passe1?.cartouche?.auteur_bureau ?? null;
 
   const toggleCfc = (code: string) => {
     setExpandedCfc((prev) => {
@@ -149,6 +236,21 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
 
   return (
     <div className="space-y-6">
+      {/* ─── Badge bureau (si détecté) ─── */}
+      {bureauName && (
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-slate-400" />
+          <span className="text-sm text-slate-600">
+            Bureau : <span className="font-medium text-slate-800">{bureauName}</span>
+          </span>
+          {bureauPlansCount && bureauPlansCount > 1 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+              Bureau connu ({bureauPlansCount} plans)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ─── En-tête ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ScoreDisplay score={analyse_fiabilite.score_global} large />
@@ -216,6 +318,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                       <th className="text-left py-2 pr-2">Description</th>
                       <th className="text-right py-2 pr-2">Qté</th>
                       <th className="text-left py-2 pr-2">Unité</th>
+                      <th className="text-center py-2 pr-2">Consensus</th>
                       <th className="text-right py-2 pr-2">PU médian</th>
                       <th className="text-right py-2 pr-2">Total min</th>
                       <th className="text-right py-2 pr-2 font-semibold">Total médian</th>
@@ -227,12 +330,26 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                   <tbody>
                     {cfc.postes.map((poste: PosteChiffre, idx: number) => {
                       const isRisky = poste.confiance_prix === 'estimation' || poste.confiance_prix === 'low';
+                      // Cherche le poste consensus correspondant par cfc_code (match best-effort)
+                      const consensusPoste = consensusByCode.get(poste.cfc_code);
                       return (
                         <tr key={idx} className={`border-b border-gray-50 ${isRisky ? "bg-orange-50/50" : ""}`}>
                           <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire.source} detailSource={poste.prix_unitaire.detail_source} /></td>
                           <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
-                          <td className="py-2 pr-2 text-right font-mono">{poste.quantite}</td>
+                          <td className="py-2 pr-2 text-right font-mono">
+                            <ModelTooltip consensusPoste={consensusPoste}>
+                              <span className={consensusPoste?.methode_consensus === 'divergence' ? "text-red-600 font-semibold" : ""}>
+                                {poste.quantite}
+                              </span>
+                            </ModelTooltip>
+                          </td>
                           <td className="py-2 pr-2 text-gray-500">{poste.unite}</td>
+                          <td className="py-2 pr-2 text-center">
+                            {consensusPoste?.methode_consensus
+                              ? <ConsensusBadge methode={consensusPoste.methode_consensus} />
+                              : <span className="text-[10px] text-gray-300">—</span>
+                            }
+                          </td>
                           <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire.median)}</td>
                           <td className="py-2 pr-2 text-right text-gray-400 font-mono">{formatCHF(poste.total.min)}</td>
                           <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total.median)}</td>

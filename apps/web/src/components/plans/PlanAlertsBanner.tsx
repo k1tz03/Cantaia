@@ -9,6 +9,8 @@ import {
   AlertOctagon,
   ChevronRight,
   FileStack,
+  Layers,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import type { PlanAlertType, PlanAlertSeverity } from "@cantaia/database";
@@ -86,13 +88,30 @@ const SEVERITY_STYLES: Record<PlanAlertSeverity, { border: string; bg: string; i
   info: { border: "border-blue-200", bg: "bg-blue-50", icon: "text-blue-600", text: "text-blue-700" },
 };
 
+export interface CrossPlanData {
+  project_id: string;
+  plans_compares: Array<{ plan_id: string; discipline: string; numero: string }>;
+  verifications: Array<{
+    element: string;
+    cfc_code: string;
+    unite: string;
+    valeurs_par_plan: Array<{ plan_id: string; discipline: string; quantite: number }>;
+    ecart_max_pct: number;
+    coherent: boolean;
+    note: string;
+  }>;
+  score_coherence_projet: number;
+  alertes: string[];
+}
+
 interface PlanAlertsBannerProps {
   alerts?: PlanAlert[];
   maxAlerts?: number;
   compact?: boolean;
+  crossPlan?: CrossPlanData;
 }
 
-export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compact = false }: PlanAlertsBannerProps) {
+export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compact = false, crossPlan }: PlanAlertsBannerProps) {
   const t = useTranslations("plans");
 
   const criticals = alerts.filter((a) => a.severity === "critical");
@@ -101,7 +120,10 @@ export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compa
   const displayed = sorted.slice(0, maxAlerts);
   const remaining = sorted.length - displayed.length;
 
-  if (alerts.length === 0) return null;
+  const hasCrossPlanAlerts = crossPlan && crossPlan.alertes.length > 0;
+  const crossPlanGood = crossPlan && crossPlan.score_coherence_projet >= 90;
+
+  if (alerts.length === 0 && !crossPlan) return null;
 
   if (compact) {
     const hasCritical = criticals.length > 0;
@@ -165,6 +187,63 @@ export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compa
           {t("moreAlertsPlan", { count: remaining })}
           <ChevronRight className="h-3.5 w-3.5" />
         </Link>
+      )}
+
+      {/* ─── Section vérification inter-plans ─── */}
+      {crossPlan && (crossPlan.verifications.length > 0 || crossPlan.alertes.length > 0) && (
+        <div className={cn(
+          "rounded-md border p-3 space-y-2",
+          hasCrossPlanAlerts ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"
+        )}>
+          {/* En-tête */}
+          <div className="flex items-center gap-2">
+            <Layers className={cn("h-4 w-4 shrink-0", hasCrossPlanAlerts ? "text-amber-600" : "text-green-600")} />
+            <span className={cn("text-xs font-semibold", hasCrossPlanAlerts ? "text-amber-800" : "text-green-800")}>
+              Vérification inter-plans ({crossPlan.verifications.length} comparaison{crossPlan.verifications.length !== 1 ? "s" : ""})
+            </span>
+            {crossPlanGood && (
+              <div className="ml-auto flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                <span className="text-[10px] font-medium text-green-700">{crossPlan.score_coherence_projet}% cohérent</span>
+              </div>
+            )}
+            {!crossPlanGood && crossPlan && (
+              <span className={cn(
+                "ml-auto text-[10px] font-semibold",
+                crossPlan.score_coherence_projet >= 70 ? "text-amber-700" : "text-red-700"
+              )}>
+                Score : {crossPlan.score_coherence_projet}%
+              </span>
+            )}
+          </div>
+
+          {/* Alertes d'incohérence */}
+          {crossPlan.alertes.map((alerte, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-800">{alerte}</p>
+            </div>
+          ))}
+
+          {/* Disciplines comparées */}
+          {crossPlan.plans_compares.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1 border-t border-amber-200/60">
+              {crossPlan.plans_compares.map((p) => (
+                <span key={p.plan_id} className="rounded px-1.5 py-0.5 text-[9px] font-medium bg-white/70 text-slate-600 border border-slate-200">
+                  {p.discipline} {p.numero && `· ${p.numero}`}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Message si pas assez de plans pour la vérification croisée */}
+      {crossPlan && crossPlan.verifications.length === 0 && crossPlan.alertes.length === 1 && crossPlan.plans_compares.length === 0 && (
+        <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <Layers className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-[11px] text-slate-500">{crossPlan.alertes[0]}</span>
+        </div>
       )}
     </div>
   );

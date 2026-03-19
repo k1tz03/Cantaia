@@ -2,6 +2,8 @@
 
 import { Sparkles, Loader2, AlertTriangle, RefreshCw, Calculator, ArrowRight } from "lucide-react";
 import EstimationResultV2 from "@/components/plans/EstimationResultV2";
+import { PlanAlertsBanner } from "@/components/plans/PlanAlertsBanner";
+import type { CrossPlanData } from "@/components/plans/PlanAlertsBanner";
 
 export function PlanEstimationTab({
   estimationV2,
@@ -12,6 +14,7 @@ export function PlanEstimationTab({
   onGoToAnalysis,
   onCorrectQuantity,
   onCalibratePrice,
+  crossPlan,
 }: {
   estimationV2: any;
   estimatingV2: boolean;
@@ -21,6 +24,7 @@ export function PlanEstimationTab({
   onGoToAnalysis: () => void;
   onCorrectQuantity: (poste: any) => void;
   onCalibratePrice: (poste: any) => void;
+  crossPlan?: CrossPlanData;
 }) {
   return (
     <div className="space-y-4">
@@ -82,12 +86,17 @@ export function PlanEstimationTab({
       )}
 
       {estimationV2 && (
-        <EstimationResultV2
-          estimation={estimationV2}
-          onCorrectQuantity={onCorrectQuantity}
-          onCalibratePrice={onCalibratePrice}
-          onRelaunch={onEstimate}
-        />
+        <div className="space-y-4">
+          {crossPlan && (
+            <PlanAlertsBanner alerts={[]} crossPlan={crossPlan} />
+          )}
+          <EstimationResultV2
+            estimation={estimationV2}
+            onCorrectQuantity={onCorrectQuantity}
+            onCalibratePrice={onCalibratePrice}
+            onRelaunch={onEstimate}
+          />
+        </div>
       )}
     </div>
   );
