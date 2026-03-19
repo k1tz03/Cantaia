@@ -3,13 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return new Stripe(key, { apiVersion: "2026-02-25.clover" });
+}
 
-const PRICE_IDS: Record<string, string> = {
-  starter: process.env.STRIPE_PRICE_STARTER || "",
-  pro: process.env.STRIPE_PRICE_PRO || "",
-  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
-};
+function getPriceIds() {
+  return {
+    starter: process.env.STRIPE_PRICE_STARTER || "",
+    pro: process.env.STRIPE_PRICE_PRO || "",
+    enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,15 +49,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
 
-    if (!plan || !PRICE_IDS[plan]) {
+    const PRICE_IDS = getPriceIds();
+    if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.retrieve(org.stripe_subscription_id);
     const mainItem = subscription.items.data[0];
 
     await stripe.subscriptions.update(org.stripe_subscription_id, {
-      items: [{ id: mainItem.id, price: PRICE_IDS[plan] }],
+      items: [{ id: mainItem.id, price: PRICE_IDS[plan as keyof typeof PRICE_IDS] }],
       proration_behavior: "create_prorations",
       metadata: { plan },
     });

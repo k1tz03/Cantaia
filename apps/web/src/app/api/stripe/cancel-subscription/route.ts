@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return new Stripe(key, { apiVersion: "2026-02-25.clover" });
+}
 
 export async function POST(_request: NextRequest) {
   try {
@@ -34,7 +38,7 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: "No active subscription" }, { status: 400 });
     }
 
-    await stripe.subscriptions.update(org.stripe_subscription_id, {
+    await getStripe().subscriptions.update(org.stripe_subscription_id, {
       cancel_at_period_end: true,
     });
 

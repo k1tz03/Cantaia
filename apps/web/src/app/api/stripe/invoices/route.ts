@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return new Stripe(key, { apiVersion: "2026-02-25.clover" });
+}
 
 export async function GET(_request: NextRequest) {
   try {
@@ -34,7 +38,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ invoices: [] });
     }
 
-    const invoices = await stripe.invoices.list({
+    const invoices = await getStripe().invoices.list({
       customer: org.stripe_customer_id,
       limit: 24,
     });

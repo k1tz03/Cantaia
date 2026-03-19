@@ -3,13 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return new Stripe(key, { apiVersion: "2026-02-25.clover" });
+}
 
-const PRICE_IDS: Record<string, string> = {
-  starter: process.env.STRIPE_PRICE_STARTER || "",
-  pro: process.env.STRIPE_PRICE_PRO || "",
-  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
-};
+function getPriceIds() {
+  return {
+    starter: process.env.STRIPE_PRICE_STARTER || "",
+    pro: process.env.STRIPE_PRICE_PRO || "",
+    enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +39,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
 
-    if (!plan || !PRICE_IDS[plan]) {
+    const PRICE_IDS = getPriceIds();
+    if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
@@ -45,6 +52,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     let customerId = org?.stripe_customer_id;
+    const stripe = getStripe();
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: "subscription",
       currency: "chf",
-      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      line_items: [{ price: PRICE_IDS[plan as keyof typeof PRICE_IDS], quantity: 1 }],
       success_url: `${appUrl}/fr/admin?tab=subscription&success=true`,
       cancel_url: `${appUrl}/fr/admin?tab=subscription&canceled=true`,
       metadata: {
