@@ -12,6 +12,88 @@ import type {
   ConfidenceLevel,
 } from './types';
 
+// ─── Seuils de concordance par discipline ───────────────────────────────────
+// Les disciplines structurelles ont des tolérances plus faibles (béton, acier)
+// car les quantités sont précisément mesurables. Les finitions ont des tolérances
+// plus larges car elles dépendent du niveau de détail et des choix architecturaux.
+const DISCIPLINE_THRESHOLDS: Record<string, { forte: number; partielle: number }> = {
+  "beton":       { forte: 0.05, partielle: 0.10 },
+  "acier":       { forte: 0.05, partielle: 0.10 },
+  "structure":   { forte: 0.05, partielle: 0.10 },
+  "maconnerie":  { forte: 0.05, partielle: 0.10 },
+  "surfaces":    { forte: 0.08, partielle: 0.15 },
+  "sols":        { forte: 0.08, partielle: 0.15 },
+  "peinture":    { forte: 0.08, partielle: 0.15 },
+  "revetement":  { forte: 0.08, partielle: 0.15 },
+  "electricite": { forte: 0.12, partielle: 0.20 },
+  "cvc":         { forte: 0.12, partielle: 0.20 },
+  "chauffage":   { forte: 0.12, partielle: 0.20 },
+  "ventilation": { forte: 0.12, partielle: 0.20 },
+  "sanitaire":   { forte: 0.12, partielle: 0.20 },
+  "finitions":   { forte: 0.15, partielle: 0.25 },
+  "amenagement": { forte: 0.15, partielle: 0.25 },
+};
+const DEFAULT_THRESHOLDS = { forte: 0.10, partielle: 0.15 };
+
+/**
+ * Retourne les seuils de concordance adaptés à la discipline d'un poste.
+ * La discipline est déduite du préfixe CFC ou de mots-clés dans la description.
+ */
+function getThresholds(cfcCode: string, description: string): { forte: number; partielle: number } {
+  const desc = description.toLowerCase();
+  const cfc = cfcCode.toLowerCase();
+
+  // Détection par préfixe CFC (ex: "211" → béton)
+  const cfcPrefix = cfc.split('.')[0];
+  if (cfcPrefix === '211' || cfcPrefix === '212' || desc.includes('beton') || desc.includes('béton')) {
+    return DISCIPLINE_THRESHOLDS['beton'];
+  }
+  if (cfcPrefix === '213' || cfcPrefix === '214' || desc.includes('acier') || desc.includes('armature')) {
+    return DISCIPLINE_THRESHOLDS['acier'];
+  }
+  if (cfcPrefix === '215' || cfcPrefix === '216' || desc.includes('maconn') || desc.includes('maçonn') || desc.includes('brique')) {
+    return DISCIPLINE_THRESHOLDS['maconnerie'];
+  }
+  if (cfcPrefix.startsWith('21') || desc.includes('structure') || desc.includes('fondation')) {
+    return DISCIPLINE_THRESHOLDS['structure'];
+  }
+  if (desc.includes('peinture') || desc.includes('enduit')) {
+    return DISCIPLINE_THRESHOLDS['peinture'];
+  }
+  if (desc.includes('carrelage') || desc.includes('revêtement') || desc.includes('revetement') || desc.includes('parquet')) {
+    return DISCIPLINE_THRESHOLDS['revetement'];
+  }
+  if (desc.includes('sol ') || desc.includes('chape') || desc.includes('dalle')) {
+    return DISCIPLINE_THRESHOLDS['sols'];
+  }
+  if (desc.includes('surface') || desc.includes('façade') || desc.includes('facade')) {
+    return DISCIPLINE_THRESHOLDS['surfaces'];
+  }
+  if (desc.includes('électri') || desc.includes('electri') || desc.includes('câblage') || desc.includes('cablage')) {
+    return DISCIPLINE_THRESHOLDS['electricite'];
+  }
+  if (desc.includes('chauffage') || desc.includes('chaudière') || desc.includes('chaudiere')) {
+    return DISCIPLINE_THRESHOLDS['chauffage'];
+  }
+  if (desc.includes('ventilat')) {
+    return DISCIPLINE_THRESHOLDS['ventilation'];
+  }
+  if (desc.includes('sanitaire') || desc.includes('plomberie') || desc.includes('tuyauterie')) {
+    return DISCIPLINE_THRESHOLDS['sanitaire'];
+  }
+  if (desc.includes('cvc') || desc.includes('hvac') || desc.includes('climatisation')) {
+    return DISCIPLINE_THRESHOLDS['cvc'];
+  }
+  if (desc.includes('aménagement') || desc.includes('amenagement') || desc.includes('menuiserie')) {
+    return DISCIPLINE_THRESHOLDS['amenagement'];
+  }
+  if (desc.includes('finition') || desc.includes('plafond') || desc.includes('cloison')) {
+    return DISCIPLINE_THRESHOLDS['finitions'];
+  }
+
+  return DEFAULT_THRESHOLDS;
+}
+
 // Identifiant unique d'un poste : cfc_code + unite
 interface PosteKey {
   cfc_code: string;
@@ -122,12 +204,18 @@ export function buildConsensus(
     let outlier: ModelProvider | null = null;
     let note: string | null = null;
 
+    // Seuils adaptatifs selon la discipline du poste
+    const thresholds = getThresholds(key.cfc_code, key.description);
+    // Convertir en pourcentage pour la comparaison (les seuils sont stockés en décimaux 0–1)
+    const seuilForte = thresholds.forte * 100;
+    const seuilPartielle = thresholds.partielle * 100;
+
     if (nbModeles === 3) {
       const ecarts = valeursAvecEcart.map((v) => v.ecart_vs_median_pct);
       const maxEcart = Math.max(...ecarts);
 
-      if (maxEcart < 10) {
-        // 3 modèles concordent à < 10%
+      if (maxEcart < seuilForte) {
+        // 3 modèles concordent dans le seuil discipline
         methode = 'concordance_forte';
         confiance = 'high';
         quantite_consensuelle = med;
@@ -140,7 +228,7 @@ export function buildConsensus(
         const othersMed = median(others.map((o) => o.quantite));
         const ecartOthersPct = othersMed !== 0 ? (ecartBetweenOthers / othersMed * 100) : 0;
 
-        if (ecartOthersPct < 15) {
+        if (ecartOthersPct < seuilPartielle) {
           // 2 concordent, 1 diverge
           methode = 'concordance_partielle';
           confiance = 'medium';

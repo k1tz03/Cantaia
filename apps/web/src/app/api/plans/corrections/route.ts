@@ -122,10 +122,71 @@ export async function POST(request: NextRequest) {
       await updateBureauProfile(adminClient, userOrg.organization_id, bureauNom, correction);
     }
 
+    // Mettre à jour les profils d'erreur par modèle (C2, cross-org)
+    if (body.valeurs_par_modele && body.quantite_corrigee !== undefined) {
+      await updateModelErrorProfiles(adminClient, {
+        valeurs_par_modele: body.valeurs_par_modele,
+        valeur_corrigee: body.quantite_corrigee,
+        discipline: passe1?.classification?.discipline || 'general',
+        element_cfc: body.cfc_code || 'general',
+      });
+    }
+
     return NextResponse.json({ correction });
   } catch (err) {
     console.error("[corrections] Error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function updateModelErrorProfiles(
+  admin: any,
+  params: {
+    valeurs_par_modele: Record<string, number>;
+    valeur_corrigee: number;
+    discipline: string;
+    element_cfc: string;
+  }
+) {
+  try {
+    const { valeurs_par_modele, valeur_corrigee, discipline, element_cfc } = params;
+    const corrected = valeur_corrigee;
+
+    for (const [provider, value] of Object.entries(valeurs_par_modele)) {
+      const errorPct = Math.abs((value as number) - corrected) / Math.max(corrected, 0.01);
+
+      const { data: existing } = await (admin as any)
+        .from("model_error_profiles")
+        .select("id, ecart_moyen_pct, nombre_corrections")
+        .eq("provider", provider)
+        .eq("discipline", discipline)
+        .eq("type_element_cfc", element_cfc)
+        .maybeSingle();
+
+      if (existing) {
+        const newCount = (existing.nombre_corrections || 0) + 1;
+        const newAvg = ((existing.ecart_moyen_pct || 0) * existing.nombre_corrections + errorPct) / newCount;
+        await (admin as any)
+          .from("model_error_profiles")
+          .update({
+            ecart_moyen_pct: Math.round(newAvg * 1000) / 1000,
+            nombre_corrections: newCount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        await (admin as any).from("model_error_profiles").insert({
+          provider,
+          discipline,
+          type_element_cfc: element_cfc,
+          ecart_moyen_pct: Math.round(errorPct * 1000) / 1000,
+          nombre_corrections: 1,
+        });
+      }
+    }
+  } catch (err) {
+    // Ne jamais laisser l'erreur des profils modèle bloquer la sauvegarde de la correction
+    console.error("[corrections] Model error profiles update failed (non-fatal):", err);
   }
 }
 

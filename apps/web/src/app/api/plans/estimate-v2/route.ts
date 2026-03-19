@@ -104,6 +104,38 @@ export async function POST(request: NextRequest) {
     else if (ext.endsWith('.webp')) mediaType = 'image/webp';
     else if (ext.endsWith('.pdf')) mediaType = 'application/pdf';
 
+    // Calculer les poids des modèles depuis les profils d'erreur C2 (cross-org)
+    const modelWeights: Record<string, number> = {};
+    try {
+      const { data: profiles } = await (adminClient as any)
+        .from("model_error_profiles")
+        .select("provider, discipline, ecart_moyen_pct, nombre_corrections");
+
+      if (profiles?.length) {
+        const byProvider: Record<string, number[]> = {};
+        for (const p of profiles) {
+          if (!byProvider[p.provider]) byProvider[p.provider] = [];
+          byProvider[p.provider].push(p.ecart_moyen_pct ?? 0.15);
+        }
+        for (const [provider, errors] of Object.entries(byProvider)) {
+          const avgError = errors.reduce((a: number, b: number) => a + b, 0) / errors.length;
+          modelWeights[provider] = 1 / (1 + avgError / 10);
+        }
+        // Normaliser so que la somme des poids ≈ 3.0 (un poids neutre de 1 par modèle)
+        const sum = Object.values(modelWeights).reduce((a, b) => a + b, 0);
+        if (sum > 0) {
+          const factor = 3.0 / sum;
+          for (const k of Object.keys(modelWeights)) modelWeights[k] *= factor;
+        }
+        if (Object.keys(modelWeights).length > 0) {
+          console.log("[estimate-v2] Model weights from error profiles:", JSON.stringify(modelWeights));
+        }
+      }
+    } catch (weightErr) {
+      // Non-fatal — on continue sans poids adaptatifs
+      console.warn("[estimate-v2] Could not load model error profiles, using equal weights:", weightErr);
+    }
+
     // Lancer le pipeline
     const result = await runEstimationPipeline({
       plan_id,
@@ -116,6 +148,7 @@ export async function POST(request: NextRequest) {
       acces_chantier: acces_chantier || 'normal',
       periode_travaux: periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
       supabase: adminClient,
+      modelWeights: Object.keys(modelWeights).length > 0 ? (modelWeights as any) : undefined,
     });
 
     return NextResponse.json({ estimation: result });
