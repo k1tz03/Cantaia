@@ -377,10 +377,13 @@ export default function SubmissionDetailPage() {
         )}
         {activeTab === "comparison" && (
           <ComparisonTabContent
+            submissionId={id}
             items={items}
             materialGroups={materialGroups}
             priceRequests={priceRequests}
             quotes={quotes}
+            awardedRequestId={(submission as any).budget_estimate?.awarded_request_id ?? null}
+            onRefresh={fetchData}
           />
         )}
         {activeTab === "budget" && (
@@ -1525,16 +1528,52 @@ function RequestsTabContent({
 
 // ── Tab 3: Comparative analysis ──────────────────────────────
 function ComparisonTabContent({
+  submissionId,
   items,
   materialGroups,
   priceRequests,
   quotes,
+  awardedRequestId,
+  onRefresh,
 }: {
+  submissionId: string;
   items: SubmissionItem[];
   materialGroups: string[];
   priceRequests: PriceRequestData[];
   quotes: QuoteData[];
+  awardedRequestId: string | null;
+  onRefresh: () => void;
 }) {
+  const [confirmAward, setConfirmAward] = useState<{ requestId: string; supplierName: string } | null>(null);
+  const [awarding, setAwarding] = useState(false);
+  const [awardError, setAwardError] = useState<string | null>(null);
+  const [awardSuccess, setAwardSuccess] = useState<string | null>(null);
+
+  const handleAward = async () => {
+    if (!confirmAward) return;
+    setAwarding(true);
+    setAwardError(null);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "award", price_request_id: confirmAward.requestId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de l'attribution");
+      }
+      setAwardSuccess(`Fournisseur "${confirmAward.supplierName}" attribué`);
+      setConfirmAward(null);
+      onRefresh();
+      setTimeout(() => setAwardSuccess(null), 4000);
+    } catch (err: any) {
+      setAwardError(err.message || "Erreur inconnue");
+    } finally {
+      setAwarding(false);
+    }
+  };
+
   if (quotes.length === 0) {
     return (
       <div className="text-center py-16">
@@ -1554,6 +1593,58 @@ function ComparisonTabContent({
 
   return (
     <div className="space-y-6">
+      {/* Award success banner */}
+      {awardSuccess && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {awardSuccess}
+        </div>
+      )}
+      {/* Award error banner */}
+      {awardError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {awardError}
+          <button onClick={() => setAwardError(null)} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
+
+      {/* Confirm award dialog */}
+      {confirmAward && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Attribuer la soumission</h3>
+            <p className="text-sm text-gray-600 mb-5">
+              Attribuer cette soumission à <strong>{confirmAward.supplierName}</strong> ?
+              Les autres fournisseurs seront marqués comme non retenus.
+            </p>
+            {awardError && (
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {awardError}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setConfirmAward(null); setAwardError(null); }}
+                disabled={awarding}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAward}
+                disabled={awarding}
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 flex items-center gap-2"
+              >
+                {awarding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Attribuer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {materialGroups.map((group) => {
         const groupItems = items.filter((i) => i.material_group === group);
         const groupRequests = respondedRequests.filter((pr) => pr.material_group === group);
@@ -1572,11 +1663,33 @@ function ComparisonTabContent({
                     <th className="text-left px-3 py-2 sticky left-0 bg-white z-10 w-48">Description</th>
                     <th className="text-center px-2 py-2 w-12">Unité</th>
                     <th className="text-right px-2 py-2 w-16">Qté</th>
-                    {groupRequests.map((pr) => (
-                      <th key={pr.id} className="text-right px-3 py-2 w-24">
-                        <div className="text-xs font-medium text-gray-700">{supplierNames[pr.id]}</div>
-                      </th>
-                    ))}
+                    {groupRequests.map((pr) => {
+                      const isAwarded = awardedRequestId === pr.id;
+                      const hasAward = !!awardedRequestId;
+                      return (
+                        <th key={pr.id} className={`px-3 py-2 w-32 ${isAwarded ? "bg-emerald-50" : ""}`}>
+                          <div className="text-xs font-medium text-gray-700 text-right">{supplierNames[pr.id]}</div>
+                          {isAwarded ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full mt-0.5">
+                              <CheckCircle2 className="h-2.5 w-2.5" />
+                              Attribué
+                            </span>
+                          ) : hasAward ? (
+                            <span className="inline-flex text-[9px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full mt-0.5">
+                              Non retenu
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmAward({ requestId: pr.id, supplierName: supplierNames[pr.id] })}
+                              className="mt-0.5 text-[9px] font-medium text-emerald-700 border border-emerald-300 bg-white hover:bg-emerald-50 px-1.5 py-0.5 rounded-full transition-colors"
+                            >
+                              Attribuer
+                            </button>
+                          )}
+                        </th>
+                      );
+                    })}
                     <th className="text-right px-3 py-2 w-20 bg-gray-50">Ecart</th>
                   </tr>
                 </thead>

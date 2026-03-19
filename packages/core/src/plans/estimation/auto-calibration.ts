@@ -17,12 +17,26 @@ export interface AutoCalibrateResult {
 
 export async function autoCalibrate(params: {
   org_id: string;
-  project_id: string;
+  project_id?: string;
   submission_id: string;
   offer_id: string;
   supabase: any;
 }): Promise<AutoCalibrateResult> {
-  const { org_id, project_id, offer_id, supabase } = params;
+  const { org_id, offer_id, supabase } = params;
+
+  // Resolve project_id from submission if not provided
+  let project_id = params.project_id;
+  if (!project_id && params.submission_id) {
+    const { data: sub } = await (supabase as any)
+      .from('submissions')
+      .select('project_id')
+      .eq('id', params.submission_id)
+      .maybeSingle();
+    project_id = sub?.project_id;
+  }
+  if (!project_id) {
+    return { calibrations_creees: 0, postes_matche: 0, postes_non_matche: 0, details: [] };
+  }
 
   const result: AutoCalibrateResult = {
     calibrations_creees: 0,
@@ -34,7 +48,7 @@ export async function autoCalibrate(params: {
   // 1. Récupérer les lignes de l'offre adjugée
   const { data: offerLines } = await (supabase as any)
     .from('offer_line_items')
-    .select('id, cfc_code, description_normalized, unit_price, unite, quantity')
+    .select('id, cfc_subcode, normalized_description, unit_price, unite, quantity')
     .eq('offer_id', offer_id);
 
   if (!offerLines || offerLines.length === 0) {
@@ -42,12 +56,13 @@ export async function autoCalibrate(params: {
   }
 
   // 2. Récupérer la dernière estimation v2 du projet
+  // Note: plan_analyses has no analysis_type column — filter by completed status and most recent
   const { data: analyses } = await (supabase as any)
     .from('plan_analyses')
-    .select('id, result, plan_registry!inner(project_id)')
+    .select('id, result, plan_registry!inner(project_id, organization_id)')
     .eq('plan_registry.project_id', project_id)
     .eq('plan_registry.organization_id', org_id)
-    .eq('analysis_type', 'estimation_v2')
+    .eq('status', 'completed')
     .order('created_at', { ascending: false })
     .limit(1);
 
@@ -83,7 +98,7 @@ export async function autoCalibrate(params: {
   const region = estimation.passe4?.parametres_estimation?.region || 'vaud';
 
   for (const line of offerLines) {
-    const cfcCode = line.cfc_code;
+    const cfcCode = line.cfc_subcode;
     const unitPrice = Number(line.unit_price);
 
     if (!cfcCode || !unitPrice || unitPrice <= 0) {
@@ -113,7 +128,7 @@ export async function autoCalibrate(params: {
           .insert({
             org_id,
             cfc_code: cfcCode,
-            description_normalized: line.description_normalized || cfcCode,
+            description_normalized: line.normalized_description || cfcCode,
             unite: line.unite,
             region,
             estimation_id: estimationId,
@@ -128,7 +143,7 @@ export async function autoCalibrate(params: {
         result.postes_matche++;
         result.details.push({
           cfc_code: cfcCode,
-          description: match.description || line.description_normalized || cfcCode,
+          description: match.description || line.normalized_description || cfcCode,
           prix_estime: match.median,
           prix_reel: unitPrice,
           ecart_pct: ecart,

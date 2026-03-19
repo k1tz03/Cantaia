@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { autoCalibrate } from "@cantaia/core/plans/estimation/auto-calibration";
 
 // GET — fetch submission detail with items, price requests, and quotes
 export async function GET(
@@ -127,6 +128,63 @@ export async function PATCH(
     }
 
     const body = await request.json();
+
+    // ── Award action ─────────────────────────────────────────
+    if (body.action === "award") {
+      const { price_request_id } = body;
+      if (!price_request_id) {
+        return NextResponse.json({ error: "price_request_id is required" }, { status: 400 });
+      }
+
+      // Verify the price request belongs to this submission
+      const { data: priceRequest } = await (admin as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, supplier_id, suppliers(company_name)")
+        .eq("id", price_request_id)
+        .eq("submission_id", id)
+        .maybeSingle();
+
+      if (!priceRequest) {
+        return NextResponse.json({ error: "Price request not found for this submission" }, { status: 404 });
+      }
+
+      // Store awarded_request_id in submissions.budget_estimate JSONB
+      const { data: currentSub } = await (admin as any)
+        .from("submissions")
+        .select("budget_estimate, project_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      const updatedBudgetEstimate = {
+        ...(currentSub?.budget_estimate || {}),
+        awarded_request_id: price_request_id,
+        awarded_at: new Date().toISOString(),
+      };
+
+      await (admin as any)
+        .from("submissions")
+        .update({
+          budget_estimate: updatedBudgetEstimate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      // Fire-and-forget auto-calibration (non-blocking)
+      const orgId = userProfile.organization_id;
+      const projectId = currentSub?.project_id;
+      autoCalibrate({
+        supabase: admin,
+        org_id: orgId,
+        submission_id: id,
+        offer_id: price_request_id,
+        ...(projectId ? { project_id: projectId } : {}),
+      }).catch((err: unknown) => {
+        console.error("[submissions/award] auto-calibration error:", err);
+      });
+
+      return NextResponse.json({ success: true, awarded_request_id: price_request_id });
+    }
+
     const { items } = body;
 
     if (!Array.isArray(items)) {
