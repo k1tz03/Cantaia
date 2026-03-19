@@ -2221,6 +2221,8 @@
     "billing": "Abonnements & Facturation",
     "globalMetrics": "Métriques globales",
     "dataIntelligence": "Data Intelligence",
+    "aiCosts": "Coûts IA",
+    "operations": "Opérations",
     "platformConfig": "Configuration plateforme",
     "backToApp": "Retour à l'app",
     "connectedAs": "Connecté :",
