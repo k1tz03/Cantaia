@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
             .update({
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
-              plan: session.metadata.plan || "pro",
+              subscription_plan: session.metadata?.plan || "pro",
+              plan: session.metadata?.plan || "pro",
               plan_status: "active",
             })
             .eq("id", session.metadata.organization_id);
@@ -79,6 +80,8 @@ export async function POST(request: NextRequest) {
           await (admin as any)
             .from("organizations")
             .update({
+              subscription_plan: subscription.metadata?.plan || undefined,
+              plan: subscription.metadata?.plan || undefined,
               plan_status: status === "active" ? "active" : status === "past_due" ? "past_due" : "inactive",
               plan_period_end: periodEnd
                 ? new Date(periodEnd * 1000).toISOString()
@@ -102,7 +105,8 @@ export async function POST(request: NextRequest) {
           await (admin as any)
             .from("organizations")
             .update({
-              plan: "free",
+              subscription_plan: "trial",
+              plan: "trial",
               plan_status: "canceled",
               stripe_subscription_id: null,
             })
@@ -126,6 +130,23 @@ export async function POST(request: NextRequest) {
             .from("organizations")
             .update({ plan_status: "past_due" })
             .eq("id", org.id);
+        }
+        break;
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const { data: org } = await (admin as any)
+          .from("organizations")
+          .select("id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle();
+        if (org) {
+          await (admin as any).from("admin_activity_logs").insert({
+            action: "invoice_paid",
+            metadata: { invoice_id: invoice.id, amount: invoice.amount_paid, org_id: org.id },
+          }).catch(() => {});
         }
         break;
       }
