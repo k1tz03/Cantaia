@@ -24,7 +24,10 @@ import {
   CheckSquare,
   ListFilter,
   CalendarRange,
+  TrendingUp,
+  Database,
 } from "lucide-react";
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -92,6 +95,13 @@ interface BudgetResult {
     estimation_ia: number;
     non_estime: number;
   };
+}
+
+interface FeedbackStats {
+  price_count: number;
+  avg_accuracy: number | null;
+  calibration_count: number;
+  monthly_trend: { month: string; accuracy: number }[];
 }
 
 interface PriceRequestData {
@@ -361,8 +371,8 @@ export default function SubmissionDetailPage() {
             quotes={quotes}
             budgetEstimates={((submission as any).budget_estimate as BudgetResult | null)?.estimates}
             submissionId={id}
-            onBudgetCalculated={(budget) => {
-              setSubmission((prev) => prev ? { ...prev, budget_estimate: budget } as any : prev);
+            onBudgetCalculated={(budget, feedbackData) => {
+              setSubmission((prev) => prev ? { ...prev, budget_estimate: budget, budget_feedback: feedbackData } as any : prev);
             }}
           />
         )}
@@ -391,6 +401,7 @@ export default function SubmissionDetailPage() {
             submissionId={id}
             items={items}
             budgetEstimate={(submission as any).budget_estimate}
+            feedbackStats={(submission as any).budget_feedback ?? null}
           />
         )}
         {activeTab === "summary" && (
@@ -440,7 +451,7 @@ function ItemsTabContent({
   quotes: QuoteData[];
   budgetEstimates?: BudgetEstimate[];
   submissionId: string;
-  onBudgetCalculated?: (budget: BudgetResult) => void;
+  onBudgetCalculated?: (budget: BudgetResult, feedback?: FeedbackStats | null) => void;
 }) {
   const [estimatingBudget, setEstimatingBudget] = useState(false);
   // Build maps for budget estimate lookup: by item_id (primary) + item_number (fallback after re-analysis)
@@ -480,7 +491,7 @@ function ItemsTabContent({
       const res = await fetch(`/api/submissions/${submissionId}/estimate-budget`, { method: "POST" });
       const json = await res.json();
       if (json.success && onBudgetCalculated) {
-        onBudgetCalculated(json);
+        onBudgetCalculated(json, json.feedback ?? null);
       }
     } catch {}
     setEstimatingBudget(false);
@@ -1874,17 +1885,151 @@ function SummaryTabContent({
   );
 }
 
+// ── Feedback stats banner ────────────────────────────────────
+function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget: BudgetResult }) {
+  // Source distribution percentages from current budget
+  const total = budget.estimates.length || 1;
+  const sb = budget.source_breakdown ?? { historique_interne: 0, benchmark_cantaia: 0, referentiel_crb: 0, estimation_ia: 0, non_estime: 0 };
+  const pctReal = Math.round(((sb.historique_interne ?? 0) / total) * 100);
+  const pctMarket = Math.round(((sb.benchmark_cantaia ?? 0) / total) * 100);
+  const pctCrb = Math.round(((sb.referentiel_crb ?? 0) / total) * 100);
+  const pctAi = Math.round(((sb.estimation_ia ?? 0) / total) * 100);
+  const pctOther = Math.max(0, 100 - pctReal - pctMarket - pctCrb - pctAi);
+
+  const accuracyPct = stats?.avg_accuracy != null ? Math.round(stats.avg_accuracy * 100) : null;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2 mb-1">
+        <BarChart3 className="h-4 w-4 text-brand" />
+        <span className="text-sm font-medium text-gray-800">Intelligence prix</span>
+        <span className="text-xs text-gray-400 ml-auto">Base de données de votre organisation</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Price count */}
+        <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3">
+          <Database className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+          <div>
+            <div className="text-lg font-bold text-gray-900">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
+            <div className="text-[11px] text-gray-500">Prix fournisseurs enregistrés</div>
+          </div>
+        </div>
+
+        {/* Accuracy */}
+        <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3">
+          <TrendingUp className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+          <div>
+            <div className="text-lg font-bold text-gray-900">
+              {accuracyPct != null ? `${accuracyPct}%` : "—"}
+            </div>
+            <div className="text-[11px] text-gray-500">
+              Précision moyenne
+              {stats?.calibration_count ? ` (${stats.calibration_count} calibr.)` : ""}
+            </div>
+          </div>
+        </div>
+
+        {/* Source distribution */}
+        <div className="sm:col-span-2 bg-gray-50 rounded-lg p-3">
+          <div className="text-[11px] text-gray-500 mb-1.5">Répartition des sources — cette estimation</div>
+          {/* Stacked bar */}
+          <div className="flex h-3 w-full rounded-full overflow-hidden gap-px">
+            {pctReal > 0 && (
+              <div
+                className="bg-emerald-500 transition-all"
+                style={{ width: `${pctReal}%` }}
+                title={`Réel fournisseur: ${pctReal}%`}
+              />
+            )}
+            {pctMarket > 0 && (
+              <div
+                className="bg-purple-500 transition-all"
+                style={{ width: `${pctMarket}%` }}
+                title={`Benchmark marché: ${pctMarket}%`}
+              />
+            )}
+            {pctCrb > 0 && (
+              <div
+                className="bg-teal-500 transition-all"
+                style={{ width: `${pctCrb}%` }}
+                title={`CRB 2025: ${pctCrb}%`}
+              />
+            )}
+            {pctAi > 0 && (
+              <div
+                className="bg-blue-400 transition-all"
+                style={{ width: `${pctAi}%` }}
+                title={`IA: ${pctAi}%`}
+              />
+            )}
+            {pctOther > 0 && (
+              <div
+                className="bg-gray-300 transition-all"
+                style={{ width: `${pctOther}%` }}
+                title={`Non estimé: ${pctOther}%`}
+              />
+            )}
+          </div>
+          {/* Legend */}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
+            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
+            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
+            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />IA {pctAi}%</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly trend sparkline */}
+      {stats?.monthly_trend && stats.monthly_trend.length >= 2 && (
+        <div className="border-t border-gray-100 pt-3">
+          <div className="text-[11px] text-gray-400 mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
+          <div className="h-12">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.monthly_trend} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="accuracyGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Tooltip
+                  contentStyle={{ fontSize: "11px", padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: "6px" }}
+                  formatter={(v: number) => [`${Math.round(v * 100)}%`, "Précision"]}
+                  labelFormatter={(label: string) => label}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="accuracy"
+                  stroke="#2563EB"
+                  strokeWidth={1.5}
+                  fill="url(#accuracyGrad)"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab 5: Budget IA ────────────────────────────────────────
 function BudgetTabContent({
   submissionId,
   items,
   budgetEstimate: initialBudget,
+  feedbackStats: initialFeedback,
 }: {
   submissionId: string;
   items: SubmissionItem[];
   budgetEstimate: BudgetResult | null;
+  feedbackStats?: FeedbackStats | null;
 }) {
   const [budget, setBudget] = useState<BudgetResult | null>(initialBudget);
+  const [feedback, setFeedback] = useState<FeedbackStats | null>(initialFeedback ?? null);
   const [estimating, setEstimating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1896,6 +2041,7 @@ function BudgetTabContent({
       const json = await res.json();
       if (json.success) {
         setBudget(json);
+        if (json.feedback) setFeedback(json.feedback);
       } else {
         setError(json.error || "Erreur lors de l'estimation");
       }
@@ -2013,6 +2159,9 @@ function BudgetTabContent({
           )}
         </div>
       </div>
+
+      {/* Intelligence prix feedback banner */}
+      <FeedbackBanner stats={feedback} budget={budget} />
 
       {/* Detail by group */}
       {Object.entries(estimatesByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, ests]) => {

@@ -303,7 +303,58 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }).eq("id", id);
 
-    return NextResponse.json({ success: true, ...result });
+    // ── Feedback stats (non-blocking) ──
+    let feedback: {
+      price_count: number;
+      avg_accuracy: number | null;
+      calibration_count: number;
+      monthly_trend: { month: string; accuracy: number }[];
+    } | null = null;
+    try {
+      const [priceCountResult, calibrationsResult] = await Promise.all([
+        (admin as any)
+          .from("offer_line_items")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId),
+        (admin as any)
+          .from("price_calibrations")
+          .select("coefficient, created_at")
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+      const priceCount: number = priceCountResult.count ?? 0;
+      const calibrations: { coefficient: number; created_at: string }[] = calibrationsResult.data ?? [];
+
+      const avgAccuracy: number | null = calibrations.length
+        ? 1 - calibrations.reduce((sum, c) => sum + Math.abs(1 - c.coefficient), 0) / calibrations.length
+        : null;
+
+      // Group calibrations by month for trend chart
+      const byMonth: Record<string, { sum: number; count: number }> = {};
+      for (const c of calibrations) {
+        const month = c.created_at.slice(0, 7); // "YYYY-MM"
+        if (!byMonth[month]) byMonth[month] = { sum: 0, count: 0 };
+        byMonth[month].sum += 1 - Math.abs(1 - c.coefficient);
+        byMonth[month].count += 1;
+      }
+      const monthlyTrend = Object.entries(byMonth)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-6)
+        .map(([month, { sum, count }]) => ({ month, accuracy: sum / count }));
+
+      feedback = {
+        price_count: priceCount,
+        avg_accuracy: avgAccuracy,
+        calibration_count: calibrations.length,
+        monthly_trend: monthlyTrend,
+      };
+    } catch (fbErr) {
+      console.warn("[BUDGET] feedback stats error (non-blocking):", fbErr);
+    }
+
+    return NextResponse.json({ success: true, ...result, feedback });
 
   } catch (err: any) {
     console.error("[BUDGET] Error:", err);
