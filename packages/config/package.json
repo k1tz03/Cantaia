@@ -6,6 +6,10 @@
   "exports": {
     "./tailwind": "./tailwind.config.ts",
     "./tsconfig/*": "./tsconfig.*.json",
-    "./constants": "./constants.ts"
+    "./constants": "./constants.ts",
+    "./plan-features": {
+      "types": "./plan-features.ts",
+      "default": "./plan-features.ts"
+    }
   }
 }

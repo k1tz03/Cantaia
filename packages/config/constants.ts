@@ -22,15 +22,10 @@ export const PROJECT_COLORS = [
 ] as const;
 
 export const SUBSCRIPTION_PLANS = {
-  trial: { name: "Trial", maxUsers: 3, maxProjects: 5, price: 0 },
-  starter: { name: "Starter", maxUsers: 5, maxProjects: 10, price: 79 },
-  pro: { name: "Pro", maxUsers: 15, maxProjects: 50, price: 149 },
-  enterprise: {
-    name: "Enterprise",
-    maxUsers: -1,
-    maxProjects: -1,
-    price: 499,
-  },
+  trial:      { name: "Trial",      maxUsers: 1,   maxProjects: 2,    price: 0 },
+  starter:    { name: "Starter",    maxUsers: 1,   maxProjects: 5,    price: 149 },
+  pro:        { name: "Pro",        maxUsers: 3,   maxProjects: -1,   price: 349 },
+  enterprise: { name: "Enterprise", maxUsers: -1,  maxProjects: -1,   price: 790 },
 } as const;
 
 export const TRIAL_DURATION_DAYS = 14;
