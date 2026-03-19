@@ -43,12 +43,17 @@ Chaque interaction contenant un signal prix est interceptée et stockée.
 | Événement | Déclencheur | Données capturées | Table cible |
 |-----------|-------------|-------------------|-------------|
 | Offre fournisseur reçue | `POST /api/submissions/receive-quote` | Tous les `offer_line_items` : CFC, description, prix unitaire, unité | `offer_line_items` (existe) |
-| Offre retenue (adjudication) | Bouton "Attribuer" sur ComparisonTab | Prix retenus marqués `is_awarded=true` + auto-calibration déclenchée | `price_calibrations` (existe, jamais alimentée auto) |
+| Offre retenue (adjudication) | Bouton "Attribuer" sur ComparisonTab | `price_requests.status` passé à `'awarded'` → identifie le fournisseur retenu → auto-calibration déclenchée | `price_calibrations` (existe, jamais alimentée auto) |
 | Correction manuelle de prix | Modal correction sur EstimationResultV2 | Prix estimé vs prix réel, écart, CFC, discipline | `price_calibrations` (existe) |
 | Import de prix historiques | Cantaia Prix > Import | Lignes importées avec source, date, fournisseur | `ingested_offer_lines` (existe) |
 | Email avec prix détecté | Sync Outlook > `isPriceResponseEmail()` | Prix extraits automatiquement, liés au fournisseur | `offer_line_items` (partiellement câblé) |
 
-**Manque clé :** L'adjudication ne déclenche rien. `auto-calibration.ts` existe mais n'est appelé nulle part. Câbler sur l'événement "Attribuer".
+**Manque clé :** L'adjudication ne déclenche rien. `auto-calibration.ts` existe mais n'est appelé nulle part et contient 3 bugs de noms de colonnes :
+1. `description_normalized` → `normalized_description` (sur `offer_line_items`)
+2. `cfc_code` → `cfc_subcode` (sur `offer_line_items`)
+3. `.eq('analysis_type', 'estimation_v2')` → colonne inexistante sur `plan_analyses`
+
+Ces 3 bugs causent des erreurs PostgREST 400 silencieuses. Il faut corriger les 3 puis câbler sur l'événement "Attribuer" (via `price_requests.status = 'awarded'`).
 
 ### 5.2 Price Resolver V3 — scoring multi-critères
 
@@ -67,6 +72,8 @@ Seuil minimum : 35 pts
 Résultat : top 30 par score, percentiles pondérés par score
 ```
 
+**Relation avec les tiers existants :** Le scoring V3 s'applique **à l'intérieur de chaque tier**, pas en remplacement de la cascade. L'ordre de priorité Tier 1→6 reste inchangé (les données internes priment toujours sur le CRB générique). Le scoring améliore la qualité du matching au sein de chaque tier — par exemple en Tier 1, au lieu de chercher par CFC exact puis keyword exact, on score tous les candidats et on prend les meilleurs.
+
 **Fichier impacté :** `packages/core/src/plans/estimation/price-resolver.ts`
 
 ### 5.3 Auto-calibration câblée
@@ -78,8 +85,8 @@ Quand un fournisseur est retenu dans Soumissions :
 4. Le price-resolver applique ce coefficient en Tier 1 pour les futurs devis
 
 **Fichiers impactés :**
-- `packages/core/src/plans/estimation/auto-calibration.ts` (existe, connecter)
-- `apps/web/src/app/api/submissions/[id]/route.ts` (trigger sur status=awarded)
+- `packages/core/src/plans/estimation/auto-calibration.ts` (existe, corriger les noms de colonnes puis connecter)
+- `apps/web/src/app/api/submissions/[id]/route.ts` (trigger quand `price_requests.status` passe à `'awarded'`)
 
 ### 5.4 Indexation inflation
 
@@ -187,6 +194,15 @@ Sur la page résultat d'estimation :
 ---
 
 ## 7. Section 3 — Boucle Planning
+
+**Prérequis :** Cette section dépend du module Gantt Planning (migration 055). Les tables `project_plannings`, `planning_phases`, `planning_tasks`, `planning_dependencies`, `planning_duration_corrections` proviennent de la migration 055 qui doit être appliquée avant toute implémentation de cette section.
+
+**État des fichiers :** Les fichiers suivants sont **fonctionnels et en production** (pas des stubs) :
+- `planning-generator.ts` — génère un planning complet depuis des items de soumission (V2, SIA phases, agrégation)
+- `duration-calculator.ts` — calcul de durées avec 70+ ratios CRB, facteurs saisonniers, team scaling
+- `critical-path.ts` — algorithme CPM complet (forward/backward pass, float calculation)
+- `dependency-rules.ts` — 23 règles définies mais **non connectées** au générateur (c'est le travail de cette section)
+- `productivity-ratios.ts` — 70+ ratios avec facteurs saisonniers (fonctionnel, lu par duration-calculator)
 
 ### 7.1 Claude valide et enrichit le planning
 
@@ -362,7 +378,9 @@ Affichage : histogramme de distribution + intervalles P50/P80/P95 + identificati
 
 **Implémentation :** Pure JavaScript côté client, <100ms pour 10'000 itérations. Composant Recharts (AreaChart).
 
-**Fichier impacté :** Nouveau composant `apps/web/src/components/submissions/MonteCarloChart.tsx`
+**Prérequis API :** La route `POST /api/submissions/[id]/estimate-budget` doit retourner les données de variance par item : `{ std_dev_prix, std_dev_quantite, source_tier }` pour que le client puisse calculer les distributions. Ces champs sont dérivés des percentiles existants (p25/p75 → std_dev ≈ (p75-p25)/1.35).
+
+**Fichier impacté :** Nouveau composant `apps/web/src/components/submissions/MonteCarloChart.tsx` + modification `estimate-budget/route.ts` (ajout variance data)
 
 ### 9.2 Multi-plan correlation (vérification 3D)
 
@@ -424,7 +442,9 @@ Calculé depuis les compteurs réels (tables existantes).
 
 ## 10. Tables et champs impactés
 
-### Tables existantes utilisées (aucune migration)
+### Tables existantes utilisées
+
+**Tables de migrations appliquées (001-047) :**
 
 | Table | Usage |
 |-------|-------|
@@ -434,13 +454,21 @@ Calculé depuis les compteurs réels (tables existantes).
 | `price_calibrations` | Auto-calibration stockage + calcul précision |
 | `model_error_profiles` | Pondération modèles |
 | `bureau_profiles` | Profils bureau architecte |
-| `planning_duration_corrections` | Calibration planning org |
 | `quantity_corrections` | Calcul écart modèles |
 | `email_classification_rules` | Règles locales auto-créées |
 | `email_classification_feedback` | Source apprentissage classification |
 | `aggregation_consent` | Gate pour données C2 |
 | `supplier_market_scores` | Scores fournisseurs C2 |
 | `regional_price_index` | Tendances prix C2 |
+
+**Tables de migration 055 (Gantt Planning — prérequis Section 7) :**
+
+| Table | Usage |
+|-------|-------|
+| `project_plannings` | Planning projet, résumé IA |
+| `planning_tasks` | Tâches planning, risques IA |
+| `planning_dependencies` | Dépendances intra-phase |
+| `planning_duration_corrections` | Calibration planning org |
 
 ### Nouveaux champs (migration légère)
 
