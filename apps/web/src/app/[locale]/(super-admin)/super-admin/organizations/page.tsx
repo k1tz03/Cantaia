@@ -13,6 +13,8 @@ import {
   BarChart3,
   Pause,
   Play,
+  Sparkles,
+  DollarSign,
 } from "lucide-react";
 import type { Organization } from "@cantaia/database";
 
@@ -20,6 +22,19 @@ interface EnrichedOrg extends Organization {
   member_count: number;
   project_count: number;
 }
+
+interface OrgCost {
+  org_id: string;
+  calls: number;
+  cost: number;
+}
+
+const PLAN_PRICING: Record<string, number> = {
+  trial: 0,
+  starter: 149,
+  pro: 349,
+  enterprise: 790,
+};
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   setup: { bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-400" },
@@ -38,6 +53,7 @@ const PLAN_LABELS: Record<string, string> = {
 export default function SuperAdminOrganizationsPage() {
   const t = useTranslations("superAdmin");
   const [organizations, setOrganizations] = useState<EnrichedOrg[]>([]);
+  const [orgCosts, setOrgCosts] = useState<Map<string, OrgCost>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,9 +62,17 @@ export default function SuperAdminOrganizationsPage() {
 
   async function loadOrganizations() {
     try {
-      const res = await fetch("/api/super-admin?action=list-organizations");
-      const data = await res.json();
-      if (data.organizations) setOrganizations(data.organizations);
+      const [orgsRes, analyticsRes] = await Promise.all([
+        fetch("/api/super-admin?action=list-organizations").then(r => r.json()),
+        fetch("/api/super-admin?action=analytics&scope=platform&period=30d").then(r => r.json()).catch(() => ({})),
+      ]);
+      if (orgsRes.organizations) setOrganizations(orgsRes.organizations);
+
+      const costMap = new Map<string, OrgCost>();
+      for (const o of (analyticsRes.per_org || [])) {
+        costMap.set(o.org_id, { org_id: o.org_id, calls: o.calls, cost: o.cost });
+      }
+      setOrgCosts(costMap);
     } catch (err) {
       console.error("Failed to load organizations:", err);
     } finally {
@@ -159,6 +183,30 @@ export default function SuperAdminOrganizationsPage() {
                         </span>
                         <span>{t("createdAt")} {formatDate(org.created_at)}</span>
                       </div>
+                      {(() => {
+                        const cost = orgCosts.get(org.id);
+                        const plan = (org as any).subscription_plan || (org as any).plan || "trial";
+                        const revenue = PLAN_PRICING[plan] || 0;
+                        const aiCost = cost?.cost || 0;
+                        const margin = revenue > 0 ? ((revenue - aiCost) / revenue) * 100 : 0;
+                        return (
+                          <div className="mt-2 flex items-center gap-4 text-xs">
+                            <span className="flex items-center gap-1 text-amber-600">
+                              <Sparkles className="h-3 w-3" />
+                              {cost?.calls || 0} appels IA
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <DollarSign className="h-3 w-3" />
+                              {aiCost > 0 ? `${aiCost.toFixed(2)} CHF` : "0 CHF"}
+                            </span>
+                            {revenue > 0 && (
+                              <span className={`font-medium ${margin >= 50 ? "text-green-600" : margin >= 0 ? "text-amber-600" : "text-red-600"}`}>
+                                Marge {margin.toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

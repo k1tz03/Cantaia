@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Users, Loader2, Search, Mail, Building2, Calendar, Sparkles, DollarSign } from "lucide-react";
+import { Users, Loader2, Search, Mail, Building2, Calendar, Sparkles, DollarSign, LogIn } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -28,6 +28,28 @@ export default function SuperAdminUsersPage() {
   const [search, setSearch] = useState("");
   const [orgFilter, setOrgFilter] = useState("all");
   const [period, setPeriod] = useState("30d");
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+
+  async function handleImpersonate(userId: string) {
+    setImpersonatingId(userId);
+    try {
+      const res = await fetch("/api/super-admin/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: userId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        console.error("Impersonate failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Impersonate error:", err);
+    } finally {
+      setImpersonatingId(null);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -168,6 +190,7 @@ export default function SuperAdminUsersPage() {
                   </span>
                 </th>
                 <th className="px-4 py-3">Inscrit le</th>
+                <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -224,12 +247,27 @@ export default function SuperAdminUsersPage() {
                         {u.created_at ? new Date(u.created_at).toLocaleDateString("fr-CH") : "—"}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleImpersonate(u.id)}
+                        disabled={impersonatingId === u.id}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                        title="Se connecter en tant que cet utilisateur"
+                      >
+                        {impersonatingId === u.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <LogIn className="h-3 w-3" />
+                        )}
+                        Impersonner
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     Aucun utilisateur trouvé
                   </td>
                 </tr>

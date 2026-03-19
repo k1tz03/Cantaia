@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Loader2, CheckCircle, AlertCircle, Server, Key } from "lucide-react";
+import { Settings, Loader2, CheckCircle, AlertCircle, Server, Key, Shield, Check, X, Minus } from "lucide-react";
+import { PLAN_FEATURES } from "@cantaia/config/plan-features";
+import type { PlanName } from "@cantaia/config/plan-features";
 
 interface PlatformConfig {
   supabaseUrl: string;
@@ -119,6 +121,78 @@ export default function SuperAdminConfigPage() {
             <span className="text-sm text-gray-700">Paiements</span>
             <span className="text-xs text-gray-500">{config?.hasStripeKey ? "Stripe (actif)" : "Stripe (non configuré)"}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Plan limits */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <Shield className="h-4 w-4 text-gray-400" />
+            Limites par plan
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500">
+              <tr>
+                <th className="px-4 py-2.5">Plan</th>
+                <th className="px-4 py-2.5 text-right">Appels IA</th>
+                <th className="px-4 py-2.5 text-right">Max Utilisateurs</th>
+                <th className="px-4 py-2.5 text-right">Max Projets</th>
+                <th className="px-4 py-2.5 text-center">Budget IA</th>
+                <th className="px-4 py-2.5 text-center">Planning</th>
+                <th className="px-4 py-2.5 text-center">Data Intel</th>
+                <th className="px-4 py-2.5 text-center">Branding</th>
+                <th className="px-4 py-2.5 text-center">Export</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {(["trial", "starter", "pro", "enterprise"] as PlanName[]).map((planName) => {
+                const limits = PLAN_FEATURES[planName];
+                const formatLimit = (v: number) => v === Infinity ? "Illimité" : String(v);
+                const boolIcon = (v: boolean | string) => {
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                  if (v === true || typeof v === "string") return <Check className="mx-auto h-3.5 w-3.5 text-green-500" />;
+                  return <Minus className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                };
+                const planningLabel = (v: false | "basic" | "full") => {
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                  return (
+                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      v === "full" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"
+                    }`}>
+                      {v === "full" ? "Complet" : "Basique"}
+                    </span>
+                  );
+                };
+
+                return (
+                  <tr key={planName} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5">
+                      <span className="font-medium text-gray-800">
+                        {planName.charAt(0).toUpperCase() + planName.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">
+                      {formatLimit(limits.aiCalls)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">
+                      {formatLimit(limits.maxUsers)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">
+                      {formatLimit(limits.maxProjects)}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">{boolIcon(limits.budgetAI)}</td>
+                    <td className="px-4 py-2.5 text-center">{planningLabel(limits.planning)}</td>
+                    <td className="px-4 py-2.5 text-center">{boolIcon(limits.dataIntel)}</td>
+                    <td className="px-4 py-2.5 text-center">{boolIcon(limits.branding)}</td>
+                    <td className="px-4 py-2.5 text-center">{boolIcon(limits.export)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

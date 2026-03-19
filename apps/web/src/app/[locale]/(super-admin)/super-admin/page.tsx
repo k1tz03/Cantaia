@@ -60,6 +60,14 @@ interface RecentActivity {
   icon: "email" | "pv" | "login" | "project" | "user" | "ai";
 }
 
+interface AlertItem {
+  id: string;
+  type: "payment_failed" | "trial_expiring" | "inactive_user";
+  title: string;
+  description: string;
+  orgName?: string;
+}
+
 export default function SuperAdminDashboardPage() {
   const t = useTranslations("superAdmin");
   const [metrics, setMetrics] = useState<PlatformMetrics>({
@@ -73,6 +81,7 @@ export default function SuperAdminDashboardPage() {
     activeOrgs: 0,
   });
   const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [sentry, setSentry] = useState<SentryData>({ configured: false, total: 0, errors: [] });
@@ -82,13 +91,15 @@ export default function SuperAdminDashboardPage() {
     async function loadMetrics() {
       try {
         // Use API route (admin client, bypasses RLS)
-        const [metricsRes, orgsRes] = await Promise.all([
+        const [metricsRes, orgsRes, usersRes] = await Promise.all([
           fetch("/api/super-admin?action=platform-metrics").then(r => r.json()),
           fetch("/api/super-admin?action=list-organizations").then(r => r.json()),
+          fetch("/api/super-admin?action=all-users").then(r => r.json()),
         ]);
 
         const m = metricsRes.metrics || {};
         const orgList = orgsRes.organizations || [];
+        const userList = usersRes.users || [];
         const activeOrgs = orgList.filter((o: any) => {
           const s = o.status || "active";
           return s === "active" || s === "trial";
@@ -105,6 +116,62 @@ export default function SuperAdminDashboardPage() {
           storageGb: m.storageGb || 0,
           activeOrgs,
         });
+
+        // Compute alerts from org + user data
+        const computedAlerts: AlertItem[] = [];
+
+        // Payment failed: orgs with plan_status = 'past_due'
+        for (const org of orgList) {
+          if (org.plan_status === "past_due") {
+            computedAlerts.push({
+              id: `pay-${org.id}`,
+              type: "payment_failed",
+              title: "Paiement en échec",
+              description: `${org.name} — Plan ${(org.subscription_plan || org.plan || "trial")} en retard de paiement`,
+              orgName: org.name,
+            });
+          }
+        }
+
+        // Trial expiring: orgs with trial_ends_at within 3 days
+        const now = Date.now();
+        const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+        for (const org of orgList) {
+          if (org.trial_ends_at) {
+            const trialEnd = new Date(org.trial_ends_at).getTime();
+            const remaining = trialEnd - now;
+            if (remaining > 0 && remaining <= threeDaysMs) {
+              const daysLeft = Math.ceil(remaining / (24 * 60 * 60 * 1000));
+              computedAlerts.push({
+                id: `trial-${org.id}`,
+                type: "trial_expiring",
+                title: "Trial expire bientôt",
+                description: `${org.name} — ${daysLeft} jour${daysLeft > 1 ? "s" : ""} restant${daysLeft > 1 ? "s" : ""}`,
+                orgName: org.name,
+              });
+            }
+          }
+        }
+
+        // Inactive users: no sign-in > 30 days
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        for (const u of userList) {
+          const lastActivity = u.last_sync_at || u.created_at;
+          if (lastActivity) {
+            const lastTime = new Date(lastActivity).getTime();
+            if (now - lastTime > thirtyDaysMs) {
+              const daysSince = Math.floor((now - lastTime) / (24 * 60 * 60 * 1000));
+              computedAlerts.push({
+                id: `inactive-${u.id}`,
+                type: "inactive_user",
+                title: "Utilisateur inactif",
+                description: `${u.first_name || ""} ${u.last_name || ""} (${u.email}) — ${daysSince}j sans activité${u.org_name ? ` (${u.org_name})` : ""}`,
+              });
+            }
+          }
+        }
+
+        setAlerts(computedAlerts);
       } catch (err) {
         console.error("Failed to load metrics:", err);
       } finally {
@@ -191,6 +258,46 @@ export default function SuperAdminDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Alerts */}
+      {!loading && alerts.length > 0 && (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <h2 className="text-sm font-semibold text-gray-800">
+              Alertes ({alerts.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {alerts.map((alert) => {
+              const colorClass =
+                alert.type === "payment_failed"
+                  ? "border-l-red-500 bg-red-50/50"
+                  : alert.type === "trial_expiring"
+                    ? "border-l-amber-500 bg-amber-50/50"
+                    : "border-l-gray-400 bg-gray-50/50";
+              const dotColor =
+                alert.type === "payment_failed"
+                  ? "bg-red-500"
+                  : alert.type === "trial_expiring"
+                    ? "bg-amber-500"
+                    : "bg-gray-400";
+              return (
+                <div
+                  key={alert.id}
+                  className={`flex items-center gap-3 border-l-4 px-5 py-3 ${colorClass}`}
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-gray-700">{alert.title}</p>
+                    <p className="truncate text-xs text-gray-500">{alert.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Sentry Errors */}
       <div className="mb-8 rounded-lg border border-gray-200 bg-white">
