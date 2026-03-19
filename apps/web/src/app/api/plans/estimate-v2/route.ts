@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runEstimationPipeline } from "@cantaia/core/plans/estimation/pipeline";
+import { getBureauProfile, updateBureauProfile } from "@cantaia/core/plans/estimation/calibration-engine";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 // Multi-model 4-pass pipeline can take several minutes
@@ -136,6 +137,36 @@ export async function POST(request: NextRequest) {
       console.warn("[estimate-v2] Could not load model error profiles, using equal weights:", weightErr);
     }
 
+    // Récupérer le profil de bureau depuis la dernière analyse connue du plan
+    // (le nom du bureau n'est connu qu'après Passe 1, donc on utilise la valeur du dernier run)
+    let bureauEnrichment: string | undefined;
+    try {
+      const { data: lastAnalysis } = await (adminClient as any)
+        .from("plan_analyses")
+        .select("result")
+        .eq("plan_id", plan_id)
+        .eq("analysis_type", "estimation_v2")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastBureauName = lastAnalysis?.result?.passe1?.cartouche?.auteur_bureau;
+      if (lastBureauName) {
+        const bureauData = await getBureauProfile({
+          org_id: userOrg.organization_id,
+          bureau_nom: lastBureauName,
+          supabase: adminClient,
+        });
+        if (bureauData.prompt_enrichment) {
+          bureauEnrichment = bureauData.prompt_enrichment;
+          console.log(`[estimate-v2] Bureau enrichment loaded for "${lastBureauName}" (bonus: ${bureauData.confidence_bonus})`);
+        }
+      }
+    } catch (bureauErr) {
+      // Non-fatal
+      console.warn("[estimate-v2] Could not load bureau profile for enrichment:", bureauErr);
+    }
+
     // Lancer le pipeline
     const result = await runEstimationPipeline({
       plan_id,
@@ -149,7 +180,21 @@ export async function POST(request: NextRequest) {
       periode_travaux: periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
       supabase: adminClient,
       modelWeights: Object.keys(modelWeights).length > 0 ? (modelWeights as any) : undefined,
+      bureauEnrichment,
     });
+
+    // Mettre à jour le profil du bureau avec le résultat de cette analyse (Passe 1)
+    const detectedBureauName = result.passe1?.cartouche?.auteur_bureau;
+    if (detectedBureauName) {
+      const qualityScore = result.passe3?.score_fiabilite_metrage?.score ?? 50;
+      await updateBureauProfile(
+        adminClient,
+        userOrg.organization_id,
+        detectedBureauName,
+        qualityScore
+      );
+      console.log(`[estimate-v2] Bureau profile updated for "${detectedBureauName}" (quality: ${qualityScore})`);
+    }
 
     return NextResponse.json({ estimation: result });
   } catch (err) {

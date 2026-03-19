@@ -206,6 +206,48 @@ export async function getModelErrorProfile(params: {
 
 // ─── 4. Profil bureau d'études ───
 
+export async function updateBureauProfile(
+  supabase: any,
+  orgId: string,
+  bureauName: string,
+  qualityScore: number
+): Promise<void> {
+  const normalized = bureauName.trim().toLowerCase();
+
+  try {
+    const { data: existing } = await supabase
+      .from('bureau_profiles')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('bureau_nom', normalized)
+      .maybeSingle();
+
+    if (existing) {
+      const newCount = (existing.nb_plans_analyses || 0) + 1;
+      const newAvgQuality = ((existing.avg_quality_score || 0) * (existing.nb_plans_analyses || 0) + qualityScore) / newCount;
+      await supabase
+        .from('bureau_profiles')
+        .update({
+          nb_plans_analyses: newCount,
+          avg_quality_score: Math.round(newAvgQuality * 100) / 100,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('bureau_profiles').insert({
+        org_id: orgId,
+        bureau_nom: normalized,
+        bureau_nom_hash: normalized,
+        nb_plans_analyses: 1,
+        avg_quality_score: qualityScore,
+      });
+    }
+  } catch (err) {
+    // Non-fatal — ne pas bloquer le pipeline si la mise à jour échoue
+    console.warn('[bureau_profiles] updateBureauProfile failed (non-fatal):', err);
+  }
+}
+
 export async function getBureauProfile(params: {
   org_id: string;
   bureau_nom: string;
