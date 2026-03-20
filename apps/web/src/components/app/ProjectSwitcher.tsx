@@ -74,7 +74,7 @@ export function ProjectSwitcher() {
 
   if (!activeProject) {
     return (
-      <div data-project-switcher className="px-3 py-2">
+      <div data-project-switcher className="px-3 py-2 relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent"
