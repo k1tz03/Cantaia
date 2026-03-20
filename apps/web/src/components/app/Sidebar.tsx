@@ -19,7 +19,6 @@ import {
   ChevronRight,
   LogOut,
   Shield,
-  Map,
   TrendingUp,
   LayoutDashboard,
   Mail,
