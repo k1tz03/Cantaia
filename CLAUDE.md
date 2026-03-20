@@ -359,6 +359,9 @@ ADMIN_SECRET_KEY
 | `/api/ai/analyze-plan` | POST | Analyse plan (Claude Vision) |
 | `/api/ai/analyze-plan/[analysisId]` | PATCH | Corriger quantités analyse |
 | `/api/ai/reclassify-all` | POST | Reclassifier tous les emails (batch, concurrency=5) |
+| `/api/ai/generate-alerts` | POST | Alertes IA proactives (budget/planning/fournisseurs) — Claude Haiku |
+| `/api/ai/executive-summary` | POST | Résumé exécutif projet (budget + risques + opportunités) — Claude Sonnet |
+| `/api/intelligence/stats` | GET | Score intelligence IA (5 dimensions) + journal d'apprentissage |
 
 ### Plans & Estimation
 | Route | Méthode | Description |
@@ -742,8 +745,16 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 #### Marketing (`marketing/`, 2 fichiers)
 - `Header.tsx`, `Footer.tsx`
 
-#### UI partagé (`ui/`, 4 fichiers)
+#### UI partagé (`ui/`, 5 fichiers)
 - `Breadcrumb.tsx`, `CommandPalette.tsx` (Cmd/Ctrl+K), `ConfirmDialog.tsx`, `EmptyState.tsx`
+- `IntelligentAlerts.tsx` — Alertes IA proactives (budget/planning/fournisseurs), severity cards
+
+#### App Intelligence (`app/`, 2 fichiers ajoutés)
+- `IntelligenceScore.tsx` — Score maturité IA 5 dimensions (Prix, Plans, Planning, Emails, Fournisseurs), 0-100
+- `IntelligenceDashboard.tsx` — Dashboard org + C2 counters, journal d'apprentissage, score
+
+#### Submissions (`submissions/`, 1 fichier ajouté)
+- `MonteCarloChart.tsx` — Simulation Monte Carlo 10K itérations, histogramme Recharts, P50/P80/P95
 
 #### Autres
 - `briefing/BriefingPanel.tsx` — Panel briefing quotidien
@@ -979,10 +990,10 @@ pnpm clean
 
 ## 13. État Actuel (Mars 2026)
 
-- **Build** : ~78 pages, ~150 routes API, 0 erreurs
-- **Migrations** : 001-056
-- **Composants** : 140+ fichiers dans 25 dossiers
-- **Core** : ~90 fichiers TypeScript
+- **Build** : ~78 pages, ~155 routes API, 0 erreurs
+- **Migrations** : 001-057
+- **Composants** : 150+ fichiers dans 27 dossiers
+- **Core** : ~95 fichiers TypeScript
 - **Post-login redirect** : `/mail`
 - **Domaine** : cantaia.io (principal, migré depuis cantaia.ch le 2026-03-19)
 - **Admin** : panneau unifié 4 onglets (Overview, Membres, Abonnement, Paramètres), visible aux org admins (role=admin) + superadmins
@@ -1699,8 +1710,88 @@ Les chefs de projet peuvent maintenant capturer des photos lors des visites clie
 13. **SÉCURITÉ** : Définir `OUTLOOK_WEBHOOK_SECRET` sur Vercel (min 16 chars) — OUTLOOK.6
 14. **SÉCURITÉ** : Migrer bucket "plans" de public à privé + adapter le code pour utiliser signed URLs — SEC2.NC3
 15. **SÉCURITÉ** : Implémenter rate limiting sur les routes IA (recommandé: `@upstash/ratelimit`) — SEC2.NC1
-16. Appliquer migrations 054-056 sur Supabase (plan_status, extra_seats, api_usage index)
+16. Appliquer migrations 054-057 sur Supabase (plan_status, extra_seats, api_usage index, learning engine)
 17. Définir `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_ENTERPRISE` sur Vercel (Price IDs depuis Stripe Dashboard)
 18. Configurer DNS: cantaia.io doit pointer vers Vercel
 19. Configurer DNS: cantaia.ch, cantaia.com, cantaia.app → redirect vers cantaia.io
 20. `git push` pour déployer sur Vercel (tous les commits sont locaux)
+
+---
+
+## 22. Learning Engine (2026-03-20)
+
+### Vue d'ensemble
+
+Le Learning Engine transforme Cantaia en système auto-améliorant : chaque correction utilisateur (prix, quantité, classification email) rend le système plus précis. 4 boucles d'apprentissage + un flywheel C1→C2→C3.
+
+### 4 Boucles d'apprentissage
+
+#### Boucle Prix (Tasks 2-4)
+- **Auto-calibration** : Bouton "Attribuer" dans ComparisonTab → compare prix attribués vs budget estimé → stocke coefficients dans `price_calibrations`
+- **Price Resolver V3** : Scoring multi-critères (CFC 40pts, prefix 25pts, keyword overlap 20pts, unit 10pts, region 5pts) + ajustement inflation `prix × (1 + rate)^years`
+- **Feedback UI** : Bannière dans Budget IA avec compteur prix en base, précision moyenne, distribution sources, sparkline tendance
+
+#### Boucle Plans (Tasks 5-7)
+- **Model Weights** : `weight = 1 / (1 + avg_error_pct / 10)`, normalisé sum=3.0, depuis `model_error_profiles`
+- **Seuils adaptatifs** : Par discipline (structurel ≤5%/10%, surfaces ≤8%/15%, électricité ≤12%/20%, finitions ≤15%/25%)
+- **Bureau Profiles** : Extraction bureau depuis Passe 1, enrichissement injecté dans Passe 2 si ≥3 plans analysés
+- **Cross-Plan** : Vérification inter-disciplines (7 paires) après Passe 4 si ≥2 plans dans le projet
+
+#### Boucle Emails (Task 8)
+- **Auto-rules** : 2 reclassifications même sender → règle sender automatique ; 3 reclassifications même keyword → règle keyword
+- **Enriched Extraction** : L3 Claude extrait `prices_detected`, `deadlines_detected`, `supplier_match`, `delay_detected`, `order_confirmation`
+- **Feedback** : `dismissCard()` fire learning API sur "replied" et "accept"
+
+#### Boucle Planning (Tasks 13-15)
+- **Dépendances CFC** : 20 règles intra-phase (séchage béton 21j, chape→carrelage 28j, etc.)
+- **Validation IA** : Claude Sonnet post-génération → corrections durées, dépendances manquantes, risques, recommandations
+- **Calibration** : Projet status=completed → ratio réel/planifié par CFC → `planning_duration_corrections`
+
+### Flywheel C1→C2→C3 (Task 9)
+- **C2 dans Budget** : Annotations marché sur chaque poste (opt-in `aggregation_consent`)
+- **C2 dans Briefing** : Tendances prix régionales dans le prompt AI
+- **C2 dans Intelligence** : Score collectif dans IntelligenceDashboard
+
+### Features Wow (Tasks 10-12)
+- **Intelligence Score** : 5 dimensions × 20 pts (Prix, Plans, Planning, Emails, Fournisseurs), seuils configurables
+- **Monte Carlo** : 10K itérations client-side, Box-Muller, P50/P80/P95, top 3 contributeurs incertitude
+- **Alertes IA** : Claude Haiku analyse budget/planning → alertes rouge/jaune/vert
+- **Résumé Exécutif** : Claude Sonnet → synthèse projet avec budget, risques, opportunités
+
+### Migration 057
+```sql
+ALTER TABLE organizations ADD COLUMN intelligence_score integer DEFAULT 0, ADD COLUMN inflation_rate decimal(5,4) DEFAULT 0.028;
+ALTER TABLE planning_tasks ADD COLUMN ai_risks jsonb DEFAULT '[]'::jsonb, ADD COLUMN ai_duration_correction integer;
+ALTER TABLE project_plannings ADD COLUMN ai_summary text, ADD COLUMN ai_recommendations jsonb DEFAULT '[]'::jsonb;
+CREATE INDEX idx_price_calibrations_org_cfc ON price_calibrations (org_id, cfc_code);
+CREATE INDEX idx_quantity_corrections_org ON quantity_corrections (org_id);
+CREATE INDEX idx_email_classification_rules_org ON email_classification_rules (organization_id, rule_type);
+```
+
+### Nouvelles routes API
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/ai/generate-alerts` | POST | Alertes IA proactives (Claude Haiku) |
+| `/api/ai/executive-summary` | POST | Résumé exécutif projet (Claude Sonnet) |
+| `/api/intelligence/stats` | GET | Score intelligence 5 dimensions + journal |
+
+### Nouveaux composants
+| Composant | Rôle |
+|-----------|------|
+| `IntelligenceScore.tsx` | Score maturité IA 0-100, 5 barres de progression |
+| `IntelligenceDashboard.tsx` | Widget dashboard avec score, compteurs, journal |
+| `MonteCarloChart.tsx` | Histogramme simulation 10K, Recharts AreaChart |
+| `IntelligentAlerts.tsx` | Cards alertes IA avec sévérité et actions |
+
+### Fichiers core modifiés
+| Fichier | Modification |
+|---------|-------------|
+| `price-resolver.ts` | V3 scoring multi-critères + inflation |
+| `auto-calibration.ts` | Fix 3 bugs colonnes + wire "Attribuer" |
+| `consensus-engine.ts` | Seuils adaptatifs par discipline |
+| `calibration-engine.ts` | `updateBureauProfile()` exporté |
+| `classification-learning.ts` | Auto-promotion règles sender/keyword |
+| `email-classifier.ts` | max_tokens 600→900, extraction enrichie |
+| `prompts.ts` | Prompt L3 enrichi (prix, deadlines, supplier) |
+| `briefing-generator.ts` | Accepte `marketTrends` C2 |
+| `planning-generator.ts` | Dépendances CFC + recalcul CPM |
