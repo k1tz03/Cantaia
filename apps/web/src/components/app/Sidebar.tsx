@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useBranding } from "@/components/providers/BrandingProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
+import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ActiveProjectSection } from "./ActiveProjectSection";
 import { cn } from "@cantaia/ui";
 import { motion, AnimatePresence } from "framer-motion";
@@ -177,6 +178,7 @@ export function Sidebar() {
 
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const { activeProject } = useActiveProject();
   const router = useRouter();
 
   const mobileBottomItems: NavItem[] = [
@@ -376,6 +378,28 @@ export function Sidebar() {
               </Link>
             );
           })}
+          {/* Active Project button */}
+          <button
+            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
+            className={cn(
+              "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors",
+              "text-[#9CA3AF] hover:text-[#6B7280]"
+            )}
+          >
+            {activeProject ? (
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={{ backgroundColor: activeProject.color || "#2563EB" }}
+              >
+                {activeProject.name.charAt(0).toUpperCase()}
+              </span>
+            ) : (
+              <FolderKanban className="h-6 w-6" />
+            )}
+            <span className="truncate max-w-[56px]">
+              {activeProject ? activeProject.name.substring(0, 6) : t("selectProject").substring(0, 6)}
+            </span>
+          </button>
           <button
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
