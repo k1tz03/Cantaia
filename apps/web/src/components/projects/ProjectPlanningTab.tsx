@@ -7,6 +7,7 @@ import {
   CalendarRange,
   Loader2,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import GanttConfigModal from "@/components/planning/GanttConfigModal";
 
@@ -23,6 +24,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
   const [phasesCount, setPhasesCount] = useState(0);
   const [showConfig, setShowConfig] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
 
@@ -50,7 +52,9 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
       const res = await fetch(`/api/submissions?project_id=${projectId}`);
       const json = await res.json();
       if (json.success && json.submissions) {
-        const analyzed = json.submissions.filter((s: any) => s.analysis_status === "done");
+        const analyzed = json.submissions.filter(
+          (s: any) => s.analysis_status === "done" || s.analysis_status === "completed" || s.items_count > 0,
+        );
         setSubmissions(analyzed);
         if (analyzed.length > 0 && !selectedSubmissionId) {
           setSelectedSubmissionId(analyzed[0].id);
@@ -65,8 +69,12 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
   }, [fetchPlanningStatus, fetchSubmissions]);
 
   const handleGenerate = async (config: any) => {
-    if (!selectedSubmissionId) return;
+    if (!selectedSubmissionId) {
+      setGenerateError("Aucune soumission analysée trouvée. Analysez d'abord une soumission.");
+      return;
+    }
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch("/api/planning/generate", {
         method: "POST",
@@ -84,11 +92,16 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Generation failed");
+      if (!res.ok) {
+        setGenerateError(json.error || "Échec de la génération du planning");
+        return;
+      }
       setShowConfig(false);
+      setGenerateError(null);
       await fetchPlanningStatus();
     } catch (err: any) {
-      throw err;
+      console.error("[planning] Generate error:", err);
+      setGenerateError(err.message || "Erreur inattendue lors de la génération");
     } finally {
       setGenerating(false);
     }
@@ -163,11 +176,21 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
       )}
 
       {showConfig && (
-        <GanttConfigModal
-          onGenerate={handleGenerate}
-          onCancel={() => setShowConfig(false)}
-          isGenerating={generating}
-        />
+        <>
+          <GanttConfigModal
+            onGenerate={handleGenerate}
+            onCancel={() => { setShowConfig(false); setGenerateError(null); }}
+            isGenerating={generating}
+          />
+          {generateError && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <p>{generateError}</p>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
