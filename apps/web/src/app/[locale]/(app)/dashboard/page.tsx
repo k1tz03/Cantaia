@@ -25,6 +25,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import IntelligenceDashboard from "@/components/app/IntelligenceDashboard";
 
 /* ─── types ─── */
 interface TaskItem {
@@ -333,6 +334,9 @@ export default function DashboardPage() {
             </>
           )}
         </div>
+
+        {/* ═══ INTELLIGENCE IA ═══ */}
+        <IntelligenceDashboard />
 
         {/* ═══ MAIN CONTENT ═══ */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

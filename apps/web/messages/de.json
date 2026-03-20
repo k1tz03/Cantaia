@@ -388,7 +388,30 @@
     "noUpcoming": "Keine geplanten Sitzungen",
     "greeting_morning": "Guten Morgen, {name}",
     "greeting_afternoon": "Guten Tag, {name}",
-    "greeting_evening": "Guten Abend, {name}"
+    "greeting_evening": "Guten Abend, {name}",
+    "intelligence": {
+      "title": "KI-Intelligenz",
+      "scoreTitle": "Lernscore",
+      "levelExpert": "Experte — Hochkalibrierte KI",
+      "levelIntermediate": "Fortgeschritten — KI verbessert sich",
+      "levelBeginner": "Anfaenger — Weiter Daten einspeisen",
+      "levelStarting": "Start — Beginnen Sie die KI zu nutzen",
+      "dim_prices": "Preise",
+      "dim_plans": "Plaene",
+      "dim_planning": "Planung",
+      "dim_emails": "E-Mails",
+      "dim_suppliers": "Lieferanten",
+      "orgCountersTitle": "Gesammelte Daten",
+      "counterPrices": "Erfasste Preise",
+      "counterPlans": "Analysierte Plaene",
+      "counterProjects": "Aktive Projekte",
+      "counterEmails": "Klassifizierte E-Mails",
+      "journalTitle": "Lernjournal",
+      "journalEmpty": "Noch keine Lernereignisse.",
+      "c2Title": "Kollektive Intelligenz",
+      "c2MarketPrices": "Marktpreise",
+      "c2SuppliersScored": "Bewertete Lieferanten"
+    }
   },
   "projects": {
     "title": "Projekte",

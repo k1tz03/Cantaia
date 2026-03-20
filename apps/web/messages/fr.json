@@ -388,7 +388,30 @@
     "noUpcoming": "Aucune séance planifiée",
     "greeting_morning": "Bonjour, {name}",
     "greeting_afternoon": "Bon après-midi, {name}",
-    "greeting_evening": "Bonsoir, {name}"
+    "greeting_evening": "Bonsoir, {name}",
+    "intelligence": {
+      "title": "Intelligence IA",
+      "scoreTitle": "Score d'apprentissage",
+      "levelExpert": "Expert — IA hautement calibree",
+      "levelIntermediate": "Intermediaire — IA en progression",
+      "levelBeginner": "Debutant — Continuez a alimenter",
+      "levelStarting": "Demarrage — Commencez a utiliser l'IA",
+      "dim_prices": "Prix",
+      "dim_plans": "Plans",
+      "dim_planning": "Planning",
+      "dim_emails": "Emails",
+      "dim_suppliers": "Fournisseurs",
+      "orgCountersTitle": "Donnees collectees",
+      "counterPrices": "Prix enregistres",
+      "counterPlans": "Plans analyses",
+      "counterProjects": "Projets actifs",
+      "counterEmails": "Emails classes",
+      "journalTitle": "Journal d'apprentissage",
+      "journalEmpty": "Aucun evenement d'apprentissage pour le moment.",
+      "c2Title": "Intelligence collective",
+      "c2MarketPrices": "Prix marche",
+      "c2SuppliersScored": "Fournisseurs evalues"
+    }
   },
   "projects": {
     "title": "Projets",
