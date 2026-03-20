@@ -5,6 +5,11 @@ export type {
   GeneratedPhase,
   GeneratedTask,
   GeneratedDependency,
+  AIValidationResult,
+  AIDurationCorrection,
+  AIMissingDependency,
+  AIRisk,
+  AIRecommendation,
 } from "./planning-generator";
 
 export { calculateDuration, addWorkingDays, countWorkingDays } from "./duration-calculator";

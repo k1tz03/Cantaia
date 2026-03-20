@@ -13,7 +13,8 @@
 
 import { findProductivityRatio } from './productivity-ratios';
 import { calculateDuration, addWorkingDays, type DurationResult } from './duration-calculator';
-import { calculateCriticalPath } from './critical-path';
+import { analyzeCriticalPath } from './critical-path';
+import { findDependenciesFrom, getMajorCfcGroup } from './dependency-rules';
 
 // ============================================================================
 // Types
@@ -68,7 +69,43 @@ export interface GeneratedDependency {
   successor_index: number;     // index in flat tasks array
   dependency_type: 'FS' | 'SS' | 'FF' | 'SF';
   lag_days: number;
-  source: 'auto' | 'manual';
+  source: 'auto' | 'manual' | 'rule';
+}
+
+export interface AIDurationCorrection {
+  task_id: string;
+  current_duration: number;
+  corrected_duration: number;
+  reason: string;
+}
+
+export interface AIMissingDependency {
+  from_task_id: string;
+  to_task_id: string;
+  type: 'FS' | 'SS' | 'FF' | 'SF';
+  lag_days: number;
+  reason: string;
+}
+
+export interface AIRisk {
+  title: string;
+  probability: 'high' | 'medium' | 'low';
+  impact_days: number;
+  mitigation: string;
+}
+
+export interface AIRecommendation {
+  title: string;
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface AIValidationResult {
+  duration_corrections: AIDurationCorrection[];
+  missing_dependencies: AIMissingDependency[];
+  risks: AIRisk[];
+  recommendations: AIRecommendation[];
+  summary: string;
 }
 
 export interface GeneratedPlanning {
@@ -78,6 +115,8 @@ export interface GeneratedPlanning {
   calculated_end_date: string;
   critical_path_length: number;
   ai_generation_log: Record<string, unknown>;
+  /** AI validation results — populated by the API route after generation */
+  ai_validation?: AIValidationResult | null;
 }
 
 // ============================================================================
@@ -510,7 +549,52 @@ export function generatePlanningFromItems(
     }
   }
 
-  logEntries.push(`[planning] ${dependencies.length} dependencies (phase-to-phase + milestones)`);
+  const phaseToPhaseDepCount = dependencies.length;
+  logEntries.push(`[planning] ${phaseToPhaseDepCount} dependencies (phase-to-phase + milestones)`);
+
+  // ── Step 5b: Inject CFC-based dependency rules (intra-phase and cross-phase) ──
+  let cfcRuleDepCount = 0;
+  for (const task of allTasksFlat) {
+    const cfcCode = task.cfc_code;
+    if (!cfcCode || task.is_milestone) continue;
+
+    const rules = findDependenciesFrom(cfcCode);
+    for (const rule of rules) {
+      // Find tasks whose CFC code matches the rule's successor CFC
+      // Use prefix matching: rule.to_cfc "271" matches task CFC "271", "271.1", "271.2.3"
+      const successors = allTasksFlat.filter((t) =>
+        t.cfc_code &&
+        !t.is_milestone &&
+        (t.cfc_code === rule.to_cfc ||
+         t.cfc_code.startsWith(rule.to_cfc + '.') ||
+         getMajorCfcGroup(t.cfc_code) === rule.to_cfc),
+      );
+
+      for (const successor of successors) {
+        if (successor.sort_order === task.sort_order) continue;
+
+        // Check if this exact dependency already exists (avoid duplicates)
+        const exists = dependencies.some(
+          (d) =>
+            d.predecessor_index === task.sort_order &&
+            d.successor_index === successor.sort_order,
+        );
+        if (exists) continue;
+
+        dependencies.push({
+          predecessor_index: task.sort_order,
+          successor_index: successor.sort_order,
+          dependency_type: rule.type,
+          lag_days: rule.lag_days,
+          source: 'rule',
+        });
+        cfcRuleDepCount++;
+      }
+    }
+  }
+
+  logEntries.push(`[planning] ${cfcRuleDepCount} CFC dependency rules injected`);
+  logEntries.push(`[planning] ${dependencies.length} total dependencies (phase-to-phase + CFC rules + milestones)`);
 
   // Add milestones to phases
   if (phases.length > 0) {
@@ -518,7 +602,7 @@ export function generatePlanningFromItems(
     phases[phases.length - 1].tasks.push(receptionMilestone);
   }
 
-  // ── Step 7: Critical path ──
+  // ── Step 7: Critical path analysis + date recalculation ──
   const allForCpm = [startMilestone, ...flatTasks, receptionMilestone];
   const cpmTasks = allForCpm.map((t) => ({
     id: t.sort_order.toString(),
@@ -532,17 +616,56 @@ export function generatePlanningFromItems(
     dependency_type: d.dependency_type,
     lag_days: d.lag_days,
   }));
-  const criticalPath = calculateCriticalPath(cpmTasks, cpmDeps);
 
-  logEntries.push(`[planning] Critical path: ${criticalPath.length} tasks`);
-  logEntries.push(`[planning] Total duration: ${projectEndDate} (scale factor: ${scaleFactor.toFixed(3)})`);
+  const cpmAnalysis = analyzeCriticalPath(cpmTasks, cpmDeps);
+  const criticalPath = cpmAnalysis.critical_path;
+
+  // ── Step 7b: Recalculate task dates from CPM early-start values ──
+  // CFC rules may shift tasks later than their phase start date.
+  // Use ES (Earliest Start) from the CPM forward pass to recompute dates.
+  const taskBySortOrder = new Map<number, GeneratedTask>();
+  for (const t of allForCpm) {
+    taskBySortOrder.set(t.sort_order, t);
+  }
+
+  for (const [taskId, schedule] of cpmAnalysis.task_schedules) {
+    const sortOrder = parseInt(taskId, 10);
+    const task = taskBySortOrder.get(sortOrder);
+    if (!task) continue;
+
+    const newStart = addWorkingDays(startDate, schedule.es);
+    const newEnd = addWorkingDays(startDate, schedule.ef);
+    task.start_date = formatDate(newStart);
+    task.end_date = formatDate(newEnd);
+  }
+
+  // Recalculate phase start/end dates from their tasks
+  for (const phase of phases) {
+    if (phase.tasks.length === 0) continue;
+    let phaseStart = phase.tasks[0].start_date;
+    let phaseEnd = phase.tasks[0].end_date;
+    for (const t of phase.tasks) {
+      if (t.start_date < phaseStart) phaseStart = t.start_date;
+      if (t.end_date > phaseEnd) phaseEnd = t.end_date;
+    }
+    phase.start_date = phaseStart;
+    phase.end_date = phaseEnd;
+  }
+
+  // Recalculate the project end date from phases
+  const recalculatedEndDate = phases.length > 0
+    ? phases.reduce((max, p) => p.end_date > max ? p.end_date : max, phases[0].end_date)
+    : config.start_date;
+
+  logEntries.push(`[planning] Critical path: ${criticalPath.length} tasks, project duration: ${cpmAnalysis.project_duration} working days`);
+  logEntries.push(`[planning] Calculated end date: ${recalculatedEndDate} (scale factor: ${scaleFactor.toFixed(3)})`);
   logEntries.push(`[planning] Generated in ${Date.now() - generationStart}ms`);
 
   return {
     title: `Planning — ${projectName}`,
     phases,
     dependencies,
-    calculated_end_date: projectEndDate,
+    calculated_end_date: recalculatedEndDate,
     critical_path_length: cpmTasks.reduce(
       (sum, t) => sum + (criticalPath.includes(t.id) ? t.duration_days : 0),
       0,
@@ -554,6 +677,7 @@ export function generatePlanningFromItems(
       synthetic_tasks_count: flatTasks.length,
       phases_count: phases.length,
       dependencies_count: dependencies.length,
+      cfc_rule_dependencies_count: cfcRuleDepCount,
       scale_factor: scaleFactor,
       critical_path_task_ids: criticalPath,
       config,
