@@ -30,6 +30,38 @@ function currentQuarter(): string {
   return `${now.getFullYear()}-Q${q}`;
 }
 
+// ── Variance computation for Monte Carlo simulation ──
+
+function computeStdDevPrix(item: {
+  source: string;
+  prix_median: number;
+  prix_min: number;
+  prix_max: number;
+  market_benchmark?: { p25: number; p75: number } | null;
+}): number {
+  const { source, prix_median, prix_min, prix_max, market_benchmark } = item;
+
+  // Historique interne with p25/p75 from C2 benchmarks
+  if (source === "historique_interne" && market_benchmark?.p25 && market_benchmark?.p75) {
+    return (market_benchmark.p75 - market_benchmark.p25) / 1.35;
+  }
+
+  // CRB reference: use min/max range
+  if (source === "referentiel_crb") {
+    const range = prix_max - prix_min;
+    return range > 0 ? range / 4 : prix_median * 0.15;
+  }
+
+  // AI estimation or unestimated: high uncertainty (20%)
+  if (source === "estimation_ia" || source === "non_estime") {
+    return prix_median * 0.20;
+  }
+
+  // Default: use min/max range, fallback 15%
+  const range = prix_max - prix_min;
+  return range > 0 ? range / 4 : prix_median * 0.15;
+}
+
 const BUDGET_PROMPT = `Expert métreur suisse. Estime le prix unitaire HT pour chaque poste de construction.
 Contexte: marché suisse 2025. Monnaie: CHF.
 
@@ -311,6 +343,20 @@ export async function POST(
       }
     } catch (c2Err) {
       console.warn("[BUDGET] C2 market annotation skipped (non-blocking):", c2Err);
+    }
+
+    // ── Step 2c: Compute variance for Monte Carlo simulation ──
+    for (const est of estimates) {
+      est.variance = {
+        std_dev_prix: computeStdDevPrix({
+          source: est.source,
+          prix_median: est.prix_median,
+          prix_min: est.prix_min,
+          prix_max: est.prix_max,
+          market_benchmark: est.market_benchmark ?? null,
+        }),
+        std_dev_quantite: (est.quantity ?? 0) * 0.10,
+      };
     }
 
     // ── Step 3: Calculate totals ──

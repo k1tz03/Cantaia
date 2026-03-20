@@ -28,6 +28,7 @@ import {
   Database,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import MonteCarloChart from "@/components/submissions/MonteCarloChart";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -78,6 +79,18 @@ interface BudgetEstimate {
   source: string;
   detail_source?: string;
   ajustements?: string[];
+  variance?: {
+    std_dev_prix: number;
+    std_dev_quantite: number;
+  };
+  market_benchmark?: {
+    p25: number;
+    p75: number;
+    median: number;
+    contributors: number;
+    region: string;
+    quarter: string;
+  };
 }
 
 interface BudgetResult {
@@ -2162,6 +2175,11 @@ function BudgetTabContent({
 
       {/* Intelligence prix feedback banner */}
       <FeedbackBanner stats={feedback} budget={budget} />
+
+      {/* Monte Carlo simulation */}
+      {budget.estimates.length > 0 && (
+        <MonteCarloChart items={budget.estimates} />
+      )}
 
       {/* Detail by group */}
       {Object.entries(estimatesByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, ests]) => {
