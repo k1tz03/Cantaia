@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useBranding } from "@/components/providers/BrandingProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
+import { ActiveProjectSection } from "./ActiveProjectSection";
 import { cn } from "@cantaia/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,22 +19,17 @@ import {
   LogOut,
   Shield,
   Map,
-  FileSpreadsheet,
   TrendingUp,
   LayoutDashboard,
   Mail,
-  FileText,
   Truck,
   MessageSquare,
   MoreHorizontal,
   X,
-  BarChart3,
   Newspaper,
-  HardHat,
   Plus,
   Camera,
   Mic,
-  Zap,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -79,23 +75,18 @@ export function Sidebar() {
   const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
   const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;
 
-  const navItems: NavItem[] = [
-    { href: "/action-board", labelKey: "actionBoard", icon: Zap, status: "active", group: "main" },
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", group: "main" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, group: "daily" },
-    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", group: "daily" },
-    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", group: "daily" },
-    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active", group: "daily" },
-    { href: "/visits", labelKey: "visits", icon: HardHat, status: "active", group: "daily" },
-    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active", group: "projects" },
-    { href: "/plans", labelKey: "plans", icon: Map, status: "active", group: "projects" },
-    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", group: "projects" },
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", group: "data" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", group: "data" },
-    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active", group: "assistant" },
-    ...((isManager || isSuperAdmin) ? [
-      { href: "/direction", labelKey: "direction", icon: BarChart3, status: "active" as NavItemStatus, group: "management" },
-    ] : []),
+  // Section: QUOTIDIEN
+  const dailyItems: NavItem[] = [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
+    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
+  ];
+
+  // Section: RÉFÉRENTIELS
+  const referenceItems: NavItem[] = [
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
+    { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active" },
   ];
 
   const bottomItems: NavItem[] = [
@@ -189,24 +180,17 @@ export function Sidebar() {
   const router = useRouter();
 
   const mobileBottomItems: NavItem[] = [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
-    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
-    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+    { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active" },
   ];
 
   const mobileExtraItems: NavItem[] = [
-    { href: "/action-board", labelKey: "actionBoard", icon: Zap, status: "active" },
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
-    { href: "/plans", labelKey: "plans", icon: Map, status: "active" },
-    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active" },
+    { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
-    { href: "/pv-chantier", labelKey: "pv", icon: FileText, status: "active" },
-    { href: "/visits", labelKey: "visits", icon: HardHat, status: "active" },
-    { href: "/chat", labelKey: "chat", icon: MessageSquare, status: "active" },
     ...((isManager || isSuperAdmin) ? [
-      { href: "/direction", labelKey: "direction", icon: BarChart3, status: "active" as NavItemStatus },
       { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
     ] : []),
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
@@ -261,9 +245,34 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          <ul className="space-y-0.5">
-            {navItems.map(renderNavItem)}
-          </ul>
+          {/* QUOTIDIEN */}
+          <div className="mb-2">
+            {!collapsed && (
+              <p className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">
+                {t("sections.daily")}
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              {dailyItems.map(renderNavItem)}
+            </ul>
+          </div>
+
+          {/* RÉFÉRENTIELS */}
+          <div className="mb-2 border-t border-[#E5E7EB] pt-2">
+            {!collapsed && (
+              <p className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">
+                {t("sections.references")}
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              {referenceItems.map(renderNavItem)}
+            </ul>
+          </div>
+
+          {/* PROJET ACTIF */}
+          <div className="border-t border-[#E5E7EB] pt-2">
+            <ActiveProjectSection collapsed={collapsed} />
+          </div>
 
           {/* Settings */}
           <div className="mt-3 border-t border-[#E5E7EB] pt-3">
