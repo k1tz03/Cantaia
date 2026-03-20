@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
@@ -26,6 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import IntelligenceDashboard from "@/components/app/IntelligenceDashboard";
+import { DashboardOrgView } from "@/components/app/DashboardOrgView";
 
 /* ─── types ─── */
 interface TaskItem {
@@ -103,9 +105,17 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const emailCtx = useEmailContextSafe();
   const unreadCount = emailCtx?.unreadCount || 0;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view") || "personal";
 
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const firstName = user?.user_metadata?.first_name || profileName || tn("user");
+
+  const isManager = profileRole != null && ["project_manager", "director", "admin"].includes(profileRole);
+  const showOrgToggle = isManager || isSuperAdmin;
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingItem[]>([]);
@@ -117,7 +127,11 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch("/api/user/profile")
       .then((r) => r.json())
-      .then((d) => { if (d.profile?.first_name) setProfileName(d.profile.first_name); })
+      .then((d) => {
+        if (d.profile?.first_name) setProfileName(d.profile.first_name);
+        if (d.profile?.role) setProfileRole(d.profile.role);
+        if (d.profile?.is_superadmin) setIsSuperAdmin(true);
+      })
       .catch(() => {});
 
     Promise.all([
@@ -242,6 +256,38 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
+
+        {/* ═══ VIEW TOGGLE ═══ */}
+        {showOrgToggle && (
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => router.replace("/dashboard")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                view === "personal"
+                  ? "bg-white shadow-sm text-gray-900"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {t("personalView")}
+            </button>
+            <button
+              onClick={() => router.replace("/dashboard?view=org")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                view === "org"
+                  ? "bg-white shadow-sm text-gray-900"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {t("orgView")}
+            </button>
+          </div>
+        )}
+
+        {/* ═══ ORG VIEW ═══ */}
+        {view === "org" && showOrgToggle ? (
+          <DashboardOrgView />
+        ) : (
+          <>
 
         {/* ═══ KPI STATS ═══ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -592,6 +638,9 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+
+          </>
+        )}
       </div>
     </div>
   );
