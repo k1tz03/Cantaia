@@ -18,9 +18,12 @@ const protectedPaths = [
   "/submissions",
   "/mail",
   "/pv",
+  "/pv-chantier",
   "/suppliers",
   "/plans",
   "/visits",
+  "/chat",
+  "/cantaia-prix",
   "/onboarding",
 ];
 
