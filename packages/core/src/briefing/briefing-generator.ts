@@ -10,7 +10,7 @@ import type { ApiUsageCallback } from "../tracking/api-cost-tracker";
 
 // ---------- Prompt builder ----------
 
-function buildBriefingPrompt(data: BriefingRawData): string {
+function buildBriefingPrompt(data: BriefingRawData, marketTrends = ""): string {
   const lang = data.locale === "de" ? "Deutsch" : data.locale === "en" ? "English" : "French";
 
   const projectsSummary = data.projects
@@ -75,7 +75,7 @@ TODAY'S MEETINGS:
 ${meetingsList || "(none)"}
 
 SUBMISSION DEADLINES (next 30 days):
-${deadlinesList || "(none)"}
+${deadlinesList || "(none)"}${marketTrends}
 
 INSTRUCTIONS:
 Generate a structured JSON briefing. The tone should be professional, concise, and actionable — like a trusted assistant briefing a busy construction PM in the morning.
@@ -110,12 +110,13 @@ export async function generateBriefingAI(
   anthropicApiKey: string,
   rawData: BriefingRawData,
   model = "claude-sonnet-4-5-20250929",
-  onUsage?: ApiUsageCallback
+  onUsage?: ApiUsageCallback,
+  marketTrends = ""
 ): Promise<BriefingContent> {
   console.log(`[generateBriefingAI] Generating briefing for ${rawData.user_name}, ${rawData.date}`);
   console.log(`[generateBriefingAI] Stats:`, rawData.stats);
 
-  const prompt = buildBriefingPrompt(rawData);
+  const prompt = buildBriefingPrompt(rawData, marketTrends);
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");

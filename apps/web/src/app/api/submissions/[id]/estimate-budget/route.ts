@@ -268,6 +268,51 @@ export async function POST(
       }
     }
 
+    // ── Step 2b: Annotate with C2 market benchmarks (opt-in) ──
+    try {
+      const { data: priceConsent } = await (admin as any)
+        .from("aggregation_consent")
+        .select("opted_in")
+        .eq("organization_id", orgId)
+        .eq("module", "prix")
+        .maybeSingle();
+
+      if (priceConsent?.opted_in === true) {
+        for (const item of estimates) {
+          const cfcCode = item.detail_source?.match(/cfc[:\s]+([^\s,]+)/i)?.[1]
+            || items.find((i: any) => i.id === item.item_id)?.cfc_code
+            || items.find((i: any) => i.id === item.item_id)?.cfc_subcode;
+
+          if (cfcCode) {
+            try {
+              const { data: benchmark } = await (admin as any)
+                .from("market_benchmarks")
+                .select("median_price, p25_price, p75_price, contributors_count, region, quarter")
+                .eq("cfc_code", cfcCode)
+                .order("quarter", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (benchmark) {
+                item.market_benchmark = {
+                  p25: benchmark.p25_price,
+                  median: benchmark.median_price,
+                  p75: benchmark.p75_price,
+                  contributors: benchmark.contributors_count,
+                  region: benchmark.region,
+                  quarter: benchmark.quarter,
+                };
+              }
+            } catch (benchErr) {
+              console.warn(`[BUDGET] market benchmark fetch failed for CFC ${cfcCode}:`, benchErr);
+            }
+          }
+        }
+      }
+    } catch (c2Err) {
+      console.warn("[BUDGET] C2 market annotation skipped (non-blocking):", c2Err);
+    }
+
     // ── Step 3: Calculate totals ──
     let total_min = 0, total_median = 0, total_max = 0;
     for (const est of estimates) {

@@ -101,6 +101,34 @@ export async function POST() {
     locale,
   });
 
+  // Fetch C2 market price trends if org has opted in (non-blocking)
+  let marketTrends = "";
+  try {
+    const { data: priceConsent } = await (admin as any)
+      .from("aggregation_consent")
+      .select("opted_in")
+      .eq("organization_id", orgId)
+      .eq("module", "prix")
+      .maybeSingle();
+
+    if (priceConsent?.opted_in === true) {
+      const { data: trends } = await (admin as any)
+        .from("regional_price_index")
+        .select("region, basket_index, trend_pct, period")
+        .order("period", { ascending: false })
+        .limit(5);
+
+      if (trends && trends.length > 0) {
+        marketTrends = "\n\nMARKET PRICE TRENDS (C2 anonymised benchmarks):\n" +
+          trends.map((t: { region: string; trend_pct: number; period: string }) =>
+            `- ${t.region}: ${t.trend_pct > 0 ? "+" : ""}${t.trend_pct}% (${t.period})`
+          ).join("\n");
+      }
+    }
+  } catch (c2Err) {
+    console.warn("[briefing/generate] C2 market trends skipped (non-blocking):", c2Err);
+  }
+
   // Generate briefing (AI or fallback)
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
   let briefingContent;
@@ -122,7 +150,8 @@ export async function POST() {
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
           }).catch(() => {});
-        }
+        },
+        marketTrends
       );
     } catch (error: any) {
       console.error("[briefing/generate] AI error:", error?.message);
