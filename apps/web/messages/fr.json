@@ -63,7 +63,20 @@
     "badge": {
       "new": "Nouveau",
       "soon": "Bientôt"
-    }
+    },
+    "sections": {
+      "daily": "Quotidien",
+      "references": "Référentiels",
+      "activeProject": "Projet actif"
+    },
+    "assistantAi": "Assistant IA",
+    "overview": "Aperçu",
+    "selectProject": "Sélectionnez un projet",
+    "seeAll": "Voir tout",
+    "projectSearch": "Rechercher un projet…",
+    "recentProjects": "Projets récents",
+    "pvSeance": "PV de séance",
+    "planning": "Planning"
   },
   "coming_soon": {
     "expected": "Disponible",
@@ -411,7 +424,9 @@
       "c2Title": "Intelligence collective",
       "c2MarketPrices": "Prix marche",
       "c2SuppliersScored": "Fournisseurs evalues"
-    }
+    },
+    "orgView": "Organisation",
+    "personalView": "Mon tableau de bord"
   },
   "projects": {
     "title": "Projets",
@@ -2983,5 +2998,16 @@
       "moveDays": "Nombre de jours (+/-)",
       "deselect": "Deselectionner"
     }
+  },
+  "breadcrumb": {
+    "tasks": "Tâches",
+    "plans": "Plans",
+    "submissions": "Soumissions",
+    "meetings": "PV de séance",
+    "visits": "Visites",
+    "emails": "Emails",
+    "prix": "Prix",
+    "planning": "Planning",
+    "overview": "Aperçu"
   }
 }

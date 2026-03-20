@@ -63,7 +63,20 @@
     "badge": {
       "new": "New",
       "soon": "Soon"
-    }
+    },
+    "sections": {
+      "daily": "Daily",
+      "references": "References",
+      "activeProject": "Active project"
+    },
+    "assistantAi": "AI Assistant",
+    "overview": "Overview",
+    "selectProject": "Select a project",
+    "seeAll": "See all",
+    "projectSearch": "Search project…",
+    "recentProjects": "Recent projects",
+    "pvSeance": "Meeting minutes",
+    "planning": "Planning"
   },
   "coming_soon": {
     "expected": "Available",
@@ -411,7 +424,9 @@
       "c2Title": "Collective intelligence",
       "c2MarketPrices": "Market prices",
       "c2SuppliersScored": "Suppliers scored"
-    }
+    },
+    "orgView": "Organization",
+    "personalView": "My dashboard"
   },
   "projects": {
     "title": "Projects",
@@ -2983,5 +2998,16 @@
       "moveDays": "Number of days (+/-)",
       "deselect": "Deselect"
     }
+  },
+  "breadcrumb": {
+    "tasks": "Tasks",
+    "plans": "Plans",
+    "submissions": "Submissions",
+    "meetings": "Meetings",
+    "visits": "Visits",
+    "emails": "Emails",
+    "prix": "Pricing",
+    "planning": "Planning",
+    "overview": "Overview"
   }
 }
