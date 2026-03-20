@@ -30,6 +30,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import DOMPurify from "dompurify";
+import { useActiveProject } from "@/lib/contexts/active-project-context";
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -222,6 +223,8 @@ export default function MailPage() {
   // FIX 5 — Lock body scroll when any popup is open
   const anyPopupOpen = !!(modalEmail || replyEmail || delegateEmail || transferEmail);
   useBodyScrollLock(anyPopupOpen);
+
+  const { setActiveProject } = useActiveProject();
 
   const fetchData = useCallback(async () => {
     try {
@@ -437,7 +440,7 @@ export default function MailPage() {
             emails={filteredInfo}
             onArchive={(id) => dismissCard(id, "archive")}
             onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
-            onView={(email) => setModalEmail(email)}
+            onView={(email) => { setModalEmail(email); if (email.project_id) setActiveProject(email.project_id); }}
             onCreateTask={(id) => dismissCard(id, "task")}
             onReply={(email) => setReplyEmail(email)}
           />
@@ -451,7 +454,7 @@ export default function MailPage() {
                 email={email}
                 isAloneInOrg={isAloneInOrg}
                 onReply={() => setReplyEmail(email)}
-                onView={() => setModalEmail(email)}
+                onView={() => { setModalEmail(email); if (email.project_id) setActiveProject(email.project_id); }}
                 onDelegate={() => setDelegateEmail(email)}
                 onTransfer={() => setTransferEmail(email)}
                 onCreateTask={() => dismissCard(email.id, "task")}
@@ -527,7 +530,7 @@ export default function MailPage() {
             emails={filteredInfo.slice(0, 10)}
             onArchive={(id) => dismissCard(id, "archive")}
             onArchiveAll={() => { for (const e of filteredInfo) dismissCard(e.id, "archive"); }}
-            onView={(email) => setModalEmail(email)}
+            onView={(email) => { setModalEmail(email); if (email.project_id) setActiveProject(email.project_id); }}
             onCreateTask={(id) => dismissCard(id, "task")}
             onReply={(email) => setReplyEmail(email)}
           />

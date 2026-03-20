@@ -38,6 +38,8 @@ import { ProjectPlansTab } from "@/components/projects/ProjectPlansTab";
 import { ProjectPrixTab } from "@/components/projects/ProjectPrixTab";
 import { ProjectClosureTab } from "@/components/projects/ProjectClosureTab";
 import { ProjectPlanningTab } from "@/components/projects/ProjectPlanningTab";
+import { useActiveProject } from "@/lib/contexts/active-project-context";
+import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 
 const baseTabs = [
   { key: "overview", icon: LayoutDashboard },
@@ -69,6 +71,14 @@ export default function ProjectDetailPage() {
   const [editTask, setEditTask] = useState<Task | null>(null);
 
   const { project, loading: projectLoading } = useProject(params.id as string);
+  const { setActiveProject } = useActiveProject();
+
+  useEffect(() => {
+    if (project?.id) {
+      setActiveProject(project.id);
+    }
+  }, [project?.id, setActiveProject]);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
   // submissions now fetched directly by ProjectSubmissionsTab
@@ -144,6 +154,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <ProjectBreadcrumb section={activeTab !== "overview" ? activeTab : undefined} />
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <Link

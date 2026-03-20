@@ -17,6 +17,8 @@ import { PlanEstimationTab } from "@/components/plans/PlanEstimationTab";
 import QuantityCorrectionModal from "@/components/plans/QuantityCorrectionModal";
 import PriceCalibrationModal from "@/components/plans/PriceCalibrationModal";
 import type { CrossPlanData } from "@/components/plans/PlanAlertsBanner";
+import { useActiveProject } from "@/lib/contexts/active-project-context";
+import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 
 export default function PlanDetailPage() {
   const params = useParams();
@@ -57,6 +59,14 @@ export default function PlanDetailPage() {
   useEffect(() => {
     fetchPlan();
   }, [fetchPlan]);
+
+  const { setActiveProject } = useActiveProject();
+
+  useEffect(() => {
+    if (plan?.project_id) {
+      setActiveProject(plan.project_id);
+    }
+  }, [plan?.project_id, setActiveProject]);
 
   const autoFillPlanInfo = async (result: any) => {
     if (!plan) return;
@@ -246,6 +256,8 @@ export default function PlanDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
+
+        <ProjectBreadcrumb section="plans" />
 
         <PlanDetailHeader plan={plan} currentVersion={currentVersion} t={t} />
 

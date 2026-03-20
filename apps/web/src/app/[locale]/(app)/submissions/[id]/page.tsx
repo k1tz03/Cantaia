@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
+import { useActiveProject } from "@/lib/contexts/active-project-context";
+import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -163,6 +165,14 @@ export default function SubmissionDetailPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
 
+  const { setActiveProject } = useActiveProject();
+
+  useEffect(() => {
+    if (submission?.project_id) {
+      setActiveProject(submission.project_id);
+    }
+  }, [submission?.project_id, setActiveProject]);
+
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/submissions/${id}`);
@@ -278,6 +288,7 @@ export default function SubmissionDetailPage() {
     <div className="h-full overflow-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <ProjectBreadcrumb section="submissions" />
         <div className="flex items-center gap-3 mb-3">
           <Link href="/submissions" className="p-1 hover:bg-gray-100 rounded">
             <ArrowLeft className="h-4 w-4 text-gray-500" />
