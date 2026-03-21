@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+
 import { useTranslations } from "next-intl";
 import { ArrowLeft, AlertCircle, User, Building2, CreditCard, Calendar } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -43,7 +43,6 @@ interface Ticket {
 export default function SuperAdminSupportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const t = useTranslations("support");
-  const router = useRouter();
   const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);

@@ -1,29 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { X, Loader2, AlertCircle, Upload } from "lucide-react";
+import { X, Loader2, AlertCircle } from "lucide-react";
 
 interface TicketCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
-}
-
-const ALLOWED_TYPES = [
-  "image/jpeg", "image/png", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/csv",
-];
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_FILES = 3;
-
-interface UploadedAttachment {
-  file_url: string;
-  file_name: string;
-  file_size: number;
-  file_type: string;
 }
 
 export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModalProps) {
@@ -32,29 +16,14 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
   const [category, setCategory] = useState("question");
   const [priority, setPriority] = useState("medium");
   const [message, setMessage] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
 
   const missingSubject = !subject.trim();
   const missingMessage = !message.trim() || message.trim().length < 10;
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files || []);
-    const valid = selected.filter(
-      (f) => ALLOWED_TYPES.includes(f.type) && f.size <= MAX_FILE_SIZE
-    );
-    setFiles((prev) => [...prev, ...valid].slice(0, MAX_FILES));
-    if (fileRef.current) fileRef.current.value = "";
-  }
-
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,7 +63,6 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
       setCategory("question");
       setPriority("medium");
       setMessage("");
-      setFiles([]);
       setSubmitted(false);
       onCreated();
       onClose();

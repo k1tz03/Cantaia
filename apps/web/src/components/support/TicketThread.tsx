@@ -39,7 +39,7 @@ function isImage(type: string) {
   return type.startsWith("image/");
 }
 
-export function TicketThread({ messages, currentUserId }: { messages: Message[]; currentUserId: string }) {
+export function TicketThread({ messages, currentUserId: _currentUserId }: { messages: Message[]; currentUserId: string }) {
   const t = useTranslations("support");
   const endRef = useRef<HTMLDivElement>(null);
 

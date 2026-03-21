@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LifeBuoy, Plus, Filter } from "lucide-react";
+import { LifeBuoy, Plus } from "lucide-react";
 import { TicketStatusBadge } from "@/components/support/TicketStatusBadge";
 import { TicketCategoryBadge } from "@/components/support/TicketCategoryBadge";
 import { TicketCreateModal } from "@/components/support/TicketCreateModal";
