@@ -84,7 +84,7 @@ export function SubscriptionTab() {
           <div className="rounded-lg border border-border bg-background p-5">
             <h4 className="text-sm font-semibold text-foreground">Starter</h4>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-foreground">79</span>
+              <span className="text-2xl font-bold text-foreground">149</span>
               <span className="text-sm text-muted-foreground">CHF</span>
               <span className="text-sm text-muted-foreground">/{t("month")}</span>
             </div>
@@ -112,7 +112,7 @@ export function SubscriptionTab() {
             </div>
             <h4 className="text-sm font-semibold text-foreground">Pro</h4>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-foreground">149</span>
+              <span className="text-2xl font-bold text-foreground">349</span>
               <span className="text-sm text-muted-foreground">CHF</span>
               <span className="text-sm text-muted-foreground">/{t("month")}</span>
             </div>
@@ -136,10 +136,10 @@ export function SubscriptionTab() {
           {/* Enterprise */}
           <div className="rounded-lg border border-border bg-background p-5">
             <h4 className="text-sm font-semibold text-foreground">Enterprise</h4>
-            <div className="mt-2">
-              <span className="text-lg font-bold text-foreground">
-                {t("customPrice")}
-              </span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-foreground">790</span>
+              <span className="text-sm text-muted-foreground">CHF</span>
+              <span className="text-sm text-muted-foreground">/{t("month")}</span>
             </div>
             <ul className="mt-4 space-y-2">
               {enterpriseFeatures.map((f, i) => (

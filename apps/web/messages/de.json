@@ -1059,7 +1059,7 @@
       "currency": "CHF",
       "customPrice": "Individuell",
       "starterName": "Starter",
-      "starterPrice": "79",
+      "starterPrice": "149",
       "starterDesc": "Für kleine Strukturen",
       "starterFeatures": {
         "users": "Bis zu 5 Benutzer",
@@ -1071,7 +1071,7 @@
         "emailSupport": "E-Mail-Support"
       },
       "proName": "Pro",
-      "proPrice": "149",
+      "proPrice": "349",
       "proDesc": "Für wachsende Unternehmen",
       "proFeatures": {
         "users": "Bis zu 15 Benutzer",
