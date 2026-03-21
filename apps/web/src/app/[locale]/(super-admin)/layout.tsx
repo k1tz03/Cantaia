@@ -17,6 +17,7 @@ import {
   DollarSign,
   ChevronLeft,
   ChevronRight,
+  LifeBuoy,
 } from "lucide-react";
 const superAdminNavItems = [
   { href: "/super-admin", icon: LayoutDashboard, labelKey: "dashboard" },
@@ -27,6 +28,7 @@ const superAdminNavItems = [
   { href: "/super-admin/data-intelligence", icon: Brain, labelKey: "dataIntelligence" },
   { href: "/super-admin/ai-costs", icon: DollarSign, labelKey: "aiCosts" },
   { href: "/super-admin/operations", icon: Wrench, labelKey: "operations" },
+  { href: "/super-admin/support", icon: LifeBuoy, labelKey: "support" },
   { href: "/super-admin/config", icon: Settings, labelKey: "platformConfig" },
 ];
 

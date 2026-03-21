@@ -32,6 +32,7 @@ import {
   Plus,
   Camera,
   Mic,
+  LifeBuoy,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -63,6 +64,7 @@ export function Sidebar() {
   const { resolvedTheme } = useTheme();
 
   const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
+  const [supportUnread, setSupportUnread] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -73,6 +75,20 @@ export function Sidebar() {
         if (d.profile?.is_superadmin) setProfileSuperAdmin(true);
       })
       .catch(() => {});
+  }, [user?.id]);
+
+  // Poll support unread count
+  useEffect(() => {
+    if (!user?.id) return;
+    function fetchUnread() {
+      fetch("/api/support/tickets/unread-count")
+        .then((r) => r.json())
+        .then((d) => setSupportUnread(d.count || 0))
+        .catch(() => {});
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
   }, [user?.id]);
 
   const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
@@ -93,6 +109,7 @@ export function Sidebar() {
   ];
 
   const bottomItems: NavItem[] = [
+    { href: "/support", labelKey: "support", icon: LifeBuoy, status: "active", badge: supportUnread > 0 ? String(supportUnread) : undefined },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
