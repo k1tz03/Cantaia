@@ -266,8 +266,8 @@ export default function SubmissionDetailPage() {
   if (!submission) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-900">Soumission introuvable</h2>
-        <Link href="/submissions" className="text-sm text-blue-600 hover:underline mt-2 inline-block">
+        <h2 className="text-lg font-medium text-foreground">Soumission introuvable</h2>
+        <Link href="/submissions" className="text-sm text-primary hover:underline mt-2 inline-block">
           Retour aux soumissions
         </Link>
       </div>
@@ -287,25 +287,25 @@ export default function SubmissionDetailPage() {
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-background border-b border-border px-6 py-4">
         <ProjectBreadcrumb section="submissions" />
         <div className="flex items-center gap-3 mb-3">
-          <Link href="/submissions" className="p-1 hover:bg-gray-100 rounded">
-            <ArrowLeft className="h-4 w-4 text-gray-500" />
+          <Link href="/submissions" className="p-1 hover:bg-muted rounded">
+            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
           </Link>
           {submission.projects && (
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full" style={{ backgroundColor: submission.projects.color || "#94a3b8" }} />
-              <span className="text-sm text-gray-500">{submission.projects.name}</span>
+              <span className="text-sm text-muted-foreground">{submission.projects.name}</span>
             </div>
           )}
         </div>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               {submission.file_name || "Soumission"}
             </h1>
-            <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+            <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
               <AnalysisStatusBadge status={submission.analysis_status} />
               {items.length > 0 && (
                 <span>{items.length} postes · {materialGroups.length} groupes</span>
@@ -317,7 +317,7 @@ export default function SubmissionDetailPage() {
             {submission.analysis_status === "done" && submission.project_id && (
               <Link
                 href={`/projects/${submission.project_id}/planning`}
-                className="text-xs px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-50 text-blue-600 flex items-center gap-1.5"
+                className="text-xs px-3 py-1.5 border border-primary/20 rounded-lg hover:bg-primary/10 text-primary flex items-center gap-1.5"
               >
                 <CalendarRange className="h-3 w-3" />
                 Planning
@@ -326,7 +326,7 @@ export default function SubmissionDetailPage() {
             {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
               <button
                 onClick={handleReanalyze}
-                className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 flex items-center gap-1.5"
+                className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-muted text-muted-foreground flex items-center gap-1.5"
               >
                 <RefreshCw className="h-3 w-3" />
                 Ré-analyser
@@ -345,14 +345,14 @@ export default function SubmissionDetailPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.key
-                    ? "text-brand border-brand bg-white"
-                    : "text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300"
+                    ? "text-brand border-brand bg-background"
+                    : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full ml-1">
+                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-1">
                     {tab.count}
                   </span>
                 )}
@@ -364,18 +364,18 @@ export default function SubmissionDetailPage() {
 
       {/* Analysis in progress */}
       {analyzing && (
-        <div className="mx-6 mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-          <Loader2 className="h-5 w-5 text-blue-600 animate-spin shrink-0" />
+        <div className="mx-6 mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3">
+          <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
           <div>
             <p className="text-sm font-medium text-blue-900">Analyse IA en cours...</p>
-            <p className="text-xs text-blue-600">Extraction des postes du descriptif</p>
+            <p className="text-xs text-primary">Extraction des postes du descriptif</p>
           </div>
         </div>
       )}
 
       {/* Analysis error */}
       {submission.analysis_status === "error" && submission.analysis_error && (
-        <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+        <div className="mx-6 mt-6 bg-red-500/10 border border-red-200 rounded-lg p-4 flex items-center gap-3">
           <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
           <div>
             <p className="text-sm font-medium text-red-900">Erreur d'analyse</p>
@@ -444,10 +444,10 @@ export default function SubmissionDetailPage() {
 // ── Analysis status badge ────────────────────────────────────
 function AnalysisStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    pending: { label: "En attente", className: "bg-gray-100 text-gray-600" },
-    analyzing: { label: "Analyse en cours...", className: "bg-purple-100 text-purple-700" },
-    done: { label: "Analysé", className: "bg-green-100 text-green-700" },
-    error: { label: "Erreur", className: "bg-red-100 text-red-700" },
+    pending: { label: "En attente", className: "bg-muted text-muted-foreground" },
+    analyzing: { label: "Analyse en cours...", className: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
+    done: { label: "Analysé", className: "bg-green-500/10 text-green-700 dark:text-green-400" },
+    error: { label: "Erreur", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
   };
   const c = config[status] || config.pending;
   return (
@@ -493,9 +493,9 @@ function ItemsTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <FileSpreadsheet className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Aucun poste extrait</p>
-        <p className="text-xs text-gray-400 mt-1">Lancez l'analyse IA pour extraire les postes du descriptif</p>
+        <FileSpreadsheet className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">Aucun poste extrait</p>
+        <p className="text-xs text-muted-foreground mt-1">Lancez l'analyse IA pour extraire les postes du descriptif</p>
       </div>
     );
   }
@@ -524,12 +524,12 @@ function ItemsTabContent({
   return (
     <div className="space-y-3">
       {!hasBudget && items.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calculator className="h-5 w-5 text-blue-600 shrink-0" />
+            <Calculator className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="text-sm font-medium text-blue-900">Estimer les prix de cette soumission</p>
-              <p className="text-xs text-blue-600">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
+              <p className="text-xs text-primary">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
             </div>
           </div>
           <button
@@ -556,34 +556,34 @@ function ItemsTabContent({
         }, 0);
 
         return (
-          <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => toggleGroup(group)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted"
             >
               <div className="flex items-center gap-3">
-                <svg className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                <span className="text-sm font-medium text-gray-900">{group}</span>
-                <span className="text-xs text-gray-400">{groupItems.length} postes</span>
+                <svg className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <span className="text-sm font-medium text-foreground">{group}</span>
+                <span className="text-xs text-muted-foreground">{groupItems.length} postes</span>
               </div>
               <div className="flex items-center gap-3">
                 {quotedCount > 0 && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
                     {quotedCount}/{groupItems.length} cotés
                   </span>
                 )}
                 {hasBudget && groupTotal > 0 && (
-                  <span className="text-sm font-semibold text-gray-700">
+                  <span className="text-sm font-semibold text-foreground">
                     {formatCHF(groupTotal)}
                   </span>
                 )}
               </div>
             </button>
             {expanded && (
-              <div className="border-t border-gray-200 overflow-x-auto">
+              <div className="border-t border-border overflow-x-auto">
                 <table className="w-full min-w-[600px]">
                   <thead>
-                    <tr className="bg-gray-50 text-[11px] font-medium text-gray-500 uppercase">
+                    <tr className="bg-muted text-[11px] font-medium text-muted-foreground uppercase">
                       <th className="text-left px-4 py-2 w-20">N°</th>
                       <th className="text-left px-4 py-2">Description</th>
                       <th className="text-center px-4 py-2 w-16">Unité</th>
@@ -594,7 +594,7 @@ function ItemsTabContent({
                       <th className="text-center px-4 py-2 w-20">Source</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-border">
                     {groupItems.map((item) => {
                       const itemQuotes = quotes.filter((q) => q.item_id === item.id);
                       const bestPrice = itemQuotes.length > 0
@@ -607,60 +607,60 @@ function ItemsTabContent({
                       const source = hasQuote ? "fournisseur" : budget?.source ?? null;
 
                       return (
-                        <tr key={item.id} className="hover:bg-gray-50 text-sm">
-                          <td className="px-4 py-2 text-xs font-mono text-gray-500">{item.item_number || "—"}</td>
-                          <td className="px-4 py-2 text-gray-900">
+                        <tr key={item.id} className="hover:bg-muted text-sm">
+                          <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{item.item_number || "—"}</td>
+                          <td className="px-4 py-2 text-foreground">
                             <div>{item.description}</div>
                             {item.product_name && (
-                              <span className="inline-block mt-0.5 text-[11px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                              <span className="inline-block mt-0.5 text-[11px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium">
                                 {item.product_name}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-center text-xs text-gray-500">{item.unit || "—"}</td>
-                          <td className="px-4 py-2 text-right text-gray-600">
+                          <td className="px-4 py-2 text-center text-xs text-muted-foreground">{item.unit || "—"}</td>
+                          <td className="px-4 py-2 text-right text-muted-foreground">
                             {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                           </td>
                           <td className="px-4 py-2 text-center">
                             {item.cfc_code && (
-                              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                                 {item.cfc_code}
                               </span>
                             )}
                           </td>
                           {hasBudget && (
-                            <td className="px-4 py-2 text-right font-medium text-gray-900">
+                            <td className="px-4 py-2 text-right font-medium text-foreground">
                               {unitPrice != null ? formatCHF(unitPrice) : "—"}
                             </td>
                           )}
                           {hasBudget && (
-                            <td className="px-4 py-2 text-right text-gray-600">
+                            <td className="px-4 py-2 text-right text-muted-foreground">
                               {totalPrice != null ? formatCHF(totalPrice) : "—"}
                             </td>
                           )}
                           <td className="px-4 py-2 text-center">
                             {hasQuote ? (
-                              <span className="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">
                                 Fournisseur
                               </span>
                             ) : source === "historique_interne" ? (
-                              <span className="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 Fournisseur
                               </span>
                             ) : source === "referentiel_crb" ? (
-                              <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-teal-500/10 text-teal-700 dark:text-teal-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 CRB
                               </span>
                             ) : source === "benchmark_cantaia" ? (
-                              <span className="text-[10px] font-medium bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 Marché
                               </span>
                             ) : source === "estimation_ia" ? (
-                              <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
                                 IA
                               </span>
                             ) : (
-                              <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
                                 En attente
                               </span>
                             )}
@@ -908,16 +908,16 @@ function RequestsTabContent({
 
   function getRequestStatus(pr: PriceRequestData): { label: string; className: string; icon: React.ElementType } {
     if (pr.status === "responded") {
-      return { label: "Répondu", className: "bg-green-100 text-green-700", icon: CheckCircle2 };
+      return { label: "Répondu", className: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle2 };
     }
     if (pr.deadline) {
       const deadlineDate = new Date(pr.deadline);
       const now = new Date();
       if (deadlineDate < now) {
-        return { label: "En retard", className: "bg-red-100 text-red-700", icon: AlertTriangle };
+        return { label: "En retard", className: "bg-red-500/10 text-red-700 dark:text-red-400", icon: AlertTriangle };
       }
     }
-    return { label: "En attente", className: "bg-amber-100 text-amber-700", icon: Clock };
+    return { label: "En attente", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Clock };
   }
 
   // Group existing requests by material_group
@@ -954,7 +954,7 @@ function RequestsTabContent({
         <button
           onClick={() => setSelectionMode("group")}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            selectionMode === "group" ? "bg-brand text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            selectionMode === "group" ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted"
           }`}
         >
           <ListFilter className="h-3.5 w-3.5" />
@@ -963,7 +963,7 @@ function RequestsTabContent({
         <button
           onClick={() => setSelectionMode("free")}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            selectionMode === "free" ? "bg-brand text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            selectionMode === "free" ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted"
           }`}
         >
           <CheckSquare className="h-3.5 w-3.5" />
@@ -973,7 +973,7 @@ function RequestsTabContent({
 
       {/* Action bar */}
       {hasSelection && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between">
           <div className="text-sm text-blue-900">
             {selectionMode === "free"
               ? `${selectedItemIds.size} article(s) · ${freeSupplierIds.length} fournisseur(s)`
@@ -994,9 +994,9 @@ function RequestsTabContent({
       {selectionMode === "free" && (
         <div className="space-y-4">
           {/* Item selection table */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900">Sélectionner les articles</span>
+          <div className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Sélectionner les articles</span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedItemIds(new Set(items.map(i => i.id)))}
@@ -1004,10 +1004,10 @@ function RequestsTabContent({
                 >
                   Tout sélectionner
                 </button>
-                <span className="text-gray-300">|</span>
+                <span className="text-muted-foreground">|</span>
                 <button
                   onClick={() => setSelectedItemIds(new Set())}
-                  className="text-xs text-gray-500 hover:underline"
+                  className="text-xs text-muted-foreground hover:underline"
                 >
                   Désélectionner
                 </button>
@@ -1015,8 +1015,8 @@ function RequestsTabContent({
             </div>
             <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
               <table className="w-full min-w-[600px]">
-                <thead className="sticky top-0 bg-gray-50 z-10">
-                  <tr className="text-[11px] font-medium text-gray-500 uppercase">
+                <thead className="sticky top-0 bg-muted z-10">
+                  <tr className="text-[11px] font-medium text-muted-foreground uppercase">
                     <th className="w-10 px-3 py-2"></th>
                     <th className="text-left px-3 py-2 w-16">N°</th>
                     <th className="text-left px-3 py-2">Description</th>
@@ -1025,13 +1025,13 @@ function RequestsTabContent({
                     <th className="text-right px-3 py-2 w-16">Qté</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {items.map((item) => (
                     <tr
                       key={item.id}
                       onClick={() => toggleItemSelection(item.id)}
                       className={`text-sm cursor-pointer transition-colors ${
-                        selectedItemIds.has(item.id) ? "bg-blue-50/50" : "hover:bg-gray-50"
+                        selectedItemIds.has(item.id) ? "bg-primary/10/50" : "hover:bg-muted"
                       }`}
                     >
                       <td className="px-3 py-2 text-center">
@@ -1039,21 +1039,21 @@ function RequestsTabContent({
                           type="checkbox"
                           checked={selectedItemIds.has(item.id)}
                           onChange={() => toggleItemSelection(item.id)}
-                          className="rounded border-gray-300 text-brand focus:ring-brand"
+                          className="rounded border-border text-brand focus:ring-brand"
                         />
                       </td>
-                      <td className="px-3 py-2 text-xs font-mono text-gray-500">{item.item_number || "—"}</td>
-                      <td className="px-3 py-2 text-gray-900">
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground">{item.item_number || "—"}</td>
+                      <td className="px-3 py-2 text-foreground">
                         <div className="truncate max-w-[300px]">{item.description}</div>
                         {item.product_name && (
-                          <span className="inline-block mt-0.5 text-[10px] bg-purple-50 text-purple-700 px-1 py-0.5 rounded">
+                          <span className="inline-block mt-0.5 text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1 py-0.5 rounded">
                             {item.product_name}
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs text-gray-500">{item.material_group}</td>
-                      <td className="px-3 py-2 text-center text-xs text-gray-500">{item.unit || "—"}</td>
-                      <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{item.material_group}</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{item.unit || "—"}</td>
+                      <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                         {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                       </td>
                     </tr>
@@ -1065,9 +1065,9 @@ function RequestsTabContent({
 
           {/* Supplier selection for free mode */}
           {selectedItemIds.size > 0 && (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">
+            <div className="bg-background border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
                   Envoyer à ({selectedItemIds.size} article{selectedItemIds.size > 1 ? "s" : ""})
                 </span>
                 <button
@@ -1087,13 +1087,13 @@ function RequestsTabContent({
                         key={supplier.id}
                         onClick={() => toggleFreeSupplier(supplier.id)}
                         className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
-                          isSelected ? "bg-blue-50 border-blue-300 text-blue-900" :
-                          "bg-white border-gray-200 text-gray-700 hover:border-brand/30"
+                          isSelected ? "bg-primary/10 border-blue-300 text-blue-900" :
+                          "bg-background border-border text-foreground hover:border-brand/30"
                         }`}
                       >
                         <span className="font-medium block truncate">{supplier.company_name}</span>
                         {supplier.email && (
-                          <span className="text-gray-400 block truncate">{supplier.email}</span>
+                          <span className="text-muted-foreground block truncate">{supplier.email}</span>
                         )}
                       </button>
                     );
@@ -1111,14 +1111,14 @@ function RequestsTabContent({
         const existingRequests = requestsByGroup[group] || [];
 
         return (
-          <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-900">{group}</span>
-                <span className="text-xs text-gray-400">{groupItems.length} postes</span>
+                <span className="text-sm font-medium text-foreground">{group}</span>
+                <span className="text-xs text-muted-foreground">{groupItems.length} postes</span>
               </div>
               {existingRequests.length > 0 && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                   {existingRequests.length} demande(s) envoyée(s)
                 </span>
               )}
@@ -1126,8 +1126,8 @@ function RequestsTabContent({
 
             {/* Tracking section — existing requests with full status + relance */}
             {existingRequests.filter(pr => pr.sent_at).length > 0 && (
-              <div className="border-b border-gray-100 px-4 py-3 space-y-2">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Suivi des demandes</p>
+              <div className="border-b border-border px-4 py-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Suivi des demandes</p>
                 {existingRequests.filter(pr => pr.sent_at).map((pr) => {
                   const status = getRequestStatus(pr);
                   const StatusIcon = status.icon;
@@ -1143,7 +1143,7 @@ function RequestsTabContent({
                   return (
                     <div
                       key={pr.id}
-                      className="px-3 py-3 rounded-lg text-sm bg-white border border-gray-200 space-y-2"
+                      className="px-3 py-3 rounded-lg text-sm bg-background border border-border space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
@@ -1152,11 +1152,11 @@ function RequestsTabContent({
                             status.label === "En retard" ? "text-red-600" : "text-amber-500"
                           }`} />
                           <div className="min-w-0">
-                            <span className="font-medium text-gray-900">
+                            <span className="font-medium text-foreground">
                               {pr.suppliers?.company_name || "Fournisseur"}
                             </span>
                             {pr.suppliers?.email && (
-                              <span className="text-xs text-gray-400 ml-2">{pr.suppliers.email}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{pr.suppliers.email}</span>
                             )}
                           </div>
                         </div>
@@ -1164,8 +1164,8 @@ function RequestsTabContent({
                           {status.label}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 pl-7">
-                        <span className="font-mono text-gray-400">{pr.tracking_code}</span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pl-7">
+                        <span className="font-mono text-muted-foreground">{pr.tracking_code}</span>
                         {sentDate && (
                           <span>Envoyé le {sentDate.toLocaleDateString("fr-CH")}</span>
                         )}
@@ -1184,7 +1184,7 @@ function RequestsTabContent({
                           <span className="text-orange-600 font-medium">
                             {pr.relance_count} relance{(pr.relance_count || 0) > 1 ? "s" : ""}
                             {pr.last_relance_at && (
-                              <span className="text-gray-400 font-normal ml-1">
+                              <span className="text-muted-foreground font-normal ml-1">
                                 (dernière: {new Date(pr.last_relance_at).toLocaleDateString("fr-CH")})
                               </span>
                             )}
@@ -1196,7 +1196,7 @@ function RequestsTabContent({
                           <button
                             onClick={() => openRelanceModal(pr)}
                             disabled={relancing === pr.id}
-                            className="text-xs px-3 py-1.5 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50 flex items-center gap-1.5"
+                            className="text-xs px-3 py-1.5 border border-orange-300 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-500/10 disabled:opacity-50 flex items-center gap-1.5"
                           >
                             {relancing === pr.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -1216,7 +1216,7 @@ function RequestsTabContent({
             {/* Supplier selection */}
             <div className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-gray-600">Sélectionner des fournisseurs :</p>
+                <p className="text-xs font-medium text-muted-foreground">Sélectionner des fournisseurs :</p>
                 <button
                   onClick={() => setShowAddSupplier(true)}
                   className="text-xs px-2 py-1 text-brand hover:bg-brand/5 rounded flex items-center gap-1"
@@ -1238,19 +1238,19 @@ function RequestsTabContent({
                       onClick={() => !alreadySent && toggleSupplier(group, supplier.id)}
                       disabled={alreadySent}
                       className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
-                        alreadySent ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed" :
-                        isSelected ? "bg-blue-50 border-blue-300 text-blue-900" :
-                        "bg-white border-gray-200 text-gray-700 hover:border-brand/30"
+                        alreadySent ? "bg-muted border-border text-muted-foreground cursor-not-allowed" :
+                        isSelected ? "bg-primary/10 border-blue-300 text-blue-900" :
+                        "bg-background border-border text-foreground hover:border-brand/30"
                       }`}
                     >
                       <div className="flex items-center gap-1">
                         <span className="font-medium block truncate">{supplier.company_name}</span>
                         {supplier._manual && (
-                          <span className="text-[10px] bg-orange-100 text-orange-600 px-1 py-0.5 rounded shrink-0">Manuel</span>
+                          <span className="text-[10px] bg-orange-500/10 text-orange-600 px-1 py-0.5 rounded shrink-0">Manuel</span>
                         )}
                       </div>
                       {supplier.email && (
-                        <span className="text-gray-400 block truncate">{supplier.email}</span>
+                        <span className="text-muted-foreground block truncate">{supplier.email}</span>
                       )}
                       {alreadySent && <span className="text-green-600">Demande envoyée</span>}
                     </button>
@@ -1258,7 +1258,7 @@ function RequestsTabContent({
                 })}
               </div>
               {suppliers.length === 0 && (
-                <p className="text-xs text-gray-400 py-2">
+                <p className="text-xs text-muted-foreground py-2">
                   Aucun fournisseur.{" "}
                   <button onClick={() => setShowAddSupplier(true)} className="text-brand hover:underline">
                     Ajouter un fournisseur
@@ -1272,40 +1272,40 @@ function RequestsTabContent({
 
       {selectionMode === "group" && materialGroups.length === 0 && (
         <div className="text-center py-16">
-          <Send className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Analysez d&apos;abord le descriptif pour grouper les postes</p>
+          <Send className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Analysez d&apos;abord le descriptif pour grouper les postes</p>
         </div>
       )}
 
       {/* Send modal with preview */}
       {showSendModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">Confirmer l&apos;envoi</h3>
-              <button onClick={() => { setShowSendModal(false); setPreviewData(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+              <h3 className="text-lg font-bold text-foreground">Confirmer l&apos;envoi</h3>
+              <button onClick={() => { setShowSendModal(false); setPreviewData(null); }} className="text-muted-foreground hover:text-muted-foreground text-xl">&times;</button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Délai de réponse</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Délai de réponse</label>
                 <input
                   type="date"
                   value={deadline}
                   onChange={(e) => { setDeadline(e.target.value); setPreviewData(null); }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
                 />
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+              <div className="bg-muted border border-border rounded-lg p-3 space-y-2">
                 {Object.entries(selectedSuppliers)
                   .filter(([, ids]) => ids.length > 0)
                   .map(([group, ids]) => (
                     <div key={group}>
-                      <p className="text-xs font-medium text-gray-700">{group}</p>
+                      <p className="text-xs font-medium text-foreground">{group}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {ids.map((sid) => {
                           const s = suppliers.find((sup: any) => sup.id === sid);
                           return (
-                            <span key={sid} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                            <span key={sid} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                               {s?.company_name || sid}
                             </span>
                           );
@@ -1316,9 +1316,9 @@ function RequestsTabContent({
               </div>
 
               {/* Email preview — editable */}
-              <div className="border border-gray-200 rounded-lg">
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <div className="border border-border rounded-lg">
+                <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                     <Eye className="h-4 w-4" />
                     Aperçu de l&apos;email
                   </div>
@@ -1329,7 +1329,7 @@ function RequestsTabContent({
                         const pair = allSelected.find((p) => p.supplierId === e.target.value);
                         if (pair) loadPreview(pair.group, pair.supplierId);
                       }}
-                      className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                      className="text-xs border border-border rounded px-2 py-1 bg-background"
                     >
                       <option value="">Choisir un destinataire...</option>
                       {allSelected.map((pair) => {
@@ -1350,32 +1350,32 @@ function RequestsTabContent({
                 ) : previewData ? (
                   <div className="p-4 space-y-3">
                     <div className="text-xs">
-                      <p className="text-gray-500 mb-1">À : <span className="text-gray-900">{previewData.to}</span></p>
+                      <p className="text-muted-foreground mb-1">À : <span className="text-foreground">{previewData.to}</span></p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Objet</label>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Objet</label>
                       <input
                         type="text"
                         value={editSubject}
                         onChange={(e) => setEditSubject(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-brand focus:border-brand"
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:ring-1 focus:ring-brand focus:border-brand"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Corps du message</label>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Corps du message</label>
                       <textarea
                         value={editBody}
                         onChange={(e) => setEditBody(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
                         style={{ minHeight: "300px" }}
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-1">
                         Le marqueur [TABLEAU AUTOMATIQUE] sera remplacé par le tableau des postes. Le code de suivi est ajouté automatiquement.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 text-center text-xs text-gray-400">
+                  <div className="p-6 text-center text-xs text-muted-foreground">
                     Sélectionnez un destinataire pour voir l&apos;aperçu
                   </div>
                 )}
@@ -1383,9 +1383,9 @@ function RequestsTabContent({
 
               {/* Error display */}
               {(sendResult?.error || sendResult?.microsoft_error) && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                  <div className="text-sm text-red-700">
+                  <div className="text-sm text-red-700 dark:text-red-400">
                     {sendResult.microsoft_error && (
                       <p className="font-medium">{sendResult.microsoft_error}</p>
                     )}
@@ -1397,10 +1397,10 @@ function RequestsTabContent({
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => { setShowSendModal(false); setPreviewData(null); }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
               >
                 Annuler
               </button>
@@ -1420,41 +1420,41 @@ function RequestsTabContent({
       {/* Relance modal with editable preview */}
       {showRelanceModal && relanceRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Relancer le fournisseur</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <h3 className="text-lg font-bold text-foreground">Relancer le fournisseur</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {relanceRequest.suppliers?.company_name} — {relanceRequest.tracking_code}
                 </p>
               </div>
-              <button onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              <button onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }} className="text-muted-foreground hover:text-muted-foreground text-xl">&times;</button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Objet</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Objet</label>
                 <input
                   type="text"
                   value={relanceSubject}
                   onChange={(e) => setRelanceSubject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-brand focus:border-brand"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:ring-1 focus:ring-brand focus:border-brand"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Message</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Message</label>
                 <textarea
                   value={relanceBody}
                   onChange={(e) => setRelanceBody(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
                   style={{ minHeight: "220px" }}
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Le code de suivi ({relanceRequest.tracking_code}) est ajouté automatiquement.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Le code de suivi ({relanceRequest.tracking_code}) est ajouté automatiquement.</p>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
               >
                 Annuler
               </button>
@@ -1474,56 +1474,56 @@ function RequestsTabContent({
       {/* Add supplier modal */}
       {showAddSupplier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Ajouter un fournisseur</h3>
-              <button onClick={() => setShowAddSupplier(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Ajouter un fournisseur</h3>
+              <button onClick={() => setShowAddSupplier(false)} className="text-muted-foreground hover:text-muted-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Nom de l&apos;entreprise <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newSupplier.company_name}
                   onChange={(e) => setNewSupplier((prev) => ({ ...prev, company_name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm"
                   placeholder="Ex: Holcim Suisse SA"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Email <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   value={newSupplier.email}
                   onChange={(e) => setNewSupplier((prev) => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm"
                   placeholder="offres@holcim.ch"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Contact</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
                   <input
                     type="text"
                     value={newSupplier.contact_name}
                     onChange={(e) => setNewSupplier((prev) => ({ ...prev, contact_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
                     placeholder="Jean Dupont"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Téléphone</label>
                   <input
                     type="tel"
                     value={newSupplier.phone}
                     onChange={(e) => setNewSupplier((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
                     placeholder="+41 21 000 00 00"
                   />
                 </div>
@@ -1533,15 +1533,15 @@ function RequestsTabContent({
                   type="checkbox"
                   checked={saveToDb}
                   onChange={(e) => setSaveToDb(e.target.checked)}
-                  className="rounded border-gray-300 text-brand focus:ring-brand"
+                  className="rounded border-border text-brand focus:ring-brand"
                 />
-                <span className="text-xs text-gray-600">Sauvegarder dans la base fournisseurs</span>
+                <span className="text-xs text-muted-foreground">Sauvegarder dans la base fournisseurs</span>
               </label>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
               <button
                 onClick={() => setShowAddSupplier(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
               >
                 Annuler
               </button>
@@ -1612,9 +1612,9 @@ function ComparisonTabContent({
   if (quotes.length === 0) {
     return (
       <div className="text-center py-16">
-        <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Aucune offre reçue</p>
-        <p className="text-xs text-gray-400 mt-1">Les résultats apparaîtront ici après réception des réponses fournisseurs</p>
+        <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">Aucune offre reçue</p>
+        <p className="text-xs text-muted-foreground mt-1">Les résultats apparaîtront ici après réception des réponses fournisseurs</p>
       </div>
     );
   }
@@ -1630,14 +1630,14 @@ function ComparisonTabContent({
     <div className="space-y-6">
       {/* Award success banner */}
       {awardSuccess && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-700">
+        <div className="bg-emerald-500/10 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {awardSuccess}
         </div>
       )}
       {/* Award error banner */}
       {awardError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-500/10 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {awardError}
           <button onClick={() => setAwardError(null)} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
@@ -1647,14 +1647,14 @@ function ComparisonTabContent({
       {/* Confirm award dialog */}
       {confirmAward && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Attribuer la soumission</h3>
-            <p className="text-sm text-gray-600 mb-5">
+          <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-semibold text-foreground mb-2">Attribuer la soumission</h3>
+            <p className="text-sm text-muted-foreground mb-5">
               Attribuer cette soumission à <strong>{confirmAward.supplierName}</strong> ?
               Les autres fournisseurs seront marqués comme non retenus.
             </p>
             {awardError && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+              <div className="mb-4 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {awardError}
               </div>
@@ -1663,7 +1663,7 @@ function ComparisonTabContent({
               <button
                 onClick={() => { setConfirmAward(null); setAwardError(null); }}
                 disabled={awarding}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted disabled:opacity-50"
               >
                 Annuler
               </button>
@@ -1686,38 +1686,38 @@ function ComparisonTabContent({
         if (groupRequests.length === 0) return null;
 
         return (
-          <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-900">{group}</span>
-              <span className="text-xs text-gray-400">{groupRequests.length} offre(s)</span>
+          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-3">
+              <span className="text-sm font-medium text-foreground">{group}</span>
+              <span className="text-xs text-muted-foreground">{groupRequests.length} offre(s)</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-white z-10 w-48">Description</th>
+                  <tr className="border-b border-border text-[11px] font-medium text-muted-foreground uppercase">
+                    <th className="text-left px-3 py-2 sticky left-0 bg-background z-10 w-48">Description</th>
                     <th className="text-center px-2 py-2 w-12">Unité</th>
                     <th className="text-right px-2 py-2 w-16">Qté</th>
                     {groupRequests.map((pr) => {
                       const isAwarded = awardedRequestId === pr.id;
                       const hasAward = !!awardedRequestId;
                       return (
-                        <th key={pr.id} className={`px-3 py-2 w-32 ${isAwarded ? "bg-emerald-50" : ""}`}>
-                          <div className="text-xs font-medium text-gray-700 text-right">{supplierNames[pr.id]}</div>
+                        <th key={pr.id} className={`px-3 py-2 w-32 ${isAwarded ? "bg-emerald-500/10" : ""}`}>
+                          <div className="text-xs font-medium text-foreground text-right">{supplierNames[pr.id]}</div>
                           {isAwarded ? (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full mt-0.5">
                               <CheckCircle2 className="h-2.5 w-2.5" />
                               Attribué
                             </span>
                           ) : hasAward ? (
-                            <span className="inline-flex text-[9px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <span className="inline-flex text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full mt-0.5">
                               Non retenu
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setConfirmAward({ requestId: pr.id, supplierName: supplierNames[pr.id] })}
-                              className="mt-0.5 text-[9px] font-medium text-emerald-700 border border-emerald-300 bg-white hover:bg-emerald-50 px-1.5 py-0.5 rounded-full transition-colors"
+                              className="mt-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-300 bg-background hover:bg-emerald-500/10 px-1.5 py-0.5 rounded-full transition-colors"
                             >
                               Attribuer
                             </button>
@@ -1725,10 +1725,10 @@ function ComparisonTabContent({
                         </th>
                       );
                     })}
-                    <th className="text-right px-3 py-2 w-20 bg-gray-50">Ecart</th>
+                    <th className="text-right px-3 py-2 w-20 bg-muted">Ecart</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {groupItems.map((item) => {
                     const prices = groupRequests.map((pr) => {
                       const q = quotes.find((q) => q.request_id === pr.id && q.item_id === item.id);
@@ -1740,13 +1740,13 @@ function ComparisonTabContent({
                     const gap = minPrice && maxPrice && minPrice > 0 ? Math.round(((maxPrice - minPrice) / minPrice) * 100) : null;
 
                     return (
-                      <tr key={item.id} className="hover:bg-gray-50 text-sm">
-                        <td className="px-3 py-2 sticky left-0 bg-white z-10">
-                          <div className="text-xs font-mono text-gray-400">{item.item_number}</div>
-                          <div className="text-sm text-gray-900 truncate max-w-[200px]">{item.description}</div>
+                      <tr key={item.id} className="hover:bg-muted text-sm">
+                        <td className="px-3 py-2 sticky left-0 bg-background z-10">
+                          <div className="text-xs font-mono text-muted-foreground">{item.item_number}</div>
+                          <div className="text-sm text-foreground truncate max-w-[200px]">{item.description}</div>
                         </td>
-                        <td className="px-2 py-2 text-center text-xs text-gray-500">{item.unit}</td>
-                        <td className="px-2 py-2 text-right text-gray-600 text-xs">
+                        <td className="px-2 py-2 text-center text-xs text-muted-foreground">{item.unit}</td>
+                        <td className="px-2 py-2 text-right text-muted-foreground text-xs">
                           {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                         </td>
                         {prices.map((p) => {
@@ -1756,17 +1756,17 @@ function ComparisonTabContent({
                             <td
                               key={p.requestId}
                               className={`px-3 py-2 text-right text-sm ${
-                                isCheapest ? "text-green-700 font-bold bg-green-50/50" :
-                                isMostExpensive ? "text-red-600" : "text-gray-700"
+                                isCheapest ? "text-green-700 dark:text-green-400 font-bold bg-green-500/10/50" :
+                                isMostExpensive ? "text-red-600" : "text-foreground"
                               }`}
                             >
                               {p.price !== null ? p.price.toFixed(2) : (
-                                <span className="text-xs text-gray-300">—</span>
+                                <span className="text-xs text-muted-foreground">—</span>
                               )}
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-right bg-gray-50">
+                        <td className="px-3 py-2 text-right bg-muted">
                           {gap !== null ? (
                             <span className={`text-xs font-medium ${gap > 15 ? "text-red-600" : gap > 5 ? "text-amber-600" : "text-green-600"}`}>
                               {gap}%
@@ -1806,45 +1806,45 @@ function SummaryTabContent({
     <div className="space-y-6 max-w-2xl">
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-gray-900">{items.length}</div>
-          <div className="text-xs text-gray-500 mt-1">Postes</div>
+        <div className="bg-background border border-border rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-foreground">{items.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">Postes</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-gray-900">{materialGroups.length}</div>
-          <div className="text-xs text-gray-500 mt-1">Groupes</div>
+        <div className="bg-background border border-border rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-foreground">{materialGroups.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">Groupes</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-blue-600">{sentCount}</div>
-          <div className="text-xs text-gray-500 mt-1">Demandes envoyées</div>
+        <div className="bg-background border border-border rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-primary">{sentCount}</div>
+          <div className="text-xs text-muted-foreground mt-1">Demandes envoyées</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+        <div className="bg-background border border-border rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-green-600">{respondedCount}</div>
-          <div className="text-xs text-gray-500 mt-1">Réponses reçues</div>
+          <div className="text-xs text-muted-foreground mt-1">Réponses reçues</div>
         </div>
       </div>
 
       {/* Progress */}
       {sentCount > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Avancement</h3>
+        <div className="bg-background border border-border rounded-lg p-4">
+          <h3 className="text-sm font-medium text-foreground mb-3">Avancement</h3>
           <div className="space-y-3">
             <div>
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Postes cotés</span>
                 <span>{quotedItems}/{items.length}</span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-green-500 rounded-full" style={{ width: `${items.length > 0 ? (quotedItems / items.length) * 100 : 0}%` }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Fournisseurs répondus</span>
                 <span>{respondedCount}/{sentCount}</span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${sentCount > 0 ? (respondedCount / sentCount) * 100 : 0}%` }} />
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary/100 rounded-full" style={{ width: `${sentCount > 0 ? (respondedCount / sentCount) * 100 : 0}%` }} />
               </div>
             </div>
           </div>
@@ -1853,32 +1853,32 @@ function SummaryTabContent({
 
       {/* Project info */}
       {submission.projects && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Informations</h3>
+        <div className="bg-background border border-border rounded-lg p-4">
+          <h3 className="text-sm font-medium text-foreground mb-3">Informations</h3>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-xs text-gray-500">Projet</dt>
-              <dd className="text-gray-900">{submission.projects.name}</dd>
+              <dt className="text-xs text-muted-foreground">Projet</dt>
+              <dd className="text-foreground">{submission.projects.name}</dd>
             </div>
             {submission.projects.client_name && (
               <div>
-                <dt className="text-xs text-gray-500">Client</dt>
-                <dd className="text-gray-900">{submission.projects.client_name}</dd>
+                <dt className="text-xs text-muted-foreground">Client</dt>
+                <dd className="text-foreground">{submission.projects.client_name}</dd>
               </div>
             )}
             {submission.projects.city && (
               <div>
-                <dt className="text-xs text-gray-500">Ville</dt>
-                <dd className="text-gray-900">{submission.projects.city}</dd>
+                <dt className="text-xs text-muted-foreground">Ville</dt>
+                <dd className="text-foreground">{submission.projects.city}</dd>
               </div>
             )}
             <div>
-              <dt className="text-xs text-gray-500">Fichier</dt>
-              <dd className="text-gray-900">{submission.file_name || "—"}</dd>
+              <dt className="text-xs text-muted-foreground">Fichier</dt>
+              <dd className="text-foreground">{submission.file_name || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs text-gray-500">Date</dt>
-              <dd className="text-gray-900">{new Date(submission.created_at).toLocaleDateString("fr-CH")}</dd>
+              <dt className="text-xs text-muted-foreground">Date</dt>
+              <dd className="text-foreground">{new Date(submission.created_at).toLocaleDateString("fr-CH")}</dd>
             </div>
           </dl>
         </div>
@@ -1886,19 +1886,19 @@ function SummaryTabContent({
 
       {/* Material groups breakdown */}
       {materialGroups.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Répartition par groupe</h3>
+        <div className="bg-background border border-border rounded-lg p-4">
+          <h3 className="text-sm font-medium text-foreground mb-3">Répartition par groupe</h3>
           <div className="space-y-2">
             {materialGroups.map((group) => {
               const count = items.filter((i) => i.material_group === group).length;
               const pct = items.length > 0 ? (count / items.length) * 100 : 0;
               return (
                 <div key={group} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-700 w-40 truncate">{group}</span>
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <span className="text-xs text-foreground w-40 truncate">{group}</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-brand/60 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs text-gray-400 w-12 text-right">{count}</span>
+                  <span className="text-xs text-muted-foreground w-12 text-right">{count}</span>
                 </div>
               );
             })}
@@ -1923,31 +1923,31 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
   const accuracyPct = stats?.avg_accuracy != null ? Math.round(stats.avg_accuracy * 100) : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-card p-4 space-y-3">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
       <div className="flex items-center gap-2 mb-1">
         <BarChart3 className="h-4 w-4 text-brand" />
-        <span className="text-sm font-medium text-gray-800">Intelligence prix</span>
-        <span className="text-xs text-gray-400 ml-auto">Base de données de votre organisation</span>
+        <span className="text-sm font-medium text-foreground">Intelligence prix</span>
+        <span className="text-xs text-muted-foreground ml-auto">Base de données de votre organisation</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Price count */}
-        <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3">
+        <div className="flex items-start gap-2 bg-muted rounded-lg p-3">
           <Database className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
           <div>
-            <div className="text-lg font-bold text-gray-900">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
-            <div className="text-[11px] text-gray-500">Prix fournisseurs enregistrés</div>
+            <div className="text-lg font-bold text-foreground">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
+            <div className="text-[11px] text-muted-foreground">Prix fournisseurs enregistrés</div>
           </div>
         </div>
 
         {/* Accuracy */}
-        <div className="flex items-start gap-2 bg-gray-50 rounded-lg p-3">
+        <div className="flex items-start gap-2 bg-muted rounded-lg p-3">
           <TrendingUp className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
           <div>
-            <div className="text-lg font-bold text-gray-900">
+            <div className="text-lg font-bold text-foreground">
               {accuracyPct != null ? `${accuracyPct}%` : "—"}
             </div>
-            <div className="text-[11px] text-gray-500">
+            <div className="text-[11px] text-muted-foreground">
               Précision moyenne
               {stats?.calibration_count ? ` (${stats.calibration_count} calibr.)` : ""}
             </div>
@@ -1955,8 +1955,8 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
         </div>
 
         {/* Source distribution */}
-        <div className="sm:col-span-2 bg-gray-50 rounded-lg p-3">
-          <div className="text-[11px] text-gray-500 mb-1.5">Répartition des sources — cette estimation</div>
+        <div className="sm:col-span-2 bg-muted rounded-lg p-3">
+          <div className="text-[11px] text-muted-foreground mb-1.5">Répartition des sources — cette estimation</div>
           {/* Stacked bar */}
           <div className="flex h-3 w-full rounded-full overflow-hidden gap-px">
             {pctReal > 0 && (
@@ -1989,7 +1989,7 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
             )}
             {pctOther > 0 && (
               <div
-                className="bg-gray-300 transition-all"
+                className="bg-muted transition-all"
                 style={{ width: `${pctOther}%` }}
                 title={`Non estimé: ${pctOther}%`}
               />
@@ -1997,18 +1997,18 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
           </div>
           {/* Legend */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
-            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
-            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
-            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />IA {pctAi}%</span>}
+            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
+            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
+            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
+            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />IA {pctAi}%</span>}
           </div>
         </div>
       </div>
 
       {/* Monthly trend sparkline */}
       {stats?.monthly_trend && stats.monthly_trend.length >= 2 && (
-        <div className="border-t border-gray-100 pt-3">
-          <div className="text-[11px] text-gray-400 mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
+        <div className="border-t border-border pt-3">
+          <div className="text-[11px] text-muted-foreground mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
           <div className="h-12">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.monthly_trend} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -2082,8 +2082,8 @@ function BudgetTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Analysez d&apos;abord le descriptif</p>
+        <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">Analysez d&apos;abord le descriptif</p>
       </div>
     );
   }
@@ -2091,13 +2091,13 @@ function BudgetTabContent({
   if (!budget) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500 mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
-        <p className="text-xs text-gray-400 mb-6 max-w-md mx-auto">
+        <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
+        <p className="text-xs text-muted-foreground mb-6 max-w-md mx-auto">
           L&apos;estimation utilise vos offres fournisseurs, les prix du marché, le référentiel CRB 2025, et l&apos;IA en dernier recours.
         </p>
         {error && (
-          <div className="mb-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 inline-block">
+          <div className="mb-4 text-xs text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2 inline-block">
             {error}
           </div>
         )}
@@ -2126,11 +2126,11 @@ function BudgetTabContent({
       {/* Total banner */}
       <div className="bg-gradient-to-r from-brand/5 to-blue-50 border border-brand/20 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-gray-700">Budget estimé</h3>
+          <h3 className="text-sm font-medium text-foreground">Budget estimé</h3>
           <button
             onClick={handleEstimate}
             disabled={estimating}
-            className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-white text-gray-600 flex items-center gap-1.5"
+            className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-background text-muted-foreground flex items-center gap-1.5"
           >
             {estimating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Recalculer
@@ -2138,19 +2138,19 @@ function BudgetTabContent({
         </div>
         <div className="grid grid-cols-3 gap-6">
           <div>
-            <div className="text-xs text-gray-500 mb-1">Minimum</div>
-            <div className="text-xl font-bold text-gray-600">CHF {formatCHF(budget.total_min)}</div>
+            <div className="text-xs text-muted-foreground mb-1">Minimum</div>
+            <div className="text-xl font-bold text-muted-foreground">CHF {formatCHF(budget.total_min)}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 mb-1">Médiane</div>
+            <div className="text-xs text-muted-foreground mb-1">Médiane</div>
             <div className="text-2xl font-bold text-brand">CHF {formatCHF(budget.total_median)}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 mb-1">Maximum</div>
-            <div className="text-xl font-bold text-gray-600">CHF {formatCHF(budget.total_max)}</div>
+            <div className="text-xs text-muted-foreground mb-1">Maximum</div>
+            <div className="text-xl font-bold text-muted-foreground">CHF {formatCHF(budget.total_max)}</div>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-4 text-xs text-gray-500 flex-wrap">
+        <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
           {(budget.source_breakdown?.historique_interne ?? 0) > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -2171,13 +2171,13 @@ function BudgetTabContent({
           )}
           {budget.ai_count > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="w-2 h-2 rounded-full bg-primary/100"></span>
               {budget.ai_count} estimés IA
             </span>
           )}
           {budget.unestimated_count > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+              <span className="w-2 h-2 rounded-full bg-muted"></span>
               {budget.unestimated_count} non estimés
             </span>
           )}
@@ -2197,18 +2197,18 @@ function BudgetTabContent({
         const groupMedian = ests.reduce((s, e) => s + (e.quantity ?? 0) * e.prix_median, 0);
 
         return (
-          <div key={group} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-900">{group}</span>
-                <span className="text-xs text-gray-400">{ests.length} postes</span>
+                <span className="text-sm font-medium text-foreground">{group}</span>
+                <span className="text-xs text-muted-foreground">{ests.length} postes</span>
               </div>
-              <span className="text-sm font-semibold text-gray-700">CHF {formatCHF(Math.round(groupMedian))}</span>
+              <span className="text-sm font-semibold text-foreground">CHF {formatCHF(Math.round(groupMedian))}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="bg-gray-50/50 text-[11px] font-medium text-gray-500 uppercase">
+                  <tr className="bg-muted/50 text-[11px] font-medium text-muted-foreground uppercase">
                     <th className="text-left px-3 py-2 w-16">N°</th>
                     <th className="text-left px-3 py-2">Description</th>
                     <th className="text-center px-3 py-2 w-14">Unité</th>
@@ -2220,40 +2220,40 @@ function BudgetTabContent({
                     <th className="text-center px-3 py-2 w-16">Source</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {ests.map((est) => {
                     const total = (est.quantity ?? 0) * est.prix_median;
                     return (
-                      <tr key={est.item_id} className="text-sm hover:bg-gray-50">
-                        <td className="px-3 py-2 text-xs font-mono text-gray-500">{est.item_number || "—"}</td>
-                        <td className="px-3 py-2 text-gray-900 truncate max-w-[250px]">{est.description}</td>
-                        <td className="px-3 py-2 text-center text-xs text-gray-500">{est.unit || "—"}</td>
-                        <td className="px-3 py-2 text-right text-gray-600 text-xs">
+                      <tr key={est.item_id} className="text-sm hover:bg-muted">
+                        <td className="px-3 py-2 text-xs font-mono text-muted-foreground">{est.item_number || "—"}</td>
+                        <td className="px-3 py-2 text-foreground truncate max-w-[250px]">{est.description}</td>
+                        <td className="px-3 py-2 text-center text-xs text-muted-foreground">{est.unit || "—"}</td>
+                        <td className="px-3 py-2 text-right text-muted-foreground text-xs">
                           {est.quantity != null ? Number(est.quantity).toLocaleString("fr-CH") : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-gray-500">
+                        <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                           {est.prix_min > 0 ? est.prix_min.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+                        <td className="px-3 py-2 text-right text-sm font-medium text-foreground">
                           {est.prix_median > 0 ? est.prix_median.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-gray-500">
+                        <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                           {est.prix_max > 0 ? est.prix_max.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-gray-900">
+                        <td className="px-3 py-2 text-right font-medium text-foreground">
                           {total > 0 ? formatCHF(Math.round(total)) : "—"}
                         </td>
                         <td className="px-3 py-2 text-center">
                           {est.source === "historique_interne" ? (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Prix réels fournisseurs"}>Réel</span>
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Prix réels fournisseurs"}>Réel</span>
                           ) : est.source === "benchmark_cantaia" ? (
-                            <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Benchmark marché"}>Marché</span>
+                            <span className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Benchmark marché"}>Marché</span>
                           ) : est.source === "referentiel_crb" ? (
-                            <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Référentiel CRB 2025"}>CRB</span>
+                            <span className="text-[10px] bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Référentiel CRB 2025"}>CRB</span>
                           ) : est.source === "estimation_ia" ? (
-                            <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">IA</span>
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">IA</span>
                           ) : (
-                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">—</span>
+                            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">—</span>
                           )}
                         </td>
                       </tr>

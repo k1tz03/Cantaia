@@ -121,35 +121,35 @@ export default function NewSubmissionPage() {
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto overflow-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/submissions" className="p-1 hover:bg-gray-100 rounded">
-          <ArrowLeft className="h-4 w-4 text-gray-500" />
+        <Link href="/submissions" className="p-1 hover:bg-muted rounded">
+          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
         </Link>
-        <h1 className="text-xl font-bold text-gray-900">Nouvelle soumission</h1>
+        <h1 className="text-xl font-bold text-foreground">Nouvelle soumission</h1>
       </div>
 
       <div className="space-y-6">
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
             {error}
-            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700 float-right">&times;</button>
+            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 float-right">&times;</button>
           </div>
         )}
 
         {/* Project selection */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-900">Projet</h2>
+        <div className="bg-background border border-border rounded-xl p-6 space-y-4">
+          <h2 className="text-sm font-semibold text-foreground">Projet</h2>
 
           {!createNewProject ? (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Projet existant
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
                   disabled={loadingProjects}
                 >
                   <option value="">
@@ -172,7 +172,7 @@ export default function NewSubmissionPage() {
           ) : (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Nom du projet *
                 </label>
                 <input
@@ -180,12 +180,12 @@ export default function NewSubmissionPage() {
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Les Cèdres — Gros-œuvre"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
                     Maître d'ouvrage
                   </label>
                   <input
@@ -193,11 +193,11 @@ export default function NewSubmissionPage() {
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     placeholder="SA Immobilière"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
                     Ville
                   </label>
                   <input
@@ -205,13 +205,13 @@ export default function NewSubmissionPage() {
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Lausanne"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
                   />
                 </div>
               </div>
               <button
                 onClick={() => { setCreateNewProject(false); setNewProjectName(""); }}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Utiliser un projet existant
               </button>
@@ -221,10 +221,10 @@ export default function NewSubmissionPage() {
 
         {/* File upload */}
         <div
-          className={`bg-white border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+          className={`bg-background border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
             dragOver ? "border-brand bg-brand/5" :
-            file ? "border-green-300 bg-green-50" :
-            "border-gray-300 hover:border-brand/50"
+            file ? "border-green-300 bg-green-500/10" :
+            "border-border hover:border-brand/50"
           }`}
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -240,35 +240,35 @@ export default function NewSubmissionPage() {
           />
           {file ? (
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-3">
                 {file.name.toLowerCase().endsWith(".pdf") ? (
                   <FileText className="h-6 w-6 text-red-500" />
                 ) : (
                   <FileSpreadsheet className="h-6 w-6 text-green-600" />
                 )}
               </div>
-              <p className="text-sm font-medium text-gray-900">{file.name}</p>
-              <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(0)} KB</p>
+              <p className="text-sm font-medium text-foreground">{file.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">{(file.size / 1024).toFixed(0)} KB</p>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="text-xs text-gray-400 hover:text-red-500 mt-2"
+                className="text-xs text-muted-foreground hover:text-red-500 mt-2"
               >
                 Supprimer
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
-                <Upload className="h-6 w-6 text-gray-400" />
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-foreground">
                 Glissez un descriptif ici ou cliquez pour parcourir
               </p>
-              <p className="text-xs text-gray-400 mt-1">PDF, XLSX, XLS — 20 Mo max</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, XLSX, XLS — 20 Mo max</p>
             </div>
           )}
         </div>
@@ -277,7 +277,7 @@ export default function NewSubmissionPage() {
         <div className="flex justify-end gap-3">
           <Link
             href="/submissions"
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
           >
             Annuler
           </Link>

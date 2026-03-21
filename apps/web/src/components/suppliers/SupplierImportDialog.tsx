@@ -205,16 +205,16 @@ export function SupplierImportDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-3xl rounded-lg bg-background shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <h2 className="text-sm font-semibold text-foreground">
             Importer des fournisseurs (CSV)
           </h2>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -223,12 +223,12 @@ export function SupplierImportDialog({
         <div className="flex-1 overflow-y-auto p-5">
           {/* Result banner */}
           {result && (
-            <div className="mb-4 rounded-md bg-green-50 px-4 py-3 ring-1 ring-inset ring-green-200">
+            <div className="mb-4 rounded-md bg-green-500/10 px-4 py-3 ring-1 ring-inset ring-green-200">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">Import termine</span>
               </div>
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-green-700 dark:text-green-400">
                 {result.imported} importe(s), {result.skipped} ignore(s)
               </p>
               {result.errors.length > 0 && (
@@ -244,7 +244,7 @@ export function SupplierImportDialog({
           )}
 
           {apiError && (
-            <div className="mb-4 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+            <div className="mb-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {apiError}
             </div>
@@ -254,7 +254,7 @@ export function SupplierImportDialog({
             <>
               {/* File input */}
               <div className="mb-4">
-                <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                <label className="flex items-center gap-2 text-xs font-medium text-foreground mb-2">
                   <FileText className="h-4 w-4" />
                   Fichier CSV
                 </label>
@@ -262,13 +262,13 @@ export function SupplierImportDialog({
                   type="file"
                   accept=".csv,.txt"
                   onChange={handleFileUpload}
-                  className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gold-dark file:cursor-pointer"
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gold-dark file:cursor-pointer"
                 />
               </div>
 
               {/* Or paste CSV */}
               <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-foreground mb-1">
                   Ou collez vos donnees CSV
                 </label>
                 <textarea
@@ -279,7 +279,7 @@ export function SupplierImportDialog({
                     setResult(null);
                   }}
                   rows={6}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 font-mono placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   placeholder={`company_name;contact_name;email;phone;city;specialties;geo_zone\nBati-Group SA;Jean Dupont;contact@bati.ch;+41 21 123 45 67;Lausanne;gros_oeuvre|electricite;VD`}
                 />
               </div>
@@ -289,7 +289,7 @@ export function SupplierImportDialog({
                 <button
                   type="button"
                   onClick={handleParse}
-                  className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Analyser le CSV
                 </button>
@@ -309,30 +309,30 @@ export function SupplierImportDialog({
               {/* Preview table */}
               {isParsed && parsedRows.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs font-medium text-gray-700 mb-2">
+                  <p className="text-xs font-medium text-foreground mb-2">
                     Apercu : {parsedRows.length} fournisseur(s) detecte(s)
                   </p>
-                  <div className="overflow-auto max-h-[240px] border border-gray-200 rounded-lg">
+                  <div className="overflow-auto max-h-[240px] border border-border rounded-lg">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">#</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">Entreprise</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">Contact</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">Email</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">Ville</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-500">Zone</th>
+                        <tr className="bg-muted border-b border-border">
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">#</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Entreprise</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Contact</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Email</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Ville</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Zone</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-border">
                         {parsedRows.map((row, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
-                            <td className="px-3 py-1.5 text-gray-900 font-medium">{row.company_name}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{row.contact_name || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{row.email || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{row.city || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{row.geo_zone || "—"}</td>
+                          <tr key={i} className="hover:bg-muted">
+                            <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
+                            <td className="px-3 py-1.5 text-foreground font-medium">{row.company_name}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.contact_name || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.email || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.city || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.geo_zone || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -342,7 +342,7 @@ export function SupplierImportDialog({
               )}
 
               {isParsed && parsedRows.length === 0 && (
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-muted-foreground mb-4">
                   Aucun fournisseur valide detecte dans le CSV.
                 </p>
               )}
@@ -351,12 +351,12 @@ export function SupplierImportDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-5 py-3.5">
+        <div className="border-t border-border px-5 py-3.5">
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               {result ? "Fermer" : "Annuler"}
             </button>

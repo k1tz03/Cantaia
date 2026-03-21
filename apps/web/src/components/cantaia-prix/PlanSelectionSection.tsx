@@ -47,14 +47,14 @@ export function PlanSelectionSection({
   quantitiesPreview,
 }: PlanSelectionSectionProps) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-semibold text-slate-800">
+    <div className="rounded-lg border border-border bg-background p-5">
+      <h2 className="mb-4 text-sm font-semibold text-foreground">
         <FileText className="mr-1.5 inline h-4 w-4" />
         Sélection du plan
       </h2>
 
       {urlAnalysisId && analysisData ? (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3">
+        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-500/10 px-4 py-3">
           <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
           <div>
             <p className="text-sm font-medium text-green-800">
@@ -68,7 +68,7 @@ export function PlanSelectionSection({
           </div>
         </div>
       ) : analysisLoading ? (
-        <div className="flex items-center gap-2 py-3 text-sm text-slate-500">
+        <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Chargement de l'analyse...
         </div>
@@ -78,22 +78,22 @@ export function PlanSelectionSection({
             type="button"
             onClick={() => setShowPlanDropdown(!showPlanDropdown)}
             disabled={plansLoading}
-            className="flex w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
+            className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground hover:bg-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
           >
-            <span className={selectedPlan ? "text-slate-900" : "text-slate-400"}>
+            <span className={selectedPlan ? "text-foreground" : "text-muted-foreground"}>
               {plansLoading
                 ? "Chargement des plans..."
                 : selectedPlan
                   ? `${selectedPlan.plan_number} — ${selectedPlan.plan_title}`
                   : "Sélectionner un plan..."}
             </span>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
 
           {showPlanDropdown && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
               {plans.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-slate-400">
+                <p className="px-3 py-2 text-sm text-muted-foreground">
                   Aucun plan disponible
                 </p>
               ) : (
@@ -107,19 +107,19 @@ export function PlanSelectionSection({
                       setAnalysisData(null);
                     }}
                     className={cn(
-                      "flex w-full flex-col items-start px-3 py-2 text-left hover:bg-slate-50",
+                      "flex w-full flex-col items-start px-3 py-2 text-left hover:bg-muted",
                       selectedPlanId === plan.id &&
                         "bg-brand/5 font-medium"
                     )}
                   >
-                    <span className="text-sm text-slate-900">
+                    <span className="text-sm text-foreground">
                       <span className="font-mono text-xs text-brand">
                         {plan.plan_number}
                       </span>{" "}
                       — {plan.plan_title}
                     </span>
                     {plan.project && (
-                      <span className="mt-0.5 text-[11px] text-slate-400">
+                      <span className="mt-0.5 text-[11px] text-muted-foreground">
                         {plan.project.name}
                       </span>
                     )}
@@ -134,26 +134,26 @@ export function PlanSelectionSection({
       {/* Quantities preview */}
       {quantitiesPreview && quantitiesPreview.length > 0 && (
         <div className="mt-4">
-          <p className="mb-2 text-xs font-medium text-slate-500">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
             Quantités détectées ({quantitiesPreview.length})
           </p>
-          <div className="max-h-40 overflow-y-auto rounded-md border border-slate-100 bg-slate-50 p-2">
+          <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-muted p-2">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-slate-400">
+                <tr className="text-muted-foreground">
                   <th className="pb-1 text-left font-medium">Poste</th>
                   <th className="pb-1 text-right font-medium">Qté</th>
                   <th className="pb-1 text-left pl-2 font-medium">Unité</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {quantitiesPreview.map((q, idx) => (
                   <tr key={idx}>
-                    <td className="py-1 text-slate-700">{q.item}</td>
-                    <td className="py-1 text-right font-mono text-slate-600">
+                    <td className="py-1 text-foreground">{q.item}</td>
+                    <td className="py-1 text-right font-mono text-muted-foreground">
                       {q.quantity}
                     </td>
-                    <td className="py-1 pl-2 text-slate-500">{q.unit}</td>
+                    <td className="py-1 pl-2 text-muted-foreground">{q.unit}</td>
                   </tr>
                 ))}
               </tbody>
@@ -183,7 +183,7 @@ export function PlanSelectionSection({
           )}
         </button>
         {!canEstimate && (
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-muted-foreground">
             Sélectionnez un plan pour lancer l'estimation.
           </p>
         )}

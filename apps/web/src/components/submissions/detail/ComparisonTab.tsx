@@ -17,8 +17,8 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
   if (offers.length === 0) {
     return (
       <div className="text-center py-16">
-        <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">{t("noSubmissions")}</p>
+        <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">{t("noSubmissions")}</p>
       </div>
     );
   }
@@ -35,35 +35,35 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
         if (lotOffers.length === 0) return null;
 
         return (
-          <div key={lot.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">CFC {lot.cfc_code}</span>
-              <span className="text-sm font-medium text-gray-900">{lot.name}</span>
-              <span className="text-xs text-gray-400 ml-auto">{lotOffers.length} {t("offersReceived", { count: lotOffers.length, total: lotOffers.length }).split("/")[0]}</span>
+          <div key={lot.id} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-3">
+              <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">CFC {lot.cfc_code}</span>
+              <span className="text-sm font-medium text-foreground">{lot.name}</span>
+              <span className="text-xs text-muted-foreground ml-auto">{lotOffers.length} {t("offersReceived", { count: lotOffers.length, total: lotOffers.length }).split("/")[0]}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px]">
                 <thead>
-                  <tr className="border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-white z-10 w-48">{t("description")}</th>
+                  <tr className="border-b border-border text-[11px] font-medium text-muted-foreground uppercase">
+                    <th className="text-left px-3 py-2 sticky left-0 bg-background z-10 w-48">{t("description")}</th>
                     <th className="text-center px-2 py-2 w-12">{t("unit")}</th>
                     <th className="text-right px-2 py-2 w-16">{t("quantity")}</th>
                     {lotOffers.map((offer) => {
                       const supplier = suppliers.find((s) => s.id === offer.supplier_id);
                       const isLowest = lotOffers.every((o) => (o.total_amount || Infinity) >= (offer.total_amount || Infinity));
                       return (
-                        <th key={offer.id} className={`text-right px-3 py-2 w-24 ${isLowest ? "bg-green-50" : ""}`}>
-                          <div className="text-xs font-medium text-gray-700">{supplier?.company_name}</div>
+                        <th key={offer.id} className={`text-right px-3 py-2 w-24 ${isLowest ? "bg-green-500/10" : ""}`}>
+                          <div className="text-xs font-medium text-foreground">{supplier?.company_name}</div>
                           {offer.status === "awarded" && (
                             <span className="text-[9px] text-emerald-600">({t("awarded")})</span>
                           )}
                         </th>
                       );
                     })}
-                    <th className="text-right px-3 py-2 w-20 bg-gray-50">{t("maxGap")}</th>
+                    <th className="text-right px-3 py-2 w-20 bg-muted">{t("maxGap")}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {lotItems.map((item) => {
                     const itemPrices = lotOffers.map((offer) => {
                       const lineItem = offerLineItems.find(
@@ -77,13 +77,13 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
                     const gap = minPrice && maxPrice ? Math.round(((maxPrice - minPrice) / minPrice) * 100) : null;
 
                     return (
-                      <tr key={item.id} className="hover:bg-gray-50 text-sm">
-                        <td className="px-3 py-2 sticky left-0 bg-white z-10">
-                          <div className="text-xs font-mono text-gray-400">{item.code}</div>
-                          <div className="text-sm text-gray-900 truncate max-w-[180px]">{item.description}</div>
+                      <tr key={item.id} className="hover:bg-muted text-sm">
+                        <td className="px-3 py-2 sticky left-0 bg-background z-10">
+                          <div className="text-xs font-mono text-muted-foreground">{item.code}</div>
+                          <div className="text-sm text-foreground truncate max-w-[180px]">{item.description}</div>
                         </td>
-                        <td className="px-2 py-2 text-center text-xs text-gray-500">{item.unit}</td>
-                        <td className="px-2 py-2 text-right text-gray-600 text-xs">{item.quantity?.toLocaleString("fr-CH")}</td>
+                        <td className="px-2 py-2 text-center text-xs text-muted-foreground">{item.unit}</td>
+                        <td className="px-2 py-2 text-right text-muted-foreground text-xs">{item.quantity?.toLocaleString("fr-CH")}</td>
                         {itemPrices.map((p) => {
                           const isCheapest = p.unitPrice !== null && p.unitPrice === minPrice;
                           const isMostExpensive = p.unitPrice !== null && p.unitPrice === maxPrice && validPrices.length > 1;
@@ -91,17 +91,17 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
                             <td
                               key={p.offerId}
                               className={`px-3 py-2 text-right text-sm ${
-                                isCheapest ? "text-green-700 font-bold bg-green-50/50" :
-                                isMostExpensive ? "text-red-600" : "text-gray-700"
+                                isCheapest ? "text-green-700 dark:text-green-400 font-bold bg-green-500/10/50" :
+                                isMostExpensive ? "text-red-600" : "text-foreground"
                               }`}
                             >
                               {p.unitPrice !== null ? p.unitPrice.toFixed(2) : (
-                                <span className="text-xs text-gray-300">{t("notQuoted")}</span>
+                                <span className="text-xs text-muted-foreground">{t("notQuoted")}</span>
                               )}
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-right bg-gray-50">
+                        <td className="px-3 py-2 text-right bg-muted">
                           {gap !== null ? (
                             <span className={`text-xs font-medium ${gap > 15 ? "text-red-600" : gap > 5 ? "text-amber-600" : "text-green-600"}`}>
                               {gap}%
@@ -113,8 +113,8 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-gray-300 bg-gray-50 font-medium">
-                    <td className="px-3 py-2 text-sm text-gray-900 sticky left-0 bg-gray-50 z-10" colSpan={3}>
+                  <tr className="border-t-2 border-border bg-muted font-medium">
+                    <td className="px-3 py-2 text-sm text-foreground sticky left-0 bg-muted z-10" colSpan={3}>
                       {t("total")}
                     </td>
                     {lotOffers.map((offer) => {
@@ -126,7 +126,7 @@ export function ComparisonTab({ lots, items, offers, offerLineItems, suppliers, 
                       );
                       const isCheapest = offerTotal === Math.min(...allTotals);
                       return (
-                        <td key={offer.id} className={`px-3 py-2 text-right text-sm ${isCheapest ? "text-green-700 font-bold" : "text-gray-700"}`}>
+                        <td key={offer.id} className={`px-3 py-2 text-right text-sm ${isCheapest ? "text-green-700 dark:text-green-400 font-bold" : "text-foreground"}`}>
                           {formatCHF(offerTotal)}
                         </td>
                       );

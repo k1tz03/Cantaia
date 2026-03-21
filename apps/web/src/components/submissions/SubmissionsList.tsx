@@ -165,22 +165,22 @@ export function SubmissionsList({
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">
             {t("title")}
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {t("subtitle_count", { count: deduped.length })}
           </p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {error}
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700"
+              className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400"
             >
               {tCommon("close")}
             </button>
@@ -193,8 +193,8 @@ export function SubmissionsList({
             dragOver
               ? "border-brand bg-brand/5"
               : file
-                ? "border-green-300 bg-green-50"
-                : "border-gray-300 hover:border-brand/50 bg-white"
+                ? "border-green-300 bg-green-500/10"
+                : "border-border hover:border-brand/50 bg-background"
           }`}
           onDrop={handleDrop}
           onDragOver={(e) => {
@@ -215,20 +215,20 @@ export function SubmissionsList({
           {extracting ? (
             <div className="flex flex-col items-center py-2">
               <Loader2 className="h-8 w-8 text-brand animate-spin mb-3" />
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-foreground">
                 {t("analyzing")}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {t("analyzing_subtitle")}
               </p>
             </div>
           ) : file ? (
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-3">
                 <FileSpreadsheet className="h-6 w-6 text-green-600" />
               </div>
-              <p className="text-sm font-medium text-gray-900">{file.name}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm font-medium text-foreground">{file.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 {(file.size / 1024).toFixed(0)} KB
               </p>
               <div className="flex items-center gap-3 mt-3">
@@ -248,7 +248,7 @@ export function SubmissionsList({
                     setFile(null);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
-                  className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                  className="text-xs text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   {tCommon("delete")}
                 </button>
@@ -256,16 +256,16 @@ export function SubmissionsList({
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
-                <Upload className="h-6 w-6 text-gray-400" />
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-foreground">
                 {t("upload_title")}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {t("upload_subtitle")}
               </p>
-              <p className="text-[10px] text-gray-400 mt-2">
+              <p className="text-[10px] text-muted-foreground mt-2">
                 {t("upload_formats")}
               </p>
             </div>
@@ -278,39 +278,39 @@ export function SubmissionsList({
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-16 bg-gray-100 rounded-xl animate-pulse"
+                className="h-16 bg-muted rounded-xl animate-pulse"
               />
             ))}
           </div>
         ) : deduped.length === 0 ? (
           <div className="flex flex-col items-center py-10 text-center">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <FileSpreadsheet className="h-7 w-7 text-gray-300" />
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
+              <FileSpreadsheet className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-gray-500">
+            <p className="text-sm font-medium text-muted-foreground">
               {t("no_history")}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {t("no_history_desc")}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               {t("history")}
             </h2>
 
             {deduped.map((sub) => (
               <div
                 key={sub.id}
-                className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-brand/30 hover:bg-gray-50/50 transition-all group"
+                className="flex items-center gap-4 p-4 bg-background border border-border rounded-xl hover:border-brand/30 hover:bg-muted/50 transition-all group"
               >
                 <button
                   onClick={() => onOpen(sub)}
                   className="flex items-center gap-4 flex-1 min-w-0 text-left"
                 >
                   {/* File icon */}
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     {sub.source_type === "pdf" ? (
                       <FileText className="h-5 w-5 text-red-500" />
                     ) : (
@@ -320,10 +320,10 @@ export function SubmissionsList({
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-900 truncate">
+                    <p className="font-medium text-sm text-foreground truncate">
                       {sub.name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {sub.source_filename} · {sub.total_positions}{" "}
                       {t("positions")}
                     </p>
@@ -333,11 +333,11 @@ export function SubmissionsList({
                   <SubmissionStatusBadge status={sub.status} />
 
                   {/* Date */}
-                  <p className="text-xs text-gray-400 shrink-0">
+                  <p className="text-xs text-muted-foreground shrink-0">
                     {formatRelativeDate(sub.created_at)}
                   </p>
 
-                  <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-muted-foreground transition-colors shrink-0" />
                 </button>
 
                 {/* Delete */}
@@ -346,7 +346,7 @@ export function SubmissionsList({
                     e.stopPropagation();
                     setDeleteId(sub.id);
                   }}
-                  className="p-1.5 text-gray-300 hover:text-red-500 rounded transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1.5 text-muted-foreground hover:text-red-500 rounded transition-colors opacity-0 group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

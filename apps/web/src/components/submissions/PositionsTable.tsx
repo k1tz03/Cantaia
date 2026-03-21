@@ -74,18 +74,18 @@ export function PositionsTable({
   const t = useTranslations("products.submissions");
 
   const confidenceColor = (c: number) => {
-    if (c >= 0.9) return "bg-green-100 text-green-700";
-    if (c >= 0.7) return "bg-amber-100 text-amber-700";
-    return "bg-red-100 text-red-700";
+    if (c >= 0.9) return "bg-green-500/10 text-green-700 dark:text-green-400";
+    if (c >= 0.7) return "bg-amber-500/10 text-amber-700 dark:text-amber-400";
+    return "bg-red-500/10 text-red-700 dark:text-red-400";
   };
 
   if (positions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <FileSpreadsheet className="h-8 w-8 text-gray-400" />
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">
+        <h3 className="text-lg font-medium text-foreground mb-1">
           {t("no_positions")}
         </h3>
       </div>
@@ -93,7 +93,7 @@ export function PositionsTable({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="bg-background border border-border rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <DndContext
           sensors={sensors}
@@ -106,30 +106,30 @@ export function PositionsTable({
           >
             <table className="w-full min-w-[850px]">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
+                <tr className="border-b border-border bg-muted">
                   <th className="w-[36px]" />
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[120px]">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[120px]">
                     {t("position_number")}
                   </th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[100px]">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[100px]">
                     {t("can_code")}
                   </th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-500 uppercase">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase">
                     {t("description_col")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[90px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[90px]">
                     {t("quantity")}
                   </th>
-                  <th className="text-center px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[60px]">
+                  <th className="text-center px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[60px]">
                     {t("unit")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[110px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[110px]">
                     {t("unit_price")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[110px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[110px]">
                     {t("total")}
                   </th>
-                  <th className="text-center px-3 py-2.5 text-xs font-medium text-gray-500 uppercase w-[70px]">
+                  <th className="text-center px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[70px]">
                     {t("confidence")}
                   </th>
                   <th className="w-[40px]" />

@@ -32,28 +32,28 @@ export function SendPriceRequestModal({
 }: SendPriceRequestModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">{t("priceRequest")}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-auto">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="text-lg font-bold text-foreground">{t("priceRequest")}</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground text-xl">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{t("deadline")}</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">{t("deadline")}</label>
               <input
                 type="date"
                 value={sendDeadline}
                 onChange={(e) => setSendDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Langue</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Langue</label>
               <select
                 value={sendLanguage}
                 onChange={(e) => setSendLanguage(e.target.value as "fr" | "en" | "de")}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
               >
                 <option value="fr">Français</option>
                 <option value="en">English</option>
@@ -62,8 +62,8 @@ export function SendPriceRequestModal({
             </div>
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <div className="text-xs font-medium text-gray-600 mb-2">
+          <div className="bg-muted border border-border rounded-lg p-3">
+            <div className="text-xs font-medium text-muted-foreground mb-2">
               {selectedSuppliers.size} {t("tabSuppliers").toLowerCase()} {t("filterStatus").toLowerCase()}
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -72,7 +72,7 @@ export function SendPriceRequestModal({
               )).map((supplierId) => {
                 const supplier = suppliers.find((s) => s.id === supplierId);
                 return (
-                  <span key={supplierId} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                  <span key={supplierId} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                     {supplier?.company_name || supplierId}
                   </span>
                 );
@@ -80,20 +80,20 @@ export function SendPriceRequestModal({
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-              <div className="text-xs text-gray-500">Objet :</div>
-              <div className="text-sm font-medium text-gray-900">{previewEmail.subject}</div>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="bg-muted px-4 py-2 border-b border-border">
+              <div className="text-xs text-muted-foreground">Objet :</div>
+              <div className="text-sm font-medium text-foreground">{previewEmail.subject}</div>
             </div>
-            <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-auto">
+            <div className="px-4 py-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed max-h-60 overflow-auto">
               {previewEmail.body}
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-md text-sm text-foreground hover:bg-muted"
           >
             {t("title") === "Soumissions" ? "Annuler" : "Cancel"}
           </button>

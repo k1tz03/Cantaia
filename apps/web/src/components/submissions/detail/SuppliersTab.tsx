@@ -18,13 +18,13 @@ interface SuppliersTabProps {
 
 function reasonLabel(reason: string, t: TranslateFn): { label: string; color: string } {
   switch (reason) {
-    case "specialty_match": return { label: t("reasonSpecialty"), color: "bg-blue-100 text-blue-700" };
+    case "specialty_match": return { label: t("reasonSpecialty"), color: "bg-primary/10 text-primary" };
     case "cfc_match": return { label: t("reasonCfc"), color: "bg-indigo-100 text-indigo-700" };
-    case "high_score": return { label: t("reasonHighScore"), color: "bg-green-100 text-green-700" };
-    case "reliable_responder": return { label: t("reasonReliable"), color: "bg-emerald-100 text-emerald-700" };
-    case "preferred": return { label: t("reasonPreferred"), color: "bg-amber-100 text-amber-700" };
-    case "local": return { label: t("reasonLocal"), color: "bg-purple-100 text-purple-700" };
-    default: return { label: reason, color: "bg-gray-100 text-gray-600" };
+    case "high_score": return { label: t("reasonHighScore"), color: "bg-green-500/10 text-green-700 dark:text-green-400" };
+    case "reliable_responder": return { label: t("reasonReliable"), color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" };
+    case "preferred": return { label: t("reasonPreferred"), color: "bg-amber-500/10 text-amber-700 dark:text-amber-400" };
+    case "local": return { label: t("reasonLocal"), color: "bg-purple-500/10 text-purple-700 dark:text-purple-400" };
+    default: return { label: reason, color: "bg-muted text-muted-foreground" };
   }
 }
 
@@ -44,12 +44,12 @@ export function SuppliersTab({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-medium text-gray-700">{t("matching")}</span>
+          <span className="text-sm font-medium text-foreground">{t("matching")}</span>
         </div>
         <div className="flex gap-2">
           <button
             onClick={selectAllRecommended}
-            className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700"
+            className="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-muted text-foreground"
           >
             {t("selectAll")}
           </button>
@@ -68,22 +68,22 @@ export function SuppliersTab({
       {lots.map((lot) => {
         const matches = supplierMatches[lot.id] || [];
         return (
-          <div key={lot.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+          <div key={lot.id} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-3">
+              <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
                 CFC {lot.cfc_code}
               </span>
-              <span className="text-sm font-medium text-gray-900">{lot.name}</span>
-              <span className="text-xs text-gray-400 ml-auto">
+              <span className="text-sm font-medium text-foreground">{lot.name}</span>
+              <span className="text-xs text-muted-foreground ml-auto">
                 {matches.length} {t("tabSuppliers").toLowerCase()}
               </span>
             </div>
             {matches.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-400">
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                 {t("noRecommendations")}
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-border">
                 {matches.map((match) => {
                   const supplier = suppliers.find((s) => s.id === match.supplier_id);
                   const selKey = `${lot.id}:${match.supplier_id}`;
@@ -94,31 +94,31 @@ export function SuppliersTab({
                   return (
                     <div
                       key={match.supplier_id}
-                      className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50/50" : ""}`}
+                      className={`flex items-center gap-4 px-4 py-3 hover:bg-muted transition-colors ${isSelected ? "bg-primary/10/50" : ""}`}
                     >
                       <input
                         type="checkbox"
                         checked={isSelected || alreadyRequested}
                         disabled={alreadyRequested}
                         onChange={() => toggleSupplierSelection(selKey)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#0A1F30] focus:ring-[#0A1F30]"
+                        className="h-4 w-4 rounded border-border text-foreground focus:ring-primary"
                       />
                       <div className="w-14 flex-shrink-0">
                         <div className="flex items-center gap-1">
                           <div
                             className={`text-xs font-bold ${
                               match.relevance_score >= 80 ? "text-green-600" :
-                              match.relevance_score >= 60 ? "text-amber-600" : "text-gray-500"
+                              match.relevance_score >= 60 ? "text-amber-600" : "text-muted-foreground"
                             }`}
                           >
                             {match.relevance_score}%
                           </div>
                         </div>
-                        <div className="h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                        <div className="h-1 bg-muted rounded-full mt-1 overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
                               match.relevance_score >= 80 ? "bg-green-500" :
-                              match.relevance_score >= 60 ? "bg-amber-500" : "bg-gray-400"
+                              match.relevance_score >= 60 ? "bg-amber-500" : "bg-muted-foreground"
                             }`}
                             style={{ width: `${match.relevance_score}%` }}
                           />
@@ -126,7 +126,7 @@ export function SuppliersTab({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900 truncate">
+                          <span className="text-sm font-medium text-foreground truncate">
                             {supplier?.company_name || match.supplier_name}
                           </span>
                           {supplier?.status === "preferred" && (
@@ -147,7 +147,7 @@ export function SuppliersTab({
                           })}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 flex-shrink-0">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-shrink-0">
                         {supplier && (
                           <>
                             <span title={t("matchScore")}>

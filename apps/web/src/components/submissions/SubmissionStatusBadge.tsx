@@ -7,29 +7,29 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
     draft: {
       label: t("status_draft"),
-      className: "bg-amber-100 text-amber-700",
+      className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     },
     reviewed: {
       label: t("status_reviewed"),
-      className: "bg-blue-100 text-blue-700",
+      className: "bg-primary/10 text-primary",
     },
     exported: {
       label: t("status_exported"),
-      className: "bg-green-100 text-green-700",
+      className: "bg-green-500/10 text-green-700 dark:text-green-400",
     },
     archived: {
       label: t("status_archived"),
-      className: "bg-gray-100 text-gray-500",
+      className: "bg-muted text-muted-foreground",
     },
     extracting: {
       label: t("status_extracting"),
-      className: "bg-purple-100 text-purple-700",
+      className: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
     },
   };
 
   const c = config[status] || {
     label: status,
-    className: "bg-gray-100 text-gray-500",
+    className: "bg-muted text-muted-foreground",
   };
 
   return (

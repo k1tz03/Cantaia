@@ -90,7 +90,7 @@ export function SupplierPriceChart({ data }: SupplierPriceChartProps) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-3 hover:text-gray-900"
+        className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3 hover:text-foreground"
       >
         <ChevronDown
           className={`h-4 w-4 transition-transform ${expanded ? "" : "-rotate-90"}`}

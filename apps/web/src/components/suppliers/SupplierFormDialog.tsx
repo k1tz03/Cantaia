@@ -160,16 +160,16 @@ export function SupplierFormDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-2xl rounded-lg bg-background shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <h2 className="text-sm font-semibold text-foreground">
             {isEdit ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
           </h2>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -181,7 +181,7 @@ export function SupplierFormDialog({
             <div className="space-y-4">
               {/* Error banner */}
               {error && (
-                <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
@@ -189,15 +189,15 @@ export function SupplierFormDialog({
 
               {/* Company name */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Nom de l&apos;entreprise *
                 </label>
                 <input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    submitted && !companyName.trim() ? fieldErrorClass : "border-gray-300"
+                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    submitted && !companyName.trim() ? fieldErrorClass : "border-border"
                   }`}
                   placeholder="Ex: Bati-Group SA"
                 />
@@ -208,7 +208,7 @@ export function SupplierFormDialog({
 
               {/* Supplier type */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Type
                 </label>
                 <div className="flex items-center gap-4">
@@ -219,9 +219,9 @@ export function SupplierFormDialog({
                       value="fournisseur"
                       checked={supplierType === "fournisseur"}
                       onChange={() => setSupplierType("fournisseur")}
-                      className="h-3.5 w-3.5 border-gray-300 text-brand focus:ring-brand"
+                      className="h-3.5 w-3.5 border-border text-brand focus:ring-brand"
                     />
-                    <span className="text-sm text-gray-700">Fournisseur (materiaux)</span>
+                    <span className="text-sm text-foreground">Fournisseur (materiaux)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -230,9 +230,9 @@ export function SupplierFormDialog({
                       value="prestataire"
                       checked={supplierType === "prestataire"}
                       onChange={() => setSupplierType("prestataire")}
-                      className="h-3.5 w-3.5 border-gray-300 text-brand focus:ring-brand"
+                      className="h-3.5 w-3.5 border-border text-brand focus:ring-brand"
                     />
-                    <span className="text-sm text-gray-700">Prestataire (services)</span>
+                    <span className="text-sm text-foreground">Prestataire (services)</span>
                   </label>
                 </div>
               </div>
@@ -240,26 +240,26 @@ export function SupplierFormDialog({
               {/* Contact name + Email */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Personne de contact
                   </label>
                   <input
                     type="text"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="Jean Dupont"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Email
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="contact@example.ch"
                   />
                 </div>
@@ -268,26 +268,26 @@ export function SupplierFormDialog({
               {/* Phone + Website */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Telephone
                   </label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="+41 21 123 45 67"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Site web
                   </label>
                   <input
                     type="url"
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="https://www.example.ch"
                   />
                 </div>
@@ -295,14 +295,14 @@ export function SupplierFormDialog({
 
               {/* Address */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Adresse
                 </label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                   placeholder="Rue de l'Industrie 12"
                 />
               </div>
@@ -310,38 +310,38 @@ export function SupplierFormDialog({
               {/* City + Postal Code + Country */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     NPA
                   </label>
                   <input
                     type="text"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="1000"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Ville
                   </label>
                   <input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="Lausanne"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     Pays
                   </label>
                   <input
                     type="text"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                     placeholder="Suisse"
                   />
                 </div>
@@ -349,7 +349,7 @@ export function SupplierFormDialog({
 
               {/* Specialties (multi-select checkboxes) */}
               <div>
-                <label className="mb-2 block text-xs font-medium text-gray-700">
+                <label className="mb-2 block text-xs font-medium text-foreground">
                   Spécialités
                 </label>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-1.5">
@@ -362,9 +362,9 @@ export function SupplierFormDialog({
                         type="checkbox"
                         checked={specialties.includes(sp)}
                         onChange={() => toggleSpecialty(sp)}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand focus:ring-brand"
+                        className="h-3.5 w-3.5 rounded border-border text-brand focus:ring-brand"
                       />
-                      <span className="text-gray-700 text-xs">
+                      <span className="text-foreground text-xs">
                         {getSpecialtyLabel(sp)}
                       </span>
                     </label>
@@ -374,14 +374,14 @@ export function SupplierFormDialog({
 
               {/* CFC Codes (tag input) */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Codes CFC
                 </label>
                 <input
                   type="text"
                   value={cfcCodesInput}
                   onChange={(e) => setCfcCodesInput(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                   placeholder="211, 271, 281 (separes par des virgules)"
                 />
                 {cfcCodesInput && (
@@ -389,7 +389,7 @@ export function SupplierFormDialog({
                     {parseTags(cfcCodesInput).map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-xs font-mono"
+                        className="inline-flex items-center px-2 py-0.5 rounded bg-muted text-foreground text-xs font-mono"
                       >
                         {tag}
                       </span>
@@ -400,13 +400,13 @@ export function SupplierFormDialog({
 
               {/* Geo Zone */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Zone geographique
                 </label>
                 <select
                   value={geoZone}
                   onChange={(e) => setGeoZone(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">-- Selectionner --</option>
                   {GEO_ZONES.map((z) => (
@@ -419,14 +419,14 @@ export function SupplierFormDialog({
 
               {/* Certifications (tag input) */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Certifications
                 </label>
                 <input
                   type="text"
                   value={certificationsInput}
                   onChange={(e) => setCertificationsInput(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                   placeholder="ISO 9001, Minergie, SIA (separes par des virgules)"
                 />
                 {certificationsInput && (
@@ -434,7 +434,7 @@ export function SupplierFormDialog({
                     {parseTags(certificationsInput).map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-medium"
                       >
                         {tag}
                       </span>
@@ -445,7 +445,7 @@ export function SupplierFormDialog({
 
               {/* Manual Rating (stars) */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Note manuelle
                 </label>
                 <div className="flex gap-1">
@@ -460,13 +460,13 @@ export function SupplierFormDialog({
                         className={`h-5 w-5 ${
                           i <= manualRating
                             ? "fill-amber-400 text-amber-400"
-                            : "text-gray-300"
+                            : "text-muted-foreground"
                         }`}
                       />
                     </button>
                   ))}
                   {manualRating > 0 && (
-                    <span className="ml-2 text-xs text-gray-500 self-center">
+                    <span className="ml-2 text-xs text-muted-foreground self-center">
                       {manualRating}/5
                     </span>
                   )}
@@ -475,13 +475,13 @@ export function SupplierFormDialog({
 
               {/* Status */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Statut
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as SupplierStatus)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
                 >
                   <option value="new">Nouveau</option>
                   <option value="active">Actif</option>
@@ -491,14 +491,14 @@ export function SupplierFormDialog({
 
               {/* Notes */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   Notes
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   placeholder="Notes internes sur ce fournisseur..."
                 />
               </div>
@@ -506,12 +506,12 @@ export function SupplierFormDialog({
           </div>
 
           {/* Fixed footer */}
-          <div className="border-t border-gray-200 px-5 py-3.5">
+          <div className="border-t border-border px-5 py-3.5">
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
               >
                 Annuler
               </button>
