@@ -282,8 +282,12 @@ export async function POST(request: NextRequest) {
         project_type: mapProjectType(config.project_type),
         location_canton: config.canton || null,
         config: { constraints: config.constraints },
-        ai_generation_log: planning.ai_generation_log,
-        ai_validation: aiValidation,
+        ai_generation_log: {
+          ...(typeof planning.ai_generation_log === "object" && planning.ai_generation_log
+            ? planning.ai_generation_log
+            : {}),
+          ai_validation: aiValidation,
+        },
         created_by: user.id,
       })
       .select("id")
@@ -372,7 +376,7 @@ export async function POST(request: NextRequest) {
                 successor_id: succId,
                 dependency_type: dep.dependency_type,
                 lag_days: dep.lag_days,
-                source: dep.source,
+                source: dep.source === "rule" ? "auto" : dep.source,
               });
           }
         }
