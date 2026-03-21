@@ -233,10 +233,10 @@ const DIVERS_PHASE: SIAPhaseDefinition = {
   order: 7,
 };
 
-/** Max total planning duration in working days (~2 years) */
-const MAX_TOTAL_DAYS = 500;
-/** Max duration per individual task in working days (~6 months) */
-const MAX_TASK_DAYS = 120;
+/** Max total planning duration in working days (~14 months) */
+const MAX_TOTAL_DAYS = 300;
+/** Max duration per single synthetic task in working days (~3 months) */
+const MAX_TASK_DAYS = 60;
 /** Min duration per individual task in working days */
 const MIN_TASK_DAYS = 1;
 
@@ -709,76 +709,86 @@ function aggregateIntoSyntheticTasks(
   const syntheticTasks = new Map<string, SyntheticTask>();
 
   for (const [groupName, groupItems] of groupMap) {
-    // Calculate duration for each item individually
-    let bottleneckDuration = 0;
-    let bottleneckResult: DurationResult | null = null;
-    let bottleneckTeamSize = 2;
-    let bottleneckCfc: string | null = null;
-
-    // Aggregate quantities if same unit
-    const unitCounts = new Map<string, number>();
+    // ── Aggregate quantities by unit ──
+    const unitCounts = new Map<string, { qty: number; items: SubmissionItemInput[] }>();
     for (const item of groupItems) {
       if (item.unit && item.quantity) {
         const normUnit = item.unit.toLowerCase().replace(/[²³]/g, (m) => m === '²' ? '2' : '3');
-        unitCounts.set(normUnit, (unitCounts.get(normUnit) || 0) + item.quantity);
+        const entry = unitCounts.get(normUnit) || { qty: 0, items: [] };
+        entry.qty += item.quantity;
+        entry.items.push(item);
+        unitCounts.set(normUnit, entry);
       }
     }
 
-    // Find dominant unit (most quantity, not most items)
+    // Find dominant unit (most total quantity)
     let dominantUnit: string | null = null;
-    let dominantQty: number | null = null;
-    if (unitCounts.size === 1) {
-      const entries = Array.from(unitCounts.entries());
-      dominantUnit = entries[0][0];
-      dominantQty = entries[0][1];
-    } else if (unitCounts.size > 1) {
-      // Mixed units: pick the unit with the most total quantity
-      let maxQty = 0;
-      for (const [u, q] of unitCounts) {
-        if (q > maxQty) { maxQty = q; dominantUnit = u; dominantQty = q; }
-      }
+    let dominantQty = 0;
+    for (const [u, { qty }] of unitCounts) {
+      if (qty > dominantQty) { dominantQty = qty; dominantUnit = u; }
     }
 
-    // Calculate duration per item — bottleneck (longest) determines phase timing
+    // ── Find best CFC code (most frequent in the group) ──
+    const cfcFreq = new Map<string, number>();
     for (const item of groupItems) {
-      if (!item.quantity || !item.unit) continue;
-
-      const cfcCode = item.cfc_code ?? '000';
-      let durationResult: DurationResult;
-
-      try {
-        durationResult = calculateDuration({
-          quantity: item.quantity,
-          unit: item.unit,
-          cfc_code: cfcCode,
-          team_size: findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2,
-          start_date: startDate,
-          project_type: config.project_type,
-          canton: config.canton,
-          org_corrections: orgCorrections,
-        });
-      } catch {
-        durationResult = {
-          duration_days: 5,
-          base_duration_days: 5,
-          productivity_ratio: 0,
-          productivity_source: 'ai_estimate',
-          adjustment_factors: {},
-        };
-      }
-
-      // Clamp individual item duration
-      const clampedDuration = Math.min(MAX_TASK_DAYS, Math.max(MIN_TASK_DAYS, durationResult.duration_days));
-
-      if (clampedDuration > bottleneckDuration) {
-        bottleneckDuration = clampedDuration;
-        bottleneckResult = durationResult;
-        bottleneckTeamSize = findProductivityRatio(cfcCode, item.unit)?.team_size_default ?? 2;
-        bottleneckCfc = item.cfc_code;
+      if (item.cfc_code) {
+        cfcFreq.set(item.cfc_code, (cfcFreq.get(item.cfc_code) || 0) + 1);
       }
     }
+    let bestCfc: string | null = null;
+    let bestCfcCount = 0;
+    for (const [code, count] of cfcFreq) {
+      if (count > bestCfcCount) { bestCfcCount = count; bestCfc = code; }
+    }
 
-    // Build description: "{N} postes — first 3 descriptions..."
+    // ── Calculate duration using AGGREGATED quantity ──
+    // Use the total quantity of the dominant unit with the group's CFC code.
+    // This is more realistic: a construction crew works on ALL items in the group.
+    const cfcCode = bestCfc ?? '000';
+    const ratioEntry = findProductivityRatio(cfcCode, dominantUnit ?? undefined);
+    const defaultTeam = ratioEntry?.team_size_default ?? 2;
+
+    let result: DurationResult;
+    try {
+      result = calculateDuration({
+        quantity: dominantQty || groupItems.length,
+        unit: dominantUnit || 'pce',
+        cfc_code: cfcCode,
+        team_size: defaultTeam,
+        start_date: startDate,
+        project_type: config.project_type,
+        canton: config.canton,
+        org_corrections: orgCorrections,
+      });
+    } catch {
+      result = {
+        duration_days: 5,
+        base_duration_days: 5,
+        productivity_ratio: 0,
+        productivity_source: 'ai_estimate',
+        adjustment_factors: {},
+      };
+    }
+
+    // ── Auto-scale teams for large durations ──
+    // In construction, you add more crews when the job is too big for one team.
+    let finalDuration = result.duration_days;
+    let finalTeamSize = defaultTeam;
+    const adjustmentFactors = { ...(result.adjustment_factors ?? {}) };
+
+    if (finalDuration > MAX_TASK_DAYS) {
+      // Scale up teams with diminishing returns (Brooks' law)
+      const teamsNeeded = Math.ceil(finalDuration / MAX_TASK_DAYS);
+      const efficiency = 1 / (1 + (teamsNeeded - 1) * 0.25); // 75% efficiency per extra team
+      finalDuration = Math.ceil(finalDuration / (teamsNeeded * efficiency));
+      finalTeamSize = defaultTeam * teamsNeeded;
+      adjustmentFactors['team_auto_scale'] = teamsNeeded;
+    }
+
+    // Clamp to caps
+    finalDuration = Math.min(MAX_TASK_DAYS, Math.max(MIN_TASK_DAYS, finalDuration));
+
+    // Build description
     const firstDescriptions = groupItems
       .slice(0, 3)
       .map((i) => i.description.substring(0, 80))
@@ -790,15 +800,15 @@ function aggregateIntoSyntheticTasks(
       name: groupName,
       description,
       source_item_ids: groupItems.map((i) => i.id),
-      cfc_code: bottleneckCfc,
-      duration_days: bottleneckDuration,
-      quantity: dominantQty,
+      cfc_code: bestCfc,
+      duration_days: finalDuration,
+      quantity: dominantQty || groupItems.length,
       unit: dominantUnit,
-      productivity_ratio: bottleneckResult?.productivity_ratio ?? null,
-      productivity_source: bottleneckResult?.productivity_source ?? null,
-      adjustment_factors: bottleneckResult?.adjustment_factors ?? null,
-      base_duration_days: bottleneckResult?.base_duration_days ?? null,
-      team_size: bottleneckTeamSize,
+      productivity_ratio: result.productivity_ratio,
+      productivity_source: result.productivity_source,
+      adjustment_factors: Object.keys(adjustmentFactors).length > 0 ? adjustmentFactors : null,
+      base_duration_days: result.base_duration_days,
+      team_size: finalTeamSize,
     });
   }
 

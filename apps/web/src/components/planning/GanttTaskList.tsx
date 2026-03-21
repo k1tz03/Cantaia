@@ -412,11 +412,11 @@ export default function GanttTaskList({
         className="sticky top-0 z-20 flex items-center bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider"
         style={{ height: ROW_HEIGHT + 8 }}
       >
-        <div className="w-[72px] text-center shrink-0 px-1">{t("wbs.column")}</div>
+        <div className="w-12 text-center shrink-0 px-1">{t("wbs.column")}</div>
         <div className="flex-1 px-3">{t("taskList.name")}</div>
         <div className="w-16 text-center">{t("taskList.duration")}</div>
-        <div className="w-20 text-center">{t("taskList.start")}</div>
-        <div className="w-20 text-center">{t("taskList.end")}</div>
+        <div className="w-[68px] text-center">{t("taskList.start")}</div>
+        <div className="w-[68px] text-center">{t("taskList.end")}</div>
         {/* Edit icon column spacer */}
         {!readOnly && onOpenSidePanel && <div className="w-7" />}
       </div>
@@ -437,7 +437,7 @@ export default function GanttTaskList({
             onContextMenu={onContextMenu ? (e) => onContextMenu(e, "phase", phase) : undefined}
           >
             {/* WBS column */}
-            <div className="w-[72px] text-center shrink-0 px-1">
+            <div className="w-12 text-center shrink-0 px-1">
               <span className="text-xs font-bold text-gray-700 font-mono">
                 {wbsMap.get(phase.id) || ""}
               </span>
@@ -482,10 +482,10 @@ export default function GanttTaskList({
             <div className="w-16 text-center text-xs text-gray-500 font-medium">
               {phaseTotalDuration(phase)}{daysSuffix(t)}
             </div>
-            <div className="w-20 text-center text-xs text-gray-500">
+            <div className="w-[68px] text-center text-xs text-gray-500">
               {formatShortDate(phase.start_date)}
             </div>
-            <div className="w-20 text-center text-xs text-gray-500">
+            <div className="w-[68px] text-center text-xs text-gray-500">
               {formatShortDate(phase.end_date)}
             </div>
             {!readOnly && onOpenSidePanel && <div className="w-7" />}
@@ -513,23 +513,21 @@ export default function GanttTaskList({
                   onContextMenu={onContextMenu ? (e) => onContextMenu(e, "task", task) : undefined}
                 >
                   {/* WBS column */}
-                  <div className="w-[72px] text-center shrink-0 px-1">
+                  <div className="w-12 text-center shrink-0 px-1">
                     <span className="text-[11px] text-gray-500 font-mono">
                       {wbsMap.get(task.id) || ""}
                     </span>
                   </div>
-                  <div className="flex items-center flex-1 px-2 pl-8 gap-1.5 min-w-0">
+                  <div
+                    className="flex items-center flex-1 px-2 pl-6 gap-1 min-w-0"
+                    title={task.cfc_code ? `CFC ${task.cfc_code}` : undefined}
+                  >
                     {/* Task name — editable on double-click */}
                     {renderEditableText(
                       task.id,
                       "name",
                       task.name,
-                      "text-sm text-gray-700 truncate cursor-text",
-                    )}
-                    {task.cfc_code && (
-                      <span className="shrink-0 text-[10px] font-mono text-gray-400 bg-gray-100 px-1 rounded">
-                        {task.cfc_code}
-                      </span>
+                      "text-sm text-gray-700 truncate cursor-text min-w-0 flex-1",
                     )}
                   </div>
 
@@ -539,12 +537,12 @@ export default function GanttTaskList({
                   </div>
 
                   {/* Start date (editable) */}
-                  <div className="w-20 text-center">
+                  <div className="w-[68px] text-center">
                     {renderEditableDate(task, "start")}
                   </div>
 
                   {/* End date (editable) */}
-                  <div className="w-20 text-center">
+                  <div className="w-[68px] text-center">
                     {renderEditableDate(task, "end")}
                   </div>
 
@@ -576,7 +574,7 @@ export default function GanttTaskList({
             className="flex items-center border-b border-gray-200 bg-amber-50/50"
             style={{ height: ROW_HEIGHT }}
           >
-            <div className="w-[72px] shrink-0" />
+            <div className="w-12 shrink-0" />
             <div className="flex items-center flex-1 px-3 gap-2">
               <Diamond className="h-3.5 w-3.5 text-amber-500 shrink-0" />
               <span className="text-sm font-semibold text-amber-800">
@@ -598,7 +596,7 @@ export default function GanttTaskList({
               onContextMenu={onContextMenu ? (e) => onContextMenu(e, "task", ms) : undefined}
             >
               {/* WBS column */}
-              <div className="w-[72px] text-center shrink-0 px-1">
+              <div className="w-12 text-center shrink-0 px-1">
                 <span className="text-[11px] text-amber-600 font-mono font-medium">
                   J{phaseMilestoneCount + msIdx + 1}
                 </span>
@@ -616,7 +614,7 @@ export default function GanttTaskList({
               <div className="w-16 text-center text-xs text-amber-600 font-medium">
                 &mdash;
               </div>
-              <div className="w-20 text-center text-xs text-gray-500">
+              <div className="w-[68px] text-center text-xs text-gray-500">
                 {formatShortDate(ms.start_date)}
               </div>
               <div className="w-20" />

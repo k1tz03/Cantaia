@@ -79,13 +79,13 @@ interface GanttChartProps {
 const STORAGE_KEY = "cantaia_planning_split_width";
 
 function getStoredSplitWidth(): number {
-  if (typeof window === "undefined") return 35;
+  if (typeof window === "undefined") return 45;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     const val = parseFloat(stored);
-    if (!isNaN(val) && val >= 15 && val <= 70) return val;
+    if (!isNaN(val) && val >= 20 && val <= 70) return val;
   }
-  return 35;
+  return 45;
 }
 
 function daysBetween(a: Date, b: Date): number {
