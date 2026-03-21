@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useBranding } from "@/components/providers/BrandingProvider";
+import { ThemeToggle } from "./ThemeToggle";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ActiveProjectSection } from "./ActiveProjectSection";
@@ -58,6 +60,7 @@ export function Sidebar() {
   const { branding } = useBranding();
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
+  const { resolvedTheme } = useTheme();
 
   const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
 
@@ -108,7 +111,7 @@ export function Sidebar() {
     return pathWithoutLocale === href || pathWithoutLocale.startsWith(href + "/");
   }
 
-  const sidebarStyle = isBranded
+  const sidebarStyle = isBranded && resolvedTheme !== "dark"
     ? { backgroundColor: branding.sidebarColor }
     : undefined;
 
@@ -128,12 +131,12 @@ export function Sidebar() {
             )}
             title={collapsed ? t(item.labelKey) : undefined}
           >
-            <Icon className="h-[18px] w-[18px] shrink-0 text-gray-300" />
+            <Icon className="h-[18px] w-[18px] shrink-0 text-muted-foreground/50" />
             {!collapsed && (
               <>
-                <span className="flex-1 text-gray-300">{t(item.labelKey)}</span>
+                <span className="flex-1 text-muted-foreground/50">{t(item.labelKey)}</span>
                 {badgeText && (
-                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
                     {badgeText}
                   </span>
                 )}
@@ -151,20 +154,20 @@ export function Sidebar() {
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
             active
-              ? "bg-blue-50 text-[#2563EB] border-l-[3px] border-l-[#2563EB]"
-              : "text-[#6B7280] hover:bg-gray-50 hover:text-[#111827]",
+              ? "bg-primary/10 text-primary border-l-[3px] border-l-primary"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
             collapsed && "justify-center px-0 border-l-0",
-            active && collapsed && "bg-blue-50"
+            active && collapsed && "bg-primary/10"
           )}
           style={active && isBranded ? { color: branding.primaryColor, backgroundColor: `${branding.primaryColor}10`, borderLeftColor: branding.primaryColor } : undefined}
           title={collapsed ? t(item.labelKey) : undefined}
         >
-          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-[#2563EB]" : "text-[#9CA3AF]")} />
+          <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-primary" : "text-muted-foreground")} />
           {!collapsed && (
             <>
               <span className="flex-1">{t(item.labelKey)}</span>
               {badgeText && (
-                <span className="text-[10px] font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                <span className="text-[10px] font-semibold bg-primary text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">
                   {badgeText}
                 </span>
               )}
@@ -213,9 +216,9 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col border-r border-[#E5E7EB] transition-all duration-200 h-screen sticky top-0",
+          "hidden lg:flex flex-col border-r border-border transition-all duration-200 h-screen sticky top-0",
           collapsed ? "w-[64px]" : "w-[240px]",
-          !isBranded && "bg-white"
+          !isBranded && "bg-background"
         )}
         style={sidebarStyle}
         role="navigation"
@@ -223,7 +226,7 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className={cn(
-          "flex items-center border-b border-[#E5E7EB] h-14 px-4",
+          "flex items-center border-b border-border h-14 px-4",
           collapsed ? "justify-center" : "gap-2.5"
         )}>
           {isBranded && branding.logoUrl ? (
@@ -236,7 +239,7 @@ export function Sidebar() {
                 <path d="M22 14l4 4-4 4" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {!collapsed && (
-                <span className="font-display text-lg font-bold tracking-tight text-[#111827]">
+                <span className="font-display text-lg font-bold tracking-tight text-foreground">
                   Cantaia
                 </span>
               )}
@@ -249,7 +252,7 @@ export function Sidebar() {
           {/* QUOTIDIEN */}
           <div className="mb-2">
             {!collapsed && (
-              <p className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">
+              <p className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 {t("sections.daily")}
               </p>
             )}
@@ -259,9 +262,9 @@ export function Sidebar() {
           </div>
 
           {/* RÉFÉRENTIELS */}
-          <div className="mb-2 border-t border-[#E5E7EB] pt-2">
+          <div className="mb-2 border-t border-border pt-2">
             {!collapsed && (
-              <p className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">
+              <p className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 {t("sections.references")}
               </p>
             )}
@@ -271,12 +274,12 @@ export function Sidebar() {
           </div>
 
           {/* PROJET ACTIF */}
-          <div className="border-t border-[#E5E7EB] pt-2">
+          <div className="border-t border-border pt-2">
             <ActiveProjectSection collapsed={collapsed} />
           </div>
 
           {/* Settings */}
-          <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+          <div className="mt-3 border-t border-border pt-3">
             <ul className="space-y-0.5">
               {bottomItems.map(renderNavItem)}
             </ul>
@@ -290,8 +293,8 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive("/admin")
-                    ? "bg-red-50 text-red-700"
-                    : "text-[#9CA3AF] hover:bg-red-50/50 hover:text-red-600",
+                    ? "bg-red-500/10 text-red-700"
+                    : "text-muted-foreground hover:bg-red-500/10 hover:text-red-600",
                   collapsed && "justify-center px-0"
                 )}
                 title={collapsed ? t("admin") : undefined}
@@ -306,21 +309,24 @@ export function Sidebar() {
         {/* Plan indicator — hidden for pro/enterprise plans */}
 
         {/* User & Collapse */}
-        <div className="border-t border-[#E5E7EB] p-3">
+        <div className="border-t border-border p-3">
+          {/* Theme Toggle */}
+          <ThemeToggle collapsed={collapsed} />
+
           {!collapsed && (
             <div className="mb-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5">
               <div
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold bg-blue-100 text-[#2563EB]"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold bg-primary/15 text-primary"
                 style={isBranded ? { backgroundColor: `${branding.primaryColor}20`, color: branding.primaryColor } : undefined}
               >
                 {userInitials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-[#111827]">{userName}</p>
+                <p className="truncate text-xs font-medium text-foreground">{userName}</p>
               </div>
               <button
                 onClick={signOut}
-                className="rounded-md p-1 text-[#9CA3AF] hover:bg-gray-100 hover:text-[#6B7280] transition-colors"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 title={t("logout")}
               >
                 <LogOut className="h-3.5 w-3.5" />
@@ -329,7 +335,7 @@ export function Sidebar() {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#9CA3AF] transition-colors hover:bg-gray-50 hover:text-[#6B7280]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -345,7 +351,7 @@ export function Sidebar() {
 
       {/* Mobile Bottom Navigation */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-md lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         role="navigation"
         aria-label="Mobile navigation"
@@ -360,7 +366,7 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-                  active ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
                 style={active && isBranded ? { color: branding.primaryColor } : undefined}
                 aria-current={active ? "page" : undefined}
@@ -368,7 +374,7 @@ export function Sidebar() {
                 <span className="relative">
                   <Icon className="h-6 w-6" />
                   {item.badge && (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#2563EB] px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-white">
                       {item.badge}
                     </span>
                   )}
@@ -382,7 +388,7 @@ export function Sidebar() {
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors",
-              "text-[#9CA3AF] hover:text-[#6B7280]"
+              "text-muted-foreground hover:text-foreground"
             )}
           >
             {activeProject ? (
@@ -403,7 +409,7 @@ export function Sidebar() {
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-              mobileMoreOpen ? "text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#6B7280]"
+              mobileMoreOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
             aria-expanded={mobileMoreOpen}
             aria-label={t("more")}
@@ -426,7 +432,7 @@ export function Sidebar() {
               transition={{ duration: 0.15 }}
             />
             <motion.div
-              className="absolute bottom-[60px] left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-4"
+              className="absolute bottom-[60px] left-0 right-0 bg-background rounded-t-2xl shadow-2xl p-4"
               style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -445,7 +451,7 @@ export function Sidebar() {
                       onClick={() => setMobileMoreOpen(false)}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
-                        active ? "bg-blue-50 text-[#2563EB]" : "text-[#6B7280] hover:bg-gray-50"
+                        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
                       )}
                       aria-current={active ? "page" : undefined}
                     >
@@ -490,10 +496,10 @@ export function Sidebar() {
                 transition={{ delay: (fabActions.length - 1 - i) * 0.05, type: "spring", damping: 20, stiffness: 300 }}
                 onClick={() => handleFabAction(fab.action)}
               >
-                <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-[#374151] shadow-lg whitespace-nowrap">
+                <span className="rounded-lg bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-lg whitespace-nowrap">
                   {t(fab.labelKey)}
                 </span>
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg text-[#2563EB] transition-colors group-hover:bg-blue-50">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-background shadow-lg text-primary transition-colors group-hover:bg-primary/10">
                   <FabIcon className="h-5 w-5" />
                 </span>
               </motion.button>
@@ -503,7 +509,7 @@ export function Sidebar() {
 
         {/* FAB button */}
         <motion.button
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-lg hover:bg-[#1D4ED8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           onClick={() => { setFabOpen(!fabOpen); setMobileMoreOpen(false); }}
           animate={{ rotate: fabOpen ? 45 : 0 }}
           transition={{ type: "spring", damping: 15, stiffness: 200 }}
