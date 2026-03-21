@@ -63,7 +63,7 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
 
   if (!threadId || threadEmails.length <= 1) {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Mail className="h-3 w-3" />
         {t("noThread")}
       </div>
@@ -71,18 +71,18 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white">
+    <div className="rounded-md border border-border bg-background">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
       >
         {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
         )}
         <MessageSquare className="h-3.5 w-3.5 text-brand" />
-        <span className="text-xs font-medium text-slate-700">
+        <span className="text-xs font-medium text-foreground">
           {t("threadView")}
         </span>
         <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
@@ -91,13 +91,13 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
       </button>
 
       {expanded && (
-        <div className="border-t border-slate-100">
+        <div className="border-t border-border">
           {loading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {threadEmails.map((te) => {
                 const isActive = te.id === email.id;
                 const senderName = te.from_name || te.sender_name || te.from_email || te.sender_email || "";
@@ -107,7 +107,7 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
                     onClick={() => onSelectEmail(te)}
                     className={cn(
                       "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors",
-                      isActive ? "bg-brand/5" : "hover:bg-slate-50"
+                      isActive ? "bg-brand/5" : "hover:bg-muted"
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -115,12 +115,12 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
                         <span
                           className={cn(
                             "truncate text-xs",
-                            isActive ? "font-semibold text-brand" : "font-medium text-slate-700"
+                            isActive ? "font-semibold text-brand" : "font-medium text-foreground"
                           )}
                         >
                           {senderName}
                         </span>
-                        <span className="shrink-0 text-[10px] text-slate-400">
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
                           {new Date(te.received_at).toLocaleDateString("fr-CH", {
                             day: "numeric",
                             month: "short",
@@ -129,7 +129,7 @@ export function EmailThreadView({ email, onSelectEmail }: EmailThreadViewProps) 
                           })}
                         </span>
                       </div>
-                      <p className="truncate text-[11px] text-slate-400">
+                      <p className="truncate text-[11px] text-muted-foreground">
                         {stripSignature(te.body_preview || "") || te.subject}
                       </p>
                     </div>

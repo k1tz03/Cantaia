@@ -32,10 +32,10 @@ import type { EmailRecord, Project } from "@cantaia/database";
 import { formatDate } from "@/lib/mock-data";
 
 const classificationConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 bg-orange-50" },
-  urgent: { label: "Urgent", icon: AlertTriangle, color: "text-red-600 bg-red-50" },
-  waiting_response: { label: "En attente", icon: Clock, color: "text-blue-600 bg-blue-50" },
-  info_only: { label: "Info", icon: Info, color: "text-gray-500 bg-gray-100" },
+  action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 dark:text-orange-400 bg-orange-500/10" },
+  urgent: { label: "Urgent", icon: AlertTriangle, color: "text-red-600 dark:text-red-400 bg-red-500/10" },
+  waiting_response: { label: "En attente", icon: Clock, color: "text-blue-600 dark:text-blue-400 bg-blue-500/10" },
+  info_only: { label: "Info", icon: Info, color: "text-muted-foreground bg-muted" },
 };
 
 interface AttachmentInfo {
@@ -48,7 +48,7 @@ interface AttachmentInfo {
 function getAttachmentIcon(contentType: string, name: string) {
   const ext = name.split(".").pop()?.toLowerCase() || "";
   if (contentType === "application/pdf" || ext === "pdf") {
-    return { icon: FileText, color: "text-red-500 bg-red-50" };
+    return { icon: FileText, color: "text-red-500 bg-red-500/10" };
   }
   if (
     contentType.includes("wordprocessingml") ||
@@ -56,7 +56,7 @@ function getAttachmentIcon(contentType: string, name: string) {
     ext === "docx" ||
     ext === "doc"
   ) {
-    return { icon: FileText, color: "text-blue-500 bg-blue-50" };
+    return { icon: FileText, color: "text-blue-500 bg-blue-500/10" };
   }
   if (
     contentType.includes("spreadsheetml") ||
@@ -64,12 +64,12 @@ function getAttachmentIcon(contentType: string, name: string) {
     ext === "xlsx" ||
     ext === "xls"
   ) {
-    return { icon: FileSpreadsheet, color: "text-green-500 bg-green-50" };
+    return { icon: FileSpreadsheet, color: "text-green-500 bg-green-500/10" };
   }
   if (contentType.startsWith("image/")) {
-    return { icon: ImageIcon, color: "text-purple-500 bg-purple-50" };
+    return { icon: ImageIcon, color: "text-purple-500 bg-purple-500/10" };
   }
-  return { icon: Paperclip, color: "text-slate-400 bg-slate-100" };
+  return { icon: Paperclip, color: "text-muted-foreground bg-muted" };
 }
 
 function formatFileSize(bytes: number): string {
@@ -481,13 +481,13 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
   return (
     <div className="flex h-full flex-col">
       {/* Sticky header */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
-        <h3 className="text-sm font-semibold text-slate-800">
+      <div className="flex items-center justify-between border-b border-border bg-background px-5 py-3">
+        <h3 className="text-sm font-semibold text-foreground">
           {t("emailDetail")}
         </h3>
         <button
           onClick={onClose}
-          className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -499,38 +499,38 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {/* Section 1 — Header */}
           <div className="space-y-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("from")}
               </p>
-              <p className="text-sm font-medium text-slate-800">
+              <p className="text-sm font-medium text-foreground">
                 {email.sender_name || email.sender_email}
               </p>
-              <p className="text-xs text-slate-400">{email.sender_email}</p>
+              <p className="text-xs text-muted-foreground">{email.sender_email}</p>
             </div>
             {(email.recipients?.length ?? 0) > 0 && (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("recipients")}
                 </p>
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-muted-foreground">
                   {email.recipients?.join(", ")}
                 </p>
               </div>
             )}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("subject")}
               </p>
-              <p className="text-sm font-medium text-slate-800">
+              <p className="text-sm font-medium text-foreground">
                 {email.subject}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-muted-foreground">
                 {formatDate(email.received_at)}
               </span>
               {email.has_attachments && (
-                <span className="flex items-center gap-1 text-xs text-slate-400">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Paperclip className="h-3 w-3" />
                   {t("attachment")}
                 </span>
@@ -561,12 +561,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
 
           {/* Bug 8 — AI Summary: always visible, not collapsible */}
           {(detailedSummary || email.ai_summary) && detailedSummary !== "—" && (
-            <div className="rounded-md border border-blue-100 bg-blue-50/50 p-3">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+            <div className="rounded-md border border-primary/20 bg-primary/10 p-3">
+              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                 <Sparkles className="h-3 w-3" />
                 {t("detailedSummary")}
               </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground">
                 {detailedSummary || email.ai_summary}
               </p>
             </div>
@@ -574,22 +574,22 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
 
           {/* Section 1b — Email Content */}
           <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               <Mail className="h-3 w-3" />
               {t("emailContent")}
             </h4>
             {emailBodyLoading ? (
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {t("loadingBody")}
               </div>
             ) : emailBody ? (
               <div
-                className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-slate-200 bg-white p-3"
+                className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-border bg-white p-3"
               >
                 {emailBody.contentType === "html" ? (
                   <div
-                    className="prose prose-sm max-w-none text-slate-700 [&_a]:text-brand [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
+                    className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(emailBody.content, {
                         ALLOWED_TAGS: ["p", "br", "b", "i", "u", "strong", "em", "a", "ul", "ol", "li", "table", "tr", "td", "th", "thead", "tbody", "span", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img"],
@@ -599,11 +599,11 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                     }}
                   />
                 ) : (
-                  <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{emailBody.content}</pre>
+                  <pre className="whitespace-pre-wrap text-sm text-foreground font-sans">{emailBody.content}</pre>
                 )}
               </div>
             ) : email.body_preview ? (
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {email.body_preview}
               </p>
             ) : null}
@@ -612,12 +612,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           {/* Section 2b — Attachments */}
           {email.has_attachments && (
             <div>
-              <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Paperclip className="h-3 w-3" />
                 {t("attachments")}
               </h4>
               {attachmentsLoading ? (
-                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {t("loadingAttachments")}
                 </div>
@@ -631,16 +631,16 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                       <div key={att.id}>
                         <button
                           onClick={() => handleAttachmentClick(att)}
-                          className="flex w-full items-center gap-2.5 rounded-md border border-slate-200 bg-white p-2.5 text-left transition-colors hover:bg-slate-50"
+                          className="flex w-full items-center gap-2.5 rounded-md border border-border bg-background p-2.5 text-left transition-colors hover:bg-muted"
                         >
                           <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", attStyle.color)}>
                             <AttIcon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-700">
+                            <p className="truncate text-sm font-medium text-foreground">
                               {att.name}
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-muted-foreground">
                               {formatFileSize(att.size)}
                             </p>
                           </div>
@@ -657,7 +657,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   {attachments.length > 1 && (
                     <button
                       onClick={handleDownloadAll}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
                     >
                       <Download className="h-3.5 w-3.5" />
                       {t("downloadAll")}
@@ -665,19 +665,19 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                   )}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-slate-400">{t("noAttachmentsFound")}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t("noAttachmentsFound")}</p>
               )}
             </div>
           )}
 
           {/* Section 3 — Extracted Tasks */}
           <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               <CheckCircle className="h-3 w-3" />
               {t("extractedTasks")}
             </h4>
             {tasksLoading || extractingTasks ? (
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {extractingTasks ? (t("extractingTasks") || "Analyse en cours...") : (t("loadingTasks") || "Chargement...")}
               </div>
@@ -686,12 +686,12 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 {extractedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-md border border-slate-200 bg-white p-3"
+                    className="rounded-md border border-border bg-background p-3"
                   >
-                    <p className="text-sm font-medium text-slate-800">
+                    <p className="text-sm font-medium text-foreground">
                       {task.title}
                     </p>
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-400">
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
                       {task.responsible && (
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
@@ -722,7 +722,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {t("noExtractedTasks")}
               </p>
             )}
@@ -741,19 +741,19 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
 
           {/* Section 4 — AI Reply Proposal */}
           <div>
-            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               <Mail className="h-3 w-3" />
               {t("aiReplyProposal")}
             </h4>
             {replyLoading ? (
-              <div className="mt-2 flex h-40 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="mt-2 flex h-40 items-center justify-center rounded-md border border-border bg-muted">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t("generatingReply") || "Génération en cours..."}
                 </div>
               </div>
             ) : noReplyNeeded && !forceReply ? (
-              <div className="mt-2 rounded-md border border-green-200 bg-green-50 p-4">
+              <div className="mt-2 rounded-md border border-green-200 bg-green-500/10 p-4">
                 <p className="flex items-center gap-2 text-sm font-medium text-green-700">
                   <CheckCircle className="h-4 w-4" />
                   {t("noReplyNeeded")}
@@ -771,7 +771,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 onChange={(e) => setReplyText(e.target.value)}
                 rows={8}
                 placeholder={t("insufficientContext")}
-                className="mt-2 w-full rounded-md border border-slate-200 bg-white p-3 text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="mt-2 w-full rounded-md border border-border bg-background p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             )}
             {(!noReplyNeeded || forceReply) && !replyLoading && (
@@ -786,14 +786,14 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 </button>
                 <button
                   onClick={handleCopyReply}
-                  className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
                 >
                   <Copy className="h-3 w-3" />
                   {t("copy")}
                 </button>
                 <button
                   onClick={handleRegenerate}
-                  className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
                 >
                   <RefreshCw className="h-3 w-3" />
                   {t("regenerate")}
@@ -803,15 +803,15 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
           </div>
 
           {/* Section 5 — Quick Actions */}
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="border-t border-border pt-4">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {t("quickActions")}
             </h4>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 onClick={handleArchive}
                 disabled={archiving}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
               >
                 {archiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
                 {t("archiveOutlook")}
@@ -820,19 +820,19 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                 <button
                   onClick={() => setShowReclassDropdown(!showReclassDropdown)}
                   disabled={reclassifying}
-                  className="flex w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="flex w-full items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
                 >
                   {reclassifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Tag className="h-3.5 w-3.5" />}
                   {t("reclassify")}
                   <ChevronDown className="ml-auto h-3 w-3" />
                 </button>
                 {showReclassDropdown && (
-                  <div className="absolute left-0 top-full z-20 mt-1 w-full rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                  <div className="absolute left-0 top-full z-20 mt-1 w-full rounded-md border border-border bg-background py-1 shadow-lg">
                     {projects.map((p) => (
                       <button
                         key={p.id}
                         onClick={() => handleReclassify(p.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
                       >
                         <span
                           className="h-2 w-2 rounded-full"
@@ -847,7 +847,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <button
                 onClick={handleMarkProcessed}
                 disabled={markingProcessed}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
               >
                 {markingProcessed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
                 {t("markProcessed")}
@@ -855,7 +855,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               <button
                 onClick={handleMarkUrgent}
                 disabled={markingUrgent}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-500/10 disabled:opacity-50"
               >
                 {markingUrgent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                 {t("markUrgent")}
@@ -873,7 +873,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                     });
                   }
                 }}
-                className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {t("createManualTask")}

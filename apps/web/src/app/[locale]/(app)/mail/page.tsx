@@ -324,43 +324,43 @@ export default function MailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB]">
+      <div className="min-h-screen bg-muted">
         <div className="max-w-[860px] mx-auto px-4 pt-8 pb-4">
           <div className="flex items-start justify-between">
             <div>
-              <div className="h-7 w-72 animate-pulse rounded-lg bg-gray-200" />
-              <div className="mt-2 h-4 w-48 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-7 w-72 animate-pulse rounded-lg bg-muted" />
+              <div className="mt-2 h-4 w-48 animate-pulse rounded-lg bg-muted" />
             </div>
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-gray-200" />
+            <div className="h-9 w-32 animate-pulse rounded-lg bg-muted" />
           </div>
           <div className="flex gap-3 mt-5">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 w-36 animate-pulse rounded-full bg-gray-100" />
+              <div key={i} className="h-10 w-36 animate-pulse rounded-full bg-muted" />
             ))}
           </div>
         </div>
         <div className="max-w-[860px] mx-auto px-4 pb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                <div className="h-3 w-24 animate-pulse rounded bg-gray-100 mb-3" />
-                <div className="h-6 w-16 animate-pulse rounded bg-gray-200" />
+              <div key={i} className="bg-background rounded-xl border border-border p-4 shadow-sm">
+                <div className="h-3 w-24 animate-pulse rounded bg-muted mb-3" />
+                <div className="h-6 w-16 animate-pulse rounded bg-muted" />
               </div>
             ))}
           </div>
         </div>
         <div className="max-w-[860px] mx-auto px-4 space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-100 border-l-4 border-l-gray-200 p-5 shadow-sm">
+            <div key={i} className="bg-background rounded-xl border border-border border-l-4 border-l-border p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <div className="h-5 w-20 animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-32 animate-pulse rounded bg-gray-100" />
+                <div className="h-5 w-20 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
               </div>
-              <div className="h-4 w-full animate-pulse rounded bg-gray-100 mb-2" />
-              <div className="h-4 w-3/4 animate-pulse rounded bg-gray-100 mb-4" />
+              <div className="h-4 w-full animate-pulse rounded bg-muted mb-2" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-muted mb-4" />
               <div className="flex gap-2">
-                <div className="h-8 w-36 animate-pulse rounded-lg bg-blue-100" />
-                <div className="h-8 w-28 animate-pulse rounded-lg bg-gray-100" />
+                <div className="h-8 w-36 animate-pulse rounded-lg bg-primary/10" />
+                <div className="h-8 w-28 animate-pulse rounded-lg bg-muted" />
               </div>
             </div>
           ))}
@@ -383,24 +383,24 @@ export default function MailPage() {
   const isEmpty = visibleCards.length === 0 && activeFilter !== "info";
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
       <div className="max-w-[860px] mx-auto px-4 pt-8 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
               {t("greeting", { firstName })}
             </h1>
-            <p className="text-[13px] text-gray-500 mt-1">
+            <p className="text-[13px] text-muted-foreground mt-1">
               {formatDate(t)}
-              <span className="mx-2 text-gray-300">·</span>
+              <span className="mx-2 text-muted-foreground">·</span>
               {t("pendingEmails", { count: filteredUrgent.length + filteredThisWeek.length + filteredInfo.length })}
             </p>
           </div>
           <button
             onClick={syncEmails}
             disabled={syncing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-background border border-border rounded-lg hover:bg-muted hover:border-border disabled:opacity-50 transition-all shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? t("syncing") : t("sync")}
@@ -408,7 +408,7 @@ export default function MailPage() {
         </div>
 
         {syncToast && (
-          <div className="mt-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <div className="mt-3 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg text-sm text-primary flex items-center gap-2">
             <Check className="w-4 h-4" />{syncToast}
           </div>
         )}
@@ -473,7 +473,7 @@ export default function MailPage() {
       {activeFilter !== "info" && filteredInfo.length > 0 && (
         <div className="max-w-[860px] mx-auto px-4 pb-12">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{t("unreadEmails")}</h2>
+            <h2 className="text-lg font-bold text-foreground" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{t("unreadEmails")}</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
@@ -493,7 +493,7 @@ export default function MailPage() {
                   setTimeout(() => setBackfillToast(null), 5000);
                 }}
                 disabled={backfilling}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-background border border-border rounded-lg hover:bg-muted disabled:opacity-50 transition-colors"
               >
                 {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
                 {t("loadBodies")}
@@ -514,7 +514,7 @@ export default function MailPage() {
                   setTimeout(() => setSummaryToast(null), 4000);
                 }}
                 disabled={generatingSummaries}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-background border border-primary/20 rounded-lg hover:bg-primary/10 disabled:opacity-50 transition-colors"
               >
                 {generatingSummaries ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 {t("generateSummaries")}
@@ -522,7 +522,7 @@ export default function MailPage() {
             </div>
           </div>
           {(summaryToast || backfillToast) && (
-            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
+            <div className="mb-3 px-3 py-2 bg-green-500/10 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
               <Check className="w-4 h-4" />{backfillToast || summaryToast}
             </div>
           )}
@@ -604,15 +604,15 @@ function FilterPill({ active, color, count, label, onClick }: {
   onClick: () => void;
 }) {
   const colors = {
-    red: active ? "bg-red-50 text-red-800 border-red-200 shadow-sm" : "bg-white text-red-700 border-gray-200 hover:border-red-200 hover:bg-red-50/50",
-    amber: active ? "bg-amber-50 text-amber-800 border-amber-200 shadow-sm" : "bg-white text-amber-700 border-gray-200 hover:border-amber-200 hover:bg-amber-50/50",
-    gray: active ? "bg-gray-100 text-gray-800 border-gray-300 shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50",
+    red: active ? "bg-red-500/10 text-red-800 border-red-200 shadow-sm" : "bg-background text-red-700 border-border hover:border-red-200 hover:bg-red-500/10",
+    amber: active ? "bg-amber-500/10 text-amber-800 border-amber-200 shadow-sm" : "bg-background text-amber-700 border-border hover:border-amber-200 hover:bg-amber-500/10",
+    gray: active ? "bg-muted text-foreground border-border shadow-sm" : "bg-background text-muted-foreground border-border hover:border-border hover:bg-muted",
   };
   const dots = { red: "bg-red-500", amber: "bg-amber-500", gray: "bg-gray-400" };
   const countBg = {
     red: active ? "bg-red-200 text-red-900" : "bg-red-100 text-red-700",
     amber: active ? "bg-amber-200 text-amber-900" : "bg-amber-100 text-amber-700",
-    gray: active ? "bg-gray-300 text-gray-800" : "bg-gray-100 text-gray-600",
+    gray: active ? "bg-gray-300 text-foreground" : "bg-muted text-muted-foreground",
   };
 
   return (
@@ -635,14 +635,14 @@ function FilterPill({ active, color, count, label, onClick }: {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-2 text-gray-400 mb-2">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-50 text-gray-400">
+    <div className="bg-background rounded-xl border border-border p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-2 text-muted-foreground mb-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
           {icon}
         </div>
         <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <div className="text-xl font-bold text-[#111827]" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{value}</div>
+      <div className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{value}</div>
     </div>
   );
 }
@@ -724,7 +724,7 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
 
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          className="bg-background rounded-2xl shadow-2xl flex flex-col"
           style={{ width: "70vw", maxWidth: "960px", height: "80vh", maxHeight: "800px" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -764,24 +764,24 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
             {/* AI Summary block */}
             {email.ai_summary && (
               <>
-                <div className="rounded-lg overflow-hidden mb-5" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                <div className="rounded-lg overflow-hidden mb-5 border-l-[3px] border-l-primary bg-primary/10">
                   <div className="px-4 py-3">
-                    <div className="text-xs uppercase font-semibold tracking-wide text-[#2563EB] mb-1.5">{t("badges.aiSummary")}</div>
-                    <p className="text-sm leading-relaxed" style={{ color: "#1E3A5F" }}>{email.ai_summary}</p>
+                    <div className="text-xs uppercase font-semibold tracking-wide text-primary mb-1.5">{t("badges.aiSummary")}</div>
+                    <p className="text-sm leading-relaxed text-foreground">{email.ai_summary}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs uppercase font-medium text-gray-400 tracking-wide">
+                  <div className="flex-1 h-px bg-muted" />
+                  <span className="text-xs uppercase font-medium text-muted-foreground tracking-wide">
                     {thread && thread.length > 1 ? t("email.thread") : t("email.emailContent")}
                   </span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="flex-1 h-px bg-muted" />
                 </div>
               </>
             )}
 
             {threadError && !thread && (
-              <div className="mb-4 px-3 py-1.5 text-xs text-gray-400 flex items-center gap-1.5">
+              <div className="mb-4 px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5">
                 <MessageSquare className="w-3 h-3" />{threadError}
               </div>
             )}
@@ -790,38 +790,38 @@ function EmailDetailModal({ email, onClose, onReply, onDelegate, onTransfer, onC
             {thread && thread.length > 0 ? (
               <ThreadView thread={thread} currentUserEmail={email.sender_email} />
             ) : (
-              <div className="bg-[#F9FAFB] rounded-lg p-4">
+              <div className="bg-muted rounded-lg p-4">
                 {threadLoading && !fallbackBody ? (
-                  <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm py-8">
                     <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                   </div>
                 ) : fallbackIsHtml ? (
-                  <div className="prose prose-sm max-w-none text-gray-700 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                  <div className="prose prose-sm max-w-none text-foreground email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                 ) : (
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{fallbackBody}</div>
+                  <div className="text-sm text-foreground whitespace-pre-wrap">{fallbackBody}</div>
                 )}
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
-            <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors">
+          <div className="flex-shrink-0 px-6 py-3 border-t border-border bg-background flex items-center gap-2">
+            <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors">
               <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
             </button>
             {isAloneInOrg ? (
-              <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
                 <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
               </button>
             ) : (
-              <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+              <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
                 <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
               </button>
             )}
-            <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
               <ListTodo className="w-3.5 h-3.5" />{t("actions.createTask")}
             </button>
-            <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white hover:bg-red-50 border border-red-200 rounded-lg transition-colors">
+            <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-background hover:bg-red-500/10 border border-red-200 rounded-lg transition-colors">
               <Archive className="w-3.5 h-3.5" />{t("actions.archive")}
             </button>
           </div>
@@ -867,11 +867,11 @@ function ThreadView({ thread, currentUserEmail }: {
         const isHtml = msg.body.contentType?.toLowerCase() === "html";
 
         return (
-          <div key={msg.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+          <div key={msg.id} className="rounded-lg border border-border bg-white overflow-hidden">
             {/* Message header — clickable to expand/collapse */}
             <button
               onClick={() => toggleExpand(msg.id)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted transition-colors text-left"
             >
               {/* Avatar */}
               <div
@@ -884,34 +884,34 @@ function ThreadView({ thread, currentUserEmail }: {
               {/* Sender info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900 truncate">
+                  <span className="text-sm font-medium text-foreground truncate">
                     {msg.from.name || msg.from.email}
                   </span>
                   {msg.isCurrentMessage && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">{t("email.mainMessage")}</span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded">{t("email.mainMessage")}</span>
                   )}
                 </div>
                 {!isExpanded && (
-                  <p className="text-xs text-gray-400 truncate mt-0.5">{msg.bodyPreview}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.bodyPreview}</p>
                 )}
               </div>
 
               {/* Date + chevron */}
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-400">{formatThreadDate(msg.receivedDateTime, locale)}</span>
+                <span className="text-xs text-muted-foreground">{formatThreadDate(msg.receivedDateTime, locale)}</span>
                 {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 )}
               </div>
             </button>
 
             {/* Expanded body */}
             {isExpanded && (
-              <div className="border-t border-gray-100">
+              <div className="border-t border-border">
                 {/* Recipients line */}
-                <div className="px-4 py-2 text-xs text-gray-500 space-y-0.5 bg-gray-50/50">
+                <div className="px-4 py-2 text-xs text-muted-foreground space-y-0.5 bg-muted/50">
                   <p>{t("email.from")} : {msg.from.name} &lt;{msg.from.email}&gt;</p>
                   {msg.to.length > 0 && (
                     <p>{t("email.to")} : {msg.to.map((r) => r.name || r.email).join(", ")}</p>
@@ -925,11 +925,11 @@ function ThreadView({ thread, currentUserEmail }: {
                 <div className="px-4 py-4">
                   {isHtml ? (
                     <div
-                      className="prose prose-sm max-w-none text-gray-700 email-content"
+                      className="prose prose-sm max-w-none text-foreground email-content"
                       dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }}
                     />
                   ) : (
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body.content}</div>
+                    <div className="text-sm text-foreground whitespace-pre-wrap">{msg.body.content}</div>
                   )}
                 </div>
               </div>
@@ -938,7 +938,7 @@ function ThreadView({ thread, currentUserEmail }: {
             {/* Separator label between messages */}
             {!isLast && idx < thread.length - 1 && (
               <div className="px-4 pb-1">
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-muted-foreground">
                   {t("email.replyAgo", { time: timeAgo(thread[idx + 1].receivedDateTime, t) })}
                 </span>
               </div>
@@ -992,12 +992,12 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
     setMenuOpen(!menuOpen);
   }, [menuOpen]);
 
-  const borderColor = email.priority === "urgent" ? "border-l-red-600" : email.priority === "action" ? "border-l-amber-500" : "border-l-gray-400";
+  const borderColor = email.priority === "urgent" ? "border-l-red-600" : email.priority === "action" ? "border-l-amber-500" : "border-l-border";
   const badge = email.is_quote
-    ? { label: t("badges.quoteReceived"), color: "bg-amber-100 text-amber-800" }
+    ? { label: t("badges.quoteReceived"), color: "bg-amber-500/10 text-amber-800 dark:text-amber-400" }
     : email.priority === "urgent"
-    ? { label: t("badges.urgent"), color: "bg-red-100 text-red-800" }
-    : { label: t("badges.action"), color: "bg-amber-100 text-amber-800" };
+    ? { label: t("badges.urgent"), color: "bg-red-500/10 text-red-800 dark:text-red-400" }
+    : { label: t("badges.action"), color: "bg-amber-500/10 text-amber-800 dark:text-amber-400" };
 
   const handleAction = (action: () => void) => {
     setExiting(true);
@@ -1007,23 +1007,23 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
   if (email.is_quote) {
     return (
       <div
-        className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm overflow-visible transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
+        className={`bg-background rounded-xl border border-border border-l-4 ${borderColor} shadow-sm overflow-visible transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <div className="p-5">
           <div className="flex items-center gap-2 mb-2">
             <span className={`px-2 py-0.5 rounded text-xs font-bold ${badge.color}`}>{badge.label}</span>
-            {email.project_name && <span className="text-xs text-gray-500 font-medium">{email.project_name}</span>}
+            {email.project_name && <span className="text-xs text-muted-foreground font-medium">{email.project_name}</span>}
           </div>
-          <p className="text-gray-800 font-medium mb-1">
+          <p className="text-foreground font-medium mb-1">
             {t("email.respondedToPriceRequest", { sender: email.sender_name || email.sender_email })}
           </p>
           {email.ai_summary && (
-            <p className="text-sm text-gray-500 mb-3 line-clamp-2">{email.ai_summary}</p>
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{email.ai_summary}</p>
           )}
           {email.price_indicator?.extracted_price != null && (
-            <div className="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">
+            <div className="flex items-center gap-3 mb-3 p-3 bg-muted rounded-lg">
+              <span className="text-sm font-medium text-foreground">
                 {t("email.priceExtracted")} : CHF {email.price_indicator.extracted_price.toLocaleString("fr-CH")}
               </span>
               {email.price_indicator.diff_percent != null ? (
@@ -1037,7 +1037,7 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
                   </span>
                 )
               ) : (
-                <span className="text-xs text-gray-400">{t("email.noMarketRef")}</span>
+                <span className="text-xs text-muted-foreground">{t("email.noMarketRef")}</span>
               )}
             </div>
           )}
@@ -1045,13 +1045,13 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
             <button onClick={() => handleAction(onAccept)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
               <ThumbsUp className="w-3.5 h-3.5" />{t("actions.accept")}
             </button>
-            <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors">
+            <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-200 rounded-lg transition-colors">
               <MessageSquare className="w-3.5 h-3.5" />{t("actions.negotiate")}
             </button>
-            <button onClick={() => handleAction(onRefuse)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors">
+            <button onClick={() => handleAction(onRefuse)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-500/10 hover:bg-red-500/15 border border-red-200 rounded-lg transition-colors">
               <ThumbsDown className="w-3.5 h-3.5" />{t("actions.refuse")}
             </button>
-            <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors">
+            <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-lg transition-colors">
               <Eye className="w-3.5 h-3.5" />{t("actions.viewDetail")}
             </button>
           </div>
@@ -1062,7 +1062,7 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} shadow-sm hover:shadow-md overflow-visible relative transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
+      className={`bg-background rounded-xl border border-border border-l-4 ${borderColor} shadow-sm hover:shadow-md overflow-visible relative transition-all duration-300 ${exiting ? "opacity-0 -translate-x-8" : "opacity-100 translate-x-0"}`}
       style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif", zIndex: menuOpen ? 10 : 1 }}
     >
       <div className="p-5">
@@ -1070,24 +1070,24 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
         <div className="flex items-center gap-2 mb-2.5">
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${badge.color}`}>{badge.label}</span>
           {email.project_name && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-gray-400 shrink-0" />
               {email.project_name}
             </span>
           )}
-          <span className="text-[11px] text-gray-400 ml-auto shrink-0">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
+          <span className="text-[11px] text-muted-foreground ml-auto shrink-0">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
         </div>
 
         {/* Summary / preview */}
-        <p className="text-[13px] leading-relaxed text-gray-700 mb-2 line-clamp-2">
+        <p className="text-[13px] leading-relaxed text-foreground mb-2 line-clamp-2">
           {email.ai_summary || email.body_preview || email.subject}
         </p>
 
         {/* Sender + urgency */}
-        <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
           <span className="truncate">{t("email.from")} : {email.sender_name || email.sender_email}</span>
           {email.priority === "urgent" && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 shrink-0">
               <Clock className="w-3 h-3" />{t("email.respondWithin24h")}
             </span>
           )}
@@ -1095,47 +1095,47 @@ function DecisionCard({ email, isAloneInOrg, onReply, onView, onDelegate, onTran
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg transition-all shadow-sm hover:shadow">
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-all shadow-sm hover:shadow">
             <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
           </button>
-          <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
+          <button onClick={onView} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border hover:border-border rounded-lg transition-all">
             <Eye className="w-3.5 h-3.5" />{t("actions.viewEmail")}
           </button>
           {isAloneInOrg ? (
-            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
+            <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border hover:border-border rounded-lg transition-all">
               <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
             </button>
           ) : (
-            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg transition-all">
+            <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-background hover:bg-muted border border-border hover:border-border rounded-lg transition-all">
               <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
             </button>
           )}
 
           {/* More menu */}
           <div className="relative ml-auto" ref={menuRef}>
-            <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button ref={buttonRef} onClick={toggleMenu} className="p-1.5 text-muted-foreground hover:text-muted-foreground hover:bg-muted rounded-lg transition-colors">
               <ChevronDown className="w-4 h-4" />
             </button>
             {menuOpen && (
               <div
-                className={`absolute right-0 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
+                className={`absolute right-0 w-48 bg-background rounded-xl shadow-lg border border-border py-1 z-50 ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
               >
                 {!isAloneInOrg && (
-                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Forward className="w-4 h-4 text-gray-400" />{t("actions.transfer")}
+                  <button onClick={() => { setMenuOpen(false); onTransfer(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                    <Forward className="w-4 h-4 text-muted-foreground" />{t("actions.transfer")}
                   </button>
                 )}
-                <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <ListTodo className="w-4 h-4 text-gray-400" />{t("actions.createTask")}
+                <button onClick={() => { setMenuOpen(false); handleAction(onCreateTask); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <ListTodo className="w-4 h-4 text-muted-foreground" />{t("actions.createTask")}
                 </button>
-                <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <Archive className="w-4 h-4 text-gray-400" />{t("actions.archive")}
+                <button onClick={() => { setMenuOpen(false); handleAction(onArchive); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <Archive className="w-4 h-4 text-muted-foreground" />{t("actions.archive")}
                 </button>
-                <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <AlarmClock className="w-4 h-4 text-gray-400" />{t("actions.snooze")}
+                <button onClick={() => { setMenuOpen(false); handleAction(onSnooze); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <AlarmClock className="w-4 h-4 text-muted-foreground" />{t("actions.snooze")}
                 </button>
-                <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                  <ExternalLink className="w-4 h-4 text-gray-400" />{t("actions.viewInMail")}
+                <button onClick={() => { setMenuOpen(false); onView(); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <ExternalLink className="w-4 h-4 text-muted-foreground" />{t("actions.viewInMail")}
                 </button>
               </div>
             )}
@@ -1198,7 +1198,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
       {groupEntries.map(([projectName, groupEmails]) => (
         <div key={projectName}>
           {groupEntries.length > 1 && (
-            <div className="text-sm font-semibold text-gray-500 mb-2 pl-1">
+            <div className="text-sm font-semibold text-muted-foreground mb-2 pl-1">
               {projectName} ({groupEmails.length !== 1 ? t("email.emailCountPlural", { count: groupEmails.length }) : t("email.emailCountSingular", { count: groupEmails.length })})
             </div>
           )}
@@ -1221,7 +1221,7 @@ function InfoSection({ emails, onArchive, onArchiveAll, onView, onCreateTask, on
         <div className="pt-2">
           <button
             onClick={handleArchiveAll}
-            className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${confirmArchiveAll ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100" : "text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:bg-gray-50"}`}
+            className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${confirmArchiveAll ? "bg-red-500/10 text-red-700 border border-red-200 hover:bg-red-500/15" : "text-muted-foreground hover:text-foreground bg-background border border-border hover:bg-muted"}`}
           >
             {confirmArchiveAll ? t("actions.archiveAllConfirm", { count: visible.length }) : t("actions.archiveAll")}
           </button>
@@ -1252,37 +1252,37 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-100 border-l-[3px] border-l-gray-300 shadow-sm transition-all duration-300 ${exiting ? "opacity-0 -translate-x-6" : "opacity-100 translate-x-0"}`}
+      className={`bg-background rounded-xl border border-border border-l-[3px] border-l-border shadow-sm transition-all duration-300 ${exiting ? "opacity-0 -translate-x-6" : "opacity-100 translate-x-0"}`}
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
     >
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-center justify-between mb-1">
-          {email.project_name && <span className="text-xs font-medium text-gray-500">{email.project_name}</span>}
-          <span className="text-xs text-gray-400">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
+          {email.project_name && <span className="text-xs font-medium text-muted-foreground">{email.project_name}</span>}
+          <span className="text-xs text-muted-foreground">{t("email.ago", { time: timeAgo(email.received_at, t) })}</span>
         </div>
 
         {/* Subject */}
-        <p className="text-sm font-medium text-gray-800 truncate mb-0.5">
+        <p className="text-sm font-medium text-foreground truncate mb-0.5">
           {email.subject.length > 80 ? email.subject.slice(0, 80) + "..." : email.subject}
         </p>
 
         {/* Sender */}
-        <p className="text-xs text-gray-400 mb-2">{t("email.from")} : {email.sender_name || email.sender_email}</p>
+        <p className="text-xs text-muted-foreground mb-2">{t("email.from")} : {email.sender_name || email.sender_email}</p>
 
         {/* Summary / preview block */}
         {email.ai_summary ? (
-          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+          <div className="rounded-lg overflow-hidden mb-3 border-l-[3px] border-l-primary bg-primary/10">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase font-semibold tracking-wide text-[#2563EB] mb-1">✦ {t("badges.aiSummary")}</div>
-              <p className="text-xs leading-relaxed text-gray-700">{email.ai_summary}</p>
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-primary mb-1">✦ {t("badges.aiSummary")}</div>
+              <p className="text-xs leading-relaxed text-foreground">{email.ai_summary}</p>
             </div>
           </div>
         ) : (
-          <div className="rounded-lg overflow-hidden mb-3" style={{ borderLeft: "3px solid #9CA3AF", background: "#F3F4F6" }}>
+          <div className="rounded-lg overflow-hidden mb-3 border-l-[3px] border-l-muted-foreground bg-muted">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase font-semibold tracking-wide text-gray-400 mb-1">{t("badges.preview")}</div>
-              <p className="text-xs leading-relaxed text-gray-500">
+              <div className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground mb-1">{t("badges.preview")}</div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {email.body_preview ? (email.body_preview.length > 150 ? email.body_preview.slice(0, 150) + "..." : email.body_preview) : ""}
               </p>
             </div>
@@ -1291,16 +1291,16 @@ function InfoCard({ email, onView, onCreateTask, onArchive, onReply }: {
 
         {/* Actions — FIX 1: added reply button */}
         <div className="flex items-center gap-2">
-          <button onClick={onReply} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-md transition-colors">
+          <button onClick={onReply} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors">
             <Send className="w-3 h-3" />{t("actions.replyWithAI")}
           </button>
-          <button onClick={onView} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+          <button onClick={onView} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-md transition-colors">
             <Eye className="w-3 h-3" />{t("actions.readEmail")}
           </button>
-          <button onClick={() => handleAction(onCreateTask)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+          <button onClick={() => handleAction(onCreateTask)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-md transition-colors">
             <ListTodo className="w-3 h-3" />{t("actions.createTask")}
           </button>
-          <button onClick={() => handleAction(onArchive)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-md transition-colors">
+          <button onClick={() => handleAction(onArchive)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-background hover:bg-muted border border-border rounded-md transition-colors">
             <Archive className="w-3 h-3" />{t("actions.archive")}
           </button>
         </div>
@@ -1317,14 +1317,14 @@ function EmptyState({ firstName, onRefresh }: { firstName: string; onRefresh: ()
   const t = useTranslations("mail.decisions");
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-5 shadow-sm border border-emerald-100">
+      <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-5 shadow-sm border border-emerald-100">
         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
       </div>
-      <h2 className="text-xl font-bold text-[#111827] mb-1" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+      <h2 className="text-xl font-bold text-foreground mb-1" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
         {t("empty.title", { firstName })}
       </h2>
-      <p className="text-gray-500 text-sm mb-5">{t("empty.subtitle")}</p>
-      <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
+      <p className="text-muted-foreground text-sm mb-5">{t("empty.subtitle")}</p>
+      <button onClick={onRefresh} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-background border border-border rounded-lg hover:bg-muted hover:border-border transition-all shadow-sm">
         <RefreshCw className="w-4 h-4" />{t("actions.refresh")}
       </button>
     </div>
@@ -1470,7 +1470,7 @@ function ReplyModal({ email, onClose, onDone }: {
 
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col"
+          className="bg-background rounded-2xl shadow-2xl flex flex-col"
           style={{ width: "75vw", maxWidth: "1100px", height: "85vh", maxHeight: "900px" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1490,31 +1490,30 @@ function ReplyModal({ email, onClose, onDone }: {
           {/* Body — 2 columns */}
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
             {/* Left: conversation thread (40%) */}
-            <div className="md:w-[40%] border-r border-gray-200 flex flex-col min-h-0">
-              <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
-                <span className="text-xs uppercase font-semibold tracking-wide text-gray-400">
+            <div className="md:w-[40%] border-r border-border flex flex-col min-h-0">
+              <div className="px-4 py-2 border-b border-border flex-shrink-0 flex items-center justify-between">
+                <span className="text-xs uppercase font-semibold tracking-wide text-muted-foreground">
                   {thread && thread.length > 1 ? t("email.conversation", { count: thread.length }) : t("email.originalEmail")}
                 </span>
               </div>
               <div
-                className="flex-1 min-h-0 overflow-y-auto p-4"
-                style={{ background: "#F9FAFB" }}
+                className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted"
                 onWheel={(e) => e.stopPropagation()}
               >
                 {thread && thread.length > 0 ? (
                   <ThreadView thread={thread} currentUserEmail={email.sender_email} />
                 ) : (
                   <>
-                    <div className="text-sm font-medium text-gray-800 mb-1">{email.subject}</div>
-                    <div className="text-xs text-gray-500 mb-3">{t("email.from")} : {email.sender_name || email.sender_email}</div>
+                    <div className="text-sm font-medium text-foreground mb-1">{email.subject}</div>
+                    <div className="text-xs text-muted-foreground mb-3">{t("email.from")} : {email.sender_name || email.sender_email}</div>
                     {threadLoading && !fallbackBody ? (
-                      <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                      <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                     ) : (
-                      <div className="text-sm text-gray-600 whitespace-pre-wrap">{fallbackBody}</div>
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">{fallbackBody}</div>
                     )}
                   </>
                 )}
@@ -1524,38 +1523,38 @@ function ReplyModal({ email, onClose, onDone }: {
             {/* Right: reply (60%) */}
             <div className="md:w-[60%] flex flex-col min-h-0">
               {/* Recipients */}
-              <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-[#F9FAFB] space-y-2">
+              <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-muted space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500 w-8 text-right">{t("email.to")} :</span>
-                  <span className="text-gray-900 font-medium">{email.sender_email}</span>
+                  <span className="text-muted-foreground w-8 text-right">{t("email.to")} :</span>
+                  <span className="text-foreground font-medium">{email.sender_email}</span>
                 </div>
                 {showCcBcc ? (
                   <>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500 w-8 text-right">{t("email.cc")} :</span>
+                      <span className="text-muted-foreground w-8 text-right">{t("email.cc")} :</span>
                       <input
                         type="text"
                         value={cc}
                         onChange={(e) => setCc(e.target.value)}
                         placeholder={t("replyModal.ccPlaceholder")}
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="flex-1 px-2 py-1 border border-border rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500 w-8 text-right">{t("email.bcc")} :</span>
+                      <span className="text-muted-foreground w-8 text-right">{t("email.bcc")} :</span>
                       <input
                         type="text"
                         value={bcc}
                         onChange={(e) => setBcc(e.target.value)}
                         placeholder={t("replyModal.bccPlaceholder")}
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="flex-1 px-2 py-1 border border-border rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                   </>
                 ) : (
                   <button
                     onClick={() => setShowCcBcc(true)}
-                    className="text-xs text-blue-600 hover:underline ml-10"
+                    className="text-xs text-primary hover:underline ml-10"
                   >
                     {t("replyModal.addCcBcc")}
                   </button>
@@ -1567,14 +1566,14 @@ function ReplyModal({ email, onClose, onDone }: {
                 className="flex-1 min-h-0 overflow-y-auto p-4"
                 onWheel={(e) => e.stopPropagation()}
               >
-                <div className="rounded-lg overflow-hidden" style={{ borderLeft: "3px solid #2563EB", background: "#EFF6FF" }}>
+                <div className="rounded-lg overflow-hidden border-l-[3px] border-l-primary bg-primary/10">
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs uppercase font-semibold tracking-wide text-[#2563EB]">{t("replyModal.aiSuggestion")}</span>
+                      <span className="text-xs uppercase font-semibold tracking-wide text-primary">{t("replyModal.aiSuggestion")}</span>
                       {!replyLoading && (
                         <button
                           onClick={generateReply}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/90 transition-colors"
                         >
                           <RotateCcw className="w-3 h-3" />{t("replyModal.regenerate")}
                         </button>
@@ -1589,7 +1588,7 @@ function ReplyModal({ email, onClose, onDone }: {
                         ref={replyRef}
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                        className="w-full p-3 text-sm rounded-lg resize-none border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full p-3 text-sm rounded-lg resize-none border border-primary/20 bg-background focus:outline-none focus:ring-2 focus:ring-blue-400"
                         style={{ minHeight: "200px" }}
                       />
                     )}
@@ -1600,9 +1599,9 @@ function ReplyModal({ email, onClose, onDone }: {
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-6 py-3 border-t border-gray-100 bg-white">
+          <div className="flex-shrink-0 px-6 py-3 border-t border-border bg-background">
             {sendError && (
-              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+              <div className="mb-2 px-3 py-2 bg-red-500/10 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />{sendError}
               </div>
             )}
@@ -1610,12 +1609,12 @@ function ReplyModal({ email, onClose, onDone }: {
               <button
                 onClick={handleSend}
                 disabled={sending || replyLoading || !replyText.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {t("replyModal.send")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors ml-auto">
                 {t("replyModal.cancel")}
               </button>
             </div>
@@ -1717,7 +1716,7 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
       <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          className="bg-background rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
@@ -1728,18 +1727,18 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
           </div>
 
           <div className="p-6 space-y-4">
-            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
-              <p className="text-xs text-gray-500 mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
+            <div className="text-sm text-muted-foreground bg-muted rounded-lg p-3 border border-border">
+              <p className="font-medium text-foreground truncate">{email.subject}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
+              <label className="block text-xs text-muted-foreground uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
               {orgMembers.length > 0 ? (
                 <select
                   value={selectedMember}
                   onChange={(e) => setSelectedMember(e.target.value)}
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full p-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background"
                 >
                   <option value="">{t("delegateModal.selectMember")}</option>
                   {orgMembers.map((m) => (
@@ -1747,24 +1746,24 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
                   ))}
                 </select>
               ) : (
-                <p className="text-sm text-gray-500">{t("delegateModal.noMembers")}</p>
+                <p className="text-sm text-muted-foreground">{t("delegateModal.noMembers")}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("delegateModal.message")}</label>
+              <label className="block text-xs text-muted-foreground uppercase font-medium mb-2">{t("delegateModal.message")}</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={t("delegateModal.messagePlaceholder")}
-                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-24 p-3 text-sm border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-border">
             {delegateError && (
-              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+              <div className="mb-2 px-3 py-2 bg-red-500/10 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />{delegateError}
               </div>
             )}
@@ -1772,12 +1771,12 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
               <button
                 onClick={handleDelegate}
                 disabled={sending || !selectedMember}
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                 {t("delegateModal.confirm")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors ml-auto">
                 {t("delegateModal.cancel")}
               </button>
             </div>
@@ -1858,7 +1857,7 @@ function TransferModal({ email, onClose, onDone }: {
       <div className="fixed inset-0 bg-black/50 z-[60] overflow-hidden" onClick={onClose} />
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
+          className="bg-background rounded-2xl shadow-2xl flex flex-col w-full max-w-lg"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between" style={{ background: "#1E3A5F" }}>
@@ -1869,36 +1868,36 @@ function TransferModal({ email, onClose, onDone }: {
           </div>
 
           <div className="p-6 space-y-4">
-            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <p className="font-medium text-gray-800 truncate">{email.subject}</p>
-              <p className="text-xs text-gray-500 mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
+            <div className="text-sm text-muted-foreground bg-muted rounded-lg p-3 border border-border">
+              <p className="font-medium text-foreground truncate">{email.subject}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>
+              <label className="block text-xs text-muted-foreground uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>
               <input
                 type="email"
                 value={toEmail}
                 onChange={(e) => setToEmail(e.target.value)}
                 placeholder={t("transferModal.recipientPlaceholder")}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 uppercase font-medium mb-2">{t("transferModal.message")}</label>
+              <label className="block text-xs text-muted-foreground uppercase font-medium mb-2">{t("transferModal.message")}</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={t("transferModal.messagePlaceholder")}
-                className="w-full h-24 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-24 p-3 text-sm border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-border">
             {transferError && (
-              <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+              <div className="mb-2 px-3 py-2 bg-red-500/10 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />{transferError}
               </div>
             )}
@@ -1906,12 +1905,12 @@ function TransferModal({ email, onClose, onDone }: {
               <button
                 onClick={handleTransfer}
                 disabled={sending || !toEmail.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#2563EB] hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
                 {t("transferModal.confirm")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors ml-auto">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors ml-auto">
                 {t("transferModal.cancel")}
               </button>
             </div>
