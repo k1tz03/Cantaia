@@ -236,12 +236,12 @@ function KPICard({
   iconColor?: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="rounded-lg border border-border bg-background px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2">
-        <Icon className={cn("h-4 w-4", iconColor || "text-slate-400")} />
-        <span className="text-xs font-medium text-slate-500 truncate">{label}</span>
+        <Icon className={cn("h-4 w-4", iconColor || "text-muted-foreground")} />
+        <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
       </div>
-      <p className={cn("mt-1.5 text-2xl font-bold tabular-nums", valueColor || "text-slate-800")}>
+      <p className={cn("mt-1.5 text-2xl font-bold tabular-nums", valueColor || "text-foreground")}>
         {value}
       </p>
     </div>
@@ -262,13 +262,13 @@ function BudgetBar({
 
   return (
     <div>
-      <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
         <span>{t("budget")}</span>
         <span className="tabular-nums">
           {Math.round(pct)}% {t("of")} {formatBudgetCompact(total)}
         </span>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-slate-100">
+      <div className="h-1.5 w-full rounded-full bg-muted">
         <div
           className={cn("h-1.5 rounded-full transition-all", barColor)}
           style={{ width: `${pct}%` }}
@@ -348,7 +348,7 @@ function ProjectCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
       onClick={onClick}
-      className="group cursor-pointer rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+      className="group cursor-pointer rounded-lg border border-border bg-background shadow-sm transition-shadow hover:shadow-md"
     >
       {/* Header */}
       <div className="px-4 pt-3 pb-2">
@@ -359,30 +359,30 @@ function ProjectCard({
               style={{ backgroundColor: project.color }}
             />
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-slate-800 truncate group-hover:text-brand transition-colors">
+              <h3 className="text-sm font-semibold text-foreground truncate group-hover:text-brand transition-colors">
                 {project.name}
               </h3>
               {project.code && (
-                <p className="text-[11px] text-slate-400 truncate">{project.code}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{project.code}</p>
               )}
             </div>
           </div>
           <HealthBadge health={health} />
         </div>
         {manager && (
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
+          <p className="mt-1 text-[11px] text-muted-foreground truncate">
             {t("manager")}: {manager.first_name} {manager.last_name}
           </p>
         )}
       </div>
 
       {/* Metrics */}
-      <div className="px-4 py-2 space-y-2 border-t border-slate-100">
+      <div className="px-4 py-2 space-y-2 border-t border-border">
         {/* Budget */}
         {hasBudget ? (
           <BudgetBar consumed={0} total={project.budget_total!} t={t} />
         ) : (
-          <div className="flex items-center justify-between text-[11px] text-slate-400">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>{t("budget")}</span>
             <span>{t("budgetNotDefined")}</span>
           </div>
@@ -390,7 +390,7 @@ function ProjectCard({
 
         {/* Tasks */}
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-500">{t("tasks")}</span>
+          <span className="text-muted-foreground">{t("tasks")}</span>
           <span>
             {overdueTasks.length > 0 && (
               <span className="font-semibold text-red-600">
@@ -398,9 +398,9 @@ function ProjectCard({
               </span>
             )}
             {overdueTasks.length > 0 && activeTasks.length > 0 && (
-              <span className="text-slate-300"> / </span>
+              <span className="text-muted-foreground"> / </span>
             )}
-            <span className="text-slate-600">
+            <span className="text-muted-foreground">
               {activeTasks.length} {t("active")}
             </span>
           </span>
@@ -408,13 +408,13 @@ function ProjectCard({
 
         {/* Submissions */}
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-500">{t("submissions")}</span>
+          <span className="text-muted-foreground">{t("submissions")}</span>
           <span>
-            <span className="text-slate-600">
+            <span className="text-muted-foreground">
               {activeSubmissions.length} {t("pending")}
             </span>
-            <span className="text-slate-300"> / </span>
-            <span className="text-slate-400">
+            <span className="text-muted-foreground"> / </span>
+            <span className="text-muted-foreground">
               {projectSubmissions.length} {t("total")}
             </span>
           </span>
@@ -423,8 +423,8 @@ function ProjectCard({
         {/* Next deadline */}
         {nextDeadline?.deadline && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">{t("nextDeadline")}</span>
-            <span className="flex items-center gap-1 text-slate-600">
+            <span className="text-muted-foreground">{t("nextDeadline")}</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" />
               {new Date(nextDeadline.deadline).toLocaleDateString("fr-CH", {
                 day: "2-digit",
@@ -437,8 +437,8 @@ function ProjectCard({
         {/* Next meeting or last PV */}
         {nextMeeting && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">{t("nextMeeting")}</span>
-            <span className="flex items-center gap-1 text-slate-600">
+            <span className="text-muted-foreground">{t("nextMeeting")}</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", {
                 day: "2-digit",
@@ -451,15 +451,15 @@ function ProjectCard({
 
       {/* Alerts */}
       {alerts.length > 0 && (
-        <div className="px-4 py-2 border-t border-slate-100 space-y-1">
+        <div className="px-4 py-2 border-t border-border space-y-1">
           {alerts.map((alert, i) => (
             <div
               key={i}
               className={cn(
                 "flex items-center gap-1.5 text-[11px] rounded px-1.5 py-0.5",
                 alert.severity === "critical"
-                  ? "text-red-700 bg-red-50"
-                  : "text-amber-700 bg-amber-50"
+                  ? "text-red-700 dark:text-red-400 bg-red-500/10"
+                  : "text-amber-700 dark:text-amber-400 bg-amber-500/10"
               )}
             >
               <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -626,7 +626,7 @@ export function DashboardOrgView() {
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-brand" />
-          <p className="text-sm text-slate-500">{t("title")}...</p>
+          <p className="text-sm text-muted-foreground">{t("title")}...</p>
         </div>
       </div>
     );
@@ -645,22 +645,22 @@ export function DashboardOrgView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">{t("title")}</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{t("subtitle")}</p>
+          <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           {/* Filter */}
           <div className="relative">
             <button
               onClick={() => setFilterOpen(!filterOpen)}
-              className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
             >
               <Filter className="h-3.5 w-3.5" />
               {filterOptions.find((f) => f.value === statusFilter)?.label}
               <ChevronDown className="h-3 w-3" />
             </button>
             {filterOpen && (
-              <div className="absolute right-0 top-full mt-1 z-10 w-40 rounded-md border border-slate-200 bg-white shadow-lg py-1">
+              <div className="absolute right-0 top-full mt-1 z-10 w-40 rounded-md border border-border bg-background shadow-lg py-1">
                 {filterOptions.map((opt) => (
                   <button
                     key={opt.value}
@@ -672,7 +672,7 @@ export function DashboardOrgView() {
                       "w-full text-left px-3 py-1.5 text-xs transition-colors",
                       statusFilter === opt.value
                         ? "bg-brand/5 text-brand font-medium"
-                        : "text-slate-600 hover:bg-slate-50"
+                        : "text-muted-foreground hover:bg-muted"
                     )}
                   >
                     {opt.label}
@@ -684,7 +684,7 @@ export function DashboardOrgView() {
           {/* Export */}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
           >
             <Printer className="h-3.5 w-3.5" />
             {t("exportButton")}
@@ -693,7 +693,7 @@ export function DashboardOrgView() {
       </div>
 
       {/* KPI Summary Bar */}
-      <div className="sticky top-0 z-10 -mx-4 lg:-mx-6 xl:-mx-8 px-4 lg:px-6 xl:px-8 py-3 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 mb-5 print:static print:bg-white print:border-0">
+      <div className="sticky top-0 z-10 -mx-4 lg:-mx-6 xl:-mx-8 px-4 lg:px-6 xl:px-8 py-3 bg-muted/80 backdrop-blur-sm border-b border-border mb-5 print:static print:bg-background print:border-0">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KPICard
             icon={Building2}
@@ -711,15 +711,15 @@ export function DashboardOrgView() {
             icon={AlertCircle}
             label={t("kpiOverdue")}
             value={totalOverdue}
-            valueColor={totalOverdue > 0 ? "text-red-600" : "text-slate-800"}
-            iconColor={totalOverdue > 0 ? "text-red-500" : "text-slate-400"}
+            valueColor={totalOverdue > 0 ? "text-red-600" : "text-foreground"}
+            iconColor={totalOverdue > 0 ? "text-red-500" : "text-muted-foreground"}
           />
           <KPICard
             icon={ShieldAlert}
             label={t("kpiAlerts")}
             value={totalCriticalAlerts}
-            valueColor={totalCriticalAlerts > 0 ? "text-red-600" : "text-slate-800"}
-            iconColor={totalCriticalAlerts > 0 ? "text-red-500" : "text-slate-400"}
+            valueColor={totalCriticalAlerts > 0 ? "text-red-600" : "text-foreground"}
+            iconColor={totalCriticalAlerts > 0 ? "text-red-500" : "text-muted-foreground"}
           />
           <KPICard
             icon={FileSpreadsheet}
@@ -732,8 +732,8 @@ export function DashboardOrgView() {
 
       {/* Project Cards Grid */}
       {filteredProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-          <Building2 className="h-10 w-10 mb-3 text-slate-300" />
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <Building2 className="h-10 w-10 mb-3 text-muted-foreground" />
           <p className="text-sm">{t("noProjects")}</p>
         </div>
       ) : (

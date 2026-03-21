@@ -86,12 +86,12 @@ function daysUntil(dateStr: string): number {
 /* ─── Skeleton loader ─── */
 function StatSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-5">
+    <div className="animate-pulse rounded-xl border border-border bg-background p-5">
       <div className="flex items-center gap-4">
-        <div className="h-11 w-11 rounded-xl bg-gray-100" />
+        <div className="h-11 w-11 rounded-xl bg-muted" />
         <div className="flex-1 space-y-2">
-          <div className="h-7 w-12 rounded bg-gray-100" />
-          <div className="h-4 w-24 rounded bg-gray-50" />
+          <div className="h-7 w-12 rounded bg-muted" />
+          <div className="h-4 w-24 rounded bg-muted" />
         </div>
       </div>
     </div>
@@ -185,15 +185,15 @@ export default function DashboardPage() {
 
   /* ─── Module config ─── */
   const moduleLinks: { href: string; icon: LucideIcon; label: string; color: string; bg: string; badge?: number }[] = [
-    { href: "/mail", icon: Mail, label: t("cardMailTitle"), color: "text-[#2563EB]", bg: "bg-blue-50", badge: unreadCount || undefined },
-    { href: "/tasks", icon: CheckSquare, label: t("cardTasksTitle"), color: "text-[#10B981]", bg: "bg-green-50" },
-    { href: "/pv-chantier", icon: FileText, label: t("cardPvTitle"), color: "text-[#F59E0B]", bg: "bg-amber-50" },
-    { href: "/projects", icon: FolderKanban, label: t("cardProjectsTitle"), color: "text-purple-600", bg: "bg-purple-50" },
-    { href: "/plans", icon: Map, label: t("cardPlansTitle"), color: "text-rose-600", bg: "bg-rose-50" },
-    { href: "/submissions", icon: FileSpreadsheet, label: t("cardSubmissionsTitle"), color: "text-indigo-600", bg: "bg-indigo-50" },
-    { href: "/suppliers", icon: Truck, label: t("cardSuppliersTitle"), color: "text-amber-600", bg: "bg-amber-50" },
-    { href: "/cantaia-prix", icon: TrendingUp, label: t("cardPrixTitle"), color: "text-emerald-600", bg: "bg-emerald-50" },
-    { href: "/chat", icon: MessageSquare, label: t("cardChatTitle"), color: "text-cyan-600", bg: "bg-cyan-50" },
+    { href: "/mail", icon: Mail, label: t("cardMailTitle"), color: "text-primary", bg: "bg-primary/10", badge: unreadCount || undefined },
+    { href: "/tasks", icon: CheckSquare, label: t("cardTasksTitle"), color: "text-[#10B981]", bg: "bg-green-500/10" },
+    { href: "/pv-chantier", icon: FileText, label: t("cardPvTitle"), color: "text-[#F59E0B]", bg: "bg-amber-500/10" },
+    { href: "/projects", icon: FolderKanban, label: t("cardProjectsTitle"), color: "text-purple-600", bg: "bg-purple-500/10" },
+    { href: "/plans", icon: Map, label: t("cardPlansTitle"), color: "text-rose-600", bg: "bg-rose-500/10" },
+    { href: "/submissions", icon: FileSpreadsheet, label: t("cardSubmissionsTitle"), color: "text-indigo-600", bg: "bg-indigo-500/10" },
+    { href: "/suppliers", icon: Truck, label: t("cardSuppliersTitle"), color: "text-amber-600", bg: "bg-amber-500/10" },
+    { href: "/cantaia-prix", icon: TrendingUp, label: t("cardPrixTitle"), color: "text-emerald-600", bg: "bg-emerald-500/10" },
+    { href: "/chat", icon: MessageSquare, label: t("cardChatTitle"), color: "text-cyan-600", bg: "bg-cyan-500/10" },
   ];
 
   /* ─── Project task counts ─── */
@@ -210,23 +210,23 @@ export default function DashboardPage() {
   }, [tasks]);
 
   const projectColors: Record<string, string> = {
-    planning: "bg-blue-500",
-    active: "bg-emerald-500",
-    paused: "bg-amber-500",
-    completed: "bg-gray-400",
+    planning: "bg-primary/100",
+    active: "bg-emerald-500/100",
+    paused: "bg-amber-500/100",
+    completed: "bg-muted-foreground",
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
+    <div className="min-h-screen bg-background">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1400px] mx-auto space-y-6">
 
         {/* ═══ HEADER ═══ */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold text-[#111827] sm:text-[28px]">
+            <h1 className="font-display text-2xl font-bold text-foreground sm:text-[28px]">
               {t(getGreetingKey(), { name: firstName })}
             </h1>
-            <p className="mt-1 flex items-center gap-2 text-sm text-[#6B7280]">
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
               {formatDateLocale()}
             </p>
@@ -235,21 +235,21 @@ export default function DashboardPage() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-all hover:border-blue-200 hover:text-[#2563EB] hover:shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-primary/20 hover:text-primary hover:shadow-sm disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
               {t("syncMailAction")}
             </button>
             <Link
               href="/tasks"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-all hover:border-blue-200 hover:text-[#2563EB] hover:shadow-sm"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-primary/20 hover:text-primary hover:shadow-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("newTaskAction")}
             </Link>
             <Link
               href="/pv-chantier/nouveau"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-medium text-white transition-all hover:bg-[#1D4ED8] hover:shadow-sm"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white transition-all hover:bg-primary/80 hover:shadow-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("newPvAction")}
@@ -259,13 +259,13 @@ export default function DashboardPage() {
 
         {/* ═══ VIEW TOGGLE ═══ */}
         {showOrgToggle && (
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
             <button
               onClick={() => router.replace("/dashboard")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "personal"
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("personalView")}
@@ -274,8 +274,8 @@ export default function DashboardPage() {
               onClick={() => router.replace("/dashboard?view=org")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "org"
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("orgView")}
@@ -300,34 +300,34 @@ export default function DashboardPage() {
               {/* Emails */}
               <Link
                 href="/mail"
-                className="group relative overflow-hidden rounded-xl border border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md hover:border-blue-200"
+                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-primary/20"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
-                    <Mail className="h-5 w-5 text-[#2563EB]" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                    <Mail className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <div className="font-display text-2xl font-bold text-[#111827]">{unreadCount}</div>
-                    <div className="text-xs text-[#6B7280]">{t("unreadEmails")}</div>
+                    <div className="font-display text-2xl font-bold text-foreground">{unreadCount}</div>
+                    <div className="text-xs text-muted-foreground">{t("unreadEmails")}</div>
                   </div>
                 </div>
                 {unreadCount > 0 && (
-                  <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-[#2563EB] animate-pulse" />
+                  <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
                 )}
               </Link>
 
               {/* Tasks */}
               <Link
                 href="/tasks"
-                className="group relative overflow-hidden rounded-xl border border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md hover:border-green-200"
+                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-green-200"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10">
                     <CheckSquare className="h-5 w-5 text-[#10B981]" />
                   </div>
                   <div>
-                    <div className="font-display text-2xl font-bold text-[#111827]">{stats.pendingTasks}</div>
-                    <div className="text-xs text-[#6B7280]">{t("pendingTasks")}</div>
+                    <div className="font-display text-2xl font-bold text-foreground">{stats.pendingTasks}</div>
+                    <div className="text-xs text-muted-foreground">{t("pendingTasks")}</div>
                   </div>
                 </div>
                 {stats.overdueTasks > 0 && (
@@ -341,19 +341,19 @@ export default function DashboardPage() {
               {/* PV */}
               <Link
                 href="/pv-chantier"
-                className="group relative overflow-hidden rounded-xl border border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md hover:border-amber-200"
+                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-amber-200"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
                     <FileText className="h-5 w-5 text-[#F59E0B]" />
                   </div>
                   <div>
-                    <div className="font-display text-2xl font-bold text-[#111827]">{stats.pvThisWeek}</div>
-                    <div className="text-xs text-[#6B7280]">{t("pvThisWeek")}</div>
+                    <div className="font-display text-2xl font-bold text-foreground">{stats.pvThisWeek}</div>
+                    <div className="text-xs text-muted-foreground">{t("pvThisWeek")}</div>
                   </div>
                 </div>
                 {nextMeeting && (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] text-[#6B7280]">
+                  <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {t("nextMeetingDate", {
                       date: new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", { day: "numeric", month: "short" }),
@@ -365,15 +365,15 @@ export default function DashboardPage() {
               {/* Projects */}
               <Link
                 href="/projects"
-                className="group relative overflow-hidden rounded-xl border border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md hover:border-purple-200"
+                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-purple-200"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10">
                     <FolderKanban className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <div className="font-display text-2xl font-bold text-[#111827]">{stats.activeProjects}</div>
-                    <div className="text-xs text-[#6B7280]">{t("activeProjects")}</div>
+                    <div className="font-display text-2xl font-bold text-foreground">{stats.activeProjects}</div>
+                    <div className="text-xs text-muted-foreground">{t("activeProjects")}</div>
                   </div>
                 </div>
               </Link>
@@ -392,16 +392,16 @@ export default function DashboardPage() {
 
             {/* Attention requise */}
             {!loading && stats.overdueTasks > 0 && (
-              <div className="rounded-xl border border-red-100 bg-gradient-to-r from-red-50/80 to-white p-5">
+              <div className="rounded-xl border border-red-500/20 bg-gradient-to-r from-red-500/10 to-background p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/20">
                       <AlertTriangle className="h-4 w-4 text-red-600" />
                     </div>
-                    <h2 className="font-display text-sm font-semibold text-red-900">
+                    <h2 className="font-display text-sm font-semibold text-red-900 dark:text-red-400">
                       {t("attentionNeeded")}
                     </h2>
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-400">
                       {stats.overdueTasks}
                     </span>
                   </div>
@@ -413,14 +413,14 @@ export default function DashboardPage() {
                   {stats.overdueList.map((task) => (
                     <div
                       key={task.id}
-                      className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2.5 border border-red-100/50"
+                      className="flex items-center justify-between rounded-lg bg-background/80 px-3 py-2.5 border border-red-500/20"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`h-2 w-2 rounded-full shrink-0 ${
                           task.priority === "urgent" ? "bg-red-500" :
                           task.priority === "high" ? "bg-orange-500" : "bg-amber-400"
                         }`} />
-                        <span className="text-sm text-[#111827] truncate">{task.title}</span>
+                        <span className="text-sm text-foreground truncate">{task.title}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-3">
                         {task.due_date && (
@@ -437,19 +437,19 @@ export default function DashboardPage() {
 
             {/* No urgency message */}
             {!loading && stats.overdueTasks === 0 && (
-              <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-5 py-4">
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
                 <Sparkles className="h-5 w-5 text-emerald-600 shrink-0" />
-                <p className="text-sm text-emerald-800 font-medium">{t("nothingUrgent")}</p>
+                <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium">{t("nothingUrgent")}</p>
               </div>
             )}
 
             {/* Projets récents */}
-            <div className="rounded-xl border border-gray-100 bg-white">
-              <div className="flex items-center justify-between border-b border-gray-50 px-5 py-4">
-                <h2 className="font-display text-sm font-semibold text-[#111827]">
+            <div className="rounded-xl border border-border bg-background">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <h2 className="font-display text-sm font-semibold text-foreground">
                   {t("recentProjects")}
                 </h2>
-                <Link href="/projects" className="text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
+                <Link href="/projects" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   {t("viewAll")} <ChevronRight className="inline h-3 w-3" />
                 </Link>
               </div>
@@ -457,50 +457,50 @@ export default function DashboardPage() {
                 <div className="p-5 space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="animate-pulse flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-gray-100" />
+                      <div className="h-10 w-10 rounded-lg bg-muted" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 rounded bg-gray-100" />
-                        <div className="h-3 w-24 rounded bg-gray-50" />
+                        <div className="h-4 w-40 rounded bg-muted" />
+                        <div className="h-3 w-24 rounded bg-muted" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : stats.projectsList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <FolderKanban className="h-8 w-8 text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-400">{t("noProjects")}</p>
+                  <FolderKanban className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
                   <Link
                     href="/projects/new"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     {t("newProject")}
                   </Link>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {stats.projectsList.map((project) => {
                     const tc = projectTaskCounts[project.id] || { total: 0, overdue: 0 };
-                    const statusColor = projectColors[project.status] || "bg-gray-400";
+                    const statusColor = projectColors[project.status] || "bg-muted-foreground";
                     return (
                       <Link
                         key={project.id}
                         href={`/projects/${project.id}`}
-                        className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-gray-50/50"
+                        className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/50"
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 border border-gray-100 group-hover:border-blue-100 transition-colors">
-                          <span className="font-display text-xs font-bold text-gray-600 uppercase">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted border border-border group-hover:border-primary/20 transition-colors">
+                          <span className="font-display text-xs font-bold text-muted-foreground uppercase">
                             {project.code?.slice(0, 3) || project.name.slice(0, 2)}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-[#111827] truncate group-hover:text-[#2563EB] transition-colors">
+                            <span className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                               {project.name}
                             </span>
                             <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusColor}`} />
                           </div>
-                          <div className="mt-0.5 flex items-center gap-3 text-[11px] text-[#9CA3AF]">
+                          <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
                             {tc.total > 0 && (
                               <span className={tc.overdue > 0 ? "text-red-500 font-medium" : ""}>
                                 {t("tasksCount", { count: tc.total })}
@@ -516,7 +516,7 @@ export default function DashboardPage() {
                             )}
                           </div>
                         </div>
-                        <ArrowRight className="h-4 w-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     );
                   })}
@@ -529,9 +529,9 @@ export default function DashboardPage() {
           <div className="space-y-6">
 
             {/* Modules — Accès rapide */}
-            <div className="rounded-xl border border-gray-100 bg-white">
-              <div className="border-b border-gray-50 px-5 py-4">
-                <h2 className="font-display text-sm font-semibold text-[#111827]">
+            <div className="rounded-xl border border-border bg-background">
+              <div className="border-b border-border px-5 py-4">
+                <h2 className="font-display text-sm font-semibold text-foreground">
                   {t("modulesTitle")}
                 </h2>
               </div>
@@ -543,12 +543,12 @@ export default function DashboardPage() {
                       <Link
                         key={mod.href}
                         href={mod.href}
-                        className="group relative flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all hover:bg-gray-50"
+                        className="group relative flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all hover:bg-muted"
                       >
                         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${mod.bg} transition-transform group-hover:scale-110`}>
                           <Icon className={`h-5 w-5 ${mod.color}`} />
                         </div>
-                        <span className="text-[11px] font-medium text-[#6B7280] group-hover:text-[#111827] transition-colors leading-tight">
+                        <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-tight">
                           {mod.label}
                         </span>
                         {mod.badge && mod.badge > 0 && (
@@ -565,19 +565,19 @@ export default function DashboardPage() {
 
             {/* Prochaine séance */}
             {nextMeeting && (
-              <div className="rounded-xl border border-gray-100 bg-white p-5">
+              <div className="rounded-xl border border-border bg-background p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar className="h-4 w-4 text-[#F59E0B]" />
-                  <h3 className="text-sm font-semibold text-[#111827]">{t("nextMeeting")}</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t("nextMeeting")}</h3>
                 </div>
                 <Link
                   href={`/meetings/${nextMeeting.id}`}
-                  className="group block rounded-lg bg-amber-50/50 border border-amber-100 p-3 transition-all hover:border-amber-200 hover:shadow-sm"
+                  className="group block rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 transition-all hover:border-amber-200 hover:shadow-sm"
                 >
-                  <p className="text-sm font-medium text-[#111827] group-hover:text-[#F59E0B] transition-colors truncate">
+                  <p className="text-sm font-medium text-foreground group-hover:text-[#F59E0B] transition-colors truncate">
                     {nextMeeting.title}
                   </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-[#6B7280]">
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", {
                       weekday: "short",
@@ -593,9 +593,9 @@ export default function DashboardPage() {
 
             {/* Activité récente (dernières tâches complétées) */}
             {!loading && (
-              <div className="rounded-xl border border-gray-100 bg-white">
-                <div className="border-b border-gray-50 px-5 py-4">
-                  <h2 className="font-display text-sm font-semibold text-[#111827]">
+              <div className="rounded-xl border border-border bg-background">
+                <div className="border-b border-border px-5 py-4">
+                  <h2 className="font-display text-sm font-semibold text-foreground">
                     {t("recentActivity")}
                   </h2>
                 </div>
@@ -607,7 +607,7 @@ export default function DashboardPage() {
                       .slice(0, 4);
                     if (recentDone.length === 0) {
                       return (
-                        <p className="py-4 text-center text-xs text-gray-400">
+                        <p className="py-4 text-center text-xs text-muted-foreground">
                           {t("noRecentActivity")}
                         </p>
                       );
@@ -616,12 +616,12 @@ export default function DashboardPage() {
                       <div className="space-y-3">
                         {recentDone.map((task) => (
                           <div key={task.id} className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50">
+                            <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
                               <CheckSquare className="h-3 w-3 text-emerald-600" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs text-[#111827] truncate">{task.title}</p>
-                              <p className="text-[10px] text-[#9CA3AF]">
+                              <p className="text-xs text-foreground truncate">{task.title}</p>
+                              <p className="text-[10px] text-muted-foreground">
                                 {new Date(task.created_at).toLocaleDateString("fr-CH", {
                                   day: "numeric",
                                   month: "short",
