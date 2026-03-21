@@ -16,7 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <AppActiveProjectProvider>
             <OnboardingGuard />
             <TrialGuard />
-            <div className="flex min-h-screen bg-white">
+            <div className="flex min-h-screen bg-background">
               <Sidebar />
               <main className="flex-1 overflow-auto pb-20 lg:pb-0">
                 {children}

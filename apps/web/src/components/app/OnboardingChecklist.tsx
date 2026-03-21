@@ -141,11 +141,11 @@ export function OnboardingChecklist() {
   const progress = Math.round((completedCount / steps.length) * 100);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-lg relative">
+    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-border bg-background shadow-lg relative">
       {/* Close button */}
       <button
         onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-        className="absolute right-2 top-2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+        className="absolute right-2 top-2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         title="Fermer"
       >
         <X className="h-3.5 w-3.5" />
@@ -159,29 +159,29 @@ export function OnboardingChecklist() {
           <Sparkles className="h-4 w-4 text-brand" />
         </div>
         <div className="flex-1 text-left">
-          <p className="text-sm font-medium text-slate-900">Prise en main</p>
+          <p className="text-sm font-medium text-foreground">Prise en main</p>
           <div className="mt-1 flex items-center gap-2">
-            <div className="h-1.5 flex-1 rounded-full bg-slate-100">
+            <div className="h-1.5 flex-1 rounded-full bg-muted">
               <div
                 className="h-1.5 rounded-full bg-brand transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-muted-foreground">
               {completedCount}/{steps.length}
             </span>
           </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-slate-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-slate-400" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
       {/* Steps */}
       {open && (
-        <div className="border-t border-slate-100 px-2 py-2">
+        <div className="border-t border-border px-2 py-2">
           {steps.map((step) => {
             const isDone = completedSteps.has(step.id);
             return (
@@ -189,20 +189,20 @@ export function OnboardingChecklist() {
                 key={step.id}
                 onClick={() => handleStepClick(step)}
                 className={`flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                  isDone ? "opacity-60" : "hover:bg-slate-50"
+                  isDone ? "opacity-60" : "hover:bg-muted"
                 }`}
               >
                 {isDone ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                 ) : (
-                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />
+                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${isDone ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                  <p className={`text-sm font-medium ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
                     {step.title}
                   </p>
                   {!isDone && (
-                    <p className="text-[11px] text-slate-400 mt-0.5">{step.description}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{step.description}</p>
                   )}
                 </div>
               </button>
@@ -210,7 +210,7 @@ export function OnboardingChecklist() {
           })}
           <button
             onClick={handleDismiss}
-            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-3 w-3" />
             Masquer

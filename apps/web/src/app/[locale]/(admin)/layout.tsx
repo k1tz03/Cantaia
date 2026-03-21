@@ -19,24 +19,24 @@ export default function AdminLayout({
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-muted">
       {/* Minimal Admin Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-200 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-background transition-all duration-200 ${
           collapsed ? "w-[60px]" : "w-[200px]"
         }`}
       >
         {/* Header */}
-        <div className="flex h-14 items-center gap-2 border-b border-gray-100 px-3">
-          <Building2 className="h-5 w-5 shrink-0 text-blue-600" />
+        <div className="flex h-14 items-center gap-2 border-b border-border px-3">
+          <Building2 className="h-5 w-5 shrink-0 text-primary" />
           {!collapsed && (
-            <span className="text-sm font-bold text-gray-800">
+            <span className="text-sm font-bold text-foreground">
               {t("title")}
             </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -50,10 +50,10 @@ export default function AdminLayout({
         <div className="flex-1" />
 
         {/* Back to app */}
-        <div className="border-t border-gray-100 p-2">
+        <div className="border-t border-border p-2">
           <Link
             href="/mail"
-            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             {!collapsed && <span>{t("backToApp")}</span>}

@@ -143,7 +143,7 @@ export default async function LocaleLayout({
         >
           <NextIntlClientProvider messages={messages}>
             {children}
-            <Toaster position="bottom-right" richColors closeButton />
+            <Toaster position="bottom-right" richColors closeButton theme="system" />
             <CookieConsent />
           </NextIntlClientProvider>
         </ThemeProvider>
