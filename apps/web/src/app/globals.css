@@ -25,23 +25,48 @@
     --ring: 217 91% 60%;
     --radius: 0.5rem;
   }
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 15%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 10% 64%;
+    --accent: 217 25% 22%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 20% 24%;
+    --input: 217 20% 24%;
+    --ring: 217 91% 60%;
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    color-scheme: light;
   }
   h1, h2, h3 {
     font-family: var(--font-display), 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   input, select, textarea {
-    color-scheme: light;
-    background-color: white;
+    @apply bg-background;
   }
 }
 
@@ -63,6 +88,16 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: #D1D5DB transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(217 20% 30%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(217 20% 40%);
+}
+.dark {
+  scrollbar-color: hsl(217 20% 30%) transparent;
 }
 
 @layer utilities {
