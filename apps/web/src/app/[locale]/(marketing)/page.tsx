@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import { HeroSection } from "@/components/landing";
-
-const ProofSection = dynamic(() => import("@/components/landing/ProofSection").then((m) => m.ProofSection));
-const ProblemSection = dynamic(() => import("@/components/landing/ProblemSection").then((m) => m.ProblemSection));
-const FeaturesSection = dynamic(() => import("@/components/landing/FeaturesSection").then((m) => m.FeaturesSection));
-const SpotlightSection = dynamic(() => import("@/components/landing/SpotlightSection").then((m) => m.SpotlightSection));
-const FeaturePrixSection = dynamic(() => import("@/components/landing/BentoGrid").then((m) => m.FeaturePrixSection));
-const HowItWorksSection = dynamic(() => import("@/components/landing/HowItWorksSection").then((m) => m.HowItWorksSection));
-const TrustSection = dynamic(() => import("@/components/landing/FAQSection").then((m) => m.TrustSection));
-const PricingSection = dynamic(() => import("@/components/landing/PricingSection").then((m) => m.PricingSection));
-const FinalCTASection = dynamic(() => import("@/components/landing/FinalCTASection").then((m) => m.FinalCTASection));
+import { ProofSection } from "@/components/landing/ProofSection";
+import { ProblemSection } from "@/components/landing/ProblemSection";
+import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { SpotlightSection } from "@/components/landing/SpotlightSection";
+import { FeaturePrixSection } from "@/components/landing/BentoGrid";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
+import { TrustSection } from "@/components/landing/FAQSection";
+import { PricingSection } from "@/components/landing/PricingSection";
+import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
 const homeSeo: Record<string, { title: string; description: string; keywords: string[] }> = {
   fr: {

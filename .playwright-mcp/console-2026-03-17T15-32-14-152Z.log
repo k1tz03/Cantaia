@@ -1,0 +1,2 @@
+[    2717ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0
+[   63171ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://cantaia.vercel.app/fr/submissions/4738fa60-e35b-4d3c-b58a-7c8b98af8c2c:0

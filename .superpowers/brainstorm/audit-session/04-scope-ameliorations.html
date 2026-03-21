@@ -1,0 +1,88 @@
+<h2>Périmètre des améliorations — Jusqu'où on va ?</h2>
+<p class="subtitle">L'audit a identifié des améliorations dans chaque module. Sélectionne TOUT ce que tu veux inclure dans le document de spec. On priorisera ensuite.</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="action-board" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#ef4444;">1</div>
+    <div class="content">
+      <h3>Action Board (remplace Dashboard + Briefing + Mail inbox)</h3>
+      <p>Écran unique post-login : emails urgents avec boutons inline, deadlines soumissions, tâches en retard, suggestions IA — tout trié par priorité. Effort : <strong>XL (2-3 semaines)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="kanban-dnd" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#f59e0b;">2</div>
+    <div class="content">
+      <h3>Kanban drag & drop fonctionnel</h3>
+      <p>Permettre de déplacer les tâches entre colonnes (todo → in_progress → done). dnd-kit est déjà installé pour les soumissions, il faut l'activer sur le Kanban. Effort : <strong>M (2-3 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mobile-nav" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#f59e0b;">3</div>
+    <div class="content">
+      <h3>Bottom navigation mobile + quick actions</h3>
+      <p>Barre de navigation fixe en bas sur mobile (Mail, Tâches, Projets, Plus). Bouton "+" flottant pour créer tâche/note/photo en 2 taps. Effort : <strong>M (2-3 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="plans-upgrade" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#2563eb;">4</div>
+    <div class="content">
+      <h3>Analyse plans — enrichir le référentiel CFC (55 → 300+ prix)</h3>
+      <p>Passer de 55 à 300+ prix CFC référence. Ajouter les variantes matériaux (béton C20/C30/C40, fenêtres PVC/alu/bois, HVAC complet). Calibrer par phase SIA. Effort : <strong>L (1 semaine données + 2-3 jours code)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="soumissions-fix" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#2563eb;">5</div>
+    <div class="content">
+      <h3>Soumissions — prompt amélioré + Budget IA inline</h3>
+      <p>Enrichir le prompt d'extraction (unités normalisées, CFC fiable, multi-langue). Déplacer le Budget IA dans l'onglet Postes (inline au lieu d'un onglet séparé). Standardiser les noms de produits. Effort : <strong>M (3-4 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="fournisseurs-scoring" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#2563eb;">6</div>
+    <div class="content">
+      <h3>Fournisseurs — scoring automatique + historique complet</h3>
+      <p>Score calculé depuis les vraies données (délais réponse, écart prix, qualité PV). Historique complet par fournisseur (offres, commandes, PV, emails). Alertes certifications expirées. Effort : <strong>M (3-4 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="direction-dense" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#22c55e;">7</div>
+    <div class="content">
+      <h3>Vue Direction — dashboard multi-projet dense</h3>
+      <p>Chaque projet = 1 card avec santé (vert/orange/rouge), budget restant, tâches en retard, prochaine deadline, dernier PV. Vue pour comité de pilotage. Effort : <strong>M (2-3 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="cleanup-pages" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#22c55e;">8</div>
+    <div class="content">
+      <h3>Nettoyage — supprimer les 32 pages placeholder</h3>
+      <p>Supprimer ou connecter les pages mortes (admin/alerts, admin/logs, meetings/*, etc.). Supprimer les doublons (/pricing-intelligence, /admin/branding). Réduire la dette technique. Effort : <strong>S (1 jour)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="submission-db-sync" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#ef4444;">9</div>
+    <div class="content">
+      <h3>Fix critique — SubmissionEditor sync DB (pas localStorage)</h3>
+      <p>Les modifications de lots/chapitres/postes sont perdues au logout. Connecter l'éditeur à l'API pour persister en base. Bug critique identifié par l'audit. Effort : <strong>M (2-3 jours)</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mail-i18n" onclick="toggleSelect(this)">
+    <div class="letter" style="background:#22c55e;">10</div>
+    <div class="content">
+      <h3>Mail page — internationalisation complète</h3>
+      <p>La page /mail a des dizaines de strings FR hardcodées. Passer à useTranslations() pour supporter EN/DE. Effort : <strong>S (1 jour)</strong></p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 1.5rem; padding: 1rem; border-left: 3px solid var(--warning); background: var(--bg-secondary); border-radius: 0 8px 8px 0; font-size: 0.85rem; color: var(--text-secondary);">
+  <strong>Sélectionne tout ce qui t'intéresse.</strong> Je vais ensuite prioriser et proposer 2-3 approches (quick-wins d'abord vs big-bang vs module par module). Tout ce que tu valides ira dans le fichier <code>AMELIORATIONS.md</code> pour implémentation future.
+</div>

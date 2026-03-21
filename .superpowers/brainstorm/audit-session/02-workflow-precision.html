@@ -1,0 +1,67 @@
+<h2>Workflow "chantier" — Quel scénario te bloque le plus ?</h2>
+<p class="subtitle">Tu gères 8 projets. Quand tu ouvres Cantaia le matin, quel est le parcours qui te prend le plus de clics inutiles ?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Le matin : "Qu'est-ce qui est urgent ?"</h3>
+      <p>Dashboard → Mail → trier urgent → ouvrir email → comprendre le contexte → aller au projet → revenir au mail. Trop de allers-retours entre modules. Je veux un briefing actionnable avec des boutons "Répondre / Déléguer / Ignorer" directement.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Sur le chantier (mobile) : "Je dois noter quelque chose vite"</h3>
+      <p>Pas de bottom nav, les modals sont trop petites sur mobile, je ne peux pas créer une tâche ou prendre une photo en 2 taps. Sur chantier avec des gants et du soleil, chaque clic compte.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>En réunion : "Je veux le statut de mes 8 projets en 30 secondes"</h3>
+      <p>La page Direction existe mais elle ne donne pas une vue assez dense. Je veux voir d'un coup : budget restant, tâches en retard, prochaine deadline soumission, dernier PV, alertes — pour TOUS mes projets. Pas besoin de cliquer sur chacun.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Le suivi quotidien : "Les tâches ne bougent pas"</h3>
+      <p>Le Kanban est en lecture seule, pas de drag & drop. Je ne peux pas réorganiser mes tâches rapidement. Les tâches extraites des emails n'ont pas de contexte projet clair. Le workflow tâche est cassé.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 12px;">
+  <h3 style="margin-bottom: 0.75rem;">Analyse de l'audit — Navigation actuelle</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.85rem;">
+    <div>
+      <p style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Parcours "Voir un email urgent"</p>
+      <div style="font-family: monospace; color: var(--text-secondary); line-height: 1.8;">
+        1. Sidebar → Mail (1 clic)<br>
+        2. Filtrer "Urgent" (1 clic)<br>
+        3. Ouvrir email (1 clic)<br>
+        4. Lire le corps complet (scroll)<br>
+        5. Voir le projet lié (1 clic → autre page)<br>
+        6. Revenir au mail (bouton retour)<br>
+        7. Répondre (1 clic → modal)<br>
+        <strong style="color: var(--error);">= 6+ clics, 2 changements de page</strong>
+      </div>
+    </div>
+    <div>
+      <p style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Parcours "Créer une tâche depuis le chantier"</p>
+      <div style="font-family: monospace; color: var(--text-secondary); line-height: 1.8;">
+        1. Hamburger menu (1 tap)<br>
+        2. "Plus" → Tâches (2 taps)<br>
+        3. Bouton "Nouvelle tâche" (1 tap)<br>
+        4. Remplir modal (5+ champs)<br>
+        5. Sélectionner projet (dropdown scroll)<br>
+        6. Valider (1 tap)<br>
+        <strong style="color: var(--error);">= 5+ taps avant même de taper le titre</strong>
+      </div>
+    </div>
+  </div>
+</div>

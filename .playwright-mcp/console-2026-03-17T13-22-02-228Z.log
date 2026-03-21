@@ -1,0 +1,3 @@
+[    1428ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0
+[    1616ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/briefing/today?date=2026-03-17:0
+[    2584ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/briefing/generate:0

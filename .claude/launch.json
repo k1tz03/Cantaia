@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Cantaia Web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\julien.ray\\nodejs\\node_modules\\corepack\\dist\\pnpm.js", "--filter", "@cantaia/web", "dev"],
+      "port": 3000
+    }
+  ]
+}

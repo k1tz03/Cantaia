@@ -1,0 +1,2 @@
+[    2020ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0
+[   43400ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://cantaia.vercel.app/api/tasks:0

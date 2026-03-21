@@ -1,0 +1,100 @@
+<h2>Briefing matinal — Quelle vision te parle ?</h2>
+<p class="subtitle">Ton briefing actuel : une page avec des KPIs statiques (0 Projets, 0 Non lus...) et un résumé IA textuel. Voici 3 approches pour le transformer en cockpit de décision.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.75rem; text-align: left; width: 100%;">
+        <div style="font-weight: 700; margin-bottom: 0.5rem; color: var(--error);">3 URGENTS</div>
+        <div style="background: var(--bg-secondary); padding: 0.5rem; border-radius: 6px; margin-bottom: 0.4rem; border-left: 3px solid #ef4444;">
+          <div style="font-size: 0.7rem;">Architecte attend validation plans → <strong>Central Malley</strong></div>
+          <div style="display:flex;gap:4px;margin-top:4px;">
+            <span style="background:#2563eb;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Répondre</span>
+            <span style="background:#6b7280;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Déléguer</span>
+          </div>
+        </div>
+        <div style="background: var(--bg-secondary); padding: 0.5rem; border-radius: 6px; margin-bottom: 0.4rem; border-left: 3px solid #f59e0b;">
+          <div style="font-size: 0.7rem;">Deadline soumission béton dans 2j → <strong>Tour Horizon</strong></div>
+          <div style="display:flex;gap:4px;margin-top:4px;">
+            <span style="background:#2563eb;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Voir soumission</span>
+            <span style="background:#6b7280;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Reporter</span>
+          </div>
+        </div>
+        <div style="background: var(--bg-secondary); padding: 0.5rem; border-radius: 6px; border-left: 3px solid #ef4444;">
+          <div style="font-size: 0.7rem;">2 tâches en retard depuis 3j → <strong>Central Malley</strong></div>
+          <div style="display:flex;gap:4px;margin-top:4px;">
+            <span style="background:#2563eb;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Voir tâches</span>
+            <span style="background:#6b7280;color:white;padding:1px 6px;border-radius:4px;font-size:0.6rem;">Relancer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Briefing "Action Board"</h3>
+      <p>Remplace /briefing + /mail par un seul écran. Chaque item = 1 décision avec boutons d'action inline. Emails urgents, deadlines soumissions, tâches en retard — tout trié par priorité. Tu traites tout sans changer de page.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.75rem; text-align: left; width: 100%;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+          <div style="background:var(--bg-secondary);padding:0.5rem;border-radius:6px;text-align:center;">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--error);">3</div>
+            <div style="font-size:0.6rem;color:var(--text-secondary);">Urgents</div>
+          </div>
+          <div style="background:var(--bg-secondary);padding:0.5rem;border-radius:6px;text-align:center;">
+            <div style="font-size:1.2rem;font-weight:700;color:var(--warning);">7</div>
+            <div style="font-size:0.6rem;color:var(--text-secondary);">Cette semaine</div>
+          </div>
+        </div>
+        <div style="font-weight:600;font-size:0.7rem;margin-bottom:0.3rem;">Résumé IA de la journée :</div>
+        <div style="font-size:0.65rem;color:var(--text-secondary);line-height:1.4;">
+          "3 emails requièrent ta validation. La soumission béton Tour Horizon expire jeudi. Marc Dupont n'a pas rendu son rapport de fondations (3j de retard). Suggestion : commencer par valider les plans Central Malley (5 min), puis relancer Marc."
+        </div>
+        <div style="margin-top:0.5rem;display:flex;gap:4px;">
+          <span style="background:#2563eb;color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;">Exécuter les suggestions</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Briefing "Coach IA"</h3>
+      <p>Le briefing actuel amélioré : KPIs enrichis + un résumé IA vraiment actionnable qui te dit QUOI faire et DANS QUEL ORDRE. Bouton "Exécuter les suggestions" qui ouvre chaque action en séquence. Moins radical que A, plus intelligent.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.75rem; text-align: left; width: 100%;">
+        <div style="font-weight:700;margin-bottom:0.5rem;">8 Projets — Vue radar</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">
+          <div style="background:#fef2f2;padding:0.4rem;border-radius:4px;font-size:0.6rem;">
+            <span style="color:#ef4444;">●</span> Central Malley<br>
+            <span style="color:var(--text-secondary);">2 urgents · 1 retard · Budget -3%</span>
+          </div>
+          <div style="background:#fefce8;padding:0.4rem;border-radius:4px;font-size:0.6rem;">
+            <span style="color:#f59e0b;">●</span> Tour Horizon<br>
+            <span style="color:var(--text-secondary);">1 deadline · 0 retard · Budget OK</span>
+          </div>
+          <div style="background:#f0fdf4;padding:0.4rem;border-radius:4px;font-size:0.6rem;">
+            <span style="color:#22c55e;">●</span> Résidence Lac<br>
+            <span style="color:var(--text-secondary);">0 urgent · RAS</span>
+          </div>
+          <div style="background:#f0fdf4;padding:0.4rem;border-radius:4px;font-size:0.6rem;">
+            <span style="color:#22c55e;">●</span> École Prilly<br>
+            <span style="color:var(--text-secondary);">0 urgent · RAS</span>
+          </div>
+        </div>
+        <div style="margin-top:0.5rem;font-size:0.6rem;color:var(--text-secondary);">Clic → drill-down dans le projet</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Dashboard "Multi-Projet Radar"</h3>
+      <p>Remplace /dashboard par une vue multi-projet dense. Chaque projet = 1 card avec indicateur santé (vert/orange/rouge), compteurs (urgents, retards, budget). Clic = drill-down. Tu vois tes 8 chantiers d'un coup d'oeil. Les actions restent dans les modules respectifs.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 1.5rem; padding: 1rem; border-left: 3px solid var(--accent); background: var(--bg-secondary); border-radius: 0 8px 8px 0; font-size: 0.85rem; color: var(--text-secondary);">
+  <strong>Mon avis d'expert construction :</strong> L'option A est la plus ambitieuse mais la plus impactante — elle fusionne briefing + mail + tâches en un seul écran de décision. C'est ce que font les meilleurs outils de pilotage (Monday.com, Notion inbox). L'option B est le quick-win le plus réaliste (améliorer l'existant). L'option C résout un autre problème (vue macro multi-projets) mais ne réduit pas les clics sur les actions quotidiennes.
+</div>

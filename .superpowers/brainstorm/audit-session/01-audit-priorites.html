@@ -1,0 +1,68 @@
+<h2>Audit Cantaia — Quelle est ta douleur #1 au quotidien ?</h2>
+<p class="subtitle">En tant que chef de projet avec 8 chantiers simultanés, quel module te fait perdre le plus de temps aujourd'hui ? Cela va orienter l'audit et les améliorations.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Analyse des plans — trop lent, pas assez précis</h3>
+      <p>L'estimation 4 passes prend trop de temps, les prix CFC sont incomplets (55 sur 500+), les quantités ne sont pas fiables à ±5%. Je dois tout revérifier manuellement.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Soumissions — l'analyse Excel est fragile</h3>
+      <p>L'extraction IA rate ~20% des codes CFC, les noms de produits ne sont pas standardisés, le Budget IA est dans un onglet séparé au lieu d'être inline dans les postes. Le workflow est trop fragmenté.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Mail & classification — je perds du temps à trier</h3>
+      <p>16 emails en "info" mais 0 en "urgent" ou "cette semaine". La classification est trop conservatrice. Je veux que l'IA priorise mieux et me dise exactement quoi faire en premier chaque matin.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Navigation & workflow global — trop de clics pour les actions fréquentes</h3>
+      <p>Pas de bottom nav mobile, le Kanban est en lecture seule, les interconnections entre modules sont là mais pas fluides. Je veux un workflow "chantier" où tout est à 1 clic.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 12px;">
+  <h3 style="margin-bottom: 0.75rem;">Ce que l'audit a révélé — résumé brutal</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+    <div>
+      <p style="color: var(--error); font-weight: 600;">Problèmes critiques</p>
+      <ul style="margin-top: 0.5rem; padding-left: 1.2rem; color: var(--text-secondary);">
+        <li>SubmissionEditor sauvegarde en localStorage, pas en DB</li>
+        <li>Kanban tâches = lecture seule (pas de drag & drop)</li>
+        <li>32 pages placeholder sur 75 (43% du site vide)</li>
+        <li>0 tests automatisés dans tout le repo</li>
+        <li>0 rate limiting sur 139 routes API</li>
+        <li>Référentiel CFC : 55 prix sur 500+ nécessaires</li>
+      </ul>
+    </div>
+    <div>
+      <p style="color: var(--success); font-weight: 600;">Ce qui fonctionne bien</p>
+      <ul style="margin-top: 0.5rem; padding-left: 1.2rem; color: var(--text-secondary);">
+        <li>Pipeline email 7 niveaux (classification → tâches → plans)</li>
+        <li>Estimation multi-modèle 4 passes (Claude + GPT + Gemini)</li>
+        <li>Interconnections modules : 18/21 testées OK</li>
+        <li>Sécurité : 34/45 vulnérabilités corrigées</li>
+        <li>Auth OAuth + session 7j stable</li>
+        <li>i18n FR/EN/DE fonctionnel (229/262 tests OK)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 1.5rem; padding: 1rem; border-left: 3px solid var(--accent); background: var(--bg-secondary); border-radius: 0 8px 8px 0; font-size: 0.85rem; color: var(--text-secondary);">
+  <strong>Note :</strong> Tu peux sélectionner plusieurs options. L'objectif est d'identifier TA priorité #1 pour qu'on commence par ce qui te fait gagner le plus de temps. On couvrira tout, mais dans le bon ordre.
+</div>

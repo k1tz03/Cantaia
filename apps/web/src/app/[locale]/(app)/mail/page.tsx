@@ -867,7 +867,7 @@ function ThreadView({ thread, currentUserEmail }: {
         const isHtml = msg.body.contentType?.toLowerCase() === "html";
 
         return (
-          <div key={msg.id} className="rounded-lg border border-border bg-white overflow-hidden">
+          <div key={msg.id} className="rounded-lg border border-border bg-white dark:bg-white dark:border-border overflow-hidden">
             {/* Message header — clickable to expand/collapse */}
             <button
               onClick={() => toggleExpand(msg.id)}

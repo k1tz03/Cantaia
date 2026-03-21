@@ -1,0 +1,1 @@
+[    2272ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://vusjmfkanmdsuiumeumb.supabase.co/rest/v1/organization_invites?select=*&organization_id=eq.9fa0b7cf-281c-41dc-9145-6abaa34af11f&status=eq.pending&order=created_at.desc:0

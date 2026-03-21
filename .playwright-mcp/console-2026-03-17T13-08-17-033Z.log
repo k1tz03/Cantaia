@@ -1,0 +1,5 @@
+[    6263ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://cantaia.vercel.app/fr/login:0
+[    6425ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/fr/apple-icon:0
+[    6425ms] [WARNING] Error while trying to use the following icon from the Manifest: https://cantaia.vercel.app/apple-icon (Download error or resource isn't a valid image) @ https://cantaia.vercel.app/fr/login:0
+[   70048ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://cantaia.vercel.app/fr/login?redirectTo=%2Ffr%2Fmail:0
+[  215137ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0

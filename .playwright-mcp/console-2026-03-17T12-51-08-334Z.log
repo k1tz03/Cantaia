@@ -1,0 +1,11 @@
+[    1604ms] [ERROR] u: MISSING_MESSAGE: landing.pricing.price (fr)
+    at y (https://cantaia.vercel.app/_next/static/chunks/2140-6ec95f3019b15df8.js:1:42671)
+    at v (https://cantaia.vercel.app/_next/static/chunks/2140-6ec95f3019b15df8.js:1:42827)
+    at T (https://cantaia.vercel.app/_next/static/chunks/2140-6ec95f3019b15df8.js:1:44160)
+    at i (https://cantaia.vercel.app/_next/static/chunks/app/%5Blocale%5D/(marketing)/page-4038f77dfadf31f5.js:1:26961)
+    at l9 (https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:51514)
+    at o_ (https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:71374)
+    at oq (https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:81475)
+    at ik (https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:115066)
+    at https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:111114
+    at iu (https://cantaia.vercel.app/_next/static/chunks/a51c26f2-c7d5b28009195cb2.js:1:111215) @ https://cantaia.vercel.app/_next/static/chunks/3757-846e1c0c52148674.js:0

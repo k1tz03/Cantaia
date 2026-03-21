@@ -1,0 +1,659 @@
+
+> ingest
+> npx tsx index.ts
+
+╔═══════════════════════════════════════════╗
+║  CANTAIA — Ingestion Données Historiques  ║
+╚═══════════════════════════════════════════╝
+
+Organisation : 1f69385e-abe3-44eb-8050-69bc72e63aeb
+Région par défaut : vaud
+Anonymisation : ACTIVÉE
+Max appels parallèles : 3
+
+✅ Connexion Supabase OK
+
+
+═══════════════════════════════════════
+  INGESTION DES OFFRES FOURNISSEURS
+═══════════════════════════════════════
+
+Fichiers trouvés : 400
+
+[23:42:26] [OFFRES] 1/400 (0%) — 2024.10.03 BGS commande pinces.msg — ✅ 2 lignes de prix extraites [16s]
+[23:42:32] [OFFRES] 2/400 (1%) — 2024.10.03 Challandes EMS UAF.msg — ✅ 0 lignes — email informatif (pas de prix) [22s]
+[23:42:43] [OFFRES] 3/400 (1%) — 23.11.17 - Thinkwater - bon de livraison n°1.msg — ✅ 0 lignes de prix extraites [33s]
+[23:43:00] [OFFRES] 4/400 (1%) — 24.01.22 - Leur offre portail.msg — ✅ 3 lignes de prix extraites [49s]
+[23:43:14] [OFFRES] 5/400 (1%) — 24.01.24 - Leurs offre ACMR8 - SDA 8-12.msg — ✅ 2 lignes de prix extraites [64s]
+[23:43:30] [OFFRES] 6/400 (2%) — ACO - 22.12.19 Leur offre.msg — ✅ 2 lignes de prix extraites [80s]
+[23:44:13] [OFFRES] 7/400 (2%) — ACO - 23.06.28 Leur offre.msg — ✅ 14 lignes de prix extraites [123s]
+Warning: TT: undefined function: 21
+Warning: TT: undefined function: 32
+[23:45:19] [OFFRES] 8/400 (2%) — ACO - 24.01.18 Leur offre.msg — ✅ 14 lignes de prix extraites [189s]
+[23:46:51] [OFFRES] 9/400 (2%) — ACO - 24.06.14 - leur offre.msg — ❌ JSON invalide dans la réponse [280s]
+[23:47:35] [OFFRES] 10/400 (3%) — ACO - 24.11.18 - leur offre.msg — ✅ 17 lignes de prix extraites [324s]
+
+  ⏸ Pause entre batches (5s)...
+
+[23:48:03] [OFFRES] 11/400 (3%) — ACO - 25.01.15 - leur offre.msg — ✅ 4 lignes de prix extraites [353s]
+Warning: TT: undefined function: 32
+[23:48:47] [OFFRES] 12/400 (3%) — ACO - 25.08.11 - leur offre.msg — ✅ 10 lignes de prix extraites [397s]
+[23:49:08] [OFFRES] 13/400 (3%) — Acquatechnique - 24.06.07 - leur offre.msg — ✅ 7 lignes de prix extraites [417s]
+[23:49:23] [OFFRES] 14/400 (4%) — Afleury- 25.01.13 - leur offre.msg — ✅ 3 lignes de prix extraites [432s]
+[23:49:37] [OFFRES] 15/400 (4%) — Ambiance-minérale - 24.12.18 - leur offre.msg — ✅ 2 lignes de prix extraites [446s]
+[23:49:58] [OFFRES] 16/400 (4%) — Antaswiss - 22.12.19 Leur offre.msg — ✅ 6 lignes de prix extraites [467s]
+[23:50:22] [OFFRES] 17/400 (4%) — Arvel - 24.01.26 Leur offre.msg — ✅ 6 lignes de prix extraites [491s]
+[23:50:41] [OFFRES] 18/400 (5%) — Arvel - 24.06.12 - leur offre.msg — ✅ 3 lignes de prix extraites [511s]
+[23:51:01] [OFFRES] 19/400 (5%) — Arvel - 24.07.09 Leur offre.msg — ✅ 3 lignes de prix extraites [530s]
+Warning: TT: undefined function: 32
+[23:51:52] [OFFRES] 20/400 (5%) — AZ - 23.06.29 Leur offre.msg — ✅ 7 lignes de prix extraites [582s]
+
+  ⏸ Pause entre batches (5s)...
+
+Warning: TT: undefined function: 21
+Warning: TT: undefined function: 21
+[23:52:30] [OFFRES] 21/400 (5%) — AZ - 24.01.18 Leur offre.msg — ✅ 15 lignes de prix extraites [620s]
+[23:53:47] [OFFRES] 22/400 (6%) — AZ - 24.06.11 - leur offre.msg — ✅ 5 lignes de prix extraites [696s]
+[23:55:14] [OFFRES] 23/400 (6%) — AZ - 24.12.19 - leur offre.msg — ✅ 9 lignes de prix extraites [784s]
+[23:56:38] [OFFRES] 24/400 (6%) — AZ - 25.01.14 Leur offre.msg — ✅ 9 lignes de prix extraites [868s]
+[23:57:29] [OFFRES] 25/400 (6%) — AZ - 25.01.19 Leur offre compléte.msg — ✅ 5 lignes de prix extraites [918s]
+[23:58:49] [OFFRES] 26/400 (7%) — AZ - 25.07.21 - leur offre.msg — ✅ 13 lignes de prix extraites [998s]
+[23:59:12] [OFFRES] 27/400 (7%) — AZ - 25.07.27 - leur offre.msg — ✅ 5 lignes de prix extraites [1021s]
+[23:59:50] [OFFRES] 28/400 (7%) — AZ - 28.05.25 - leur offre.msg — ✅ 3 lignes de prix extraites [1060s]
+[00:00:02] [OFFRES] 29/400 (7%) — Baechler - 25.07.29 - leur offre.msg — ✅ 2 lignes de prix extraites [1071s]
+[00:00:08] [OFFRES] 30/400 (8%) — Balzan - 25.08.13 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [1077s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:00:37] [OFFRES] 31/400 (8%) — Batiplus - 24.01.19 Leur offre.msg — ✅ 3 lignes de prix extraites [1107s]
+[00:01:03] [OFFRES] 32/400 (8%) — Batiplus - 24.07.04 - leur offre.msg — ✅ 3 lignes de prix extraites [1132s]
+[00:02:10] [OFFRES] 33/400 (8%) — Baudat - 22.12.19 Leur offre.msg — ❌ JSON invalide dans la réponse [1200s]
+[00:03:17] [OFFRES] 34/400 (9%) — Baudat - 23.03.14 - Leur offre complémentaire.msg — ❌ JSON invalide dans la réponse [1267s]
+[00:04:28] [OFFRES] 35/400 (9%) — Baudat - 23.07.03 Leur offre.msg — ❌ JSON invalide dans la réponse [1338s]
+[00:05:35] [OFFRES] 36/400 (9%) — Baudat - 23.09.07 - Leur offre finale.msg — ❌ JSON invalide dans la réponse [1405s]
+[00:06:30] [OFFRES] 37/400 (9%) — Baudat - 23.11.17 Leur offre.msg — ✅ 28 lignes de prix extraites [1459s]
+[00:07:25] [OFFRES] 38/400 (10%) — Baudat - 24.01.19 Leur offre.msg — ✅ 32 lignes de prix extraites [1514s]
+[00:08:39] [OFFRES] 39/400 (10%) — Baudat - 24.06.07 - leur offre.msg — ✅ 44 lignes de prix extraites [1588s]
+[00:09:48] [OFFRES] 40/400 (10%) — Baudat - 25.01.06 - leur offre.msg — ❌ JSON invalide dans la réponse [1658s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:10:55] [OFFRES] 41/400 (10%) — Baudat - 25.07.24 - leur offre.msg — ✅ 42 lignes de prix extraites [1725s]
+[00:12:07] [OFFRES] 42/400 (11%) — Baudat - 25.07.29 - leur offre.msg — ❌ JSON invalide dans la réponse [1796s]
+[00:12:23] [OFFRES] 43/400 (11%) — Bauder - 23.06.29 Leur offre.msg — ✅ 1 lignes de prix extraites [1812s]
+[00:12:47] [OFFRES] 44/400 (11%) — Bauder - 23.11.24 - Leur offre.msg — ✅ 3 lignes de prix extraites [1836s]
+[00:13:09] [OFFRES] 45/400 (11%) — Bauder - 24.12.18 - leur offre.msg — ✅ 6 lignes de prix extraites [1859s]
+Warning: TT: undefined function: 32
+[00:14:19] [OFFRES] 46/400 (12%) — Bersier - 23.06.27 Leur offre.msg — ❌ JSON invalide dans la réponse [1929s]
+Warning: TT: undefined function: 32
+[00:14:46] [OFFRES] 47/400 (12%) — Bersier - 24.01.22 Leur offre.msg — ✅ 3 lignes de prix extraites [1955s]
+Warning: TT: undefined function: 32
+[00:15:05] [OFFRES] 48/400 (12%) — Bersier - 24.07.04 Leur offre.msg — ✅ 4 lignes de prix extraites [1974s]
+[00:15:29] [OFFRES] 49/400 (12%) — Bertusi & Strehl - 24.02.26 - Offre estimative pour Ombramobil.msg — ✅ 3 lignes de prix extraites [1999s]
+[00:15:52] [OFFRES] 50/400 (13%) — BETONTEC - 23.12.13 - Leur offre.msg — ✅ 0 lignes de prix extraites [2022s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:16:23] [OFFRES] 51/400 (13%) — Betontech - 25.07.24 - leur offre.msg — ✅ 5 lignes de prix extraites [2052s]
+[00:16:34] [OFFRES] 52/400 (13%) — Bgs - 22.12.20 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [2063s]
+[00:17:33] [OFFRES] 53/400 (13%) — BGS - 24.01.23 Leur offre.msg — ✅ 21 lignes de prix extraites [2123s]
+[00:19:06] [OFFRES] 54/400 (14%) — BGS - 24.09.10 - leur offre.msg — ✅ 0 lignes de prix extraites [2216s]
+[00:19:43] [OFFRES] 55/400 (14%) — BGS - 24.12.18 - leur offre.msg — ✅ 16 lignes de prix extraites [2253s]
+Warning: TT: undefined function: 32
+[00:20:42] [OFFRES] 56/400 (14%) — BGS - 25.08.05 - leur offre.msg — ✅ 0 lignes de prix extraites [2311s]
+[00:20:57] [OFFRES] 57/400 (14%) — BGS .- 25.07.25 - leur offre.msg — ✅ 3 lignes de prix extraites [2327s]
+[00:21:04] [OFFRES] 58/400 (14%) — BGS Compost - 24.01.19 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [2333s]
+[00:21:50] [OFFRES] 59/400 (15%) — Bimbo - 22.12.22 Leur offre.msg — ✅ 11 lignes de prix extraites [2380s]
+[00:22:40] [OFFRES] 60/400 (15%) — Bimbo - 23.01.09 Leur offre à jour.msg — ✅ 14 lignes de prix extraites [2430s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:23:57] [OFFRES] 61/400 (15%) — Bimbo - 23.07.05 Leur Offre.msg — ✅ 19 lignes de prix extraites [2507s]
+[00:24:52] [OFFRES] 62/400 (16%) — BIMBO - 23.12.13 - Leur offre.msg — ✅ 20 lignes de prix extraites [2562s]
+[00:25:49] [OFFRES] 63/400 (16%) — BIMBO - 23.12.14 - Leur offre finale.msg — ✅ 22 lignes de prix extraites [2618s]
+[00:26:42] [OFFRES] 64/400 (16%) — Bimbo - 24.01.18 Leur offre.msg — ✅ 14 lignes de prix extraites [2671s]
+[00:27:36] [OFFRES] 65/400 (16%) — BIMBO - 24.01.23 - Leur dernière offre.msg — ✅ 22 lignes de prix extraites [2726s]
+[00:28:27] [OFFRES] 66/400 (17%) — Bimbo - 25.07.25 - leur offre.msg — ✅ 13 lignes de prix extraites [2776s]
+[00:29:13] [OFFRES] 67/400 (17%) — Bimbo - 25.07.29 - leur offre.msg — ✅ 11 lignes de prix extraites [2823s]
+[00:29:30] [OFFRES] 68/400 (17%) — Bimbo - 25.09.01 Leur offre.msg — ✅ 2 lignes de prix extraites [2839s]
+[00:30:27] [OFFRES] 69/400 (17%) — Birkenmeier - 23.07.21 - Leur offre.msg — ✅ 22 lignes de prix extraites [2897s]
+[00:30:49] [OFFRES] 70/400 (18%) — Birkenmeier - 24.01.18 Leur offre.msg — ✅ 4 lignes de prix extraites [2919s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:31:24] [OFFRES] 71/400 (18%) — Birkenmeier - 24.06.14 - leur offre.msg — ✅ 7 lignes de prix extraites [2954s]
+[00:31:53] [OFFRES] 72/400 (18%) — Birkenmeier - 25.07.27 - leur offre.msg — ✅ 9 lignes de prix extraites [2983s]
+[00:32:21] [OFFRES] 73/400 (18%) — Birkenmeier - 25.08.04 - leur offre.msg — ✅ 9 lignes de prix extraites [3011s]
+[00:32:58] [OFFRES] 74/400 (19%) — Birkenmeier - 25.09.19 - leur offre.msg — ✅ 0 lignes de prix extraites [3047s]
+[00:33:33] [OFFRES] 75/400 (19%) — Boissec - 22.12.19 Leur offre.msg — ✅ 4 lignes de prix extraites [3082s]
+[00:34:08] [OFFRES] 76/400 (19%) — Boissec - 22.12.22 Leur offre.msg — ✅ 11 lignes de prix extraites [3117s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:34:41] [OFFRES] 77/400 (19%) — Boissec - 23.06.27 Leur offre.msg — ✅ 6 lignes de prix extraites [3151s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:35:13] [OFFRES] 78/400 (20%) — Boissec - 24.01.19 Leur offre.msg — ✅ 4 lignes de prix extraites [3182s]
+Warning: TT: undefined function: 32
+[00:35:43] [OFFRES] 79/400 (20%) — Boissec - 25.07.24 - leur offre.msg — ✅ 7 lignes de prix extraites [3213s]
+Warning: TT: undefined function: 32
+[00:36:09] [OFFRES] 80/400 (20%) — Boissec - 25.07.28 - leur offre.msg — ✅ 4 lignes de prix extraites [3239s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:37:20] [OFFRES] 81/400 (20%) — Bruns - 22.12.19 Leur offre.msg — ❌ JSON invalide dans la réponse [3309s]
+[00:37:43] [OFFRES] 82/400 (21%) — Burri - 22.12.22 Leur offre.msg — ✅ 0 lignes de prix extraites [3333s]
+[00:38:05] [OFFRES] 83/400 (21%) — Burri - 22.12.23 Leur offre.msg — ✅ 0 lignes de prix extraites [3354s]
+[00:38:17] [OFFRES] 84/400 (21%) — Burri - 23.05.24 - Leur offre Bi-Latérale.msg — ✅ 0 lignes — email informatif (pas de prix) [3367s]
+[00:38:33] [OFFRES] 85/400 (21%) — Burri - 23.05.25 - Leur offre Eclairage.msg — ✅ 2 lignes de prix extraites [3383s]
+[00:38:53] [OFFRES] 86/400 (22%) — Burri - 23.06.27 Leur offre.msg — ✅ 5 lignes de prix extraites [3403s]
+[00:39:03] [OFFRES] 87/400 (22%) — Burri - 23.11.17 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [3413s]
+[00:39:14] [OFFRES] 88/400 (22%) — BURRI - 23.12.19 - Leur offre finale.msg — ✅ 0 lignes — email informatif (pas de prix) [3423s]
+[00:39:35] [OFFRES] 89/400 (22%) — Burri - 24.02.02 - Leur offre.msg — ✅ 5 lignes de prix extraites [3444s]
+[00:39:48] [OFFRES] 90/400 (23%) — Burri - 24.03.07 - Notre envoi prix régie.msg — ✅ 3 lignes de prix extraites [3457s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:40:06] [OFFRES] 91/400 (23%) — Calibois - 23.11.17 Leur offre.msg — ✅ 3 lignes de prix extraites [3475s]
+[00:40:11] [OFFRES] 92/400 (23%) — Camandona - 22.12.22 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [3480s]
+[00:40:41] [OFFRES] 93/400 (23%) — Camandona - 25.01.10 - leur offre.msg — ✅ 10 lignes de prix extraites [3510s]
+[00:41:07] [OFFRES] 94/400 (24%) — CandLandi - 24.01.19 Leur offre.msg — ✅ 12 lignes de prix extraites [3537s]
+[00:41:21] [OFFRES] 95/400 (24%) — CandLandi - 25.01.13 Leur offre.msg — ✅ 2 lignes de prix extraites [3550s]
+[00:42:08] [OFFRES] 96/400 (24%) — Canplast - 22.12.20 Leur offre.msg — ✅ 17 lignes de prix extraites [3598s]
+[00:42:29] [OFFRES] 97/400 (24%) — Canplast - 23.07.03 Leur offre.msg — ✅ 4 lignes de prix extraites [3619s]
+[00:42:59] [OFFRES] 98/400 (25%) — Canplast - 23.11.17 Leur offre.msg — ✅ 6 lignes de prix extraites [3648s]
+[00:43:15] [OFFRES] 99/400 (25%) — Canplast - 24.01.19 Leur offre.msg — ✅ 3 lignes de prix extraites [3665s]
+[00:43:43] [OFFRES] 100/400 (25%) — Canplast - 24.06.12 - leur offre.msg — ✅ 6 lignes de prix extraites [3692s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:44:04] [OFFRES] 101/400 (25%) — Canplast - 24.07.09 Leur offre.msg — ✅ 0 lignes de prix extraites [3714s]
+[00:44:38] [OFFRES] 102/400 (26%) — Canplast - 24.12.18 - leur offre.msg — ✅ 13 lignes de prix extraites [3748s]
+[00:45:09] [OFFRES] 103/400 (26%) — Canplast - 25.01.13 - leur offre.msg — ✅ 10 lignes de prix extraites [3778s]
+[00:45:38] [OFFRES] 104/400 (26%) — Canplast - 25.07.27 - leur offre.msg — ✅ 9 lignes de prix extraites [3807s]
+[00:46:06] [OFFRES] 105/400 (26%) — Canplast - 25.07.30 - leur offre cuve.msg — ✅ 4 lignes de prix extraites [3835s]
+[00:46:21] [OFFRES] 106/400 (27%) — Canplast - 25.08.05 - leur offre.msg — ✅ 2 lignes de prix extraites [3851s]
+[00:46:35] [OFFRES] 107/400 (27%) — Carrières Grandjean - 24.01.19 Leur offre.msg — ✅ 1 lignes de prix extraites [3865s]
+[00:46:52] [OFFRES] 108/400 (27%) — Carrières Proccachard - 24.01.18 Leur offre.msg — ✅ 2 lignes de prix extraites [3881s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:47:24] [OFFRES] 109/400 (27%) — Challande - 22.12.22 Leur offre.msg — ✅ 8 lignes de prix extraites [3913s]
+[00:47:33] [OFFRES] 110/400 (28%) — Challande - 23.11.22 Leur offre.msg — ✅ 1 lignes de prix extraites [3922s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:48:30] [OFFRES] 111/400 (28%) — Challande - 24.01.29 - Leur dernière offre.msg — ✅ 21 lignes de prix extraites [3980s]
+[00:49:02] [OFFRES] 112/400 (28%) — Challande - 25.01.15 Leur offre.msg — ✅ 8 lignes de prix extraites [4011s]
+[00:49:27] [OFFRES] 113/400 (28%) — Challande - 25.08.13 - leur offre.msg — ✅ 4 lignes de prix extraites [4037s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:50:44] [OFFRES] 114/400 (28%) — Colas - 23.05.23 - Leur offre.msg — ✅ 34 lignes de prix extraites [4113s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:51:04] [OFFRES] 115/400 (29%) — Colas - 24.01.26 Leur offre !!!.msg — ✅ 2 lignes de prix extraites [4133s]
+Warning: TT: undefined function: 32
+[00:51:20] [OFFRES] 116/400 (29%) — Colas - 24.01.29 Leur offre.msg — ✅ 1 lignes de prix extraites [4150s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[00:51:48] [OFFRES] 117/400 (29%) — Colas - 25.01.10 - leur offre.msg — ✅ 7 lignes de prix extraites [4178s]
+Warning: TT: undefined function: 32
+[00:52:11] [OFFRES] 118/400 (30%) — Colas - 25.08.13 - leur offre.msg — ✅ 6 lignes de prix extraites [4200s]
+Warning: TT: undefined function: 32
+[00:52:26] [OFFRES] 119/400 (30%) — Compagnie des rues - 25.08.13 - leur offre.msg — ✅ 4 lignes de prix extraites [4216s]
+[00:52:51] [OFFRES] 120/400 (30%) — Corbat - 22.12.21 Leur offre.msg — ✅ 4 lignes de prix extraites [4241s]
+
+  ⏸ Pause entre batches (5s)...
+
+[00:53:18] [OFFRES] 121/400 (30%) — Cornaz - 25.08.06 - leur offre.msg — ✅ 6 lignes de prix extraites [4268s]
+[00:53:51] [OFFRES] 122/400 (31%) — Creabeton - 23.07.14 Leur offre.msg — ✅ 13 lignes de prix extraites [4300s]
+[00:54:14] [OFFRES] 123/400 (31%) — Creabeton - 23.07.18 Leur offre.msg — ✅ 3 lignes de prix extraites [4323s]
+[00:54:35] [OFFRES] 124/400 (31%) — Creabeton - 23.08.21 - Leur offre.msg — ✅ 6 lignes de prix extraites [4345s]
+[00:55:27] [OFFRES] 125/400 (31%) — Creabeton - 24.02.02 Leur offre.msg — ✅ 20 lignes de prix extraites [4396s]
+[00:56:42] [OFFRES] 126/400 (32%) — Creabéton  - 24.06.25 - leur offre.msg — ❌ JSON invalide dans la réponse [4472s]
+[00:58:07] [OFFRES] 127/400 (32%) — Creabéton - 24.12.18 - leur offre.msg — ❌ JSON invalide dans la réponse [4556s]
+[00:59:01] [OFFRES] 128/400 (32%) — Creabéton - 25.07.30 - leur offre.msg — ✅ 21 lignes de prix extraites [4611s]
+[00:59:44] [OFFRES] 129/400 (32%) — Créabéton - 24.07.08 - leur offre.msg — ✅ 16 lignes de prix extraites [4654s]
+[01:00:39] [OFFRES] 130/400 (33%) — Créabéton - 24.07.17 - leur offre modifiée.msg — ✅ 19 lignes de prix extraites [4709s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:01:47] [OFFRES] 131/400 (33%) — Créabéton - 25.08.12 - leur offre.msg — ✅ 24 lignes de prix extraites [4776s]
+[01:02:01] [OFFRES] 132/400 (33%) — Debrunner - 24.07.04 Leur offre.msg — ✅ 1 lignes de prix extraites [4791s]
+Warning: TT: undefined function: 32
+[01:02:21] [OFFRES] 133/400 (33%) — Diam coupe - 24.12.19 - leur offre.msg — ✅ 4 lignes de prix extraites [4811s]
+[01:02:40] [OFFRES] 134/400 (34%) — Doerken - 24.06.07 - leur offre.msg — ✅ 3 lignes de prix extraites [4830s]
+[01:03:05] [OFFRES] 135/400 (34%) — Dutoit - 25.07.24 - leur offre.msg — ✅ 7 lignes de prix extraites [4855s]
+[01:03:43] [OFFRES] 136/400 (34%) — Ebben - 23.11.17 Leur offre.msg — ✅ 26 lignes de prix extraites [4892s]
+[01:04:31] [OFFRES] 137/400 (34%) — Ebben - 24.01.19 Leur offre.msg — ✅ 33 lignes de prix extraites [4940s]
+[01:04:54] [OFFRES] 138/400 (35%) — Ecopotable - 22.12.20 Leur offre.msg — ✅ 2 lignes de prix extraites [4963s]
+[01:05:17] [OFFRES] 139/400 (35%) — Ecopotable - 24.06.07 - leur offre.msg — ✅ 2 lignes de prix extraites [4986s]
+[01:05:38] [OFFRES] 140/400 (35%) — Ecopotable - 25.01.10 - leur offre.msg — ✅ 1 lignes de prix extraites [5008s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:06:10] [OFFRES] 141/400 (35%) — Ecopotable - 25.07.29 - leur offre.msg — ✅ 2 lignes de prix extraites [5039s]
+[01:06:20] [OFFRES] 142/400 (36%) — Eibe - 25.07.21 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [5050s]
+[01:07:38] [OFFRES] 143/400 (36%) — Elgass - 22.12.19 Leur offre.msg — ❌ JSON invalide dans la réponse [5127s]
+[01:07:56] [OFFRES] 144/400 (36%) — EM  - 23.06.27 Leur offre.msg — ✅ 2 lignes de prix extraites [5146s]
+[01:08:36] [OFFRES] 145/400 (36%) — EM - 24.01.19 Leur offre.msg — ✅ 4 lignes de prix extraites [5185s]
+[01:09:15] [OFFRES] 146/400 (37%) — EM - 24.06.07 - leur offre.msg — ✅ 2 lignes de prix extraites [5224s]
+[01:09:44] [OFFRES] 147/400 (37%) — EM - 25.07.21 - leur offre.msg — ✅ 3 lignes de prix extraites [5253s]
+[01:10:27] [OFFRES] 148/400 (37%) — Ewo - 23.05.26 - Leur offre.msg — ✅ 0 lignes de prix extraites [5297s]
+[01:10:49] [OFFRES] 149/400 (37%) — Faivre Rampant - 22.12.19 Leur offre.msg — ✅ 6 lignes de prix extraites [5319s]
+[01:10:57] [OFFRES] 150/400 (38%) — Faivre Rampant - 23.11.21 Leur offre.msg — ✅ 0 lignes de prix extraites [5327s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:11:28] [OFFRES] 151/400 (38%) — Faivre Rampant - 24.01.19 Leur offre.msg — ✅ 6 lignes de prix extraites [5357s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[01:12:42] [OFFRES] 152/400 (38%) — Ferroflex - 22.12.19 Leur offre.msg — ❌ JSON invalide dans la réponse [5431s]
+[01:13:02] [OFFRES] 153/400 (38%) — Ferroflex - 23.06.28 Leur offre.msg — ✅ 6 lignes de prix extraites [5452s]
+[01:13:18] [OFFRES] 154/400 (39%) — Ferroflex - 23.11.16 Leur offre.msg — ✅ 3 lignes de prix extraites [5468s]
+[01:13:34] [OFFRES] 155/400 (39%) — Ferroflex - 24.01.23 Leur offre.msg — ✅ 3 lignes de prix extraites [5483s]
+[01:13:49] [OFFRES] 156/400 (39%) — Ferroflex - 24.07.04 Leur offre.msg — ✅ 3 lignes de prix extraites [5499s]
+[01:14:06] [OFFRES] 157/400 (39%) — Ferroflex - 25.07.27 - leur offre.msg — ✅ 3 lignes de prix extraites [5515s]
+[01:15:13] [OFFRES] 158/400 (40%) — Ferroflex - 25.11.14 - leur offre pour abris vélo.msg — ✅ 33 lignes de prix extraites [5582s]
+    ⚠ PJ "1778.00 Soumission_SC2_UAE_20221121.xlsx" illisible: require is not defined
+    ⚠ PJ "1778.00 Soumission_SC1_UAA-UAB_20221121.xlsx" illisible: require is not defined
+    ⚠ PJ "1778.00 Soumission_SC5_UAG_20221121.xlsx" illisible: require is not defined
+    ⚠ PJ "1778.00 Soumission_SC3_UAI-UAH_20221121.xlsx" illisible: require is not defined
+[01:15:17] [OFFRES] 159/400 (40%) — FFA - 22.05.16 - Leur offre grave + terrassement.msg — ✅ 0 lignes — email informatif (pas de prix) [5587s]
+[01:17:02] [OFFRES] 160/400 (40%) — Fontajet - 25.01.12 - leur offre.msg — ✅ 19 lignes de prix extraites [5692s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:17:23] [OFFRES] 161/400 (40%) — Fram-ligth - 25.08.13 - leur offre.msg — ✅ 2 lignes de prix extraites [5713s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[01:18:09] [OFFRES] 162/400 (41%) — Frutiger - 24.06.13 - leur offre.msg — ✅ 8 lignes de prix extraites [5759s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[01:18:54] [OFFRES] 163/400 (41%) — Frutiger - 24.12.19 - leur offre.msg — ✅ 8 lignes de prix extraites [5804s]
+[01:19:23] [OFFRES] 164/400 (41%) — Frutiger - 25.07.21 - leur offre.msg — ✅ 8 lignes de prix extraites [5832s]
+[01:19:50] [OFFRES] 165/400 (41%) — Frutiger - 25.07.24 - leur offre.msg — ✅ 8 lignes de prix extraites [5860s]
+[01:20:11] [OFFRES] 166/400 (42%) — Frutiger - 25.07.27 - leur offre.msg — ✅ 5 lignes de prix extraites [5881s]
+[01:20:35] [OFFRES] 167/400 (42%) — Frutiger - 25.07.28 Leur offre.msg — ✅ 5 lignes de prix extraites [5905s]
+[01:21:00] [OFFRES] 168/400 (42%) — Frutiger II - 25.07.28 Leur offre.msg — ✅ 5 lignes de prix extraites [5929s]
+[01:21:16] [OFFRES] 169/400 (42%) — Fuchs - 21.02.19 - Leur offre.msg — ✅ 1 lignes de prix extraites [5946s]
+[01:21:32] [OFFRES] 170/400 (43%) — G.Favre - 25.09.02 - leur offre.msg — ✅ 3 lignes de prix extraites [5961s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:21:53] [OFFRES] 171/400 (43%) — Gauthier - 25.07.28 - leur offre.msg — ✅ 1 lignes de prix extraites [5983s]
+[01:22:56] [OFFRES] 172/400 (43%) — GCM - 24.01.23 Leur offre.msg — ✅ 16 lignes de prix extraites [6046s]
+[01:24:17] [OFFRES] 173/400 (43%) — GCM - 24.06.11 - leur offre.msg — ❌ JSON invalide dans la réponse [6126s]
+[01:25:24] [OFFRES] 174/400 (44%) — GCM - 24.12.20 - leur offre.msg — ✅ 13 lignes de prix extraites [6194s]
+[01:26:28] [OFFRES] 175/400 (44%) — GCM - 25.07.21 - leur offre.msg — ✅ 22 lignes de prix extraites [6258s]
+[01:27:27] [OFFRES] 176/400 (44%) — GCM - 25.08.04- leur offre.msg — ✅ 14 lignes de prix extraites [6316s]
+[01:27:43] [OFFRES] 177/400 (44%) — Getaz  - 24.06.11 - leur offre.msg — ✅ 4 lignes de prix extraites [6332s]
+Warning: TT: undefined function: 32
+[01:28:52] [OFFRES] 178/400 (45%) — Getaz - 22.12.22 Leur offre.msg — ✅ 0 lignes de prix extraites [6401s]
+[01:29:08] [OFFRES] 179/400 (45%) — GETAZ - 23.05.09 - Offre Osiris.msg — ✅ 4 lignes de prix extraites [6418s]
+[01:29:28] [OFFRES] 180/400 (45%) — Getaz - 23.11.20 Leu offre.msg — ✅ 2 lignes de prix extraites [6437s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:29:53] [OFFRES] 181/400 (45%) — Getaz - 24.01.18 Leur offre.msg — ✅ 3 lignes de prix extraites [6463s]
+Warning: TT: undefined function: 32
+[01:31:13] [OFFRES] 182/400 (46%) — Getaz - 24.06.11 - leur offre.msg — ✅ 51 lignes de prix extraites [6542s]
+[01:32:18] [OFFRES] 183/400 (46%) — Getaz - 25.01.07 - leur offre.msg — ✅ 22 lignes de prix extraites [6607s]
+Warning: TT: undefined function: 32
+[01:32:44] [OFFRES] 184/400 (46%) — Gifas - 24.01.19 Leur offre.msg — ✅ 5 lignes de prix extraites [6633s]
+[01:33:08] [OFFRES] 185/400 (46%) — Gifas - 24.06.06 - leur offre.msg — ✅ 1 lignes de prix extraites [6657s]
+[01:33:41] [OFFRES] 186/400 (47%) — Gifas - 24.12.18 - leur offre.msg — ✅ 4 lignes de prix extraites [6690s]
+Warning: TT: undefined function: 32
+[01:34:10] [OFFRES] 187/400 (47%) — Gifas - 25.07.29 - leur offre.msg — ✅ 4 lignes de prix extraites [6720s]
+[01:34:25] [OFFRES] 188/400 (47%) — Global Stone - 25.01.10 - leur offre.msg — ❌ JSON invalide dans la réponse [6734s]
+[01:34:49] [OFFRES] 189/400 (47%) — Grandjean - 24.06.10 - leur offre.msg — ✅ 13 lignes de prix extraites [6759s]
+[01:35:23] [OFFRES] 190/400 (48%) — Granspointner - 24.07.08 Leur offre avaloirs.msg — ✅ 10 lignes de prix extraites [6793s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:36:02] [OFFRES] 191/400 (48%) — Granspointner - 24.07.09 Leur offre.msg — ✅ 11 lignes de prix extraites [6832s]
+[01:36:40] [OFFRES] 192/400 (48%) — Graspointner - 22.12.19 Leur offre.msg — ✅ 9 lignes de prix extraites [6869s]
+[01:37:43] [OFFRES] 193/400 (48%) — Graspointner - 23.06.28 Leur offre.msg — ✅ 27 lignes de prix extraites [6933s]
+[01:38:20] [OFFRES] 194/400 (49%) — Graspointner - 24.01.18 Leur offre.msg — ✅ 12 lignes de prix extraites [6970s]
+[01:38:42] [OFFRES] 195/400 (49%) — Graspointner - 24.06.07 - leur offre.msg — ✅ 4 lignes de prix extraites [6991s]
+[01:39:17] [OFFRES] 196/400 (49%) — Graspointner - 25.01.13 Leur offre.msg — ✅ 10 lignes de prix extraites [7026s]
+[01:39:54] [OFFRES] 197/400 (49%) — Graspointner - 25.01.14 Leur offre.msg — ✅ 12 lignes de prix extraites [7063s]
+[01:40:19] [OFFRES] 198/400 (50%) — Graspointner - 25.07.21 - leur offre.msg — ✅ 6 lignes de prix extraites [7089s]
+[01:40:55] [OFFRES] 199/400 (50%) — Graspointner - 25.07.27 - leur offre.msg — ✅ 10 lignes de prix extraites [7124s]
+[01:41:32] [OFFRES] 200/400 (50%) — Graspointner - 25.08.13 - leur offre.msg — ✅ 10 lignes de prix extraites [7161s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:41:58] [OFFRES] 201/400 (50%) — Groupe Marguet - 22.12.22 Leur offre.msg — ✅ 5 lignes de prix extraites [7187s]
+[01:42:18] [OFFRES] 202/400 (51%) — GTSM - 24.07.10 - leur offre.msg — ✅ 2 lignes de prix extraites [7208s]
+[01:42:51] [OFFRES] 203/400 (51%) — GTSM - 25.07.24 - leur offre.msg — ✅ 7 lignes de prix extraites [7240s]
+[01:43:13] [OFFRES] 204/400 (51%) — Guber - 23.06.27 Leur offre.msg — ✅ 7 lignes de prix extraites [7263s]
+[01:43:34] [OFFRES] 205/400 (51%) — Guber - 23.11.17 Leur offre.msg — ✅ 7 lignes de prix extraites [7284s]
+[01:43:54] [OFFRES] 206/400 (52%) — Guber - 25.07.29 - leur offre.msg — ❌ JSON invalide dans la réponse [7304s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[01:44:17] [OFFRES] 207/400 (52%) — Helfer - 23.06.27 Leur offre.msg — ✅ 4 lignes de prix extraites [7326s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[01:44:34] [OFFRES] 208/400 (52%) — Helfer - 23.11.17 Leur offre.msg — ✅ 4 lignes de prix extraites [7344s]
+Warning: TT: undefined function: 21
+Warning: TT: undefined function: 21
+[01:45:03] [OFFRES] 209/400 (52%) — Helfer - 24.01.19 Leur offre.msg — ✅ 5 lignes de prix extraites [7372s]
+[01:45:13] [OFFRES] 210/400 (53%) — Helfer - 25.07.20 - leur offre.msg — ✅ 2 lignes de prix extraites [7383s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:45:46] [OFFRES] 211/400 (53%) — Henry - 22.12.19 Leur offre.msg — ✅ 14 lignes de prix extraites [7416s]
+[01:46:24] [OFFRES] 212/400 (53%) — Henry - 23.06.29 Leur offre.msg — ✅ 14 lignes de prix extraites [7453s]
+[01:47:04] [OFFRES] 213/400 (53%) — Henry - 24.06.13 - leur offre.msg — ✅ 14 lignes de prix extraites [7494s]
+[01:47:59] [OFFRES] 214/400 (54%) — Henry - 24.12.18 - leur offre.msg — ✅ 19 lignes de prix extraites [7548s]
+[01:48:48] [OFFRES] 215/400 (54%) — Henry - 25.07.24 - leur offre.msg — ✅ 13 lignes de prix extraites [7597s]
+[01:49:49] [OFFRES] 216/400 (54%) — Henry - 25.07.29 - leur offre.msg — ✅ 31 lignes de prix extraites [7658s]
+[01:50:26] [OFFRES] 217/400 (54%) — Henry - 25.08.04 - leur offre.msg — ✅ 15 lignes de prix extraites [7696s]
+[01:50:32] [OFFRES] 218/400 (55%) — HGC - 24.01.29 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [7701s]
+[01:50:36] [OFFRES] 219/400 (55%) — HGC - 24.06.25 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [7706s]
+[01:52:03] [OFFRES] 220/400 (55%) — HGC - 25.08.07 - leur offre.msg — ❌ JSON invalide dans la réponse [7793s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:52:46] [OFFRES] 221/400 (55%) — Holcim - 23.11.21 Leur offre.msg — ✅ 19 lignes de prix extraites [7836s]
+[01:53:32] [OFFRES] 222/400 (56%) — Holcim - 24.01.23 Leur offre.msg — ✅ 23 lignes de prix extraites [7881s]
+[01:54:10] [OFFRES] 223/400 (56%) — Holcim - 24.06.07 - leur offre 2.msg — ✅ 19 lignes de prix extraites [7919s]
+[01:54:29] [OFFRES] 224/400 (56%) — Holcim -24.02.23 - Leur offre Dorosol C 50.msg — ✅ 4 lignes de prix extraites [7939s]
+[01:55:11] [OFFRES] 225/400 (56%) — Hortima - 22.12.22 Leur offre.msg — ✅ 10 lignes de prix extraites [7980s]
+[01:55:53] [OFFRES] 226/400 (56%) — Hortima - 23.06.28 Leur offre.msg — ✅ 12 lignes de prix extraites [8022s]
+Warning: TT: undefined function: 21
+Warning: TT: undefined function: 21
+[01:56:23] [OFFRES] 227/400 (57%) — Hortima - 24.01.19 Leur offre.msg — ✅ 7 lignes de prix extraites [8052s]
+[01:57:14] [OFFRES] 228/400 (57%) — Hortima - 24.06.14 - leur offre.msg — ✅ 20 lignes de prix extraites [8103s]
+[01:57:38] [OFFRES] 229/400 (57%) — Hugzollet - 25.07.21 - leur offre.msg — ✅ 4 lignes de prix extraites [8127s]
+[01:57:57] [OFFRES] 230/400 (57%) — Hydrosaat - 22.12.20 Leur offre.msg — ✅ 6 lignes de prix extraites [8147s]
+
+  ⏸ Pause entre batches (5s)...
+
+[01:58:14] [OFFRES] 231/400 (58%) — Hydrosaat - 23.06.30 Leur offre.msg — ✅ 2 lignes de prix extraites [8164s]
+[01:58:35] [OFFRES] 232/400 (58%) — Hydrosaat - 23.11.16 Leur offre.msg — ✅ 2 lignes de prix extraites [8184s]
+[01:59:13] [OFFRES] 233/400 (58%) — IEM Groupe - 22.12.22 Leur offre.msg — ✅ 8 lignes de prix extraites [8222s]
+Warning: TT: undefined function: 32
+[01:59:35] [OFFRES] 234/400 (59%) — Imporphyre - 22.12.19 Leur offre.msg — ✅ 2 lignes de prix extraites [8245s]
+[01:59:56] [OFFRES] 235/400 (59%) — Imporphyre - 25.07.30 - leur offre.msg — ✅ 3 lignes de prix extraites [8266s]
+[02:00:12] [OFFRES] 236/400 (59%) — Infralab - 22.12.20 Leur offre.msg — ✅ 1 lignes de prix extraites [8281s]
+[02:00:27] [OFFRES] 237/400 (59%) — Infralab - 23.06.28 Leur offre.msg — ✅ 2 lignes de prix extraites [8296s]
+[02:00:39] [OFFRES] 238/400 (60%) — Infralab - 24.01.18 Leur offre.msg — ✅ 2 lignes de prix extraites [8309s]
+[02:00:49] [OFFRES] 239/400 (60%) — Infralab - 24.06.07 - leur offre.msg — ✅ 2 lignes de prix extraites [8319s]
+[02:01:00] [OFFRES] 240/400 (60%) — Infralab - 24.12.18 - leur offre.msg — ✅ 2 lignes de prix extraites [8329s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:01:16] [OFFRES] 241/400 (60%) — Infralab -25.07.28 - leur offre.msg — ✅ 2 lignes de prix extraites [8346s]
+[02:01:29] [OFFRES] 242/400 (61%) — Interstein - 25.01.10 - leur offre.msg — ✅ 1 lignes de prix extraites [8359s]
+[02:01:53] [OFFRES] 243/400 (61%) — Interstein - 25.07.28 - leur offre.msg — ✅ 2 lignes de prix extraites [8383s]
+Warning: TT: undefined function: 32
+[02:02:22] [OFFRES] 244/400 (61%) — Jakob - 25.07.28 - leur offre.msg — ✅ 10 lignes de prix extraites [8411s]
+[02:02:46] [OFFRES] 245/400 (61%) — Jardin-confort - 24.12.19 - leur offre.msg — ✅ 5 lignes de prix extraites [8435s]
+Warning: TT: undefined function: 21
+Warning: TT: undefined function: 21
+[02:03:02] [OFFRES] 246/400 (62%) — Kaiserkraft - 25.07.21 - leur offre.msg — ✅ 2 lignes de prix extraites [8451s]
+Warning: Indexing all PDF objects
+[02:03:09] [OFFRES] 247/400 (62%) — Kuepfer - 24.12.18 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8459s]
+Warning: Indexing all PDF objects
+[02:03:17] [OFFRES] 248/400 (62%) — Kuepfer - 25.07.25 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8467s]
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+[02:03:48] [OFFRES] 249/400 (62%) — Labhart - 23.06.30 Leur offre.msg — ✅ 3 lignes de prix extraites [8498s]
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+[02:04:09] [OFFRES] 250/400 (63%) — Labhart - 23.11.20 Leur offre Pink Paradise.msg — ✅ 1 lignes de prix extraites [8518s]
+
+  ⏸ Pause entre batches (5s)...
+
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+[02:04:39] [OFFRES] 251/400 (63%) — Labhart - 24.01.19 Leur offre.msg — ✅ 2 lignes de prix extraites [8548s]
+[02:04:46] [OFFRES] 252/400 (63%) — Liaudet-Pial - 24.06.07 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8555s]
+Warning: TT: undefined function: 32
+[02:05:06] [OFFRES] 253/400 (63%) — Manutan - 25.07.25 - leur offre.msg — ✅ 2 lignes de prix extraites [8576s]
+[02:05:22] [OFFRES] 254/400 (64%) — Marguet - 23.11.22 Leur offre.msg — ✅ 3 lignes de prix extraites [8591s]
+[02:05:26] [OFFRES] 255/400 (64%) — Masson - 22.12.19 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8596s]
+[02:05:40] [OFFRES] 256/400 (64%) — Masson - 23.11.17 Leur offre.msg — ✅ 3 lignes de prix extraites [8609s]
+[02:05:45] [OFFRES] 257/400 (64%) — Masson - 24.006.10 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8614s]
+[02:06:02] [OFFRES] 258/400 (65%) — Masson - 24.02.22 - Leur offre Sika Swell.msg — ✅ 2 lignes de prix extraites [8632s]
+[02:06:08] [OFFRES] 259/400 (65%) — Masson - 25.01.07 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8637s]
+[02:06:17] [OFFRES] 260/400 (65%) — Masson - 25.01.09 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8647s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:06:36] [OFFRES] 261/400 (65%) — Masson - 25.07.27 - leur offre 2.msg — ✅ 2 lignes de prix extraites [8666s]
+[02:06:47] [OFFRES] 262/400 (66%) — Masson - 25.07.27 - leur offre.msg — ✅ 1 lignes de prix extraites [8676s]
+[02:06:59] [OFFRES] 263/400 (66%) — Matière-naturelle - 25.01.06 - leur offre.msg — ✅ 0 lignes de prix extraites [8688s]
+[02:07:04] [OFFRES] 264/400 (66%) — Menetrey - 24.0.14 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [8693s]
+[02:07:41] [OFFRES] 265/400 (66%) — Miccotec - 22.12.22 Leur offre.msg — ✅ 8 lignes de prix extraites [8730s]
+[02:08:23] [OFFRES] 266/400 (67%) — Misapor - 23.06.29 Leur offre.msg — ✅ 11 lignes de prix extraites [8773s]
+[02:09:17] [OFFRES] 267/400 (67%) — Misapor - 23.11.16 Leur offre.msg — ✅ 15 lignes de prix extraites [8826s]
+[02:09:55] [OFFRES] 268/400 (67%) — Misapor - 24.01.18 Leur offre.msg — ✅ 11 lignes de prix extraites [8864s]
+[02:10:20] [OFFRES] 269/400 (67%) — Misapor - 24.02.06 - leur offre avec du miniline.msg — ✅ 4 lignes de prix extraites [8889s]
+[02:10:45] [OFFRES] 270/400 (68%) — Misapor - 25.07.27 - leur offre.msg — ✅ 5 lignes de prix extraites [8914s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:11:45] [OFFRES] 271/400 (68%) — Neuco - 23.06.28 Leur offre.msg — ✅ 14 lignes de prix extraites [8975s]
+[02:12:03] [OFFRES] 272/400 (68%) — Neuco - 23.11.17 Leur offre.msg — ✅ 2 lignes de prix extraites [8993s]
+[02:12:45] [OFFRES] 273/400 (68%) — Neuco - 24.01.18 Leur offre.msg — ✅ 8 lignes de prix extraites [9035s]
+[02:12:57] [OFFRES] 274/400 (69%) — Nussbaum - 23.06.27 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [9046s]
+[02:13:13] [OFFRES] 275/400 (69%) — Nussbaum - 24.01.18 Leur offre.msg — ✅ 0 lignes de prix extraites [9062s]
+[02:13:41] [OFFRES] 276/400 (69%) — OH - 24.06.07 - leur offre.msg — ✅ 1 lignes de prix extraites [9091s]
+[02:13:55] [OFFRES] 277/400 (69%) — OH - 24.12.17 - leur offre.msg — ✅ 2 lignes de prix extraites [9104s]
+[02:14:04] [OFFRES] 278/400 (70%) — Plastiline - 22.12.22 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [9113s]
+[02:15:07] [OFFRES] 279/400 (70%) — Plastitech - 24.06.07 - leur offre.msg — ✅ 40 lignes de prix extraites [9177s]
+[02:16:28] [OFFRES] 280/400 (70%) — Plastitech - 24.12.18 - leur offre.msg — ✅ 46 lignes de prix extraites [9257s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:16:53] [OFFRES] 281/400 (70%) — Proz - 24.01.18 Leur offre assises polygonales.msg — ✅ 3 lignes de prix extraites [9282s]
+[02:17:22] [OFFRES] 282/400 (71%) — Proz frères - 23.06.27 - Leur offre préfa fontaine.msg — ✅ 6 lignes de prix extraites [9311s]
+[02:17:46] [OFFRES] 283/400 (71%) — Regent - 25.07.21 - leur offre.msg — ✅ 4 lignes de prix extraites [9336s]
+[02:18:01] [OFFRES] 284/400 (71%) — Reproad - 24.07.04 Leur offre.msg — ✅ 2 lignes de prix extraites [9350s]
+[02:18:32] [OFFRES] 285/400 (71%) — Reproad - 24.12.18 - leur offre.msg — ✅ 8 lignes de prix extraites [9381s]
+[02:18:52] [OFFRES] 286/400 (72%) — Reproad - 25.08.22 Leur offre.msg — ✅ 3 lignes de prix extraites [9401s]
+[02:19:11] [OFFRES] 287/400 (72%) — Ricoter - 22.12.19 Leur offre.msg — ✅ 1 lignes de prix extraites [9420s]
+[02:19:40] [OFFRES] 288/400 (72%) — Ricoter - 23.06.27 Leur offre.msg — ✅ 2 lignes de prix extraites [9449s]
+[02:20:02] [OFFRES] 289/400 (72%) — Ricoter - 23.11.17 Leur offre.msg — ✅ 4 lignes de prix extraites [9471s]
+[02:20:20] [OFFRES] 290/400 (73%) — Ricoter - 24.01.18 Leur offre.msg — ✅ 2 lignes de prix extraites [9490s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:20:43] [OFFRES] 291/400 (73%) — Ricoter - 24.06.10 - leur offre.msg — ✅ 2 lignes de prix extraites [9512s]
+[02:21:07] [OFFRES] 292/400 (73%) — Ricoter - 24.12.18 - leur offre.msg — ✅ 2 lignes de prix extraites [9536s]
+[02:21:36] [OFFRES] 293/400 (73%) — Riedersystems - 24.01.19 Leur offre.msg — ✅ 3 lignes de prix extraites [9566s]
+[02:22:04] [OFFRES] 294/400 (74%) — Romag - 25.01.16 Leur offre.msg — ✅ 6 lignes de prix extraites [9594s]
+[02:22:33] [OFFRES] 295/400 (74%) — Romag - 25.04.29 - Leur offre.msg — ✅ 5 lignes de prix extraites [9623s]
+[02:23:01] [OFFRES] 296/400 (74%) — Ronchi - 23.06.27 Leur offre.msg — ✅ 11 lignes de prix extraites [9650s]
+[02:23:18] [OFFRES] 297/400 (74%) — Ronchi - 23.11.17 Leur offre.msg — ✅ 2 lignes de prix extraites [9667s]
+[02:23:45] [OFFRES] 298/400 (75%) — Ronchi - 24.06.11 - leur offre.msg — ✅ 3 lignes de prix extraites [9694s]
+[02:24:30] [OFFRES] 299/400 (75%) — ROULIN - 23.10.19 - Leur offre.msg — ✅ 6 lignes de prix extraites [9740s]
+[02:25:32] [OFFRES] 300/400 (75%) — ROULIN - 23.11.09 - Leur offre finale.msg — ✅ 22 lignes de prix extraites [9801s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:25:49] [OFFRES] 301/400 (75%) — ROULIN - 24.01.11 - Leur offre 16.32 roulé.msg — ✅ 2 lignes de prix extraites [9818s]
+[02:26:30] [OFFRES] 302/400 (76%) — Roulin - 24.01.23 Leur offre.msg — ✅ 17 lignes de prix extraites [9859s]
+[02:27:13] [OFFRES] 303/400 (76%) — Roulin - 24.06.13 - leur offre.msg — ✅ 15 lignes de prix extraites [9902s]
+[02:27:55] [OFFRES] 304/400 (76%) — Roulin - 24.12.19 - leur offre.msg — ✅ 19 lignes de prix extraites [9945s]
+[02:28:46] [OFFRES] 305/400 (76%) — Roulin - 25.07.24 - leur offre.msg — ✅ 24 lignes de prix extraites [9995s]
+[02:28:58] [OFFRES] 306/400 (77%) — Safetycenter - 24.01.19 Leur offre.msg — ✅ 1 lignes de prix extraites [10008s]
+[02:29:06] [OFFRES] 307/400 (77%) — Sagrave - 24.07.04 Leur offre.msg — ✅ 1 lignes de prix extraites [10016s]
+[02:29:25] [OFFRES] 308/400 (77%) — Schaller - 23.06.28 Leur offre.msg — ✅ 4 lignes de prix extraites [10034s]
+[02:29:34] [OFFRES] 309/400 (77%) — SCHALLER - 23.12.18 - Leur offre.msg — ✅ 1 lignes de prix extraites [10043s]
+[02:29:53] [OFFRES] 310/400 (78%) — Schaller - 24.01.29 - Offre garde corps et portail.msg — ✅ 5 lignes de prix extraites [10062s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:30:31] [OFFRES] 311/400 (78%) — Schaller - 24.06.12 - leur offre.msg — ✅ 4 lignes de prix extraites [10101s]
+[02:30:56] [OFFRES] 312/400 (78%) — Schaller - 24.12.18 - leur offre.msg — ✅ 8 lignes de prix extraites [10126s]
+[02:31:40] [OFFRES] 313/400 (78%) — Schaller - 25.01.14 - leur offre.msg — ✅ 7 lignes de prix extraites [10170s]
+[02:32:20] [OFFRES] 314/400 (79%) — Schaller - 25.01.14 Leur offre.msg — ✅ 7 lignes de prix extraites [10210s]
+[02:32:34] [OFFRES] 315/400 (79%) — Schaller - 25.07.21 - leur offre.msg — ✅ 2 lignes de prix extraites [10223s]
+[02:33:03] [OFFRES] 316/400 (79%) — Schaller - 25.08.25 Leur offre.msg — ✅ 7 lignes de prix extraites [10252s]
+[02:33:14] [OFFRES] 317/400 (79%) — Schmuki - 25.09.03 Leur offre.msg — ✅ 1 lignes de prix extraites [10264s]
+[02:33:25] [OFFRES] 318/400 (80%) — Schumi - 25.07.24 - leur offre.msg — ✅ 1 lignes de prix extraites [10274s]
+[02:33:44] [OFFRES] 319/400 (80%) — Scierie Dutoit - 24.01.19 Leur offre.msg — ✅ 4 lignes de prix extraites [10293s]
+[02:33:53] [OFFRES] 320/400 (80%) — Scierie Zahnd - 24.01.19 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [10303s]
+
+  ⏸ Pause entre batches (5s)...
+
+Warning: TT: undefined function: 32
+[02:34:13] [OFFRES] 321/400 (80%) — Senrich - 25.11.13 - leur offre métal déployé.msg — ✅ 1 lignes de prix extraites [10322s]
+[02:34:28] [OFFRES] 322/400 (81%) — SFS - 25.01.13 - leur offre.msg — ✅ 2 lignes de prix extraites [10337s]
+[02:35:32] [OFFRES] 323/400 (81%) — Signal - 22.12.22 Leur offre.msg — ✅ 0 lignes de prix extraites [10401s]
+[02:36:26] [OFFRES] 324/400 (81%) — Signal - 24.01.19 Leur offre.msg — ❌ JSON invalide dans la réponse [10456s]
+[02:36:50] [OFFRES] 325/400 (81%) — SIKA - 25.01.14 Leur offre.msg — ✅ 1 lignes de prix extraites [10480s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[02:37:09] [OFFRES] 326/400 (82%) — Sika - 25.07.24 - leur offre.msg — ✅ 2 lignes de prix extraites [10498s]
+[02:37:37] [OFFRES] 327/400 (82%) — Silidur - 24.01.23 Leur offre.msg — ✅ 5 lignes de prix extraites [10526s]
+[02:37:45] [OFFRES] 328/400 (82%) — Sol-conseil - 22.12.19 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [10535s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[02:38:01] [OFFRES] 329/400 (82%) — Sol-Conseil - 22.12.20 Leur offre.msg — ✅ 4 lignes de prix extraites [10550s]
+[02:38:07] [OFFRES] 330/400 (83%) — Solag - 25.01.09 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [10557s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:38:36] [OFFRES] 331/400 (83%) — Solag - 25.07.25 - leur offre.msg — ✅ 5 lignes de prix extraites [10586s]
+[02:39:08] [OFFRES] 332/400 (83%) — Staub - 24.01.19 Leur offre.msg — ✅ 5 lignes de prix extraites [10618s]
+Warning: TT: undefined function: 32
+[02:39:38] [OFFRES] 333/400 (83%) — Stratex - 22.12.21 Leur offre.msg — ✅ 7 lignes de prix extraites [10647s]
+[02:39:49] [OFFRES] 334/400 (84%) — Stratex - 23.06.27 Leur offre.msg — ✅ 2 lignes de prix extraites [10658s]
+[02:40:02] [OFFRES] 335/400 (84%) — Stratex - 23.11.17 Leur offre.msg — ✅ 3 lignes de prix extraites [10672s]
+[02:40:17] [OFFRES] 336/400 (84%) — Stratex - 24.01.19 Leur offre.msg — ✅ 3 lignes de prix extraites [10686s]
+[02:40:31] [OFFRES] 337/400 (84%) — Stratex - 24.12.17 - leur offre.msg — ✅ 1 lignes de prix extraites [10701s]
+[02:40:45] [OFFRES] 338/400 (85%) — Stratex - 25.07.14 - leur offre.msg — ✅ 1 lignes de prix extraites [10714s]
+[02:40:59] [OFFRES] 339/400 (85%) — Stratex - 25.07.27 - leur offre.msg — ✅ 1 lignes de prix extraites [10728s]
+[02:41:12] [OFFRES] 340/400 (85%) — Stratex 23.11.07 - Leur confirmation de commande.msg — ✅ 2 lignes de prix extraites [10741s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:41:32] [OFFRES] 341/400 (85%) — Stratex 24.01.17 -  Commande (Ref 5913-2024).msg — ✅ 2 lignes de prix extraites [10762s]
+[02:41:53] [OFFRES] 342/400 (86%) — Sytec - 25.07.30 - leur offre.msg — ✅ 2 lignes de prix extraites [10783s]
+[02:42:12] [OFFRES] 343/400 (86%) — Sytec - 25.08.06 - leur offre.msg — ✅ 4 lignes de prix extraites [10802s]
+[02:42:51] [OFFRES] 344/400 (86%) — Thinkwater - 23.07.04 Leur offre.msg — ✅ 20 lignes de prix extraites [10840s]
+[02:43:31] [OFFRES] 345/400 (86%) — Thinkwater - 23.11.30 Leur offre.msg — ✅ 15 lignes de prix extraites [10880s]
+[02:44:10] [OFFRES] 346/400 (87%) — Thinkwater - 23.12.01 Leur offre.msg — ✅ 15 lignes de prix extraites [10919s]
+[02:44:25] [OFFRES] 347/400 (87%) — Thinkwater - 24.01.18 Leur offre.msg — ✅ 1 lignes de prix extraites [10935s]
+[02:45:16] [OFFRES] 348/400 (87%) — Thinkwater - 24.01.19 Leur offre.msg — ✅ 21 lignes de prix extraites [10985s]
+[02:45:53] [OFFRES] 349/400 (87%) — Thinkwater - 24.02.02 Leur offre.msg — ✅ 17 lignes de prix extraites [11023s]
+[02:46:33] [OFFRES] 350/400 (88%) — Thinkwater - 24.12.18 - leur offre - partie I.msg — ✅ 12 lignes de prix extraites [11062s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:47:01] [OFFRES] 351/400 (88%) — Thinkwater - 24.12.18 - leur offre - partie II.msg — ✅ 6 lignes de prix extraites [11091s]
+[02:47:35] [OFFRES] 352/400 (88%) — Thinkwater - 25.07.28 - leur offre.msg — ✅ 9 lignes de prix extraites [11125s]
+[02:47:40] [OFFRES] 353/400 (88%) — Traceroute - 23.06.28 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [11130s]
+[02:47:46] [OFFRES] 354/400 (89%) — Traceroute - 24.01.24 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [11136s]
+[02:48:40] [OFFRES] 355/400 (89%) — TZAUT - 22.12.22 Leur offre.msg — ✅ 21 lignes de prix extraites [11190s]
+[02:48:51] [OFFRES] 356/400 (89%) — Tzaut - 23.06.29 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [11201s]
+[02:49:12] [OFFRES] 357/400 (89%) — Tzaut - 23.11.17 Leur offre.msg — ✅ 5 lignes de prix extraites [11222s]
+[02:49:55] [OFFRES] 358/400 (90%) — Tzaut - 24.01.23 Leur offre.msg — ✅ 13 lignes de prix extraites [11265s]
+[02:50:26] [OFFRES] 359/400 (90%) — Tzaut - 24.06.12 - leur offre.msg — ✅ 15 lignes de prix extraites [11295s]
+[02:51:05] [OFFRES] 360/400 (90%) — Tzaut - 24.07.10 - leur offre complément.msg — ✅ 18 lignes de prix extraites [11335s]
+
+  ⏸ Pause entre batches (5s)...
+
+[02:51:48] [OFFRES] 361/400 (90%) — Tzaut - 24.12.19 - leur offre.msg — ✅ 16 lignes de prix extraites [11377s]
+[02:52:23] [OFFRES] 362/400 (91%) — Tzaut - 25.07.24 - leur offre.msg — ✅ 16 lignes de prix extraites [11413s]
+[02:52:33] [OFFRES] 363/400 (91%) — Tzaut - 25.08.11 - leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [11422s]
+[02:53:08] [OFFRES] 364/400 (91%) — UFA - 24.06.07 - leur offre.msg — ✅ 10 lignes de prix extraites [11458s]
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+Warning: Could not find a preferred cmap table.
+[02:53:36] [OFFRES] 365/400 (91%) — Urbasence - 25.08.27 Leur offre.msg — ✅ 4 lignes de prix extraites [11486s]
+[02:54:07] [OFFRES] 366/400 (92%) — Urbasense - 25.01.10 - leur offre.msg — ✅ 5 lignes de prix extraites [11517s]
+[02:54:19] [OFFRES] 367/400 (92%) — Velopa - 22.12.20 Leur offre.msg — ✅ 0 lignes — email informatif (pas de prix) [11529s]
+[02:54:58] [OFFRES] 368/400 (92%) — Velopa - 23.06.30 Leur offre.msg — ✅ 9 lignes de prix extraites [11568s]
+[02:55:47] [OFFRES] 369/400 (92%) — Velopa - 24.01.18 Leur offre.msg — ✅ 16 lignes de prix extraites [11616s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[02:56:19] [OFFRES] 370/400 (93%) — Velopa - 24.06.05 - leur offre - via Olmero.msg — ✅ 8 lignes de prix extraites [11649s]
+
+  ⏸ Pause entre batches (5s)...
+
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[02:56:46] [OFFRES] 371/400 (93%) — Velopa - 24.12.19 - leur offre.msg — ✅ 2 lignes de prix extraites [11676s]
+[02:57:29] [OFFRES] 372/400 (93%) — Verticaltechnik - 24.07.17 - leur offre.msg — ✅ 11 lignes de prix extraites [11718s]
+Warning: TT: undefined function: 32
+[02:58:53] [OFFRES] 373/400 (93%) — Villiger - 22.12.19 Leur offre.msg — ✅ 27 lignes de prix extraites [11803s]
+[03:00:06] [OFFRES] 374/400 (94%) — Vondach - 24.06.13 - leur offre.msg — ✅ 42 lignes de prix extraites [11876s]
+[03:01:14] [OFFRES] 375/400 (94%) — Vondach - 24.12.18 - leur offre.msg — ❌ JSON invalide dans la réponse [11944s]
+[03:02:18] [OFFRES] 376/400 (94%) — Vondach - 25.07.21 - leur offre.msg — ❌ JSON invalide dans la réponse [12008s]
+[03:03:26] [OFFRES] 377/400 (94%) — Vondach - 25.07.27 - leur offre.msg — ❌ JSON invalide dans la réponse [12076s]
+[03:03:45] [OFFRES] 378/400 (95%) — Wibatec - 22.12.20 Leur offre.msg — ✅ 2 lignes de prix extraites [12094s]
+[03:04:41] [OFFRES] 379/400 (95%) — Wibatec - 24.12.18 - leur offre.msg — ✅ 18 lignes de prix extraites [12150s]
+[03:04:59] [OFFRES] 380/400 (95%) — Wildbieneundpartner - 23.06.28 Leur offre.msg — ✅ 2 lignes de prix extraites [12169s]
+
+  ⏸ Pause entre batches (5s)...
+
+[03:05:12] [OFFRES] 381/400 (95%) — Woodli Leuba - 24.03.28 - Demande de devis expertise zone boisée Oree UA_B.msg — ✅ 0 lignes — email informatif (pas de prix) [12181s]
+Warning: TT: undefined function: 21
+[03:05:29] [OFFRES] 382/400 (96%) — Zano - 25.07.24 - leur offre.msg — ✅ 2 lignes de prix extraites [12199s]
+[03:06:04] [OFFRES] 383/400 (96%) — Zinco - 22.12.19 Leur offre.msg — ✅ 6 lignes de prix extraites [12234s]
+[03:06:21] [OFFRES] 384/400 (96%) — Zinco - 23.06.27 Leur offre.msg — ✅ 2 lignes de prix extraites [12250s]
+[03:06:43] [OFFRES] 385/400 (96%) — Zinco - 24.02.22 Leur offre.msg — ✅ 3 lignes de prix extraites [12273s]
+[03:07:38] [OFFRES] 386/400 (97%) — Zinco - 24.06.11 - leur offre.msg — ✅ 14 lignes de prix extraites [12328s]
+[03:08:01] [OFFRES] 387/400 (97%) — Zinco - 25.01.08 - leur offre 2.msg — ✅ 7 lignes de prix extraites [12351s]
+[03:08:51] [OFFRES] 388/400 (97%) — Zinco - 25.07.28 - leur offre.msg — ✅ 13 lignes de prix extraites [12401s]
+[03:09:15] [OFFRES] 389/400 (97%) — Zinco -23.1.17 Leur offre.msg — ✅ 4 lignes de prix extraites [12424s]
+[03:09:52] [OFFRES] 390/400 (98%) — Boissec - 22.12.22 Leur offre.msg — ✅ 11 lignes de prix extraites [12462s]
+
+  ⏸ Pause entre batches (5s)...
+
+[03:11:11] [OFFRES] 391/400 (98%) — Creabéton  - 24.06.25 - leur offre.msg — ❌ JSON invalide dans la réponse [12540s]
+[03:11:27] [OFFRES] 392/400 (98%) — Gifas - 24.06.06 - leur offre.msg — ✅ 1 lignes de prix extraites [12557s]
+[03:11:46] [OFFRES] 393/400 (98%) — Guber - 25.07.29 - leur offre.msg — ✅ 5 lignes de prix extraites [12576s]
+[03:11:57] [OFFRES] 394/400 (99%) — Infralab - 24.06.07 - leur offre.msg — ✅ 2 lignes de prix extraites [12586s]
+[03:12:14] [OFFRES] 395/400 (99%) — Nussbaum - 24.01.18 Leur offre.msg — ✅ 0 lignes de prix extraites [12604s]
+[03:12:33] [OFFRES] 396/400 (99%) — Ricoter - 24.01.18 Leur offre.msg — ✅ 2 lignes de prix extraites [12623s]
+[03:12:52] [OFFRES] 397/400 (99%) — Schaller - 23.06.28 Leur offre.msg — ✅ 4 lignes de prix extraites [12641s]
+[03:13:05] [OFFRES] 398/400 (100%) — Stratex - 23.11.17 Leur offre.msg — ✅ 3 lignes de prix extraites [12655s]
+Warning: TT: undefined function: 32
+Warning: TT: undefined function: 32
+[03:13:26] [OFFRES] 399/400 (100%) — Velopa - 24.12.19 - leur offre.msg — ✅ 2 lignes de prix extraites [12675s]
+[03:13:58] [OFFRES] 400/400 (100%) — Zinco - 22.12.19 Leur offre.msg — ✅ 6 lignes de prix extraites [12708s]
+
+═══ RÉSUMÉ OFFRES ═══
+Total fichiers : 400
+Succès : 378
+Échecs : 22
+Durée : 12708s (212min)
+═══════════════════════
+
+  Total : 2761 lignes de prix extraites de 378 fichiers
+
+
+📊 Rafraîchissement des vues matérialisées...
+  ✅ Vue mv_reference_prices rafraîchie
+
+✅ Ingestion terminée en 12708s (212min)
+
+Prochaines étapes :
+1. Vérifie les résultats dans Supabase (table ingested_offer_lines)
+2. Valide un échantillon de 20 lignes manuellement
+3. Si OK, lance REFRESH MATERIALIZED VIEW mv_reference_prices
+4. Le price-resolver utilisera ces données automatiquement

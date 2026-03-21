@@ -1,0 +1,86 @@
+<h2>Planning Gantt — Comment générer le planning ?</h2>
+<p class="subtitle">On a déjà les lots/chapitres/postes extraits de la soumission. Comment transformer ça en planning ?</p>
+
+<div class="section">
+  <h3>Ce qu'on a aujourd'hui dans Cantaia</h3>
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:24px;">
+    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px;">
+      <div style="font-weight:600; color:#166534;">✅ Soumission analysée</div>
+      <div style="font-size:13px; color:#555; margin-top:4px;">180 postes, 13 groupes, codes CFC, unités, quantités</div>
+    </div>
+    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px;">
+      <div style="font-weight:600; color:#166534;">✅ Projet avec dates</div>
+      <div style="font-size:13px; color:#555; margin-top:4px;">start_date, end_date, budget_total</div>
+    </div>
+    <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:12px;">
+      <div style="font-weight:600; color:#92400e;">⚠️ Tâches basiques</div>
+      <div style="font-size:13px; color:#555; margin-top:4px;">due_date seul, pas de durée, pas de dépendances</div>
+    </div>
+  </div>
+</div>
+
+<h3>Quelle approche pour générer le planning ?</h3>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>IA génère tout — "One-click planning" (Recommandé)</h3>
+      <p>Claude analyse la soumission + projet et génère automatiquement :</p>
+      <ul style="font-size:13px; color:#666; margin-top:8px;">
+        <li>Les <strong>phases</strong> depuis les lots CFC (gros-œuvre → second-œuvre → finitions)</li>
+        <li>Les <strong>durées estimées</strong> depuis les quantités × ratios métier (m³ béton → jours)</li>
+        <li>Les <strong>dépendances</strong> standards construction (fondations avant structure, etc.)</li>
+        <li>Les <strong>jalons SIA</strong> automatiques (réception gros-œuvre, mise hors d'eau, etc.)</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>✅ Avantages</h4><ul><li>Gain de temps massif (5 min vs 2h)</li><li>Planning réaliste dès le départ</li><li>Exploite les données qu'on a déjà</li></ul></div>
+        <div class="cons"><h4>⚠️ Limites</h4><ul><li>Estimation IA = approximation</li><li>L'utilisateur DOIT pouvoir ajuster</li><li>Coût API Claude par génération</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Templates métier + ajustement manuel</h3>
+      <p>On fournit des templates de planning par type de projet (villa, immeuble, rénovation) :</p>
+      <ul style="font-size:13px; color:#666; margin-top:8px;">
+        <li>L'utilisateur sélectionne un <strong>template</strong> (ex: "Immeuble 8 étages")</li>
+        <li>Le template pré-remplit les phases, durées et dépendances standards</li>
+        <li>L'utilisateur <strong>ajuste manuellement</strong> les dates et durées</li>
+        <li>Pas d'IA — logique déterministe</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>✅ Avantages</h4><ul><li>Prédictible, pas de surprise IA</li><li>Pas de coût API</li><li>L'utilisateur garde le contrôle total</li></ul></div>
+        <div class="cons"><h4>⚠️ Limites</h4><ul><li>Templates limités (pas assez de variantes)</li><li>N'exploite pas les quantités réelles</li><li>Plus de travail manuel</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybride — IA + ajustement (Best of both)</h3>
+      <p>Combinaison des deux approches :</p>
+      <ul style="font-size:13px; color:#666; margin-top:8px;">
+        <li><strong>Étape 1</strong> : L'IA analyse la soumission et propose un planning brouillon</li>
+        <li><strong>Étape 2</strong> : L'utilisateur ajuste visuellement (drag des barres Gantt)</li>
+        <li><strong>Étape 3</strong> : L'IA détecte les incohérences ("ferraillage avant coffrage ?")</li>
+        <li>L'utilisateur peut aussi partir de zéro (mode manuel pur)</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>✅ Avantages</h4><ul><li>Rapide ET contrôlable</li><li>L'IA assiste sans imposer</li><li>Détection d'erreurs en continu</li></ul></div>
+        <div class="cons"><h4>⚠️ Limites</h4><ul><li>Plus complexe à développer</li><li>UX doit être très claire (mode IA vs manuel)</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px; padding:16px; background:#eff6ff; border-radius:8px; border-left:4px solid #2563eb;">
+  <div style="font-weight:600; color:#1e40af;">💡 Ma recommandation : Option C (Hybride)</div>
+  <div style="font-size:13px; color:#555; margin-top:4px;">
+    Un chef de projet construction veut <strong>gagner du temps</strong> mais garde toujours <strong>la main sur le planning</strong>.
+    L'IA comme assistant (pas comme décideur) = confiance + adoption. Et la détection d'incohérences en continu est un vrai différenciateur.
+  </div>
+</div>

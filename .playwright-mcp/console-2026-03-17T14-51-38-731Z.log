@@ -1,0 +1,4 @@
+[    1919ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0
+[    3007ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://cantaia.vercel.app/api/projects/8acbe33b-219e-4a70-9a1f-e842936d2985/emails:0
+[   12205ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://cantaia.vercel.app/fr/projects/8acbe33b-219e-4a70-9a1f-e842936d2985?tab=meetings:0
+[   39916ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://cantaia.vercel.app/api/tasks:0

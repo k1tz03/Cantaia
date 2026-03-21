@@ -163,7 +163,7 @@ export function HeroSection() {
 
             <motion.p
               {...fadeUp(stagger.subtitle.delay)}
-              className="mt-6 max-w-[520px] text-lg leading-relaxed text-[#6B7280]"
+              className="mt-6 max-w-[520px] text-lg leading-relaxed text-[#4B5563]"
             >
               {t("subtitle")}
             </motion.p>

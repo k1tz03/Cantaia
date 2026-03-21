@@ -1,0 +1,14 @@
+[     915ms] Error: Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rD (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:35446)
+    at rO (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:36479)
+    at https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:118467
+    at ix (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:123339)
+    at ik (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:115127)
+    at https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:114911
+    at ib (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:114919)
+    at iu (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:111221)
+    at iG (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:133439)
+    at iW (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:131650)
+    at iK (https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:131995)
+    at https://cantaia.vercel.app/_next/static/chunks/10081f07-4eaf24dc0df13c3c.js:1:131279
+[    1638ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cantaia.vercel.app/api/organization/branding:0

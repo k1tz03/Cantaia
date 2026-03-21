@@ -1,0 +1,140 @@
+<h2>3 Approches de séquençage — Comment on attaque ?</h2>
+<p class="subtitle">10 améliorations validées. Estimation totale : ~6-8 semaines. Voici 3 stratégies avec leurs trade-offs.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.7rem; text-align: left; width: 100%;">
+        <div style="font-weight:700;margin-bottom:0.5rem;">Phase 1 — Quick Wins (Semaine 1-2)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #9 SubmissionEditor DB sync (critique)<br>
+          ✅ #2 Kanban drag & drop<br>
+          ✅ #8 Nettoyage 32 pages mortes<br>
+          ✅ #10 Mail i18n
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Phase 2 — Core UX (Semaine 3-4)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #3 Bottom nav mobile<br>
+          ✅ #5 Soumissions prompt + Budget inline<br>
+          ✅ #6 Fournisseurs scoring
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Phase 3 — Big Features (Semaine 5-8)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #1 Action Board<br>
+          ✅ #4 CFC 300+ prix<br>
+          ✅ #7 Direction multi-projet
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — "Quick Wins First" (Recommandé)</h3>
+      <p>Corriger les bugs critiques et les frustrations immédiates d'abord. L'Action Board arrive en phase 3 quand les fondations sont solides. <strong>Avantage :</strong> valeur visible dès la semaine 1. <strong>Risque :</strong> l'Action Board arrive tard.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.7rem; text-align: left; width: 100%;">
+        <div style="font-weight:700;margin-bottom:0.5rem;">Phase 1 — Action Board (Semaine 1-3)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #1 Action Board (fusion briefing+mail+tâches)<br>
+          ✅ #9 SubmissionEditor DB sync (en parallèle)
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Phase 2 — Mobile + Métier (Semaine 4-6)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #2 Kanban DnD<br>
+          ✅ #3 Bottom nav mobile<br>
+          ✅ #5 Soumissions prompt<br>
+          ✅ #6 Fournisseurs scoring
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Phase 3 — Polish (Semaine 7-8)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #4 CFC 300+<br>
+          ✅ #7 Direction dense<br>
+          ✅ #8 Cleanup pages<br>
+          ✅ #10 Mail i18n
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — "Big Bang First"</h3>
+      <p>L'Action Board est le game-changer — on commence par là. Les quick wins suivent. <strong>Avantage :</strong> l'expérience utilisateur change radicalement dès le jour 1. <strong>Risque :</strong> 3 semaines avant la première release, les bugs critiques persistent pendant ce temps.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 1rem; font-size: 0.7rem; text-align: left; width: 100%;">
+        <div style="font-weight:700;margin-bottom:0.5rem;">Sprint 1 — Fondations (Semaine 1)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #9 SubmissionEditor DB sync<br>
+          ✅ #8 Cleanup pages mortes<br>
+          ✅ #2 Kanban DnD
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Sprint 2 — Action Board v1 (Semaine 2-3)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #1 Action Board (version simplifiée)<br>
+          ✅ #3 Bottom nav mobile
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Sprint 3 — Métier IA (Semaine 4-5)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #5 Soumissions prompt + inline<br>
+          ✅ #6 Fournisseurs scoring<br>
+          ✅ #4 CFC 300+ prix
+        </div>
+        <div style="font-weight:700;margin-top:0.75rem;margin-bottom:0.5rem;">Sprint 4 — Polish (Semaine 6)</div>
+        <div style="color:var(--text-secondary);line-height:1.6;">
+          ✅ #7 Direction dense<br>
+          ✅ #10 Mail i18n<br>
+          ✅ #1 Action Board v2 (enrichi)
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — "Sprints hybrides" (6 semaines)</h3>
+      <p>Mix des deux : quick wins en sprint 1, puis Action Board simplifié en sprint 2, puis améliorations métier, puis polish + Action Board v2. <strong>Avantage :</strong> valeur à chaque sprint, Action Board arrive tôt (semaine 2). <strong>Risque :</strong> scope plus serré, Action Board v1 sera minimal.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 1.5rem;">
+  <div class="pros">
+    <h4>Comparaison</h4>
+    <table style="width:100%;font-size:0.8rem;border-collapse:collapse;">
+      <tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:0.4rem;">Critère</th>
+        <th style="text-align:center;padding:0.4rem;">A Quick Wins</th>
+        <th style="text-align:center;padding:0.4rem;">B Big Bang</th>
+        <th style="text-align:center;padding:0.4rem;">C Sprints</th>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem;">Première valeur visible</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">Semaine 1</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--error);">Semaine 3</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">Semaine 1</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem;">Action Board disponible</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--error);">Semaine 5</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">Semaine 3</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--warning);">Semaine 2 (v1)</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem;">Bugs critiques fixés</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">Semaine 1</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--error);">Semaine 4</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">Semaine 1</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;">Durée totale</td>
+        <td style="text-align:center;padding:0.4rem;">8 semaines</td>
+        <td style="text-align:center;padding:0.4rem;">8 semaines</td>
+        <td style="text-align:center;padding:0.4rem;color:var(--success);">6 semaines</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div style="margin-top: 1rem; padding: 1rem; border-left: 3px solid var(--accent); background: var(--bg-secondary); border-radius: 0 8px 8px 0; font-size: 0.85rem; color: var(--text-secondary);">
+  <strong>Ma recommandation :</strong> Option C "Sprints hybrides". Tu obtiens les fixes critiques dès la semaine 1, l'Action Board simplifié dès la semaine 2, et le tout en 6 semaines au lieu de 8. L'Action Board v2 enrichi arrive en sprint 4 avec le retour d'expérience de la v1.
+</div>

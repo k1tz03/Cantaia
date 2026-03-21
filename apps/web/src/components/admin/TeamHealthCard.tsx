@@ -59,7 +59,7 @@ export default function TeamHealthCard({
   const lastSignIn = formatRelativeDate(member.last_sign_in);
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4 transition-shadow hover:shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-sm">
       {/* Header: avatar + name + role */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
