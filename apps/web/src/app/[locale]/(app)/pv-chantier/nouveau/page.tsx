@@ -327,12 +327,12 @@ export default function NouveauPVPage() {
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => router.push("/pv-chantier")}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-foreground">
             {t("new_pv")}
           </h1>
         </div>
@@ -340,13 +340,13 @@ export default function NouveauPVPage() {
 
       {/* Processing overlay */}
       {processing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-8 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-background p-8 shadow-lg">
             <Loader2 className="h-10 w-10 animate-spin text-brand" />
-            <p className="text-lg font-medium text-gray-900">
+            <p className="text-lg font-medium text-foreground">
               {processingStep}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {t("processing_wait")}
             </p>
           </div>
@@ -355,22 +355,22 @@ export default function NouveauPVPage() {
 
       <div className="mx-auto max-w-3xl space-y-8">
         {/* Section 1: Metadata */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
+        <div className="rounded-lg border border-border bg-background p-6">
+          <h2 className="mb-4 text-base font-semibold text-foreground">
             {t("metadata")}
           </h2>
 
           <div className="space-y-4">
             {/* Project */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 {t("select_project")} *
               </label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                  className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-gray-50"
+                  className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted"
                 >
                   {selectedProjectData ? (
                     <div className="flex items-center gap-2">
@@ -383,14 +383,14 @@ export default function NouveauPVPage() {
                       {selectedProjectData.name}
                     </div>
                   ) : (
-                    <span className="text-gray-400">
+                    <span className="text-muted-foreground">
                       {t("select_project")}
                     </span>
                   )}
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {showProjectDropdown && (
-                  <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                  <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border border-border bg-background py-1 shadow-lg">
                     {projects.map((p) => (
                       <button
                         key={p.id}
@@ -399,7 +399,7 @@ export default function NouveauPVPage() {
                           setSelectedProject(p.id);
                           setShowProjectDropdown(false);
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
                       >
                         <span
                           className="h-2.5 w-2.5 rounded-full"
@@ -415,41 +415,41 @@ export default function NouveauPVPage() {
 
             {/* Title */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 {t("col_title")} *
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               {/* Date */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   {t("date")} *
                 </label>
                 <input
                   type="date"
                   value={meetingDate}
                   onChange={(e) => setMeetingDate(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 />
               </div>
 
               {/* Location */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   {t("location")}
                 </label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 />
               </div>
             </div>
@@ -457,9 +457,9 @@ export default function NouveauPVPage() {
         </div>
 
         {/* Section 2: Participants */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="rounded-lg border border-border bg-background p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-foreground">
               <Users className="mr-2 inline h-4 w-4" />
               {t("participants")} ({participants.filter((p) => p.name.trim()).length})
             </h2>
@@ -467,7 +467,7 @@ export default function NouveauPVPage() {
               <button
                 type="button"
                 onClick={loadPreviousParticipants}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs text-primary hover:text-primary"
               >
                 {t("load_previous_participants")}
               </button>
@@ -478,7 +478,7 @@ export default function NouveauPVPage() {
             {participants.map((p, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 p-2"
+                className="flex items-center gap-2 rounded-md border border-border bg-muted p-2"
               >
                 <input
                   type="text"
@@ -487,7 +487,7 @@ export default function NouveauPVPage() {
                   onChange={(e) =>
                     updateParticipant(i, "name", e.target.value)
                   }
-                  className="flex-1 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
+                  className="flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
                 />
                 <input
                   type="text"
@@ -496,7 +496,7 @@ export default function NouveauPVPage() {
                   onChange={(e) =>
                     updateParticipant(i, "company", e.target.value)
                   }
-                  className="w-32 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
+                  className="w-32 rounded border border-border bg-background px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
                 />
                 <input
                   type="text"
@@ -505,7 +505,7 @@ export default function NouveauPVPage() {
                   onChange={(e) =>
                     updateParticipant(i, "role", e.target.value)
                   }
-                  className="w-28 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
+                  className="w-28 rounded border border-border bg-background px-2 py-1.5 text-sm focus:border-brand focus:outline-none"
                 />
                 <select
                   value={p.present ? "present" : "excused"}
@@ -516,7 +516,7 @@ export default function NouveauPVPage() {
                       e.target.value === "present"
                     )
                   }
-                  className="rounded border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-brand focus:outline-none"
+                  className="rounded border border-border bg-background px-2 py-1.5 text-xs focus:border-brand focus:outline-none"
                 >
                   <option value="present">{t("present")}</option>
                   <option value="excused">{t("excused")}</option>
@@ -525,7 +525,7 @@ export default function NouveauPVPage() {
                   <button
                     type="button"
                     onClick={() => removeParticipant(i)}
-                    className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -537,7 +537,7 @@ export default function NouveauPVPage() {
           <button
             type="button"
             onClick={addParticipant}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             {t("add_participant")}
@@ -545,8 +545,8 @@ export default function NouveauPVPage() {
         </div>
 
         {/* Section 3: Audio */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
+        <div className="rounded-lg border border-border bg-background p-6">
+          <h2 className="mb-4 text-base font-semibold text-foreground">
             <FileAudio className="mr-2 inline h-4 w-4" />
             {t("audio")}
           </h2>
@@ -578,7 +578,7 @@ export default function NouveauPVPage() {
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-                      <span className="text-3xl font-mono font-bold text-gray-900">
+                      <span className="text-3xl font-mono font-bold text-foreground">
                         {recorder.formatDuration(recorder.duration)}
                       </span>
                     </div>
@@ -622,10 +622,10 @@ export default function NouveauPVPage() {
                     <div className="flex items-center gap-3">
                       <FileAudio className="h-5 w-5 text-green-600" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {t("recording_complete")}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {recorder.formatDuration(recorder.duration)}
                         </p>
                       </div>
@@ -636,7 +636,7 @@ export default function NouveauPVPage() {
                         recorder.resetRecording();
                         setAudioMode(null);
                       }}
-                      className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       {t("reset")}
@@ -665,11 +665,11 @@ export default function NouveauPVPage() {
             !recorder.audioBlob &&
             audioMode !== "upload" && (
               <div className="my-4 flex items-center gap-3">
-                <div className="flex-1 border-t border-gray-200" />
-                <span className="text-xs text-gray-400">
+                <div className="flex-1 border-t border-border" />
+                <span className="text-xs text-muted-foreground">
                   {t("or_upload")}
                 </span>
-                <div className="flex-1 border-t border-gray-200" />
+                <div className="flex-1 border-t border-border" />
               </div>
             )}
 
@@ -683,11 +683,11 @@ export default function NouveauPVPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 py-8 text-gray-500 transition-colors hover:border-blue-300 hover:bg-blue-50/30"
+                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 py-8 text-muted-foreground transition-colors hover:border-blue-300 hover:bg-primary/10/30"
                   >
-                    <Upload className="h-8 w-8 text-gray-400" />
+                    <Upload className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm">{t("upload_audio")}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       {t("upload_formats")}
                     </p>
                   </div>
@@ -697,10 +697,10 @@ export default function NouveauPVPage() {
                       <div className="flex items-center gap-3">
                         <FileAudio className="h-5 w-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-foreground">
                             {uploadedFile.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
                           </p>
                         </div>
@@ -713,7 +713,7 @@ export default function NouveauPVPage() {
                           setUploadedUrl(null);
                           setAudioMode(null);
                         }}
-                        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

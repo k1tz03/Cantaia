@@ -20,17 +20,17 @@ const TYPE_CONFIG: Record<
   string,
   { icon: typeof Mail; color: string; bgColor: string }
 > = {
-  email: { icon: Mail, color: "text-blue-600", bgColor: "bg-blue-50" },
+  email: { icon: Mail, color: "text-primary", bgColor: "bg-primary/10" },
   task: {
     icon: CheckSquare,
     color: "text-amber-600",
-    bgColor: "bg-amber-50",
+    bgColor: "bg-amber-500/10",
   },
-  meeting: { icon: Video, color: "text-purple-600", bgColor: "bg-purple-50" },
+  meeting: { icon: Video, color: "text-purple-600 dark:text-purple-400", bgColor: "bg-purple-500/10" },
   submission: {
     icon: FileText,
     color: "text-green-600",
-    bgColor: "bg-green-50",
+    bgColor: "bg-green-500/10",
   },
 };
 
@@ -65,7 +65,7 @@ export default function ActivityFeed({
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">{t("noActivity")}</p>
       </div>
@@ -74,7 +74,7 @@ export default function ActivityFeed({
 
   return (
     <div className="max-h-[400px] overflow-y-auto">
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-border">
         {activities.map((activity, i) => {
           const config = TYPE_CONFIG[activity.type] || TYPE_CONFIG.email;
           const Icon = config.icon;
@@ -90,12 +90,12 @@ export default function ActivityFeed({
                 <Icon className={`h-3.5 w-3.5 ${config.color}`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-gray-700">
+                <p className="truncate text-sm text-foreground">
                   {activity.title}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {activity.user && (
-                    <span className="font-medium text-gray-500">
+                    <span className="font-medium text-muted-foreground">
                       {activity.user}
                       {" — "}
                     </span>

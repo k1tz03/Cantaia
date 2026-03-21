@@ -24,13 +24,13 @@ const STATUS_CONFIG: Record<
   MeetingStatus,
   { labelKey: string; icon: React.ElementType; color: string; bg: string; animate?: boolean }
 > = {
-  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-gray-600", bg: "bg-gray-100" },
-  recording: { labelKey: "status_recording", icon: Mic, color: "text-red-600", bg: "bg-red-50", animate: true },
-  transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-blue-600", bg: "bg-blue-50", animate: true },
-  generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-600", bg: "bg-violet-50", animate: true },
-  review: { labelKey: "status_review", icon: Pencil, color: "text-orange-600", bg: "bg-orange-50" },
-  finalized: { labelKey: "status_finalized", icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
-  sent: { labelKey: "status_sent", icon: Send, color: "text-green-700", bg: "bg-green-50" },
+  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-muted-foreground", bg: "bg-muted" },
+  recording: { labelKey: "status_recording", icon: Mic, color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" },
+  transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-primary", bg: "bg-primary/10" },
+  generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10" },
+  review: { labelKey: "status_review", icon: Pencil, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-500/10" },
+  finalized: { labelKey: "status_finalized", icon: CheckCircle, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10" },
+  sent: { labelKey: "status_sent", icon: Send, color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10" },
 };
 
 function formatDate(dateStr: string): string {
@@ -106,7 +106,7 @@ export default function PVChantierPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -116,8 +116,8 @@ export default function PVChantierPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">{t("title")}</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {filteredMeetings.length}{" "}
             {filteredMeetings.length <= 1 ? "PV" : "PV"}
           </p>
@@ -128,7 +128,7 @@ export default function PVChantierPage() {
             <button
               type="button"
               onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-              className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
             >
               <Filter className="h-3.5 w-3.5" />
               {projectFilter === "all"
@@ -137,17 +137,17 @@ export default function PVChantierPage() {
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             {showProjectDropdown && (
-              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-border bg-background py-1 shadow-lg">
                 <button
                   type="button"
                   onClick={() => {
                     setProjectFilter("all");
                     setShowProjectDropdown(false);
                   }}
-                  className={`flex w-full px-3 py-1.5 text-sm transition-colors hover:bg-gray-50 ${
+                  className={`flex w-full px-3 py-1.5 text-sm transition-colors hover:bg-muted ${
                     projectFilter === "all"
-                      ? "font-medium text-blue-600"
-                      : "text-gray-600"
+                      ? "font-medium text-primary"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {t("all_projects")}
@@ -160,10 +160,10 @@ export default function PVChantierPage() {
                       setProjectFilter(p.id);
                       setShowProjectDropdown(false);
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-gray-50 ${
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-muted ${
                       projectFilter === p.id
-                        ? "font-medium text-blue-600"
-                        : "text-gray-600"
+                        ? "font-medium text-primary"
+                        : "text-muted-foreground"
                     }`}
                   >
                     <span
@@ -190,13 +190,13 @@ export default function PVChantierPage() {
       {/* Content */}
       {filteredMeetings.length === 0 ? (
         <div className="mt-12 flex flex-col items-center justify-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-            <FileText className="h-7 w-7 text-gray-400" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <FileText className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="mt-4 text-sm font-medium text-gray-700">
+          <p className="mt-4 text-sm font-medium text-foreground">
             {t("no_pv_yet")}
           </p>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t("no_pv_description")}
           </p>
           <Link
@@ -208,35 +208,35 @@ export default function PVChantierPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-6 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-gray-200 bg-white">
+        <div className="mt-6 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-border bg-background">
           <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+              <tr className="border-b border-border bg-muted">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   #
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_title")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_project")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_date")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_participants")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_actions")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                   {t("col_status")}
                 </th>
                 <th className="w-10 px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {filteredMeetings.map((meeting) => {
                 const project = meeting.projects;
                 const statusCfg =
@@ -248,17 +248,17 @@ export default function PVChantierPage() {
                 return (
                   <tr
                     key={meeting.id}
-                    className="transition-colors hover:bg-gray-50"
+                    className="transition-colors hover:bg-muted"
                   >
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-foreground">
                         {meeting.meeting_number ?? "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/pv-chantier/${meeting.id}`}
-                        className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                        className="text-sm font-medium text-foreground hover:text-primary"
                       >
                         {meeting.title}
                       </Link>
@@ -272,27 +272,27 @@ export default function PVChantierPage() {
                               backgroundColor: project.color,
                             }}
                           />
-                          <span className="max-w-[120px] truncate text-sm text-gray-600">
+                          <span className="max-w-[120px] truncate text-sm text-muted-foreground">
                             {project.name}
                           </span>
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm text-gray-700">
+                      <div className="text-sm text-foreground">
                         {formatDate(meeting.meeting_date)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="text-sm text-gray-600">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
                           {meeting.participants?.length || 0}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-muted-foreground">
                         {actionsCount}
                       </span>
                     </td>
@@ -313,7 +313,7 @@ export default function PVChantierPage() {
                           e.stopPropagation();
                           setDeleteTarget(meeting.id);
                         }}
-                        className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
+                        className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                         title={t("delete_pv")}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -330,20 +330,20 @@ export default function PVChantierPage() {
       {/* Delete confirmation dialog */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
             <div className="mb-4 flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-foreground">
                 {t("delete_pv")}
               </h3>
             </div>
-            <p className="mb-4 text-sm text-gray-600">
+            <p className="mb-4 text-sm text-muted-foreground">
               {t("delete_pv_confirm")}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
               >
                 {t("cancel")}
               </button>

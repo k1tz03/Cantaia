@@ -60,11 +60,11 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
   }
 
   const statusIcon = {
-    pending: <StickyNote className="h-4 w-4 text-gray-400" />,
+    pending: <StickyNote className="h-4 w-4 text-muted-foreground" />,
     processing: <Loader2 className="h-4 w-4 animate-spin text-blue-500" />,
     completed: <CheckCircle className="h-4 w-4 text-green-500" />,
     failed: <XCircle className="h-4 w-4 text-red-500" />,
-  }[status] || <StickyNote className="h-4 w-4 text-gray-400" />;
+  }[status] || <StickyNote className="h-4 w-4 text-muted-foreground" />;
 
   const statusLabel = {
     pending: t("pending"),
@@ -74,10 +74,10 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
   }[status] || status;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-border bg-background">
       <div className="flex gap-4 p-4">
         {/* Photo preview */}
-        <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+        <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
           <img
             src={getPublicUrl(photo.file_url)}
             alt={photo.caption || "Notes manuscrites"}
@@ -90,9 +90,9 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {statusIcon}
-              <span className="text-sm font-medium text-gray-700">{statusLabel}</span>
+              <span className="text-sm font-medium text-foreground">{statusLabel}</span>
               {analysis?.confidence && (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {Math.round(analysis.confidence * 100)}%
                 </span>
               )}
@@ -115,7 +115,7 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
           </div>
 
           {error && (
-            <div className="mb-2 flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-xs text-red-700">
+            <div className="mb-2 flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-xs text-red-700">
               <AlertTriangle className="h-3 w-3" />
               {error}
             </div>
@@ -126,11 +126,11 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
               {/* Transcribed text */}
               {analysis.transcribed_text && (
                 <div>
-                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-gray-500">
+                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     <FileText className="h-3 w-3" />
                     {t("transcribedText")}
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                     {analysis.transcribed_text}
                   </p>
                 </div>
@@ -139,13 +139,13 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
               {/* Sketches */}
               {analysis.sketches && analysis.sketches.length > 0 && (
                 <div>
-                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-gray-500">
+                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     <PenTool className="h-3 w-3" />
                     {t("sketchesFound")} ({analysis.sketches.length})
                   </div>
                   <ul className="space-y-1">
                     {analysis.sketches.map((sketch, i) => (
-                      <li key={i} className="text-sm text-gray-600">
+                      <li key={i} className="text-sm text-muted-foreground">
                         <span className="font-medium">{sketch.location && `[${sketch.location}] `}</span>
                         {sketch.description}
                       </li>
@@ -157,7 +157,7 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
               {/* Measurements */}
               {analysis.measurements_found && analysis.measurements_found.length > 0 && (
                 <div>
-                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-gray-500">
+                  <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     <Ruler className="h-3 w-3" />
                     {t("measurementsFound")} ({analysis.measurements_found.length})
                   </div>
@@ -165,7 +165,7 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
                     {analysis.measurements_found.map((m, i) => (
                       <span
                         key={i}
-                        className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700"
+                        className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
                         title={m.context}
                       >
                         {m.value} {m.unit} — {m.context}
@@ -178,11 +178,11 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
           )}
 
           {status === "processing" && (
-            <p className="text-sm text-gray-400">{t("analyzingDesc")}</p>
+            <p className="text-sm text-muted-foreground">{t("analyzingDesc")}</p>
           )}
 
           {status === "pending" && !analyzing && (
-            <p className="text-sm text-gray-400">{t("pendingDesc")}</p>
+            <p className="text-sm text-muted-foreground">{t("pendingDesc")}</p>
           )}
         </div>
       </div>

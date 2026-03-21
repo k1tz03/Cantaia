@@ -101,18 +101,18 @@ export default function VisitsPage() {
     switch (status) {
       case "recording":
       case "transcribing":
-        return { color: "bg-red-50 text-red-700", icon: Mic, label: t("statusRecording") };
+        return { color: "bg-red-500/10 text-red-700 dark:text-red-400", icon: Mic, label: t("statusRecording") };
       case "report_ready":
       case "reviewed":
-        return { color: "bg-blue-50 text-blue-700", icon: FileText, label: t("statusReportReady") };
+        return { color: "bg-primary/10 text-primary", icon: FileText, label: t("statusReportReady") };
       case "quoted":
-        return { color: "bg-amber-50 text-amber-700", icon: DollarSign, label: t("statusQuoted") };
+        return { color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: DollarSign, label: t("statusQuoted") };
       case "won":
-        return { color: "bg-green-50 text-green-700", icon: CheckCircle, label: t("statusWon") };
+        return { color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle, label: t("statusWon") };
       case "lost":
-        return { color: "bg-gray-100 text-gray-500", icon: XCircle, label: t("statusLost") };
+        return { color: "bg-muted text-muted-foreground", icon: XCircle, label: t("statusLost") };
       default:
-        return { color: "bg-gray-100 text-gray-600", icon: Archive, label: status };
+        return { color: "bg-muted text-muted-foreground", icon: Archive, label: status };
     }
   }
 
@@ -138,8 +138,8 @@ export default function VisitsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-            <UserCheck className="h-6 w-6 text-blue-600" />
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
+            <UserCheck className="h-6 w-6 text-primary" />
             {t("title")}
           </h1>
         </div>
@@ -154,27 +154,27 @@ export default function VisitsPage() {
 
       {/* Stats bar */}
       {totalVisits > 0 && (
-        <div className="mb-6 flex items-center gap-6 rounded-lg border border-gray-200 bg-white px-5 py-3">
-          <div className="flex items-center gap-1.5 text-sm text-gray-600">
-            <FileText className="h-4 w-4 text-gray-400" />
-            <span className="font-semibold text-gray-900">{totalVisits}</span> {t("statsVisits")}
+        <div className="mb-6 flex items-center gap-6 rounded-lg border border-border bg-background px-5 py-3">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold text-foreground">{totalVisits}</span> {t("statsVisits")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-600">
-            <Target className="h-4 w-4 text-gray-400" />
-            <span className="font-semibold text-gray-900">{quotedCount}</span> {t("statsQuotesSent")}
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Target className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold text-foreground">{quotedCount}</span> {t("statsQuotesSent")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            <span className="font-semibold text-gray-900">{wonCount}</span> {t("statsSigned")}
+            <span className="font-semibold text-foreground">{wonCount}</span> {t("statsSigned")}
           </div>
           {totalRevenue > 0 && (
-            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-              <DollarSign className="h-4 w-4 text-gray-400" />
-              <span className="font-semibold text-gray-900">{formatCHF(totalRevenue)} CHF</span>
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-foreground">{formatCHF(totalRevenue)} CHF</span>
             </div>
           )}
-          <div className="ml-auto text-sm text-gray-500">
-            {t("statsConversionRate")} : <span className="font-semibold text-gray-900">{conversionRate}%</span>
+          <div className="ml-auto text-sm text-muted-foreground">
+            {t("statsConversionRate")} : <span className="font-semibold text-foreground">{conversionRate}%</span>
           </div>
         </div>
       )}
@@ -188,7 +188,7 @@ export default function VisitsPage() {
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === f.id
                 ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-muted text-muted-foreground hover:bg-muted"
             }`}
           >
             {f.label}
@@ -198,10 +198,10 @@ export default function VisitsPage() {
 
       {/* Visit list */}
       {filteredVisits.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-16 text-center">
-          <UserCheck className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-sm font-medium text-gray-500">{t("noVisits")}</p>
-          <p className="mt-1 text-xs text-gray-400">{t("noVisitsDesc")}</p>
+        <div className="rounded-lg border border-border bg-background py-16 text-center">
+          <UserCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="text-sm font-medium text-muted-foreground">{t("noVisits")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("noVisitsDesc")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -217,26 +217,26 @@ export default function VisitsPage() {
               <Link
                 key={visit.id}
                 href={`/visits/${visit.id}`}
-                className="block rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-blue-200 hover:bg-blue-50/30"
+                className="block rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/20 hover:bg-primary/10/30"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Mic className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm font-semibold text-gray-900">
+                      <Mic className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold text-foreground">
                         {visit.client_name}
                       </span>
                       {visit.title && (
-                        <span className="text-sm text-gray-500">— {visit.title}</span>
+                        <span className="text-sm text-muted-foreground">— {visit.title}</span>
                       )}
                       {(visit.photos_count || 0) > 0 && (
-                        <span className="flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                        <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                           <Camera className="h-2.5 w-2.5" />
                           {visit.photos_count}
                         </span>
                       )}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-4 text-xs text-gray-400">
+                    <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
                       {(visit.client_address || visit.client_city) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -252,7 +252,7 @@ export default function VisitsPage() {
                       )}
                     </div>
                     {(budgetMin || requestsCount > 0 || probability) && (
-                      <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                         {budgetMin && (
                           <span className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />

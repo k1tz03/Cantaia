@@ -201,59 +201,59 @@ export default function AdminSettingsTab() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Organization Info */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
-          <Building2 className="h-4 w-4 text-blue-600" />
+      <div className="rounded-lg border border-border bg-background p-5">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Building2 className="h-4 w-4 text-primary" />
           {t("orgName")}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               {t("orgName")}
             </label>
             <input
               value={orgInfo.name}
               onChange={(e) => updateOrgInfo("name", e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               {t("orgAddress")}
             </label>
             <input
               value={orgInfo.address}
               onChange={(e) => updateOrgInfo("address", e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 Ville
               </label>
               <input
                 value={orgInfo.city}
                 onChange={(e) => updateOrgInfo("city", e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 Pays
               </label>
               <input
                 value={orgInfo.country}
                 onChange={(e) => updateOrgInfo("country", e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
           </div>
         </div>
 
         {/* Save footer */}
-        <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
           <div className="flex items-center gap-3">
             {orgInfoDirty && (
               <span className="flex items-center gap-1 text-xs text-amber-600">
@@ -280,15 +280,15 @@ export default function AdminSettingsTab() {
       </div>
 
       {/* Branding */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
-          <Palette className="h-4 w-4 text-blue-600" />
+      <div className="rounded-lg border border-border bg-background p-5">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Palette className="h-4 w-4 text-primary" />
           {t("branding")}
         </h3>
 
         {/* Logo upload */}
         <div className="mb-4">
-          <label className="mb-2 block text-sm font-medium text-gray-700">
+          <label className="mb-2 block text-sm font-medium text-foreground">
             {t("uploadLogo")}
           </label>
           <div className="flex items-center gap-4">
@@ -296,11 +296,11 @@ export default function AdminSettingsTab() {
               <img
                 src={branding.logo_url}
                 alt="Logo"
-                className="h-16 w-16 rounded-lg border border-gray-200 object-contain"
+                className="h-16 w-16 rounded-lg border border-border object-contain"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50">
-                <Upload className="h-5 w-5 text-gray-400" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted">
+                <Upload className="h-5 w-5 text-muted-foreground" />
               </div>
             )}
             <label className="cursor-pointer">
@@ -310,7 +310,7 @@ export default function AdminSettingsTab() {
                 onChange={handleLogoUpload}
                 className="hidden"
               />
-              <span className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              <span className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted">
                 {uploadingLogo ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -320,7 +320,7 @@ export default function AdminSettingsTab() {
               </span>
             </label>
           </div>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             PNG, JPEG ou WebP. Max 2 MB.
           </p>
         </div>
@@ -328,7 +328,7 @@ export default function AdminSettingsTab() {
         {/* Colors */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               {t("primaryColor")}
             </label>
             <div className="flex items-center gap-2">
@@ -338,19 +338,19 @@ export default function AdminSettingsTab() {
                 onChange={(e) =>
                   updateBranding("primary_color", e.target.value)
                 }
-                className="h-9 w-9 cursor-pointer rounded border border-gray-300"
+                className="h-9 w-9 cursor-pointer rounded border border-border"
               />
               <input
                 value={branding.primary_color}
                 onChange={(e) =>
                   updateBranding("primary_color", e.target.value)
                 }
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
               />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Couleur secondaire
             </label>
             <div className="flex items-center gap-2">
@@ -360,14 +360,14 @@ export default function AdminSettingsTab() {
                 onChange={(e) =>
                   updateBranding("secondary_color", e.target.value)
                 }
-                className="h-9 w-9 cursor-pointer rounded border border-gray-300"
+                className="h-9 w-9 cursor-pointer rounded border border-border"
               />
               <input
                 value={branding.secondary_color}
                 onChange={(e) =>
                   updateBranding("secondary_color", e.target.value)
                 }
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus:border-blue-400 focus:outline-none"
               />
             </div>
           </div>
@@ -375,11 +375,11 @@ export default function AdminSettingsTab() {
 
         {/* Preview */}
         <div className="mt-4">
-          <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+          <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Eye className="h-4 w-4" />
             Apercu
           </label>
-          <div className="flex overflow-hidden rounded-lg border border-gray-200">
+          <div className="flex overflow-hidden rounded-lg border border-border">
             <div
               className="w-16 p-2"
               style={{ backgroundColor: branding.primary_color }}
@@ -400,13 +400,13 @@ export default function AdminSettingsTab() {
                 />
               ))}
             </div>
-            <div className="flex-1 bg-gray-50 p-3">
+            <div className="flex-1 bg-muted p-3">
               <div
                 className="mb-2 h-3 w-24 rounded"
                 style={{ backgroundColor: branding.primary_color }}
               />
-              <div className="mb-1 h-1.5 w-full rounded bg-gray-200" />
-              <div className="mb-1 h-1.5 w-4/5 rounded bg-gray-200" />
+              <div className="mb-1 h-1.5 w-full rounded bg-muted" />
+              <div className="mb-1 h-1.5 w-4/5 rounded bg-muted" />
               <div className="mt-3 flex gap-2">
                 <div
                   className="rounded px-2.5 py-1 text-[9px] text-white"
@@ -426,7 +426,7 @@ export default function AdminSettingsTab() {
         </div>
 
         {/* Save footer */}
-        <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
           <div className="flex items-center gap-3">
             {brandingDirty && (
               <span className="flex items-center gap-1 text-xs text-amber-600">
@@ -442,7 +442,7 @@ export default function AdminSettingsTab() {
             )}
             <button
               onClick={resetColors}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reinitialiser

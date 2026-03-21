@@ -28,7 +28,7 @@ export default function PVDetailPage({
   if (pv.loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -36,11 +36,11 @@ export default function PVDetailPage({
   if (!pv.meeting || !pv.pvContent) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <FileText className="h-8 w-8 text-gray-300" />
-        <p className="text-sm text-gray-500">{t("no_pv_found")}</p>
+        <FileText className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">{t("no_pv_found")}</p>
         <button
           onClick={() => router.push("/pv-chantier")}
-          className="text-sm text-blue-600 hover:text-blue-800"
+          className="text-sm text-primary hover:text-primary"
         >
           {tCommon("back")}
         </button>
@@ -94,7 +94,7 @@ export default function PVDetailPage({
           {!pv.isFinalized && (
             <button
               onClick={pv.addSection}
-              className="mb-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-3 text-sm text-gray-500 hover:border-gray-300 hover:text-gray-700"
+              className="mb-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-3 text-sm text-muted-foreground hover:border-border hover:text-foreground"
             >
               <Plus className="h-4 w-4" />
               {t("add_section")}

@@ -149,8 +149,8 @@ export default function AdminSubscriptionTab() {
         <div
           className={`rounded-lg px-4 py-3 text-sm ${
             toast.type === "success"
-              ? "border border-green-200 bg-green-50 text-green-700"
-              : "border border-red-200 bg-red-50 text-red-700"
+              ? "border border-green-200 bg-green-500/10 text-green-700 dark:text-green-400"
+              : "border border-red-200 bg-red-500/10 text-red-700 dark:text-red-400"
           }`}
         >
           {toast.text}
@@ -158,31 +158,31 @@ export default function AdminSubscriptionTab() {
       )}
 
       {/* Current Plan Card */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-background p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <CreditCard className="h-5 w-5 text-blue-600" />
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              <CreditCard className="h-5 w-5 text-primary" />
               {t("currentPlan")}
             </h2>
             <div className="mt-3">
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                   isTrial
-                    ? "bg-amber-100 text-amber-700"
+                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                     : plan === "pro"
-                      ? "bg-blue-100 text-blue-700"
+                      ? "bg-primary/10 text-primary"
                       : plan === "enterprise"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-gray-100 text-gray-700"
+                        ? "bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                        : "bg-muted text-foreground"
                 }`}
               >
                 {planLabel}
               </span>
               {planPrice > 0 && (
-                <span className="ml-3 text-2xl font-bold text-gray-900">
+                <span className="ml-3 text-2xl font-bold text-foreground">
                   {planPrice} CHF
-                  <span className="text-sm font-normal text-gray-500">
+                  <span className="text-sm font-normal text-muted-foreground">
                     {t("perMonth")}
                   </span>
                 </span>
@@ -209,7 +209,7 @@ export default function AdminSubscriptionTab() {
             {hasSubscription && (
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
               >
                 {t("cancelSubscription")}
               </button>
@@ -220,20 +220,20 @@ export default function AdminSubscriptionTab() {
 
       {/* Payment Method */}
       {hasSubscription && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="rounded-lg border border-border bg-background p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700">
+              <h3 className="text-sm font-semibold text-foreground">
                 {t("paymentMethod")}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Gerez votre moyen de paiement via le portail Stripe.
               </p>
             </div>
             <button
               onClick={handleManagePayment}
               disabled={portalLoading}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               {portalLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -248,7 +248,7 @@ export default function AdminSubscriptionTab() {
 
       {/* Invoices */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">
           {t("invoices")}
         </h3>
         <InvoicesList />
@@ -270,17 +270,17 @@ export default function AdminSubscriptionTab() {
       {/* Cancel confirmation modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground">
               {t("confirmCancel")}
             </h3>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-muted-foreground">
               {t("cancelConfirm")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
               >
                 Annuler
               </button>

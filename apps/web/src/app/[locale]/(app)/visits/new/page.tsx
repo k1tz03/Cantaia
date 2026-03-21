@@ -245,95 +245,95 @@ export default function NewVisitPage() {
   if (step === "info") {
     return (
       <div className="p-6">
-        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
 
-        <h1 className="mb-6 text-xl font-bold text-gray-900">{t("newVisit")}</h1>
+        <h1 className="mb-6 text-xl font-bold text-foreground">{t("newVisit")}</h1>
 
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Client info */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">
+          <div className="rounded-lg border border-border bg-background p-6">
+            <h3 className="mb-4 text-sm font-semibold text-foreground">
               {t("prospect")} / {t("existingClient")}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientName")} *</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientName")} *</label>
                 <input
                   value={form.client_name}
                   onChange={(e) => update({ client_name: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientCompany")}</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientCompany")}</label>
                 <input
                   value={form.client_company}
                   onChange={(e) => update({ client_company: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientPhone")}</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientPhone")}</label>
                 <input
                   type="tel"
                   value={form.client_phone}
                   onChange={(e) => update({ client_phone: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                   placeholder="+41 79 ..."
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t("clientEmail")}</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientEmail")}</label>
                 <input
                   type="email"
                   value={form.client_email}
                   onChange={(e) => update({ client_email: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
               </div>
             </div>
           </div>
 
           {/* Address */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">{t("visitAddress")}</h3>
+          <div className="rounded-lg border border-border bg-background p-6">
+            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("visitAddress")}</h3>
             <div className="space-y-3">
               <input
                 value={form.client_address}
                 onChange={(e) => update({ client_address: e.target.value })}
                 placeholder={t("visitAddress")}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={form.client_city}
                   onChange={(e) => update({ client_city: e.target.value })}
                   placeholder={t("visitCity")}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
                 <input
                   value={form.client_postal_code}
                   onChange={(e) => update({ client_postal_code: e.target.value })}
                   placeholder={t("visitPostalCode")}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 />
               </div>
             </div>
           </div>
 
           {/* Linked project */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
-              <FolderKanban className="h-4 w-4 text-gray-400" />
+          <div className="rounded-lg border border-border bg-background p-6">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <FolderKanban className="h-4 w-4 text-muted-foreground" />
               {t("linkedProject")}
             </h3>
             <select
               value={form.project_id}
               onChange={(e) => update({ project_id: e.target.value })}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="">{t("noProjectProspect")}</option>
               {projects.map((p) => (
@@ -343,19 +343,19 @@ export default function NewVisitPage() {
           </div>
 
           {/* Pre-visit notes */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">{t("preVisitNotes")}</h3>
+          <div className="rounded-lg border border-border bg-background p-6">
+            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("preVisitNotes")}</h3>
             <textarea
               value={form.notes}
               onChange={(e) => update({ notes: e.target.value })}
               rows={3}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             />
           </div>
 
           {/* Error banner */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-500/10 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -366,7 +366,7 @@ export default function NewVisitPage() {
               type="button"
               onClick={handleSkipToRecording}
               disabled={saving}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               {t("skipToRecording")}
             </button>
@@ -389,7 +389,7 @@ export default function NewVisitPage() {
   if (step === "recording") {
     return (
       <div className="p-6">
-        <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-gray-900">
+        <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
           <Mic className="h-5 w-5 text-red-500" />
           {t("clientVisit")} — {form.client_name || "Client"}
         </h1>
@@ -398,13 +398,13 @@ export default function NewVisitPage() {
 
           {/* Photos section */}
           {visitId && orgId && (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <div className="border-b border-gray-100 px-4 py-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <Camera className="h-4 w-4 text-gray-400" />
+            <div className="rounded-lg border border-border bg-background">
+              <div className="border-b border-border px-4 py-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Camera className="h-4 w-4 text-muted-foreground" />
                   {t("photos.title")}
                   {photosCount > 0 && (
-                    <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                       {photosCount}
                     </span>
                   )}
@@ -412,21 +412,21 @@ export default function NewVisitPage() {
               </div>
 
               {/* Handwritten notes */}
-              <div className="border-b border-gray-50">
+              <div className="border-b border-border">
                 <button
                   type="button"
                   onClick={() => setNotesExpanded(!notesExpanded)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted"
                 >
                   <span className="flex items-center gap-2">
                     <StickyNote className="h-4 w-4 text-purple-500" />
                     {t("photos.handwrittenNotes")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {notesExpanded && (
                   <div className="px-4 pb-4">
-                    <p className="mb-3 text-xs text-gray-400">{t("photos.handwrittenNotesDesc")}</p>
+                    <p className="mb-3 text-xs text-muted-foreground">{t("photos.handwrittenNotesDesc")}</p>
                     <PhotoCapture
                       visitId={visitId}
                       orgId={orgId}
@@ -442,13 +442,13 @@ export default function NewVisitPage() {
                 <button
                   type="button"
                   onClick={() => setSitePhotosExpanded(!sitePhotosExpanded)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted"
                 >
                   <span className="flex items-center gap-2">
                     <Camera className="h-4 w-4 text-blue-500" />
                     {t("photos.sitePhotos")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {sitePhotosExpanded && (
                   <div className="px-4 pb-4">
@@ -471,21 +471,21 @@ export default function NewVisitPage() {
   // ──── Step 3: Post-recording ────
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-900">
+      <h1 className="mb-6 text-xl font-bold text-foreground">
         {t("recordingFinished")} — {Math.floor(audioDuration / 60)} min {audioDuration % 60} sec
         {photosCount > 0 && (
-          <span className="ml-2 text-base font-normal text-gray-500">
+          <span className="ml-2 text-base font-normal text-muted-foreground">
             + {photosCount} {t("photos.title").toLowerCase()}
           </span>
         )}
       </h1>
 
       <div className="mx-auto max-w-lg">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
-          <p className="mb-2 text-sm font-medium text-gray-700">
+        <div className="rounded-lg border border-border bg-background p-6 text-center">
+          <p className="mb-2 text-sm font-medium text-foreground">
             {t("transcribeAndGenerate")} ?
           </p>
-          <p className="mb-6 text-xs text-gray-400">
+          <p className="mb-6 text-xs text-muted-foreground">
             {t("transcriptionWarning")}
           </p>
 
@@ -510,7 +510,7 @@ export default function NewVisitPage() {
             <button
               onClick={handleSaveWithoutTranscribing}
               disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg border border-border px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t("saveWithoutTranscribing")}

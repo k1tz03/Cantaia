@@ -87,18 +87,18 @@ export default function AdminOverviewTab() {
   ];
 
   const colorMap: Record<string, { bg: string; icon: string; text: string }> = {
-    blue: { bg: "bg-blue-50", icon: "text-blue-600", text: "text-blue-700" },
+    blue: { bg: "bg-primary/10", icon: "text-primary", text: "text-primary" },
     green: {
-      bg: "bg-green-50",
+      bg: "bg-green-500/10",
       icon: "text-green-600",
-      text: "text-green-700",
+      text: "text-green-700 dark:text-green-400",
     },
-    red: { bg: "bg-red-50", icon: "text-red-600", text: "text-red-700" },
-    gray: { bg: "bg-gray-50", icon: "text-gray-600", text: "text-gray-700" },
+    red: { bg: "bg-red-500/10", icon: "text-red-600", text: "text-red-700 dark:text-red-400" },
+    gray: { bg: "bg-muted", icon: "text-muted-foreground", text: "text-foreground" },
     indigo: {
-      bg: "bg-indigo-50",
+      bg: "bg-indigo-500/10",
       icon: "text-indigo-600",
-      text: "text-indigo-700",
+      text: "text-indigo-700 dark:text-indigo-400",
     },
   };
 
@@ -111,7 +111,7 @@ export default function AdminOverviewTab() {
           return (
             <div
               key={kpi.label}
-              className="rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm"
+              className="rounded-lg border border-border bg-background p-4 transition-shadow hover:shadow-sm"
             >
               <div className="flex items-center gap-3">
                 <div
@@ -120,7 +120,7 @@ export default function AdminOverviewTab() {
                   <kpi.icon className={`h-5 w-5 ${colors.icon}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {kpi.label}
                   </p>
                   <p className={`text-2xl font-bold ${colors.text}`}>
@@ -135,7 +135,7 @@ export default function AdminOverviewTab() {
 
       {/* Team Health */}
       <div>
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">
+        <h2 className="mb-4 text-sm font-semibold text-foreground">
           {t("teamHealth")}
         </h2>
         {loading ? (
@@ -143,7 +143,7 @@ export default function AdminOverviewTab() {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : members.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white py-8 text-center text-sm text-gray-400">
+          <div className="rounded-lg border border-border bg-background py-8 text-center text-sm text-muted-foreground">
             {t("noMembers")}
           </div>
         ) : (
@@ -156,8 +156,8 @@ export default function AdminOverviewTab() {
       </div>
 
       {/* Activity Feed */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">
+      <div className="rounded-lg border border-border bg-background p-5">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
           {t("activityFeed")}
         </h2>
         <ActivityFeed activities={activities} loading={activitiesLoading} />

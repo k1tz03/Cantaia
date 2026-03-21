@@ -59,17 +59,17 @@ export default function TeamHealthCard({
   const lastSignIn = formatRelativeDate(member.last_sign_in);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm">
+    <div className="rounded-lg border border-border bg-background p-4 transition-shadow hover:shadow-sm">
       {/* Header: avatar + name + role */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
           {getInitials(member.first_name, member.last_name)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-900">
+          <p className="truncate text-sm font-medium text-foreground">
             {member.first_name} {member.last_name}
           </p>
-          <p className="truncate text-xs text-gray-400">
+          <p className="truncate text-xs text-muted-foreground">
             {getRoleLabel(member.role)}
           </p>
         </div>
@@ -78,47 +78,47 @@ export default function TeamHealthCard({
       {/* Stats grid */}
       <div className="mt-3 grid grid-cols-3 gap-2">
         {/* Overdue */}
-        <div className="rounded-md bg-gray-50 px-2 py-1.5 text-center">
+        <div className="rounded-md bg-muted px-2 py-1.5 text-center">
           <div
             className={`text-lg font-bold ${
               member.overdue_tasks > 3
                 ? "text-red-600"
                 : member.overdue_tasks > 0
                   ? "text-amber-600"
-                  : "text-gray-400"
+                  : "text-muted-foreground"
             }`}
           >
             {member.overdue_tasks}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-gray-500">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
             <AlertTriangle className="h-2.5 w-2.5" />
             {t("overdueTasks")}
           </div>
         </div>
 
         {/* In progress */}
-        <div className="rounded-md bg-gray-50 px-2 py-1.5 text-center">
-          <div className="text-lg font-bold text-blue-600">
+        <div className="rounded-md bg-muted px-2 py-1.5 text-center">
+          <div className="text-lg font-bold text-primary">
             {member.in_progress_tasks}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-gray-500">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
             <Loader2 className="h-2.5 w-2.5" />
             {t("inProgressTasks")}
           </div>
         </div>
 
         {/* Emails */}
-        <div className="rounded-md bg-gray-50 px-2 py-1.5 text-center">
+        <div className="rounded-md bg-muted px-2 py-1.5 text-center">
           <div
             className={`text-lg font-bold ${
               member.unprocessed_emails > 10
                 ? "text-amber-600"
-                : "text-gray-600"
+                : "text-muted-foreground"
             }`}
           >
             {member.unprocessed_emails}
           </div>
-          <div className="flex items-center justify-center gap-0.5 text-[10px] text-gray-500">
+          <div className="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
             <Mail className="h-2.5 w-2.5" />
             Emails
           </div>
@@ -126,11 +126,11 @@ export default function TeamHealthCard({
       </div>
 
       {/* Last sign-in */}
-      <div className="mt-2 flex items-center gap-1.5 border-t border-gray-50 pt-2">
-        <Clock className="h-3 w-3 text-gray-400" />
+      <div className="mt-2 flex items-center gap-1.5 border-t border-border pt-2">
+        <Clock className="h-3 w-3 text-muted-foreground" />
         <span
           className={`text-xs ${
-            lastSignIn.isOld ? "font-medium text-amber-600" : "text-gray-500"
+            lastSignIn.isOld ? "font-medium text-amber-600" : "text-muted-foreground"
           }`}
         >
           {lastSignIn.isOld && member.last_sign_in

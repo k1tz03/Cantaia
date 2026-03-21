@@ -17,9 +17,9 @@ export function PVSummaryEditor({
   const t = useTranslations("pv");
 
   return (
-    <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+    <div className="mb-6 rounded-lg border border-border bg-background p-4">
       <div className="mb-3">
-        <label className="mb-1 block text-xs font-medium text-gray-500">
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">
           {t("summary")}
         </label>
         <textarea
@@ -31,18 +31,18 @@ export function PVSummaryEditor({
             })
           }
           rows={3}
-          className="w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-gray-50"
+          className="w-full resize-none rounded border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-muted"
           disabled={isFinalized}
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">
           {t("next_steps")}
         </label>
         {(pvContent.next_steps || []).map(
           (step: string, i: number) => (
             <div key={i} className="mb-1 flex items-center gap-1">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 {i + 1}.
               </span>
               <input
@@ -53,7 +53,7 @@ export function PVSummaryEditor({
                   steps[i] = e.target.value;
                   setPvContent({ ...pvContent, next_steps: steps });
                 }}
-                className="flex-1 rounded border border-gray-100 px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-gray-50"
+                className="flex-1 rounded border border-border px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-muted"
                 disabled={isFinalized}
               />
               {!isFinalized && (
@@ -64,7 +64,7 @@ export function PVSummaryEditor({
                     ).filter((_: any, idx: number) => idx !== i);
                     setPvContent({ ...pvContent, next_steps: steps });
                   }}
-                  className="rounded p-0.5 text-gray-300 hover:text-red-500"
+                  className="rounded p-0.5 text-muted-foreground hover:text-red-500"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -83,7 +83,7 @@ export function PVSummaryEditor({
                 ],
               })
             }
-            className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:text-primary"
           >
             <Plus className="h-3 w-3" />
             {t("add_next_step")}

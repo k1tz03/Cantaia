@@ -30,9 +30,9 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
 
   if (photos.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
-        <Camera className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-        <p className="text-sm text-gray-400">{t("noPhotos")}</p>
+      <div className="rounded-lg border border-dashed border-border py-12 text-center">
+        <Camera className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">{t("noPhotos")}</p>
       </div>
     );
   }
@@ -94,7 +94,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
             <button
               type="button"
               onClick={() => openLightbox(index)}
-              className="relative aspect-square w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <img
                 src={getPublicUrl(photo.file_url)}
@@ -104,8 +104,8 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
               {/* Type badge */}
               <div className={`absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                 photo.photo_type === "handwritten_notes"
-                  ? "bg-purple-100 text-purple-700"
-                  : "bg-blue-100 text-blue-700"
+                  ? "bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                  : "bg-primary/10 text-primary"
               }`}>
                 {photo.photo_type === "handwritten_notes" ? (
                   <span className="flex items-center gap-0.5"><StickyNote className="h-2.5 w-2.5" /> {t("notes")}</span>
@@ -122,7 +122,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
                   <input
                     value={captionValue}
                     onChange={(e) => setCaptionValue(e.target.value)}
-                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="flex-1 rounded border border-border px-2 py-1 text-xs"
                     placeholder={t("addCaption")}
                     onKeyDown={(e) => e.key === "Enter" && saveCaption(photo.id)}
                     autoFocus
@@ -137,9 +137,9 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
-                  <p className="flex-1 truncate text-xs text-gray-500">
+                  <p className="flex-1 truncate text-xs text-muted-foreground">
                     {photo.caption || (
-                      <span className="italic text-gray-300">{t("addCaption")}</span>
+                      <span className="italic text-muted-foreground">{t("addCaption")}</span>
                     )}
                   </p>
                   {!readOnly && (
@@ -148,7 +148,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
                       onClick={() => startEditCaption(photo)}
                       className="opacity-0 transition-opacity group-hover:opacity-100"
                     >
-                      <Edit3 className="h-3 w-3 text-gray-400" />
+                      <Edit3 className="h-3 w-3 text-muted-foreground" />
                     </button>
                   )}
                 </div>
@@ -178,7 +178,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
           <button
             type="button"
             onClick={closeLightbox}
-            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            className="absolute right-4 top-4 rounded-full bg-background/10 p-2 text-white hover:bg-background/20"
           >
             <X className="h-5 w-5" />
           </button>
@@ -187,7 +187,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); navigate(-1); }}
-              className="absolute left-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              className="absolute left-4 rounded-full bg-background/10 p-2 text-white hover:bg-background/20"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
@@ -197,7 +197,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); navigate(1); }}
-              className="absolute right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              className="absolute right-4 rounded-full bg-background/10 p-2 text-white hover:bg-background/20"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
@@ -221,7 +221,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
               <button
                 type="button"
                 onClick={() => handleDownload(photos[lightboxIndex!])}
-                className="rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/20"
+                className="rounded-lg bg-background/10 px-3 py-1.5 text-sm text-white hover:bg-background/20"
               >
                 <Download className="mr-1 inline h-3.5 w-3.5" />
                 {t("download")}

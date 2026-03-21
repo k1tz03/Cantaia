@@ -257,7 +257,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   // Permission denied
   if (permissionDenied) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+      <div className="rounded-lg border border-red-200 bg-red-500/10 p-6 text-center">
         <MicOff className="mx-auto mb-3 h-8 w-8 text-red-400" />
         <p className="text-sm font-medium text-red-800">{t("micPermissionDenied")}</p>
         <p className="mt-1 text-xs text-red-600">{t("micPermissionDeniedDesc")}</p>
@@ -277,15 +277,15 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   // Idle state
   if (state === "idle") {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+      <div className="rounded-lg border border-border bg-background p-8 text-center">
         <button
           onClick={startRecording}
           className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
         >
           <Mic className="h-8 w-8" />
         </button>
-        <p className="mt-4 text-sm font-medium text-gray-700">{t("startRecording")}</p>
-        <p className="mt-1 text-xs text-gray-400">{t("startRecordingDesc")}</p>
+        <p className="mt-4 text-sm font-medium text-foreground">{t("startRecording")}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("startRecordingDesc")}</p>
       </div>
     );
   }
@@ -293,9 +293,9 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   // Stopped state — playback
   if (state === "stopped") {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-background p-6">
         <div className="mb-4 text-center">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-foreground">
             {t("recordingFinished")} — {formatTime(elapsed)}
           </p>
         </div>
@@ -309,7 +309,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={resetRecording}
-            className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             {t("reRecord")}
           </button>
@@ -328,9 +328,9 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
   const isRecording = state === "recording";
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
+    <div className="rounded-lg border border-border bg-background p-6">
       {/* Waveform */}
-      <div className="mb-4 overflow-hidden rounded-lg border border-gray-100">
+      <div className="mb-4 overflow-hidden rounded-lg border border-border">
         <canvas
           ref={canvasRef}
           width={600}
@@ -341,7 +341,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
 
       {/* Timer */}
       <div className="mb-4 text-center">
-        <p className="font-mono text-3xl font-bold text-gray-900">
+        <p className="font-mono text-3xl font-bold text-foreground">
           {formatTime(elapsed)}
         </p>
         <p className={`mt-1 text-xs font-medium ${isRecording ? "text-red-500" : "text-amber-500"}`}>
@@ -351,18 +351,18 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
 
       {/* Volume meter */}
       <div className="mx-auto mb-4 flex max-w-xs items-center gap-2">
-        <Volume2 className="h-4 w-4 text-gray-400" />
+        <Volume2 className="h-4 w-4 text-muted-foreground" />
         <div className="flex-1">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
               className={`h-full rounded-full transition-all duration-100 ${
-                volumeLevel > 0.6 ? "bg-green-500" : volumeLevel > 0.3 ? "bg-blue-500" : "bg-gray-300"
+                volumeLevel > 0.6 ? "bg-green-500" : volumeLevel > 0.3 ? "bg-blue-500" : "bg-muted"
               }`}
               style={{ width: `${Math.max(5, volumeLevel * 100)}%` }}
             />
           </div>
         </div>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-muted-foreground">
           {volumeLevel > 0.3 ? "OK" : t("speakLouder")}
         </span>
       </div>
@@ -379,7 +379,7 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
         ) : (
           <button
             onClick={resumeRecording}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-colors hover:bg-blue-200"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
           >
             <Play className="h-5 w-5" />
           </button>
@@ -394,9 +394,9 @@ export function AudioRecorder({ onRecordingComplete }: AudioRecorderProps) {
       </div>
 
       {/* Tips */}
-      <div className="mt-6 rounded-md bg-blue-50 p-3">
-        <p className="text-xs font-medium text-blue-800">{t("recordingTipsTitle")}</p>
-        <ul className="mt-1 space-y-0.5 text-xs text-blue-600">
+      <div className="mt-6 rounded-md bg-primary/10 p-3">
+        <p className="text-xs font-medium text-primary">{t("recordingTipsTitle")}</p>
+        <ul className="mt-1 space-y-0.5 text-xs text-primary">
           <li>• {t("recordingTip1")}</li>
           <li>• {t("recordingTip2")}</li>
           <li>• {t("recordingTip3")}</li>
