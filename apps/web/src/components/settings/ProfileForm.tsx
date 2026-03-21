@@ -106,8 +106,8 @@ export function ProfileForm() {
         <div
           className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
             toast.type === "success"
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-red-50 text-red-600 border border-red-200"
+              ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
           }`}
         >
           {toast.type === "success" && <Check className="h-4 w-4" />}
@@ -121,12 +121,12 @@ export function ProfileForm() {
           {initials}
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-foreground">
             {t("profilePhoto")}
           </p>
           <button
             type="button"
-            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
             <Camera className="h-3.5 w-3.5" />
             {t("changePhoto")}
@@ -139,7 +139,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="first_name"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-foreground"
           >
             {tAuth("firstName")}
           </label>
@@ -147,7 +147,7 @@ export function ProfileForm() {
             {...register("first_name")}
             type="text"
             id="first_name"
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           {errors.first_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -159,7 +159,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="last_name"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-foreground"
           >
             {tAuth("lastName")}
           </label>
@@ -167,7 +167,7 @@ export function ProfileForm() {
             {...register("last_name")}
             type="text"
             id="last_name"
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           {errors.last_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -182,7 +182,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="phone"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-foreground"
           >
             {t("phone")}
           </label>
@@ -190,21 +190,21 @@ export function ProfileForm() {
             {...register("phone")}
             type="tel"
             id="phone"
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-foreground">
             {tAuth("email")}
           </label>
           <input
             type="email"
             value={userEmail}
             readOnly
-            className="mt-1 block w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-500"
+            className="mt-1 block w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
           />
-          <p className="mt-1 text-xs text-gray-400">{t("emailReadOnly")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("emailReadOnly")}</p>
         </div>
       </div>
 
@@ -212,14 +212,14 @@ export function ProfileForm() {
       <div>
         <label
           htmlFor="preferred_language"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-foreground"
         >
           {t("language")}
         </label>
         <select
           {...register("preferred_language")}
           id="preferred_language"
-          className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="fr">Fran&ccedil;ais</option>
           <option value="en">English</option>
@@ -235,7 +235,7 @@ export function ProfileForm() {
           className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
             isDirty
               ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-gray-300 cursor-not-allowed"
+              : "bg-muted cursor-not-allowed"
           }`}
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

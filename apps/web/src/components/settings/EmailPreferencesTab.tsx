@@ -83,14 +83,14 @@ export function EmailPreferencesTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (fetchError) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
         <AlertCircle className="h-4 w-4" />
         {fetchError}
       </div>
@@ -100,12 +100,12 @@ export function EmailPreferencesTab() {
   return (
     <div className="space-y-6">
       {/* Outlook Integration */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Mail className="h-4 w-4 text-blue-500" />
           {t("emailPrefs_outlookTitle")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("emailPrefs_outlookDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("emailPrefs_outlookDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -116,28 +116,28 @@ export function EmailPreferencesTab() {
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-foreground">
               {t("emailPrefs_rootFolderName")}
             </label>
-            <p className="mb-1 text-xs text-gray-500">{t("emailPrefs_rootFolderNameDesc")}</p>
+            <p className="mb-1 text-xs text-muted-foreground">{t("emailPrefs_rootFolderNameDesc")}</p>
             <input
               type="text"
               value={form.data.outlook_root_folder_name as string}
               onChange={(e) => form.update({ outlook_root_folder_name: e.target.value })}
               placeholder="Cantaia"
-              className="mt-1 block w-64 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-64 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
       </div>
 
       {/* Auto-dismiss */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
           <FolderOpen className="h-4 w-4 text-amber-500" />
           {t("emailPrefs_filteringTitle")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("emailPrefs_filteringDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("emailPrefs_filteringDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -164,21 +164,21 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Snooze defaults */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Clock className="h-4 w-4 text-purple-500" />
           {t("emailPrefs_snoozeTitle")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("emailPrefs_snoozeDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("emailPrefs_snoozeDesc")}</p>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-foreground">
             {t("emailPrefs_defaultSnooze")}
           </label>
           <select
             value={form.data.default_snooze_hours as number}
             onChange={(e) => form.update({ default_snooze_hours: Number(e.target.value) })}
-            className="mt-1 block w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-48 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value={1}>1 {t("emailPrefs_hour")}</option>
             <option value={2}>2 {t("emailPrefs_hours")}</option>
@@ -190,12 +190,12 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Archive settings */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Archive className="h-4 w-4 text-green-500" />
           {t("emailPrefs_archiveTitle")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("emailPrefs_archiveDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("emailPrefs_archiveDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -207,16 +207,16 @@ export function EmailPreferencesTab() {
 
           {(form.data.archive_enabled as boolean) && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground">
                 {t("emailPrefs_archivePath")}
               </label>
-              <p className="mb-1 text-xs text-gray-500">{t("emailPrefs_archivePathDesc")}</p>
+              <p className="mb-1 text-xs text-muted-foreground">{t("emailPrefs_archivePathDesc")}</p>
               <input
                 type="text"
                 value={form.data.archive_path as string}
                 onChange={(e) => form.update({ archive_path: e.target.value })}
                 placeholder="C:\Chantiers"
-                className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           )}
@@ -224,7 +224,7 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Save button */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-lg border border-border bg-background p-4">
         <SaveButton
           isDirty={form.isDirty}
           saving={form.saving}
@@ -254,18 +254,18 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-gray-700">{label}</p>
-        {description && <p className="text-xs text-gray-500">{description}</p>}
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? "bg-brand" : "bg-gray-200"
+          checked ? "bg-brand" : "bg-muted"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-5 w-5 rounded-full bg-background shadow transition-transform ${
             checked ? "translate-x-5" : "translate-x-0"
           }`}
         />

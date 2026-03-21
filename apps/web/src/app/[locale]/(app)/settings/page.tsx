@@ -72,8 +72,8 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col md:flex-row h-full min-h-[calc(100vh-64px)]">
       {/* Mobile: horizontal tab bar */}
-      <nav className="md:hidden border-b border-gray-200 bg-gray-50 px-4 pt-4 pb-0">
-        <h1 className="mb-3 text-sm font-semibold text-gray-900">
+      <nav className="md:hidden border-b border-border bg-muted px-4 pt-4 pb-0">
+        <h1 className="mb-3 text-sm font-semibold text-foreground">
           {t("title")}
         </h1>
         <div className="flex gap-1 overflow-x-auto scrollbar-hide -mb-px pb-0">
@@ -87,11 +87,11 @@ export default function SettingsPage() {
                 onClick={() => setTab(tab.id)}
                 className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
                   isActive
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-blue-600" : "text-gray-400"}`} />
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                 {t(`tab_${tab.id}`)}
               </button>
             );
@@ -100,8 +100,8 @@ export default function SettingsPage() {
       </nav>
 
       {/* Desktop: left sidebar */}
-      <nav className="hidden md:block w-[200px] shrink-0 border-r border-gray-200 bg-gray-50 p-4">
-        <h1 className="mb-4 px-2 text-sm font-semibold text-gray-900">
+      <nav className="hidden md:block w-[200px] shrink-0 border-r border-border bg-muted p-4">
+        <h1 className="mb-4 px-2 text-sm font-semibold text-foreground">
           {t("title")}
         </h1>
         <ul className="space-y-0.5">
@@ -115,11 +115,11 @@ export default function SettingsPage() {
                   onClick={() => setTab(tab.id)}
                   className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
                     isActive
-                      ? "border-l-2 border-blue-600 bg-white font-medium text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:bg-white hover:text-gray-900"
+                      ? "border-l-2 border-primary bg-background font-medium text-primary shadow-sm"
+                      : "text-muted-foreground hover:bg-background hover:text-foreground"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-blue-600" : "text-gray-400"}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                   {t(`tab_${tab.id}`)}
                 </button>
               </li>
@@ -131,7 +131,7 @@ export default function SettingsPage() {
       {/* Main content */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
-          <h2 className="mb-6 text-lg font-semibold text-gray-900">
+          <h2 className="mb-6 text-lg font-semibold text-foreground">
             {t(`tab_${activeTab}`)}
           </h2>
 
@@ -224,7 +224,7 @@ function ProfileSection() {
   const initials = `${(form.data.first_name as string).charAt(0)}${(form.data.last_name as string).charAt(0)}`.toUpperCase() || "?";
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
+    <div className="rounded-lg border border-border bg-background p-6">
       <div className="space-y-6">
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -232,10 +232,10 @@ function ProfileSection() {
             {initials}
           </div>
           <div className="text-center sm:text-left">
-            <p className="text-sm font-medium text-gray-900">{t("profilePhoto")}</p>
+            <p className="text-sm font-medium text-foreground">{t("profilePhoto")}</p>
             <button
               type="button"
-              className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
             >
               <Camera className="h-3.5 w-3.5" />
               {t("changePhoto")}
@@ -246,21 +246,21 @@ function ProfileSection() {
         {/* First name / Last name */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">{tAuth("firstName")}</label>
+            <label className="block text-sm font-medium text-foreground">{tAuth("firstName")}</label>
             <input
               type="text"
               value={form.data.first_name as string}
               onChange={(e) => form.update({ first_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">{tAuth("lastName")}</label>
+            <label className="block text-sm font-medium text-foreground">{tAuth("lastName")}</label>
             <input
               type="text"
               value={form.data.last_name as string}
               onChange={(e) => form.update({ last_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -268,42 +268,42 @@ function ProfileSection() {
         {/* Phone / Email */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">{t("phone")}</label>
+            <label className="block text-sm font-medium text-foreground">{t("phone")}</label>
             <input
               type="tel"
               value={form.data.phone as string}
               onChange={(e) => form.update({ phone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">{tAuth("email")}</label>
+            <label className="block text-sm font-medium text-foreground">{tAuth("email")}</label>
             <input
               type="email"
               value={userEmail}
               readOnly
-              className="mt-1 block w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-500"
+              className="mt-1 block w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
             />
-            <p className="mt-1 text-xs text-gray-400">{t("emailReadOnly")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("emailReadOnly")}</p>
           </div>
         </div>
 
         {/* Job title */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-1">
           <div>
-            <label className="block text-sm font-medium text-gray-700">{t("jobTitle")}</label>
+            <label className="block text-sm font-medium text-foreground">{t("jobTitle")}</label>
             <input
               type="text"
               value={form.data.job_title as string}
               onChange={(e) => form.update({ job_title: e.target.value })}
               placeholder={t("jobTitlePlaceholder")}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
 
         {/* Save */}
-        <div className="border-t border-gray-100 pt-4">
+        <div className="border-t border-border pt-4">
           <SaveButton
             isDirty={form.isDirty}
             saving={form.saving}
@@ -383,19 +383,19 @@ function LanguageSection() {
   return (
     <div className="space-y-6">
       {/* Language */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Globe className="h-4 w-4 text-gray-400" />
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Globe className="h-4 w-4 text-muted-foreground" />
           {t("languageTitle")}
         </h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">{t("language")}</label>
+            <label className="block text-sm font-medium text-foreground">{t("language")}</label>
             <select
               value={form.data.preferred_language as string}
               onChange={(e) => form.update({ preferred_language: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="fr">Fran&ccedil;ais</option>
               <option value="en">English</option>
@@ -404,11 +404,11 @@ function LanguageSection() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">{t("dateFormat")}</label>
+            <label className="block text-sm font-medium text-foreground">{t("dateFormat")}</label>
             <select
               value={form.data.date_format as string}
               onChange={(e) => form.update({ date_format: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="dd.MM.yyyy">22.02.2026 (Suisse)</option>
               <option value="dd/MM/yyyy">22/02/2026 (France)</option>
@@ -418,11 +418,11 @@ function LanguageSection() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">{t("timezone")}</label>
+            <label className="block text-sm font-medium text-foreground">{t("timezone")}</label>
             <select
               value={form.data.timezone as string}
               onChange={(e) => form.update({ timezone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="Europe/Zurich">Europe/Zurich (CET)</option>
               <option value="Europe/Paris">Europe/Paris (CET)</option>
@@ -432,7 +432,7 @@ function LanguageSection() {
           </div>
         </div>
 
-        <div className="mt-5 border-t border-gray-100 pt-4">
+        <div className="mt-5 border-t border-border pt-4">
           <SaveButton
             isDirty={form.isDirty}
             saving={form.saving}
@@ -547,12 +547,12 @@ function NotificationsSection() {
   return (
     <div className="space-y-6">
       {/* Briefing preferences */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-background p-6">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold text-gray-900">{t("briefingPrefsTitle")}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t("briefingPrefsTitle")}</h3>
         </div>
-        <p className="mt-1 text-sm text-gray-500">{t("briefingPrefsDesc")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("briefingPrefsDesc")}</p>
 
         <div className="mt-4 space-y-4">
           <ToggleRow
@@ -566,14 +566,14 @@ function NotificationsSection() {
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">{t("briefingTime")}</p>
-                  <p className="text-xs text-gray-500">{t("briefingTimeDesc")}</p>
+                  <p className="text-sm font-medium text-foreground">{t("briefingTime")}</p>
+                  <p className="text-xs text-muted-foreground">{t("briefingTimeDesc")}</p>
                 </div>
                 <input
                   type="time"
                   value={briefingForm.data.briefingTime as string}
                   onChange={(e) => briefingForm.update({ briefingTime: e.target.value })}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700"
+                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
                 />
               </div>
 
@@ -587,11 +587,11 @@ function NotificationsSection() {
               {/* Project filter */}
               {projects.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700">{t("briefingProjects")}</p>
-                  <p className="text-xs text-gray-500">{t("briefingProjectsDesc")}</p>
-                  <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-sm font-medium text-foreground">{t("briefingProjects")}</p>
+                  <p className="text-xs text-muted-foreground">{t("briefingProjectsDesc")}</p>
+                  <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted p-3">
                     {projects.map((p) => (
-                      <label key={p.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-gray-900">
+                      <label key={p.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer hover:text-foreground">
                         <input
                           type="checkbox"
                           checked={selectedProjects.includes(p.id)}
@@ -604,14 +604,14 @@ function NotificationsSection() {
                             // Mark form dirty
                             briefingForm.update({});
                           }}
-                          className="rounded border-gray-300 text-blue-600"
+                          className="rounded border-border text-primary"
                         />
                         {p.name}
                       </label>
                     ))}
                   </div>
                   {selectedProjects.length === 0 && (
-                    <p className="mt-1 text-xs text-gray-400">{t("briefingAllProjects")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t("briefingAllProjects")}</p>
                   )}
                 </div>
               )}
@@ -619,7 +619,7 @@ function NotificationsSection() {
           )}
         </div>
 
-        <div className="mt-5 border-t border-gray-100 pt-4">
+        <div className="mt-5 border-t border-border pt-4">
           <SaveButton
             isDirty={briefingForm.isDirty || !prefsLoaded}
             saving={briefingForm.saving}
@@ -633,9 +633,9 @@ function NotificationsSection() {
       </div>
 
       {/* General notifications */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 text-sm font-semibold text-gray-900">{t("notifications")}</h3>
-        <p className="mb-4 text-sm text-gray-500">{t("notificationsDesc")}</p>
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 text-sm font-semibold text-foreground">{t("notifications")}</h3>
+        <p className="mb-4 text-sm text-muted-foreground">{t("notificationsDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -664,7 +664,7 @@ function NotificationsSection() {
           />
         </div>
 
-        <div className="mt-5 border-t border-gray-100 pt-4">
+        <div className="mt-5 border-t border-border pt-4">
           <SaveButton
             isDirty={notifsForm.isDirty}
             saving={notifsForm.saving}
@@ -714,18 +714,18 @@ function SecuritySection() {
   return (
     <div className="space-y-6">
       {/* Password */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Lock className="h-4 w-4 text-gray-400" />
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Lock className="h-4 w-4 text-muted-foreground" />
           {t("securityPassword")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("securityPasswordDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("securityPasswordDesc")}</p>
 
         <button
           type="button"
           onClick={handlePasswordReset}
           disabled={changingPassword}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
         >
           {changingPassword ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -743,32 +743,32 @@ function SecuritySection() {
       </div>
 
       {/* Active sessions */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Shield className="h-4 w-4 text-gray-400" />
+      <div className="rounded-lg border border-border bg-background p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Shield className="h-4 w-4 text-muted-foreground" />
           {t("securitySessions")}
         </h3>
-        <p className="mb-4 text-sm text-gray-500">{t("securitySessionsDesc")}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{t("securitySessionsDesc")}</p>
 
-        <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+        <div className="rounded-md border border-border bg-muted p-4">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500" />
             <div>
-              <p className="text-sm font-medium text-gray-700">{t("securityCurrentSession")}</p>
-              <p className="text-xs text-gray-500">{t("securityBrowserSession")}</p>
+              <p className="text-sm font-medium text-foreground">{t("securityCurrentSession")}</p>
+              <p className="text-xs text-muted-foreground">{t("securityBrowserSession")}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Danger zone */}
-      <div className="rounded-lg border border-red-200 bg-red-50/50 p-6">
-        <h3 className="mb-1 text-sm font-semibold text-red-800">{t("dangerZone")}</h3>
+      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6">
+        <h3 className="mb-1 text-sm font-semibold text-red-800 dark:text-red-400">{t("dangerZone")}</h3>
         <p className="mb-4 text-sm text-red-600">{t("dangerZoneDesc")}</p>
         <button
           type="button"
           disabled
-          className="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-600 opacity-50"
+          className="rounded-lg border border-red-500/20 bg-background px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 opacity-50"
         >
           {t("deleteAccount")}
         </button>
@@ -795,18 +795,18 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-gray-700">{label}</p>
-        {description && <p className="text-xs text-gray-500">{description}</p>}
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? "bg-brand" : "bg-gray-200"
+          checked ? "bg-brand" : "bg-muted"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-5 w-5 rounded-full bg-background shadow transition-transform ${
             checked ? "translate-x-5" : "translate-x-0"
           }`}
         />

@@ -30,7 +30,7 @@ export function SaveButton({
         className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 sm:w-auto ${
           isDirty
             ? "bg-blue-600 hover:bg-blue-700"
-            : "cursor-not-allowed bg-gray-300"
+            : "cursor-not-allowed bg-muted"
         }`}
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
