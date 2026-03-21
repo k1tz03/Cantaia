@@ -163,29 +163,29 @@ export default function NewProjectPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/projects"
-          className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-foreground">
             {t("newProject")}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">{t("newProjectDesc")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("newProjectDesc")}</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-3xl">
         {/* Section: Informations générales */}
-        <fieldset className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <legend className="px-2 text-sm font-semibold text-slate-900">
+        <fieldset className="rounded-xl border border-border bg-background p-6 shadow-sm">
+          <legend className="px-2 text-sm font-semibold text-foreground">
             {t("generalInfo")}
           </legend>
 
           <div className="grid gap-5 sm:grid-cols-2">
             {/* Nom du projet */}
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("projectName")} *
               </label>
               <input
@@ -194,13 +194,13 @@ export default function NewProjectPage() {
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 placeholder="Résidence Les Cèdres"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Code projet */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("projectCode")}
               </label>
               <input
@@ -208,19 +208,19 @@ export default function NewProjectPage() {
                 value={form.code}
                 onChange={(e) => updateField("code", e.target.value)}
                 placeholder="CED-2026"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Statut */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("status")}
               </label>
               <select
                 value={form.status}
                 onChange={(e) => updateField("status", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               >
                 {statusOptions.map((s) => (
                   <option key={s} value={s}>
@@ -232,7 +232,7 @@ export default function NewProjectPage() {
 
             {/* Client */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("client")}
               </label>
               <input
@@ -240,26 +240,26 @@ export default function NewProjectPage() {
                 value={form.client_name}
                 onChange={(e) => updateField("client_name", e.target.value)}
                 placeholder="Edifea SA"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Ville */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("city")}
               </label>
               <input
                 type="text"
                 value={form.city}
                 onChange={(e) => updateField("city", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Adresse */}
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("address")}
               </label>
               <input
@@ -267,37 +267,37 @@ export default function NewProjectPage() {
                 value={form.address}
                 onChange={(e) => updateField("address", e.target.value)}
                 placeholder="Chemin des Cèdres 12"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Dates */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("startDate")}
               </label>
               <input
                 type="date"
                 value={form.start_date}
                 onChange={(e) => updateField("start_date", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("endDate")}
               </label>
               <input
                 type="date"
                 value={form.end_date}
                 onChange={(e) => updateField("end_date", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
 
             {/* Budget */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("budget")}
               </label>
               <input
@@ -305,17 +305,17 @@ export default function NewProjectPage() {
                 value={form.budget_total}
                 onChange={(e) => updateField("budget_total", e.target.value)}
                 placeholder="28500000"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("currency")}
               </label>
               <select
                 value={form.currency}
                 onChange={(e) => updateField("currency", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               >
                 {currencyOptions.map((c) => (
                   <option key={c} value={c}>
@@ -327,7 +327,7 @@ export default function NewProjectPage() {
 
             {/* Couleur */}
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("color")}
               </label>
               <div className="flex flex-wrap gap-2">
@@ -338,7 +338,7 @@ export default function NewProjectPage() {
                     onClick={() => updateField("color", c)}
                     className={`h-8 w-8 rounded-full border-2 transition-all ${
                       form.color === c
-                        ? "border-slate-900 scale-110"
+                        ? "border-foreground scale-110"
                         : "border-transparent hover:scale-105"
                     }`}
                     style={{ backgroundColor: c }}
@@ -349,7 +349,7 @@ export default function NewProjectPage() {
 
             {/* Description */}
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("description")}
               </label>
               <textarea
@@ -357,26 +357,26 @@ export default function NewProjectPage() {
                 onChange={(e) => updateField("description", e.target.value)}
                 rows={3}
                 placeholder={t("descriptionPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
           </div>
         </fieldset>
 
         {/* Section: Classification emails */}
-        <fieldset className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <legend className="px-2 text-sm font-semibold text-slate-900">
+        <fieldset className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+          <legend className="px-2 text-sm font-semibold text-foreground">
             {t("emailClassification")}
           </legend>
 
           {/* Mots-clés */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
               {t("emailKeywords")}
             </label>
-            <p className="mb-2 text-xs text-slate-500">{t("emailKeywordsHelp")}</p>
+            <p className="mb-2 text-xs text-muted-foreground">{t("emailKeywordsHelp")}</p>
             {form.email_keywords.length > 0 && (
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] text-slate-400">
+              <div className="mb-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <Sparkles className="h-3 w-3" />
                 {t("emailKeywordsAuto")}
               </div>
@@ -390,7 +390,7 @@ export default function NewProjectPage() {
                       key={kw}
                       className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                         isAuto
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200"
                           : "bg-brand/10 text-brand"
                       }`}
                     >
@@ -410,12 +410,12 @@ export default function NewProjectPage() {
                 onChange={(e) => setKeywordInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
                 placeholder="campus rts, ecublens..."
-                className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               <button
                 type="button"
                 onClick={addKeyword}
-                className="rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                className="rounded-lg bg-muted px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -424,10 +424,10 @@ export default function NewProjectPage() {
 
           {/* Expéditeurs connus */}
           <div className="mt-5">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
               {t("emailSenders")}
             </label>
-            <p className="mb-2 text-xs text-slate-500">{t("emailSendersHelp")}</p>
+            <p className="mb-2 text-xs text-muted-foreground">{t("emailSendersHelp")}</p>
             <div className="flex gap-2">
               <input
                 type="email"
@@ -435,12 +435,12 @@ export default function NewProjectPage() {
                 onChange={(e) => setSenderInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSender())}
                 placeholder="j.martin@edifea.ch"
-                className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               <button
                 type="button"
                 onClick={addSender}
-                className="rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                className="rounded-lg bg-muted px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -450,7 +450,7 @@ export default function NewProjectPage() {
                 {form.email_senders.map((s) => (
                   <span
                     key={s}
-                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground"
                   >
                     {s}
                     <button type="button" onClick={() => removeSender(s)}>
@@ -465,7 +465,7 @@ export default function NewProjectPage() {
 
         {/* Error message */}
         {errorMsg && (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="mt-6 rounded-md border border-red-200 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
             {errorMsg}
           </div>
         )}
@@ -482,7 +482,7 @@ export default function NewProjectPage() {
           </button>
           <Link
             href="/projects"
-            className="rounded-lg px-6 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            className="rounded-lg px-6 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             {tc("cancel")}
           </Link>

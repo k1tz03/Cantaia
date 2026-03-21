@@ -120,8 +120,8 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-medium text-gray-900">{planningTitle}</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-base font-medium text-foreground">{planningTitle}</h3>
+            <p className="text-sm text-muted-foreground">
               {phasesCount} phases
               {endDate && <> — Fin estimee: {new Date(endDate).toLocaleDateString("fr-CH")}</>}
             </p>
@@ -142,9 +142,9 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
   // No planning — show empty state
   return (
     <div className="text-center py-16">
-      <CalendarRange className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-      <h3 className="text-base font-medium text-gray-900 mb-1">{t("noPlanning")}</h3>
-      <p className="text-sm text-gray-500 mb-6">{t("noPlanningDesc")}</p>
+      <CalendarRange className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+      <h3 className="text-base font-medium text-foreground mb-1">{t("noPlanning")}</h3>
+      <p className="text-sm text-muted-foreground mb-6">{t("noPlanningDesc")}</p>
 
       {submissions.length > 0 ? (
         <div className="space-y-3 max-w-xs mx-auto">
@@ -152,7 +152,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
             <select
               value={selectedSubmissionId || ""}
               onChange={(e) => setSelectedSubmissionId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
             >
               {submissions.map((s: any) => (
                 <option key={s.id} value={s.id}>
@@ -170,7 +170,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
           </button>
         </div>
       ) : (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Aucune soumission analysee pour ce projet.
         </p>
       )}
@@ -183,7 +183,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
             isGenerating={generating}
           />
           {generateError && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <p>{generateError}</p>

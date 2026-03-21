@@ -20,17 +20,17 @@ import {
 import type { ReceptionReserve } from "@cantaia/database";
 
 const severityConfig = {
-  minor: { label: "minor", color: "text-amber-600", bg: "bg-amber-100", icon: "🟡" },
-  major: { label: "major", color: "text-orange-600", bg: "bg-orange-100", icon: "🔴" },
-  blocking: { label: "blocking", color: "text-red-600", bg: "bg-red-100", icon: "🔴" },
+  minor: { label: "minor", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", icon: "🟡" },
+  major: { label: "major", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-500/10", icon: "🔴" },
+  blocking: { label: "blocking", color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10", icon: "🔴" },
 };
 
 const statusConfig = {
-  open: { color: "text-red-600", bg: "bg-red-50", icon: AlertTriangle },
-  in_progress: { color: "text-blue-600", bg: "bg-blue-50", icon: Clock },
-  corrected: { color: "text-amber-600", bg: "bg-amber-50", icon: Clock },
-  verified: { color: "text-green-600", bg: "bg-green-50", icon: CheckCircle },
-  disputed: { color: "text-purple-600", bg: "bg-purple-50", icon: XCircle },
+  open: { color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10", icon: AlertTriangle },
+  in_progress: { color: "text-primary", bg: "bg-primary/10", icon: Clock },
+  corrected: { color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", icon: Clock },
+  verified: { color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10", icon: CheckCircle },
+  disputed: { color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10", icon: XCircle },
 };
 
 export default function ReservesPage() {
@@ -55,7 +55,7 @@ export default function ReservesPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-slate-500">{t("projectNotFound")}</p>
+        <p className="text-muted-foreground">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -91,15 +91,15 @@ export default function ReservesPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          className="mt-1 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">
+          <h1 className="text-xl font-semibold text-foreground">
             {t("reservesTitle")} — {project.name}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {reception?.reception_date && `PV de réception du ${formatDate(reception.reception_date)}`}
             {" — "}{totalCount} {t("reserves").toLowerCase()}
           </p>
@@ -109,10 +109,10 @@ export default function ReservesPage() {
       {/* Progress */}
       <div className="mt-6">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-slate-700">{t("progression")}</span>
-          <span className="text-slate-500">{verifiedCount}/{totalCount} {t("reserveVerified").toLowerCase()}</span>
+          <span className="font-medium text-foreground">{t("progression")}</span>
+          <span className="text-muted-foreground">{verifiedCount}/{totalCount} {t("reserveVerified").toLowerCase()}</span>
         </div>
-        <div className="mt-2 h-2.5 w-full rounded-full bg-slate-100">
+        <div className="mt-2 h-2.5 w-full rounded-full bg-muted">
           <div
             className="h-2.5 rounded-full bg-green-500 transition-all duration-500"
             style={{ width: totalCount > 0 ? `${(verifiedCount / totalCount) * 100}%` : "0%" }}
@@ -122,14 +122,14 @@ export default function ReservesPage() {
 
       {/* All verified */}
       {allVerified && (
-        <div className="mt-6 rounded-md border border-green-200 bg-green-50 p-4">
+        <div className="mt-6 rounded-md border border-green-200 bg-green-500/10 p-4">
           <div className="flex items-center gap-3">
             <CheckCircle className="h-5 w-5 text-green-500" />
             <div>
-              <p className="text-sm font-medium text-green-800">{t("allReservesLifted")}</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-400">{t("allReservesLifted")}</p>
               <button
                 type="button"
-                className="mt-1 text-xs font-medium text-green-700 underline hover:text-green-800"
+                className="mt-1 text-xs font-medium text-green-700 dark:text-green-400 underline hover:text-green-800 dark:text-green-400"
               >
                 {t("generateLiftingPV")}
               </button>
@@ -139,19 +139,19 @@ export default function ReservesPage() {
       )}
 
       {/* Reserves table */}
-      <div className="mt-6 overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="mt-6 overflow-x-auto rounded-md border border-border bg-background">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("reserveRef")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("reserveDescription")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("reserveLot")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("reserveSeverity")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("deadline")}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t("reserveStatus")}</th>
+            <tr className="border-b border-border bg-muted">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("reserveRef")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("reserveDescription")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("reserveLot")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("reserveSeverity")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("deadline")}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("reserveStatus")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {reserves.map((reserve, index) => {
               const sev = severityConfig[reserve.severity];
               const stat = statusConfig[reserve.status];
@@ -162,17 +162,17 @@ export default function ReservesPage() {
                 <tr
                   key={reserve.id}
                   onClick={() => setSelectedReserve(reserve)}
-                  className={`cursor-pointer transition-colors hover:bg-slate-50 ${
-                    selectedReserve?.id === reserve.id ? "bg-blue-50" : ""
-                  } ${overdue ? "bg-red-50/50" : ""}`}
+                  className={`cursor-pointer transition-colors hover:bg-muted ${
+                    selectedReserve?.id === reserve.id ? "bg-primary/10" : ""
+                  } ${overdue ? "bg-red-500/10" : ""}`}
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     R-{String(index + 1).padStart(3, "0")}
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 font-medium text-slate-800">
+                  <td className="max-w-xs truncate px-4 py-3 font-medium text-foreground">
                     {reserve.description}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
                     {reserve.cfc_code && `CFC ${reserve.cfc_code}`}
                   </td>
                   <td className="px-4 py-3">
@@ -180,7 +180,7 @@ export default function ReservesPage() {
                       {sev.icon} {t(sev.label)}
                     </span>
                   </td>
-                  <td className={`px-4 py-3 text-xs ${overdue ? "font-medium text-red-600" : "text-slate-500"}`}>
+                  <td className={`px-4 py-3 text-xs ${overdue ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
                     {reserve.deadline ? formatDate(reserve.deadline) : "—"}
                     {overdue && <span className="ml-1">⚠️</span>}
                   </td>
@@ -199,15 +199,15 @@ export default function ReservesPage() {
 
       {/* Detail panel */}
       {selectedReserve && (
-        <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-            <h3 className="text-sm font-semibold text-slate-800">
+        <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-xl">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <h3 className="text-sm font-semibold text-foreground">
               {selectedReserve.description}
             </h3>
             <button
               type="button"
               onClick={() => setSelectedReserve(null)}
-              className="rounded-md p-1 text-slate-400 hover:bg-slate-100"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
             >
               <X className="h-4 w-4" />
             </button>
@@ -216,23 +216,23 @@ export default function ReservesPage() {
           <div className="flex-1 overflow-y-auto p-5">
             <dl className="space-y-4 text-sm">
               <div>
-                <dt className="text-xs font-medium text-slate-500">{t("reserveLocation")}</dt>
-                <dd className="mt-0.5 text-slate-800">{selectedReserve.location || "—"}</dd>
+                <dt className="text-xs font-medium text-muted-foreground">{t("reserveLocation")}</dt>
+                <dd className="mt-0.5 text-foreground">{selectedReserve.location || "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-slate-500">{t("reserveLot")}</dt>
-                <dd className="mt-0.5 text-slate-800">
+                <dt className="text-xs font-medium text-muted-foreground">{t("reserveLot")}</dt>
+                <dd className="mt-0.5 text-foreground">
                   {selectedReserve.cfc_code && `CFC ${selectedReserve.cfc_code} — `}
                   {selectedReserve.lot_name || "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-slate-500">{t("company")}</dt>
-                <dd className="mt-0.5 text-slate-800">{selectedReserve.responsible_company || "—"}</dd>
+                <dt className="text-xs font-medium text-muted-foreground">{t("company")}</dt>
+                <dd className="mt-0.5 text-foreground">{selectedReserve.responsible_company || "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-slate-500">{t("deadline")}</dt>
-                <dd className={`mt-0.5 ${isOverdue(selectedReserve) ? "font-medium text-red-600" : "text-slate-800"}`}>
+                <dt className="text-xs font-medium text-muted-foreground">{t("deadline")}</dt>
+                <dd className={`mt-0.5 ${isOverdue(selectedReserve) ? "font-medium text-red-600 dark:text-red-400" : "text-foreground"}`}>
                   {selectedReserve.deadline ? formatDate(selectedReserve.deadline) : "—"}
                   {isOverdue(selectedReserve) && ` — ${t("overdue")}`}
                 </dd>
@@ -240,15 +240,15 @@ export default function ReservesPage() {
 
               {selectedReserve.correction_notes && (
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">{t("correctionNotes")}</dt>
-                  <dd className="mt-0.5 text-slate-800">{selectedReserve.correction_notes}</dd>
+                  <dt className="text-xs font-medium text-muted-foreground">{t("correctionNotes")}</dt>
+                  <dd className="mt-0.5 text-foreground">{selectedReserve.correction_notes}</dd>
                 </div>
               )}
 
               {selectedReserve.corrected_at && (
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">{t("correctedAt")}</dt>
-                  <dd className="mt-0.5 text-slate-800">
+                  <dt className="text-xs font-medium text-muted-foreground">{t("correctedAt")}</dt>
+                  <dd className="mt-0.5 text-foreground">
                     {formatDate(selectedReserve.corrected_at)} par {selectedReserve.corrected_by}
                   </dd>
                 </div>
@@ -256,24 +256,24 @@ export default function ReservesPage() {
 
               {selectedReserve.verified_at && (
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">{t("verifiedAt")}</dt>
-                  <dd className="mt-0.5 text-slate-800">{formatDate(selectedReserve.verified_at)}</dd>
+                  <dt className="text-xs font-medium text-muted-foreground">{t("verifiedAt")}</dt>
+                  <dd className="mt-0.5 text-foreground">{formatDate(selectedReserve.verified_at)}</dd>
                 </div>
               )}
             </dl>
 
             {/* Actions */}
             {selectedReserve.status !== "verified" && (
-              <div className="mt-6 space-y-3 border-t border-slate-200 pt-4">
+              <div className="mt-6 space-y-3 border-t border-border pt-4">
                 {(selectedReserve.status === "open" || selectedReserve.status === "in_progress") && (
                   <>
                     <div>
-                      <label className="text-xs font-medium text-slate-500">{t("correctionNotes")}</label>
+                      <label className="text-xs font-medium text-muted-foreground">{t("correctionNotes")}</label>
                       <textarea
                         value={correctionNotes}
                         onChange={(e) => setCorrectionNotes(e.target.value)}
                         rows={3}
-                        className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                         placeholder={t("correctionPlaceholder")}
                       />
                     </div>
@@ -301,7 +301,7 @@ export default function ReservesPage() {
                   <button
                     type="button"
                     onClick={() => handleMarkDisputed(selectedReserve.id)}
-                    className="w-full rounded-md border border-purple-200 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50"
+                    className="w-full rounded-md border border-purple-200 px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
                   >
                     {t("markDisputed")}
                   </button>

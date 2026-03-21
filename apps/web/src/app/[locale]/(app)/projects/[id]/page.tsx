@@ -131,7 +131,7 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-slate-500">{t("projectNotFound")}</p>
+        <p className="text-muted-foreground">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -159,7 +159,7 @@ export default function ProjectDetailPage() {
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <Link
             href="/projects"
-            className="mt-1 shrink-0 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="mt-1 shrink-0 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -169,14 +169,14 @@ export default function ProjectDetailPage() {
                 className="h-4 w-4 shrink-0 rounded-full"
                 style={{ backgroundColor: project.color }}
               />
-              <h1 className="text-lg sm:text-xl font-semibold text-slate-800 truncate">
+              <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
                 {project.name}
               </h1>
               {project.code && (
-                <span className="text-sm text-slate-400">{project.code}</span>
+                <span className="text-sm text-muted-foreground">{project.code}</span>
               )}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {project.client_name && (
                 <span className="flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5" />
@@ -193,14 +193,14 @@ export default function ProjectDetailPage() {
         </div>
         <Link
           href={`/projects/${project.id}/settings`}
-          className="hidden rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 sm:inline-flex"
+          className="hidden rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
         >
           <Settings className="mr-2 h-4 w-4" />
           {t("settingsTab")}
         </Link>
       </div>
 
-      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-slate-200">
+      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-border">
         <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -212,7 +212,7 @@ export default function ProjectDetailPage() {
                 className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
                     ? "border-brand text-brand"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
                 <Icon className="h-4 w-4" />
