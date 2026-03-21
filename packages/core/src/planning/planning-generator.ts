@@ -233,10 +233,10 @@ const DIVERS_PHASE: SIAPhaseDefinition = {
   order: 7,
 };
 
-/** Max total planning duration in working days (3 years) */
-const MAX_TOTAL_DAYS = 1095;
-/** Max duration per individual task in working days */
-const MAX_TASK_DAYS = 365;
+/** Max total planning duration in working days (~2 years) */
+const MAX_TOTAL_DAYS = 500;
+/** Max duration per individual task in working days (~6 months) */
+const MAX_TASK_DAYS = 120;
 /** Min duration per individual task in working days */
 const MIN_TASK_DAYS = 1;
 
@@ -709,7 +709,7 @@ function aggregateIntoSyntheticTasks(
   const syntheticTasks = new Map<string, SyntheticTask>();
 
   for (const [groupName, groupItems] of groupMap) {
-    // Calculate duration for each item individually, then take the BOTTLENECK (longest)
+    // Calculate duration for each item individually
     let bottleneckDuration = 0;
     let bottleneckResult: DurationResult | null = null;
     let bottleneckTeamSize = 2;
@@ -724,7 +724,7 @@ function aggregateIntoSyntheticTasks(
       }
     }
 
-    // Find dominant unit (most items)
+    // Find dominant unit (most quantity, not most items)
     let dominantUnit: string | null = null;
     let dominantQty: number | null = null;
     if (unitCounts.size === 1) {
@@ -732,11 +732,14 @@ function aggregateIntoSyntheticTasks(
       dominantUnit = entries[0][0];
       dominantQty = entries[0][1];
     } else if (unitCounts.size > 1) {
-      // Mixed units: use item count as quantity
-      dominantUnit = 'postes';
-      dominantQty = groupItems.length;
+      // Mixed units: pick the unit with the most total quantity
+      let maxQty = 0;
+      for (const [u, q] of unitCounts) {
+        if (q > maxQty) { maxQty = q; dominantUnit = u; dominantQty = q; }
+      }
     }
 
+    // Calculate duration per item — bottleneck (longest) determines phase timing
     for (const item of groupItems) {
       if (!item.quantity || !item.unit) continue;
 

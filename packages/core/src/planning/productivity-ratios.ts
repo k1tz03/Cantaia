@@ -57,6 +57,38 @@ const CFC_1_TERRASSEMENT: ProductivityRatio[] = [
     team_size_default: 2,
     seasonal_factors: { winter: 0.70, spring: 0.95, summer: 1.00, autumn: 0.90 },
   },
+  {
+    cfc_code: '117',
+    description: 'Terrassement — travaux spéciaux (blindage, palplanches)',
+    unit: 'm²',
+    productivity_per_day: 15,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.50, spring: 0.85, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '117',
+    description: 'Terrassement — travaux spéciaux (volume)',
+    unit: 'm³',
+    productivity_per_day: 60,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.50, spring: 0.85, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '151',
+    description: 'Canalisations et drainage — pose tuyaux',
+    unit: 'ml',
+    productivity_per_day: 20,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
+  {
+    cfc_code: '151',
+    description: 'Canalisations et drainage — regards et raccords',
+    unit: 'pce',
+    productivity_per_day: 3,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.55, spring: 0.90, summer: 1.00, autumn: 0.85 },
+  },
 ];
 
 // ============================================================================
@@ -587,6 +619,30 @@ const CFC_273_PLATRERIE: ProductivityRatio[] = [
 const CFC_3_SYSTEMES: ProductivityRatio[] = [
   {
     cfc_code: '311',
+    description: 'Aménagements extérieurs — terrassement, plantations, revêtements',
+    unit: 'm²',
+    productivity_per_day: 30,
+    team_size_default: 3,
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '311',
+    description: 'Aménagements extérieurs — clôtures, bordures, mobilier',
+    unit: 'ml',
+    productivity_per_day: 15,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '311',
+    description: 'Aménagements extérieurs — éléments ponctuels',
+    unit: 'pce',
+    productivity_per_day: 4,
+    team_size_default: 2,
+    seasonal_factors: { winter: 0.50, spring: 0.90, summer: 1.00, autumn: 0.80 },
+  },
+  {
+    cfc_code: '312',
     description: 'Ascenseur — installation complète',
     unit: 'pce',
     productivity_per_day: 0.05,
@@ -594,7 +650,7 @@ const CFC_3_SYSTEMES: ProductivityRatio[] = [
     seasonal_factors: { winter: 0.90, spring: 1.00, summer: 1.00, autumn: 0.95 },
   },
   {
-    cfc_code: '312',
+    cfc_code: '313',
     description: 'Cuisine professionnelle — installation équipements',
     unit: 'pce',
     productivity_per_day: 0.25,

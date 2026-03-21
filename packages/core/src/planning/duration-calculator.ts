@@ -218,16 +218,18 @@ export function countWorkingDays(start: Date, end: Date): number {
 function estimateFallbackProductivity(unit: string): number {
   const u = unit.toLowerCase().replace(/²/g, '2').replace(/³/g, '3');
   switch (u) {
-    case 'm2':  return 10;   // ~10 m² per day (generic surface work)
-    case 'm3':  return 15;   // ~15 m³ per day (generic volume work)
+    case 'm2':  return 15;     // ~15 m² per day (generic surface work)
+    case 'm3':  return 20;     // ~20 m³ per day (generic volume work)
     case 'ml':
-    case 'm':   return 20;   // ~20 ml per day (generic linear work)
+    case 'm':   return 25;     // ~25 ml per day (generic linear work)
     case 'pce':
-    case 'st':  return 4;    // ~4 pieces per day (generic)
-    case 'kg':  return 200;  // ~200 kg per day (generic)
-    case 'h':   return 8;    // ~8 hours per day = 1 FTE day
-    case 'f':   return 1;    // 1 forfait per day
-    default:    return 5;    // very conservative default
+    case 'st':  return 5;      // ~5 pieces per day (generic)
+    case 'kg':  return 200;    // ~200 kg per day (generic)
+    case 'h':   return 8;      // ~8 hours per day = 1 FTE day
+    case 'f':   return 1;      // 1 forfait per day
+    case 'postes':
+    case 'poste': return 0.5;  // ~2 days per "poste" (mixed-unit aggregate: each poste ≈ a sub-task)
+    default:    return 8;      // moderate default
   }
 }
 

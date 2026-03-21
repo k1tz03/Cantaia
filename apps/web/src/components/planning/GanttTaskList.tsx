@@ -42,7 +42,8 @@ function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${day}.${month}`;
+  const year = String(d.getFullYear()).slice(2); // "26", "27", etc.
+  return `${day}.${month}.${year}`;
 }
 
 function toDateInputValue(dateStr: string): string {
@@ -100,8 +101,7 @@ function calculateWBS(phases: PlanningPhase[]): Map<string, string> {
           wbs.set(task.id, `J${milestoneCount}`);
         } else {
           taskIndex++;
-          const cfcSuffix = task.cfc_code ? ` (CFC ${task.cfc_code})` : "";
-          wbs.set(task.id, `${pi + 1}.${taskIndex}${cfcSuffix}`);
+          wbs.set(task.id, `${pi + 1}.${taskIndex}`);
         }
       });
     }
@@ -525,6 +525,11 @@ export default function GanttTaskList({
                       "name",
                       task.name,
                       "text-sm text-gray-700 truncate cursor-text",
+                    )}
+                    {task.cfc_code && (
+                      <span className="shrink-0 text-[10px] font-mono text-gray-400 bg-gray-100 px-1 rounded">
+                        {task.cfc_code}
+                      </span>
                     )}
                   </div>
 
