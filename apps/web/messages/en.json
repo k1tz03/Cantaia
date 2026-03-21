@@ -76,7 +76,10 @@
     "projectSearch": "Search project…",
     "recentProjects": "Recent projects",
     "pvSeance": "Meeting minutes",
-    "planning": "Planning"
+    "planning": "Planning",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
   },
   "coming_soon": {
     "expected": "Available",

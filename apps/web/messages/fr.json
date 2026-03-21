@@ -76,7 +76,10 @@
     "projectSearch": "Rechercher un projet…",
     "recentProjects": "Projets récents",
     "pvSeance": "PV de séance",
-    "planning": "Planning"
+    "planning": "Planning",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système"
   },
   "coming_soon": {
     "expected": "Disponible",
