@@ -121,7 +121,7 @@ export default function BriefingPage() {
   if (!briefing) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -133,23 +133,23 @@ export default function BriefingPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+            <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
               <Sparkles className="h-5 w-5 text-amber-500" />
               {t("pageTitle")}
             </h1>
-            <p className="mt-0.5 text-sm text-gray-500">{briefing.greeting}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{briefing.greeting}</p>
           </div>
         </div>
         {isToday && (
           <button
             onClick={handleRegenerate}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -165,7 +165,7 @@ export default function BriefingPage() {
       <div className="mt-4 flex items-center gap-3">
         <button
           onClick={() => navigateDate(-1)}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -174,12 +174,12 @@ export default function BriefingPage() {
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
           max={new Date().toISOString().split("T")[0]}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700"
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
         />
         <button
           onClick={() => navigateDate(1)}
           disabled={isToday}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground disabled:opacity-30"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -236,7 +236,7 @@ export default function BriefingPage() {
       {/* Priority alerts */}
       {briefing.priority_alerts.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             {t("alertsTitle")}
           </h2>
@@ -244,7 +244,7 @@ export default function BriefingPage() {
             {briefing.priority_alerts.map((alert, i) => (
               <div
                 key={i}
-                className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3"
+                className="rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3"
               >
                 <p className="text-sm font-medium text-amber-900">{alert}</p>
               </div>
@@ -266,7 +266,7 @@ export default function BriefingPage() {
       {/* Recent visits needing attention */}
       {recentVisits.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <UserCheck className="h-4 w-4 text-blue-500" />
             {tv("recentVisits")}
           </h2>
@@ -275,19 +275,19 @@ export default function BriefingPage() {
               <Link
                 key={v.id}
                 href={`/visits/${v.id}`}
-                className="flex items-center justify-between rounded-md border border-blue-100 bg-blue-50/50 px-4 py-3 hover:border-blue-200"
+                className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/10/50 px-4 py-3 hover:border-primary/20"
               >
                 <div className="flex items-center gap-3">
-                  <UserCheck className="h-4 w-4 text-blue-600" />
+                  <UserCheck className="h-4 w-4 text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{v.client_name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">{v.client_name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {new Date(v.visit_date).toLocaleDateString("fr-CH")}
                     </p>
                   </div>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  v.status === "report_ready" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
+                  v.status === "report_ready" ? "bg-blue-100 text-primary" : "bg-red-100 text-red-700 dark:text-red-400"
                 }`}>
                   {v.status === "report_ready" ? tv("statusReportReady") : tv("statusRecording")}
                 </span>
@@ -300,7 +300,7 @@ export default function BriefingPage() {
       {/* Submission deadlines */}
       {briefing.submission_deadlines && briefing.submission_deadlines.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <FileText className="h-4 w-4 text-purple-500" />
             {t("deadlinesTitle")}
           </h2>
@@ -310,32 +310,32 @@ export default function BriefingPage() {
                 key={i}
                 className={`flex items-center justify-between rounded-md border px-4 py-3 ${
                   d.days_remaining <= 3
-                    ? "border-red-200 bg-red-50"
+                    ? "border-red-500/20 bg-red-500/10"
                     : d.days_remaining <= 7
-                      ? "border-amber-200 bg-amber-50"
-                      : "border-purple-100 bg-purple-50/50"
+                      ? "border-amber-500/20 bg-amber-500/10"
+                      : "border-purple-500/20 bg-purple-500/10"
                 }`}
               >
                 <div>
                   <p className={`text-sm font-medium ${
-                    d.days_remaining <= 3 ? "text-red-900" : d.days_remaining <= 7 ? "text-amber-900" : "text-gray-800"
+                    d.days_remaining <= 3 ? "text-red-900" : d.days_remaining <= 7 ? "text-amber-900" : "text-foreground"
                   }`}>
                     {d.title}
                   </p>
-                  <p className="text-xs text-gray-500">{d.project}</p>
+                  <p className="text-xs text-muted-foreground">{d.project}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold ${
-                    d.days_remaining <= 3 ? "text-red-700" : d.days_remaining <= 7 ? "text-amber-700" : "text-purple-700"
+                    d.days_remaining <= 3 ? "text-red-700 dark:text-red-400" : d.days_remaining <= 7 ? "text-amber-700 dark:text-amber-400" : "text-purple-700 dark:text-purple-400"
                   }`}>
                     {d.days_remaining}j
                   </p>
-                  <p className="text-xs text-gray-500">{d.deadline}</p>
+                  <p className="text-xs text-muted-foreground">{d.deadline}</p>
                   {d.note && (
                     <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       d.days_remaining <= 3
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
+                        ? "bg-red-100 text-red-700 dark:text-red-400"
+                        : "bg-amber-100 text-amber-700 dark:text-amber-400"
                     }`}>
                       {d.note}
                     </span>
@@ -349,28 +349,28 @@ export default function BriefingPage() {
 
       {/* Projects */}
       <div className="mt-6">
-        <h2 className="text-sm font-semibold text-gray-800">
+        <h2 className="text-sm font-semibold text-foreground">
           {t("projectsTitle")}
         </h2>
         <div className="mt-3 space-y-3">
           {briefing.projects.map((project) => (
             <div
               key={project.project_id}
-              className="rounded-lg border border-gray-200 bg-white p-4"
+              className="rounded-lg border border-border bg-background p-4"
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">{project.status_emoji}</span>
-                <h3 className="text-sm font-semibold text-gray-800">
+                <h3 className="text-sm font-semibold text-foreground">
                   {project.name}
                 </h3>
               </div>
-              <p className="mt-1.5 text-sm text-gray-600">{project.summary}</p>
+              <p className="mt-1.5 text-sm text-muted-foreground">{project.summary}</p>
               {project.action_items.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {project.action_items.map((item, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-sm text-gray-700"
+                      className="flex items-start gap-2 text-sm text-foreground"
                     >
                       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                       {item}
@@ -386,7 +386,7 @@ export default function BriefingPage() {
       {/* Today's meetings */}
       {briefing.meetings_today.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Calendar className="h-4 w-4 text-blue-500" />
             {t("meetingsTitle")}
           </h2>
@@ -394,16 +394,16 @@ export default function BriefingPage() {
             {briefing.meetings_today.map((meeting, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50/50 px-4 py-3"
+                className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10/50 px-4 py-3"
               >
-                <span className="text-sm font-semibold text-blue-800">
+                <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
                   {meeting.time}
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800">
+                  <p className="text-sm font-medium text-foreground">
                     {meeting.title}
                   </p>
-                  <p className="text-xs text-gray-500">{meeting.project}</p>
+                  <p className="text-xs text-muted-foreground">{meeting.project}</p>
                 </div>
               </div>
             ))}
@@ -412,18 +412,18 @@ export default function BriefingPage() {
       )}
 
       {/* Global summary */}
-      <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <h2 className="text-sm font-semibold text-gray-800">
+      <div className="mt-6 rounded-lg border border-border bg-muted p-4">
+        <h2 className="text-sm font-semibold text-foreground">
           {t("summaryTitle")}
         </h2>
-        <p className="mt-1.5 text-sm text-gray-600">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           {briefing.global_summary}
         </p>
       </div>
 
       {/* Mode indicator */}
       <div className="mt-4 text-center">
-        <span className="text-[10px] text-gray-400">
+        <span className="text-[10px] text-muted-foreground">
           {briefing.mode === "ai" ? t("generatedByAI") : t("generatedFallback")}
         </span>
       </div>
@@ -445,15 +445,15 @@ function StatCard({
   color?: "red" | "amber" | "blue";
 }) {
   const colorClasses = {
-    red: "border-red-200 bg-red-50 text-red-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    red: "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400",
+    amber: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    blue: "border-primary/20 bg-primary/10 text-primary",
   };
 
   return (
     <div
       className={`rounded-md border p-3 text-center ${
-        color ? colorClasses[color] : "border-gray-200 bg-white text-gray-700"
+        color ? colorClasses[color] : "border-border bg-background text-foreground"
       }`}
     >
       <div className="mx-auto mb-1 flex justify-center opacity-60">{icon}</div>

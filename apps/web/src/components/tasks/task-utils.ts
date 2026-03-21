@@ -37,10 +37,10 @@ export function formatDateShort(dateStr: string): string {
 }
 
 export const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; bg: string; dot: string }> = {
-  urgent: { label: "Urgente", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-500" },
-  high: { label: "Haute", color: "text-red-600", bg: "bg-red-50", dot: "bg-red-400" },
-  medium: { label: "Moyenne", color: "text-amber-600", bg: "bg-amber-50", dot: "bg-amber-400" },
-  low: { label: "Basse", color: "text-green-600", bg: "bg-green-50", dot: "bg-green-400" },
+  urgent: { label: "Urgente", color: "text-red-700 dark:text-red-400", bg: "bg-red-500/10", dot: "bg-red-500" },
+  high: { label: "Haute", color: "text-red-600", bg: "bg-red-500/10", dot: "bg-red-400" },
+  medium: { label: "Moyenne", color: "text-amber-600", bg: "bg-amber-500/10", dot: "bg-amber-400" },
+  low: { label: "Basse", color: "text-green-600", bg: "bg-green-500/10", dot: "bg-green-400" },
 };
 
 export const SOURCE_CONFIG: Record<TaskSource, { icon: React.ElementType; label: string }> = {

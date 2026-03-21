@@ -156,16 +156,16 @@ export function TaskCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-lg rounded-lg bg-background shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <h2 className="text-sm font-semibold text-foreground">
             {isEdit ? t("editTask") : t("newTask")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -177,7 +177,7 @@ export function TaskCreateModal({
             <div className="space-y-4">
               {/* Error banner */}
               {error && (
-                <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-500/20">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
@@ -185,15 +185,15 @@ export function TaskCreateModal({
 
               {/* Title */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   {t("taskTitle")} *
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    submitted && missingTitle ? fieldErrorClass : "border-gray-300"
+                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                    submitted && missingTitle ? fieldErrorClass : "border-border"
                   }`}
                   placeholder="Ex: Valider plans béton sous-sol B2"
                 />
@@ -204,14 +204,14 @@ export function TaskCreateModal({
 
               {/* Project */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   {t("taskProject")} *
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none ${
-                    submitted && missingProject ? fieldErrorClass : "border-gray-300"
+                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none ${
+                    submitted && missingProject ? fieldErrorClass : "border-border"
                   }`}
                 >
                   <option value="">— Sélectionner un projet —</option>
@@ -228,14 +228,14 @@ export function TaskCreateModal({
 
               {/* Description */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   {t("taskDescription")}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   placeholder="Détails optionnels..."
                 />
               </div>
@@ -243,26 +243,26 @@ export function TaskCreateModal({
               {/* Assigned + Company */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("taskAssigned")}
                   </label>
                   <input
                     type="text"
                     value={assignedName}
                     onChange={(e) => setAssignedName(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                     placeholder="Nom"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("taskCompany")}
                   </label>
                   <input
                     type="text"
                     value={assignedCompany}
                     onChange={(e) => setAssignedCompany(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                     placeholder="Entreprise"
                   />
                 </div>
@@ -270,7 +270,7 @@ export function TaskCreateModal({
 
               {/* Priority */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-1 block text-xs font-medium text-foreground">
                   {t("priority")}
                 </label>
                 <div className="flex gap-3">
@@ -281,7 +281,7 @@ export function TaskCreateModal({
                         name="priority"
                         checked={priority === p}
                         onChange={() => setPriority(p)}
-                        className="h-3.5 w-3.5 border-gray-300 text-blue-600"
+                        className="h-3.5 w-3.5 border-border text-primary"
                       />
                       {t(`priority${p.charAt(0).toUpperCase() + p.slice(1)}` as "priorityLow")}
                     </label>
@@ -292,15 +292,15 @@ export function TaskCreateModal({
               {/* Deadline + Status */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("taskDeadline")} *
                   </label>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none ${
-                      submitted && missingDeadline ? fieldErrorClass : "border-gray-300"
+                    className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none ${
+                      submitted && missingDeadline ? fieldErrorClass : "border-border"
                     }`}
                   />
                   {submitted && missingDeadline && (
@@ -308,13 +308,13 @@ export function TaskCreateModal({
                   )}
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("status")}
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   >
                     <option value="todo">{t("statusTodo")}</option>
                     <option value="in_progress">{t("statusInProgress")}</option>
@@ -327,13 +327,13 @@ export function TaskCreateModal({
               {/* Reminder + Lot */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("taskReminder")}
                   </label>
                   <select
                     value={reminder}
                     onChange={(e) => setReminder(e.target.value as "none")}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   >
                     <option value="none">{t("reminderNone")}</option>
                     <option value="1_day">{t("reminder1Day")}</option>
@@ -342,14 +342,14 @@ export function TaskCreateModal({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-foreground">
                     {t("taskLot")}
                   </label>
                   <input
                     type="text"
                     value={lotCode}
                     onChange={(e) => setLotCode(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                     placeholder="Ex: CFC 211"
                   />
                 </div>
@@ -357,9 +357,9 @@ export function TaskCreateModal({
 
               {/* Source info (read-only) */}
               {(prefill?.source || editTask?.source_reference) && (
-                <div className="rounded-md bg-gray-50 px-3 py-2">
-                  <p className="text-[10px] font-medium uppercase text-gray-500">{t("sourceLabel")}</p>
-                  <p className="text-xs text-gray-600">
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <p className="text-[10px] font-medium uppercase text-muted-foreground">{t("sourceLabel")}</p>
+                  <p className="text-xs text-muted-foreground">
                     {prefill?.source_reference || editTask?.source_reference || "—"}
                   </p>
                 </div>
@@ -368,10 +368,10 @@ export function TaskCreateModal({
           </div>
 
           {/* Fixed footer — always visible */}
-          <div className="border-t border-gray-200 px-5 py-3.5">
+          <div className="border-t border-border px-5 py-3.5">
             {/* Error shown near submit button so user always sees it */}
             {error && (
-              <div className="mb-3 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+              <div className="mb-3 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-500/20">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
@@ -380,7 +380,7 @@ export function TaskCreateModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               {t("cancel") || "Annuler"}
             </button>

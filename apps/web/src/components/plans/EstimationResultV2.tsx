@@ -68,14 +68,14 @@ function SourceBadge({ source, detailSource }: { source: PriceSource; detailSour
     historique_interne: {
       label: isRealData ? "Données réelles" : "Historique",
       bg: isRealData ? "bg-emerald-100" : "bg-green-100",
-      text: isRealData ? "text-emerald-800" : "text-green-800",
+      text: isRealData ? "text-emerald-800" : "text-green-800 dark:text-green-300",
     },
-    benchmark_cantaia: { label: "Benchmark", bg: "bg-blue-100", text: "text-blue-800" },
-    referentiel_crb: { label: "CRB", bg: "bg-yellow-100", text: "text-yellow-800" },
-    ratio_estimation: { label: "Ratio", bg: "bg-orange-100", text: "text-orange-800" },
-    estimation_ia: { label: "Estimation IA", bg: "bg-red-100", text: "text-red-800" },
-    consensus_multi_ia: { label: "Consensus IA", bg: "bg-orange-100", text: "text-orange-800" },
-    prix_non_disponible: { label: "Non dispo.", bg: "bg-gray-100", text: "text-gray-600" },
+    benchmark_cantaia: { label: "Benchmark", bg: "bg-blue-100", text: "text-blue-800 dark:text-blue-300" },
+    referentiel_crb: { label: "CRB", bg: "bg-yellow-100", text: "text-yellow-800 dark:text-yellow-300" },
+    ratio_estimation: { label: "Ratio", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
+    estimation_ia: { label: "Estimation IA", bg: "bg-red-100", text: "text-red-800 dark:text-red-300" },
+    consensus_multi_ia: { label: "Consensus IA", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
+    prix_non_disponible: { label: "Non dispo.", bg: "bg-muted", text: "text-muted-foreground" },
   };
   const c = config[source] ?? config.prix_non_disponible;
   return (
@@ -90,8 +90,8 @@ function SourceBadge({ source, detailSource }: { source: PriceSource; detailSour
 
 // Score fiabilité en couleur
 function ScoreDisplay({ score, large }: { score: number; large?: boolean }) {
-  const color = score >= 80 ? "text-green-600" : score >= 60 ? "text-blue-600" : score >= 40 ? "text-orange-500" : "text-red-500";
-  const bg = score >= 80 ? "bg-green-50" : score >= 60 ? "bg-blue-50" : score >= 40 ? "bg-orange-50" : "bg-red-50";
+  const color = score >= 80 ? "text-green-600" : score >= 60 ? "text-primary" : score >= 40 ? "text-orange-500" : "text-red-500";
+  const bg = score >= 80 ? "bg-green-500/10" : score >= 60 ? "bg-primary/10" : score >= 40 ? "bg-orange-500/10" : "bg-red-500/10";
   const label = score >= 80 ? "Haute fiabilité" : score >= 60 ? "Fiable" : score >= 40 ? "Indicative" : "Pré-estimation";
 
   if (large) {
@@ -108,11 +108,11 @@ function ScoreDisplay({ score, large }: { score: number; large?: boolean }) {
 
 // Badge consensus niveau par poste
 const CONSENSUS_CONFIG: Record<ConsensusMethod, { label: string; bg: string; text: string; dot: string }> = {
-  concordance_forte:    { label: "Forte", bg: "bg-green-100",  text: "text-green-800",  dot: "bg-green-500" },
-  concordance_partielle:{ label: "Partielle", bg: "bg-yellow-100", text: "text-yellow-800", dot: "bg-yellow-500" },
-  divergence:           { label: "Divergence", bg: "bg-red-100", text: "text-red-800",   dot: "bg-red-500" },
-  detection_unique:     { label: "1 modèle", bg: "bg-orange-100", text: "text-orange-800", dot: "bg-orange-400" },
-  detection_double:     { label: "2 modèles", bg: "bg-blue-100", text: "text-blue-800",  dot: "bg-blue-400" },
+  concordance_forte:    { label: "Forte", bg: "bg-green-100",  text: "text-green-800 dark:text-green-300",  dot: "bg-green-500" },
+  concordance_partielle:{ label: "Partielle", bg: "bg-yellow-100", text: "text-yellow-800 dark:text-yellow-300", dot: "bg-yellow-500" },
+  divergence:           { label: "Divergence", bg: "bg-red-100", text: "text-red-800 dark:text-red-300",   dot: "bg-red-500" },
+  detection_unique:     { label: "1 modèle", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300", dot: "bg-orange-400" },
+  detection_double:     { label: "2 modèles", bg: "bg-blue-100", text: "text-blue-800 dark:text-blue-300",  dot: "bg-blue-400" },
 };
 
 function ConsensusBadge({ methode }: { methode: ConsensusMethod }) {
@@ -143,22 +143,22 @@ function ModelTooltip({ consensusPoste, children }: { consensusPoste: ConsensusP
     >
       {children}
       {visible && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 min-w-[160px] rounded-md border border-gray-200 bg-white shadow-lg py-2 px-2.5 text-[10px] text-gray-700 whitespace-nowrap">
-          <span className="block text-[9px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">Consensus modèles</span>
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 min-w-[160px] rounded-md border border-border bg-background shadow-lg py-2 px-2.5 text-[10px] text-foreground whitespace-nowrap">
+          <span className="block text-[9px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Consensus modèles</span>
           {consensusPoste.valeurs_par_modele.map((v) => (
             <span key={v.provider} className="flex justify-between gap-3 mb-0.5">
               <span className="font-medium capitalize">{v.provider}</span>
               <span className="font-mono">{v.quantite} {consensusPoste.unite}</span>
-              <span className={v.ecart_vs_median_pct > 15 ? "text-red-500" : "text-gray-400"}>
+              <span className={v.ecart_vs_median_pct > 15 ? "text-red-500" : "text-muted-foreground"}>
                 {v.ecart_vs_median_pct > 0 ? "+" : ""}{v.ecart_vs_median_pct.toFixed(0)}%
               </span>
             </span>
           ))}
-          <span className="block border-t border-gray-100 mt-1.5 pt-1.5 font-semibold text-gray-600">
+          <span className="block border-t border-border mt-1.5 pt-1.5 font-semibold text-muted-foreground">
             Consensus : {consensusPoste.quantite_consensuelle} {consensusPoste.unite}
           </span>
           {consensusPoste.methode_consensus && (
-            <span className="block text-[9px] text-gray-400 mt-0.5">{CONSENSUS_CONFIG[consensusPoste.methode_consensus]?.label ?? consensusPoste.methode_consensus}</span>
+            <span className="block text-[9px] text-muted-foreground mt-0.5">{CONSENSUS_CONFIG[consensusPoste.methode_consensus]?.label ?? consensusPoste.methode_consensus}</span>
           )}
         </span>
       )}
@@ -170,7 +170,7 @@ function ModelTooltip({ consensusPoste, children }: { consensusPoste: ConsensusP
 function SourceDistributionBar({ repartition }: { repartition: Record<string, number> }) {
   const segments = [
     { key: "historique_interne_pct", label: "Données réelles", color: "bg-emerald-500" },
-    { key: "benchmark_cantaia_pct", label: "Benchmark", color: "bg-blue-500" },
+    { key: "benchmark_cantaia_pct", label: "Benchmark", color: "bg-primary/100" },
     { key: "referentiel_crb_pct", label: "CRB", color: "bg-yellow-500" },
     { key: "ratio_estimation_pct", label: "Ratio", color: "bg-orange-400" },
     { key: "estimation_ia_pct", label: "IA", color: "bg-red-400" },
@@ -185,7 +185,7 @@ function SourceDistributionBar({ repartition }: { repartition: Record<string, nu
           <div key={s.key} className={`${s.color}`} style={{ width: `${repartition[s.key]}%` }} title={`${s.label}: ${repartition[s.key]}%`} />
         ))}
       </div>
-      <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
         {segments.map((s) => (
           <span key={s.key} className="flex items-center gap-1">
             <span className={`w-2 h-2 rounded-full ${s.color}`} />
@@ -239,12 +239,12 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
       {/* ─── Badge bureau (si détecté) ─── */}
       {bureauName && (
         <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-slate-400" />
-          <span className="text-sm text-slate-600">
-            Bureau : <span className="font-medium text-slate-800">{bureauName}</span>
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Bureau : <span className="font-medium text-foreground">{bureauName}</span>
           </span>
           {bureauPlansCount && bureauPlansCount > 1 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:text-indigo-400">
               Bureau connu ({bureauPlansCount} plans)
             </span>
           )}
@@ -280,8 +280,8 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
       </div>
 
       {/* ─── Tableau par CFC ─── */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-background rounded-xl border border-border">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h3 className="font-semibold text-[#0A1F30]">Détail par CFC</h3>
           <button onClick={() => setExpandedCfc(new Set(estimation_par_cfc.map((c: { cfc_code: string }) => c.cfc_code)))} className="text-xs text-[#C4A661] hover:underline">
             Tout déplier
@@ -289,20 +289,20 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
         </div>
 
         {estimation_par_cfc.map((cfc: { cfc_code: string; cfc_libelle: string; postes: PosteChiffre[]; sous_total_cfc: { min: number; median: number; max: number } }) => (
-          <div key={cfc.cfc_code} className="border-b border-gray-50 last:border-b-0">
+          <div key={cfc.cfc_code} className="border-b border-border last:border-b-0">
             <button
               onClick={() => toggleCfc(cfc.cfc_code)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted transition-colors"
             >
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono text-[#8A9CA8]">{cfc.cfc_code}</span>
                 <span className="font-medium text-[#0A1F30]">{cfc.cfc_libelle}</span>
-                <span className="text-xs text-gray-400">({cfc.postes.length} postes)</span>
+                <span className="text-xs text-muted-foreground">({cfc.postes.length} postes)</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500">{formatCHF(cfc.sous_total_cfc.min)} — </span>
+                <span className="text-sm text-muted-foreground">{formatCHF(cfc.sous_total_cfc.min)} — </span>
                 <span className="font-semibold text-[#0A1F30]">{formatCHF(cfc.sous_total_cfc.median)}</span>
-                <span className="text-sm text-gray-500"> — {formatCHF(cfc.sous_total_cfc.max)}</span>
+                <span className="text-sm text-muted-foreground"> — {formatCHF(cfc.sous_total_cfc.max)}</span>
                 <svg className={`w-4 h-4 transition-transform ${expandedCfc.has(cfc.cfc_code) ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -313,7 +313,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
               <div className="px-4 pb-3">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-[#8A9CA8] border-b border-gray-100">
+                    <tr className="text-xs text-[#8A9CA8] border-b border-border">
                       <th className="text-left py-2 pr-2">Source</th>
                       <th className="text-left py-2 pr-2">Description</th>
                       <th className="text-right py-2 pr-2">Qté</th>
@@ -333,7 +333,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                       // Cherche le poste consensus correspondant par cfc_code (match best-effort)
                       const consensusPoste = consensusByCode.get(poste.cfc_code);
                       return (
-                        <tr key={idx} className={`border-b border-gray-50 ${isRisky ? "bg-orange-50/50" : ""}`}>
+                        <tr key={idx} className={`border-b border-border ${isRisky ? "bg-orange-500/10" : ""}`}>
                           <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire.source} detailSource={poste.prix_unitaire.detail_source} /></td>
                           <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
                           <td className="py-2 pr-2 text-right font-mono">
@@ -343,19 +343,19 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                               </span>
                             </ModelTooltip>
                           </td>
-                          <td className="py-2 pr-2 text-gray-500">{poste.unite}</td>
+                          <td className="py-2 pr-2 text-muted-foreground">{poste.unite}</td>
                           <td className="py-2 pr-2 text-center">
                             {consensusPoste?.methode_consensus
                               ? <ConsensusBadge methode={consensusPoste.methode_consensus} />
-                              : <span className="text-[10px] text-gray-300">—</span>
+                              : <span className="text-[10px] text-muted-foreground">—</span>
                             }
                           </td>
                           <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire.median)}</td>
-                          <td className="py-2 pr-2 text-right text-gray-400 font-mono">{formatCHF(poste.total.min)}</td>
+                          <td className="py-2 pr-2 text-right text-muted-foreground font-mono">{formatCHF(poste.total.min)}</td>
                           <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total.median)}</td>
-                          <td className="py-2 pr-2 text-right text-gray-400 font-mono">{formatCHF(poste.total.max)}</td>
+                          <td className="py-2 pr-2 text-right text-muted-foreground font-mono">{formatCHF(poste.total.max)}</td>
                           <td className="py-2 text-center">
-                            <span className="text-xs text-gray-400">{poste.confiance_quantite[0].toUpperCase()}/{poste.confiance_prix[0].toUpperCase()}</span>
+                            <span className="text-xs text-muted-foreground">{poste.confiance_quantite[0].toUpperCase()}/{poste.confiance_prix[0].toUpperCase()}</span>
                           </td>
                           <td className="py-2 text-center">
                             <div className="flex gap-1 justify-center">
@@ -408,14 +408,14 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
 
       {/* ─── Alertes ─── */}
       {(passe3.alertes_coherence.length > 0 || passe3.elements_probablement_manquants.length > 0 || analyse_fiabilite.postes_a_risque.length > 0) && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-background rounded-xl border border-border p-4">
           <h3 className="font-semibold text-[#0A1F30] mb-3">Alertes et recommandations</h3>
 
           {passe3.alertes_coherence.filter((a: { severite: string }) => a.severite === "critique").map((alerte: { poste_concerne: string; probleme: string; suggestion: string }, i: number) => (
-            <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-red-50 rounded">
+            <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-red-500/10 rounded">
               <span className="text-red-500 text-lg leading-none">!</span>
               <div>
-                <div className="text-sm font-medium text-red-800">{alerte.poste_concerne}</div>
+                <div className="text-sm font-medium text-red-800 dark:text-red-300">{alerte.poste_concerne}</div>
                 <div className="text-xs text-red-600">{alerte.probleme}</div>
                 <div className="text-xs text-red-500 italic">{alerte.suggestion}</div>
               </div>
@@ -423,10 +423,10 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
           ))}
 
           {passe3.elements_probablement_manquants.filter((e: { impact_estimation: string }) => e.impact_estimation !== "faible").map((elem: { cfc_code: string; description: string; raison: string }, i: number) => (
-            <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-yellow-50 rounded">
+            <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-yellow-500/10 rounded">
               <span className="text-yellow-500 text-lg leading-none">?</span>
               <div>
-                <div className="text-sm font-medium text-yellow-800">{elem.cfc_code} — {elem.description}</div>
+                <div className="text-sm font-medium text-yellow-800 dark:text-yellow-300">{elem.cfc_code} — {elem.description}</div>
                 <div className="text-xs text-yellow-600">{elem.raison}</div>
               </div>
             </div>
@@ -449,10 +449,10 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
       )}
 
       {/* ─── Transparence ─── */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-background rounded-xl border border-border">
         <button
           onClick={() => setShowTransparency(!showTransparency)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted"
         >
           <span className="font-semibold text-[#0A1F30]">Transparence du pipeline</span>
           <svg className={`w-4 h-4 transition-transform ${showTransparency ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -484,16 +484,16 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             <div>
               <div className="text-xs text-[#8A9CA8] mb-1">Consensus multi-modèle</div>
               <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="bg-green-50 rounded p-2 text-center">
-                  <div className="font-bold text-green-700">{consensus_metrage.stats.concordance_forte_pct}%</div>
+                <div className="bg-green-500/10 rounded p-2 text-center">
+                  <div className="font-bold text-green-700 dark:text-green-400">{consensus_metrage.stats.concordance_forte_pct}%</div>
                   <div className="text-xs text-green-600">Concordance forte</div>
                 </div>
-                <div className="bg-yellow-50 rounded p-2 text-center">
-                  <div className="font-bold text-yellow-700">{consensus_metrage.stats.concordance_partielle_pct}%</div>
+                <div className="bg-yellow-500/10 rounded p-2 text-center">
+                  <div className="font-bold text-yellow-700 dark:text-yellow-400">{consensus_metrage.stats.concordance_partielle_pct}%</div>
                   <div className="text-xs text-yellow-600">Partielle</div>
                 </div>
-                <div className="bg-red-50 rounded p-2 text-center">
-                  <div className="font-bold text-red-700">{consensus_metrage.stats.divergence_pct}%</div>
+                <div className="bg-red-500/10 rounded p-2 text-center">
+                  <div className="font-bold text-red-700 dark:text-red-400">{consensus_metrage.stats.divergence_pct}%</div>
                   <div className="text-xs text-red-600">Divergence</div>
                 </div>
               </div>
@@ -515,10 +515,10 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             Relancer l'estimation
           </button>
         )}
-        <button disabled className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
+        <button disabled className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
           Exporter PDF
         </button>
-        <button disabled className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
+        <button disabled className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm cursor-not-allowed" title="Bientôt disponible">
           Exporter DOCX
         </button>
       </div>

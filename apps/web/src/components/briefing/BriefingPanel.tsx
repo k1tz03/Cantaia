@@ -63,19 +63,19 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-        <span className="ml-2 text-xs text-gray-500">{t("generating")}</span>
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-xs text-muted-foreground">{t("generating")}</span>
       </div>
     );
   }
 
   if (error || !briefing) {
     return (
-      <div className="rounded-md border border-red-100 bg-red-50/50 p-3">
+      <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3">
         <p className="text-xs text-red-600">{error || t("errorGeneral")}</p>
         <button
           onClick={() => fetchBriefing(true)}
-          className="mt-2 text-xs font-medium text-red-700 underline"
+          className="mt-2 text-xs font-medium text-red-700 dark:text-red-400 underline"
         >
           {t("retry")}
         </button>
@@ -88,7 +88,7 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
     return (
       <div>
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
             {t("title")}
           </h3>
@@ -105,9 +105,9 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
           {briefing.priority_alerts.slice(0, 3).map((alert, i) => (
             <div
               key={i}
-              className="rounded-md border border-amber-100 bg-amber-50/50 px-3 py-2"
+              className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2"
             >
-              <p className="text-xs font-medium text-amber-800">{alert}</p>
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{alert}</p>
             </div>
           ))}
 
@@ -115,11 +115,11 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
           {briefing.projects.slice(0, 3).map((project) => (
             <div
               key={project.project_id}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2"
+              className="rounded-md border border-border bg-background px-3 py-2"
             >
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 <span className="mr-1">{project.status_emoji}</span>
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-foreground">
                   {project.name}
                 </span>
                 {" — "}
@@ -130,13 +130,13 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
 
           {/* Today's meetings */}
           {briefing.meetings_today.length > 0 && (
-            <div className="rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-800">
+            <div className="rounded-md border border-primary/20 bg-primary/10/50 px-3 py-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-800 dark:text-blue-300">
                 <Calendar className="h-3 w-3" />
                 {briefing.meetings_today.length} {t("meetingsToday")}
               </div>
               {briefing.meetings_today.slice(0, 2).map((m, i) => (
-                <p key={i} className="mt-0.5 text-[10px] text-blue-700">
+                <p key={i} className="mt-0.5 text-[10px] text-primary">
                   {m.time} · {m.project} · {m.title}
                 </p>
               ))}

@@ -255,18 +255,18 @@ export default function UploadPlanPage() {
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         {/* Back link */}
-        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4">
+        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
 
-        <h1 className="text-xl font-bold text-slate-900 mb-1">{t("uploadPlan")}</h1>
-        <p className="text-sm text-slate-500 mb-6">{t("uploadDescription")}</p>
+        <h1 className="text-xl font-bold text-foreground mb-1">{t("uploadPlan")}</h1>
+        <p className="text-sm text-muted-foreground mb-6">{t("uploadDescription")}</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Error banner */}
           {globalError && (
-            <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+            <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-500/20">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {globalError}
             </div>
@@ -274,22 +274,22 @@ export default function UploadPlanPage() {
 
           {/* File drop zone */}
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
               {t("planFile")} *
             </label>
             <div
               className={cn(
                 "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
-                dragging ? "border-brand bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-slate-400"
+                dragging ? "border-brand bg-primary/10" : "border-border bg-muted hover:border-border"
               )}
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
             >
-              <Upload className="h-8 w-8 text-slate-400 mb-2" />
-              <p className="text-sm font-medium text-slate-600">{t("dropPlanHere")}</p>
-              <p className="text-xs text-slate-400 mt-1">{t("acceptedPlanFormats")} — {t("multipleFilesAllowed")}</p>
-              <label className="mt-3 cursor-pointer rounded-md bg-white border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm font-medium text-muted-foreground">{t("dropPlanHere")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("acceptedPlanFormats")} — {t("multipleFilesAllowed")}</p>
+              <label className="mt-3 cursor-pointer rounded-md bg-background border border-border px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-muted">
                 {t("browsePlanFiles")}
                 <input
                   ref={fileInputRef}
@@ -307,7 +307,7 @@ export default function UploadPlanPage() {
           {files.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t("planFiles")} ({files.length})
                 </p>
                 {doneCount > 0 && (
@@ -318,11 +318,11 @@ export default function UploadPlanPage() {
                 <div
                   key={entry.id}
                   className={cn(
-                    "rounded-lg border bg-white p-3",
-                    entry.status === "done" ? "border-green-200 bg-green-50/30" :
-                    entry.status === "error" ? "border-red-200 bg-red-50/30" :
-                    entry.status === "uploading" ? "border-blue-200 bg-blue-50/30" :
-                    "border-slate-200"
+                    "rounded-lg border bg-background p-3",
+                    entry.status === "done" ? "border-green-500/20 bg-green-500/5" :
+                    entry.status === "error" ? "border-red-500/20 bg-red-500/5" :
+                    entry.status === "uploading" ? "border-primary/20 bg-primary/10/30" :
+                    "border-border"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -330,21 +330,21 @@ export default function UploadPlanPage() {
                       "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
                       entry.status === "done" ? "bg-green-100" :
                       entry.status === "error" ? "bg-red-100" :
-                      entry.status === "uploading" ? "bg-blue-100" : "bg-blue-50"
+                      entry.status === "uploading" ? "bg-blue-100" : "bg-primary/10"
                     )}>
                       {entry.status === "uploading" ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : entry.status === "done" ? (
                         <CheckCircle className="h-4 w-4 text-green-600" />
                       ) : entry.status === "error" ? (
                         <AlertTriangle className="h-4 w-4 text-red-500" />
                       ) : (
-                        <FileText className="h-4 w-4 text-blue-600" />
+                        <FileText className="h-4 w-4 text-primary" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{entry.file.name}</p>
-                      <p className="text-[11px] text-slate-400">{formatFileSize(entry.file.size)}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{entry.file.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatFileSize(entry.file.size)}</p>
                       {entry.error && <p className="text-[11px] text-red-500 mt-0.5">{entry.error}</p>}
                     </div>
                     {/* Editable plan number + title for pending files */}
@@ -355,14 +355,14 @@ export default function UploadPlanPage() {
                           value={entry.planNumber}
                           onChange={(e) => updateFile(entry.id, { planNumber: e.target.value })}
                           placeholder="N° plan"
-                          className="w-24 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-brand focus:outline-none"
+                          className="w-24 rounded border border-border px-2 py-1 text-xs text-foreground focus:border-brand focus:outline-none"
                         />
                         <input
                           type="text"
                           value={entry.planTitle}
                           onChange={(e) => updateFile(entry.id, { planTitle: e.target.value })}
                           placeholder="Titre"
-                          className="w-48 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-brand focus:outline-none"
+                          className="w-48 rounded border border-border px-2 py-1 text-xs text-foreground focus:border-brand focus:outline-none"
                         />
                       </div>
                     )}
@@ -378,7 +378,7 @@ export default function UploadPlanPage() {
                       <button
                         type="button"
                         onClick={() => removeFile(entry.id)}
-                        className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -390,7 +390,7 @@ export default function UploadPlanPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-slate-400 hover:text-slate-600"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:border-border hover:text-muted-foreground"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {t("addMoreFiles")}
@@ -403,14 +403,14 @@ export default function UploadPlanPage() {
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
                     {t("filterProject")} *
                   </label>
                   <select
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
                     disabled={projectsLoading}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
                   >
                     <option value="">{projectsLoading ? tc("loading") : t("selectProject")}</option>
                     {projects.map((p) => (
@@ -421,7 +421,7 @@ export default function UploadPlanPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
                     {t("colVersion")}
                   </label>
                   <input
@@ -430,20 +430,20 @@ export default function UploadPlanPage() {
                     onChange={(e) => setVersionCode(e.target.value.toUpperCase())}
                     placeholder="A"
                     maxLength={2}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
                     {t("planType")}
                   </label>
                   <select
                     value={planType}
                     onChange={(e) => setPlanType(e.target.value as PlanType)}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                   >
                     {PLAN_TYPES.map((pt) => (
                       <option key={pt} value={pt}>{t(TYPE_KEYS[pt])}</option>
@@ -451,13 +451,13 @@ export default function UploadPlanPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
                     {t("colDiscipline")}
                   </label>
                   <select
                     value={discipline}
                     onChange={(e) => setDiscipline(e.target.value as PlanDiscipline | "")}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                   >
                     <option value="">—</option>
                     {DISCIPLINES.map((d) => (
@@ -470,10 +470,10 @@ export default function UploadPlanPage() {
           )}
 
           {/* Submit */}
-          <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
             <Link
               href="/plans"
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               {tc("cancel")}
             </Link>

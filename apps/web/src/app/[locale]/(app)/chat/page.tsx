@@ -351,11 +351,11 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
       {/* Left panel — Conversation list */}
-      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-[#E5E7EB] bg-gray-50 shrink-0">
-        <div className="p-3 border-b border-[#E5E7EB]">
+      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-border bg-muted shrink-0">
+        <div className="p-3 border-b border-border">
           <button
             onClick={startNewConversation}
-            className="flex w-full items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-medium text-[#374151] shadow-sm transition-colors hover:bg-gray-50"
+            className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
           >
             <Plus className="h-4 w-4" />
             {t("newConversation")}
@@ -365,16 +365,16 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto">
           {loadingConvs ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-[#9CA3AF]" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : conversations.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-[#9CA3AF]">
+            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
               {t("noConversations")}
             </p>
           ) : (
             groupConversations().map((group) => (
               <div key={group.label}>
-                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
                 </p>
                 {group.items.map((conv) => (
@@ -382,18 +382,18 @@ export default function ChatPage() {
                     key={conv.id}
                     onClick={() => selectConversation(conv)}
                     className={cn(
-                      "group flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-white",
+                      "group flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-background",
                       activeConvId === conv.id &&
-                        "bg-white shadow-sm border-r-2 border-[#2563EB]"
+                        "bg-background shadow-sm border-r-2 border-primary"
                     )}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" />
-                    <span className="flex-1 truncate text-[#374151]">
+                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate text-foreground">
                       {conv.title}
                     </span>
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
-                      className="hidden shrink-0 rounded p-0.5 text-[#D1D5DB] hover:text-red-500 group-hover:block"
+                      className="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:text-red-500 group-hover:block"
                       title={t("deleteConversation")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -409,14 +409,14 @@ export default function ChatPage() {
       {/* Right panel — Chat area */}
       <div className="flex flex-1 flex-col">
         {/* Mobile header with new conversation button */}
-        <div className="flex items-center gap-2 border-b border-[#E5E7EB] px-4 py-2 md:hidden">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
           <button
             onClick={startNewConversation}
-            className="rounded-md border border-[#E5E7EB] p-1.5 text-[#6B7280] hover:bg-gray-50"
+            className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted"
           >
             <Plus className="h-4 w-4" />
           </button>
-          <h1 className="flex-1 text-sm font-semibold text-[#111827] truncate">
+          <h1 className="flex-1 text-sm font-semibold text-foreground truncate">
             {t("title")}
           </h1>
         </div>
@@ -429,10 +429,10 @@ export default function ChatPage() {
               <div className="mb-4">
                 <JMAvatar size="lg" />
               </div>
-              <h2 className="text-lg font-semibold text-[#111827]">
+              <h2 className="text-lg font-semibold text-foreground">
                 {t("emptyTitle")}
               </h2>
-              <p className="mt-2 max-w-md text-center text-sm text-[#6B7280]">
+              <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
                 {t("emptyDesc")}
               </p>
               <div className="mt-6 flex flex-col gap-2 w-full max-w-md">
@@ -440,7 +440,7 @@ export default function ChatPage() {
                   <button
                     key={i}
                     onClick={() => sendMessage(q)}
-                    className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-left text-sm text-[#6B7280] shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
+                    className="rounded-lg border border-border bg-background px-4 py-3 text-left text-sm text-muted-foreground shadow-sm transition-all hover:border-primary/20 hover:shadow-md"
                   >
                     {q}
                   </button>
@@ -449,7 +449,7 @@ export default function ChatPage() {
             </div>
           ) : loadingMessages ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             // Message list
@@ -470,7 +470,7 @@ export default function ChatPage() {
                       "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                       msg.role === "user"
                         ? "bg-[#2563EB] text-white rounded-br-md"
-                        : "bg-gray-100 text-[#111827] rounded-bl-md"
+                        : "bg-muted text-foreground rounded-bl-md"
                     )}
                   >
                     {msg.role === "assistant" ? (
@@ -480,7 +480,7 @@ export default function ChatPage() {
                             {msg.content}
                           </ReactMarkdown>
                         ) : isStreaming && i === messages.length - 1 ? (
-                          <span className="inline-flex items-center gap-1.5 text-[#9CA3AF]">
+                          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             {t("sending")}
                           </span>
@@ -498,7 +498,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-[#E5E7EB] bg-white px-4 py-3">
+        <div className="border-t border-border bg-background px-4 py-3">
           <div className="mx-auto flex max-w-3xl items-end gap-2">
             <textarea
               ref={textareaRef}
@@ -511,7 +511,7 @@ export default function ChatPage() {
               placeholder={t("placeholder")}
               rows={1}
               disabled={isStreaming}
-              className="flex-1 resize-none rounded-xl border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm text-[#111827] placeholder-[#9CA3AF] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-200 disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
               style={{ maxHeight: 160 }}
             />
             <button

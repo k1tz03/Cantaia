@@ -17,8 +17,8 @@ interface Props {
 }
 
 export default function ConfidenceEvolution({ scoreActuel, scoreSansCalibration, gain, explication, factors }: Props) {
-  const color = scoreActuel >= 80 ? "text-green-600" : scoreActuel >= 60 ? "text-blue-600" : scoreActuel >= 40 ? "text-orange-500" : "text-red-500";
-  const bgColor = scoreActuel >= 80 ? "bg-green-50" : scoreActuel >= 60 ? "bg-blue-50" : scoreActuel >= 40 ? "bg-orange-50" : "bg-red-50";
+  const color = scoreActuel >= 80 ? "text-green-600" : scoreActuel >= 60 ? "text-primary" : scoreActuel >= 40 ? "text-orange-500" : "text-red-500";
+  const bgColor = scoreActuel >= 80 ? "bg-green-500/10" : scoreActuel >= 60 ? "bg-primary/10" : scoreActuel >= 40 ? "bg-orange-500/10" : "bg-red-500/10";
   const ringColor = scoreActuel >= 80 ? "border-green-400" : scoreActuel >= 60 ? "border-blue-400" : scoreActuel >= 40 ? "border-orange-400" : "border-red-400";
 
   // Calcul des barres de décomposition
@@ -48,7 +48,7 @@ export default function ConfidenceEvolution({ scoreActuel, scoreSansCalibration,
           {/* Barre de décomposition */}
           {factorBars.length > 0 && (
             <div className="mt-2">
-              <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
+              <div className="flex h-2 rounded-full overflow-hidden bg-muted">
                 {factorBars.map((f) => (
                   <div
                     key={f.label}

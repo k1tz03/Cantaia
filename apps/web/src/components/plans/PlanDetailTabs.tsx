@@ -27,20 +27,20 @@ export function PlanDetailTabs({
   ];
 
   return (
-    <div className="mb-4 flex items-center gap-1 border-b border-slate-200">
+    <div className="mb-4 flex items-center gap-1 border-b border-border">
       {tabs.map(({ key, icon: Icon, label, badge }) => (
         <button
           key={key}
           onClick={() => setActiveTab(key)}
           className={cn(
             "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-            activeTab === key ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-700"
+            activeTab === key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
           <Icon className="h-4 w-4" />
           {label}
           {badge && (
-            <span className="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+            <span className="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
               {badge}
             </span>
           )}

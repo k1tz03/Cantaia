@@ -89,16 +89,16 @@ export function PlanDistributeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-lg border border-border bg-background shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <div>
-            <h2 className="text-sm font-semibold text-slate-800">{t("distributePlan")}</h2>
-            <p className="text-[11px] text-slate-500">
+            <h2 className="text-sm font-semibold text-foreground">{t("distributePlan")}</h2>
+            <p className="text-[11px] text-muted-foreground">
               {planNumber} — {planTitle} (V-{versionCode})
             </p>
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -107,20 +107,20 @@ export function PlanDistributeModal({
           {sent ? (
             <div className="flex flex-col items-center py-8">
               <CheckCircle className="h-12 w-12 text-green-500 mb-3" />
-              <p className="text-sm font-medium text-slate-800">{t("distributionSent")}</p>
-              <p className="text-xs text-slate-500 mt-1">{t("distributionSentDescription", { count: selectedCount })}</p>
+              <p className="text-sm font-medium text-foreground">{t("distributionSent")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("distributionSentDescription", { count: selectedCount })}</p>
             </div>
           ) : (
             <>
               {/* Recipients list */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Users className="h-3.5 w-3.5" />
                     {t("recipients")} ({selectedCount})
                   </label>
                   {previousRecipients.length > 0 && (
-                    <span className="text-[10px] text-slate-400">{t("fromPreviousDistribution")}</span>
+                    <span className="text-[10px] text-muted-foreground">{t("fromPreviousDistribution")}</span>
                   )}
                 </div>
 
@@ -130,20 +130,20 @@ export function PlanDistributeModal({
                       key={i}
                       className={cn(
                         "flex items-center gap-2 rounded-md border px-3 py-2 transition-colors",
-                        r.selected ? "border-brand/30 bg-blue-50/50" : "border-slate-200 bg-slate-50 opacity-60"
+                        r.selected ? "border-brand/30 bg-primary/10/50" : "border-border bg-muted opacity-60"
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={r.selected}
                         onChange={() => toggleRecipient(i)}
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-brand focus:ring-brand"
+                        className="h-3.5 w-3.5 rounded border-border text-brand focus:ring-brand"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-700 truncate">{r.name}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{r.company} · {r.email}</p>
+                        <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{r.company} · {r.email}</p>
                       </div>
-                      <button onClick={() => removeRecipient(i)} className="rounded p-1 text-slate-400 hover:text-red-500">
+                      <button onClick={() => removeRecipient(i)} className="rounded p-1 text-muted-foreground hover:text-red-500">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -152,22 +152,22 @@ export function PlanDistributeModal({
               </div>
 
               {/* Add recipient */}
-              <div className="mb-4 rounded-md border border-dashed border-slate-300 p-3">
-                <p className="text-[11px] font-medium text-slate-500 mb-2">{t("addRecipient")}</p>
+              <div className="mb-4 rounded-md border border-dashed border-border p-3">
+                <p className="text-[11px] font-medium text-muted-foreground mb-2">{t("addRecipient")}</p>
                 <div className="grid grid-cols-3 gap-2 mb-2">
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={t("recipientName")}
-                    className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none"
+                    className="rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
                   />
                   <input
                     type="text"
                     value={newCompany}
                     onChange={(e) => setNewCompany(e.target.value)}
                     placeholder={t("recipientCompany")}
-                    className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none"
+                    className="rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
                   />
                   <div className="flex gap-1.5">
                     <input
@@ -175,13 +175,13 @@ export function PlanDistributeModal({
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none"
+                      className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
                       onKeyDown={(e) => e.key === "Enter" && addRecipient()}
                     />
                     <button
                       onClick={addRecipient}
                       disabled={!newEmail}
-                      className="rounded-md bg-slate-100 px-2 text-slate-500 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40"
+                      className="rounded-md bg-muted px-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -191,7 +191,7 @@ export function PlanDistributeModal({
 
               {/* Custom message */}
               <div className="mb-4">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 block flex items-center gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5" />
                   {t("distributionMessage")}
                 </label>
@@ -200,9 +200,9 @@ export function PlanDistributeModal({
                   onChange={(e) => setCustomMessage(e.target.value)}
                   rows={3}
                   placeholder={t("distributionMessagePlaceholder")}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand focus:outline-none resize-none"
+                  className="w-full rounded-md border border-border px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none resize-none"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   {t("distributionAttachment")}: {fileName}
                 </p>
               </div>
@@ -212,10 +212,10 @@ export function PlanDistributeModal({
 
         {/* Footer */}
         {!sent && (
-          <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-3">
+          <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-3">
             <button
               onClick={onClose}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
             >
               {t("cancelDistribution")}
             </button>

@@ -19,10 +19,10 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
 
   if (!version?.file_url) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-lg border border-border bg-background overflow-hidden">
         <div className="flex flex-col items-center justify-center py-20">
-          <FileText className="h-12 w-12 text-slate-300 mb-3" />
-          <p className="text-sm text-slate-500">{t("noFileAvailable")}</p>
+          <FileText className="h-12 w-12 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">{t("noFileAvailable")}</p>
         </div>
       </div>
     );
@@ -31,40 +31,40 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
   const isImage = version.file_type?.startsWith("image/");
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 bg-slate-50">
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <FileText className="h-4 w-4 text-slate-400" />
+    <div className="rounded-lg border border-border bg-background overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2 bg-muted">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium truncate max-w-[200px]">{version.file_name}</span>
-          <span className="text-slate-300">&middot;</span>
-          <span className="text-xs text-slate-400">{formatFileSize(version.file_size)}</span>
+          <span className="text-muted-foreground">&middot;</span>
+          <span className="text-xs text-muted-foreground">{formatFileSize(version.file_size)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {isImage && (
             <>
               <button
                 onClick={() => setZoom((z) => Math.max(25, z - 25))}
-                className="rounded p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                 title="Zoom -"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
-              <span className="text-xs text-slate-500 min-w-[3rem] text-center">{zoom}%</span>
+              <span className="text-xs text-muted-foreground min-w-[3rem] text-center">{zoom}%</span>
               <button
                 onClick={() => setZoom((z) => Math.min(400, z + 25))}
-                className="rounded p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                 title="Zoom +"
               >
                 <ZoomIn className="h-4 w-4" />
               </button>
-              <div className="w-px h-4 bg-slate-200 mx-1" />
+              <div className="w-px h-4 bg-muted mx-1" />
             </>
           )}
           <a
             href={version.file_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {t("openNewTab")}
@@ -72,7 +72,7 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
           <a
             href={version.file_url}
             download={version.file_name}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
             <Download className="h-3.5 w-3.5" />
             {t("download")}
@@ -80,11 +80,11 @@ export function PlanViewer({ version, t }: { version: PlanVersion | undefined; t
         </div>
       </div>
 
-      <div ref={containerRef} className="relative bg-slate-100" style={{ height: "80vh" }}>
+      <div ref={containerRef} className="relative bg-muted" style={{ height: "80vh" }}>
         {viewerLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted z-10">
             <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
-            <p className="text-sm text-slate-500">{t("loadingViewer")}</p>
+            <p className="text-sm text-muted-foreground">{t("loadingViewer")}</p>
           </div>
         )}
 
