@@ -24,7 +24,7 @@ export function ProjectBreadcrumb({ section }: ProjectBreadcrumbProps) {
     >
       <Link
         href={`/projects/${activeProject.id}`}
-        className="hover:text-blue-600 transition-colors text-blue-600"
+        className="hover:text-primary transition-colors text-primary"
       >
         {activeProject.name}
       </Link>

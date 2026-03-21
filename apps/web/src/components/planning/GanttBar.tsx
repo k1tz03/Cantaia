@@ -265,7 +265,7 @@ export default function GanttBar({
           <>
             {/* Left connection point */}
             <div
-              className="absolute left-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10 cursor-crosshair"
+              className="absolute left-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-background border-2 border-muted-foreground hover:border-blue-500 hover:bg-primary/10 transition-colors z-10 cursor-crosshair"
               onPointerDown={(e) => handleConnectionPointerDown(e, "left")}
               onMouseUp={handleConnectionMouseUp}
             >
@@ -273,7 +273,7 @@ export default function GanttBar({
             </div>
             {/* Right connection point */}
             <div
-              className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-white border-2 border-gray-400 hover:border-blue-500 hover:bg-blue-50 transition-colors z-10 cursor-crosshair"
+              className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full bg-background border-2 border-muted-foreground hover:border-blue-500 hover:bg-primary/10 transition-colors z-10 cursor-crosshair"
               onPointerDown={(e) => handleConnectionPointerDown(e, "right")}
               onMouseUp={handleConnectionMouseUp}
             >

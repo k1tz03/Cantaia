@@ -93,7 +93,7 @@ export default function GanttMilestone({
       <text
         x={x + DIAMOND_SIZE / 2 + 8}
         y={cy + 4}
-        className="fill-gray-700"
+        className="fill-foreground"
         style={{ fontSize: 11, fontFamily: "var(--font-sans)", fontWeight: 500 }}
       >
         {task.name}

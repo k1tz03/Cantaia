@@ -97,14 +97,14 @@ export default function PlanSelector({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl">
+      <div className="w-full max-w-3xl rounded-lg bg-background p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-foreground">
             {t("changePlan")}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -122,8 +122,8 @@ export default function PlanSelector({
                   plan.popular
                     ? "border-blue-500 shadow-md"
                     : isCurrent
-                      ? "border-green-300 bg-green-50/30"
-                      : "border-gray-200"
+                      ? "border-green-300 bg-green-500/10"
+                      : "border-border"
                 }`}
               >
                 {/* Popular badge */}
@@ -138,24 +138,24 @@ export default function PlanSelector({
 
                 {/* Current badge */}
                 {isCurrent && (
-                  <span className="mb-2 inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                  <span className="mb-2 inline-block rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                     {t("currentPlan")}
                   </span>
                 )}
 
-                <h4 className="text-lg font-bold text-gray-900">
+                <h4 className="text-lg font-bold text-foreground">
                   {t(`plan${plan.id.charAt(0).toUpperCase() + plan.id.slice(1)}`)}
                 </h4>
 
                 <div className="mt-2">
                   {isEnterprise ? (
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-foreground">
                       {t("onQuote")}
                     </p>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-foreground">
                       {plan.price} CHF
-                      <span className="text-sm font-normal text-gray-500">
+                      <span className="text-sm font-normal text-muted-foreground">
                         {t("perMonth")}
                       </span>
                     </p>
@@ -166,7 +166,7 @@ export default function PlanSelector({
                   {plan.features.map((feature, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-sm text-gray-600"
+                      className="flex items-start gap-2 text-sm text-muted-foreground"
                     >
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                       {feature}
@@ -179,12 +179,12 @@ export default function PlanSelector({
                   disabled={isCurrent || loading !== null}
                   className={`mt-5 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
                     isCurrent
-                      ? "cursor-default border border-green-300 bg-green-50 text-green-700"
+                      ? "cursor-default border border-green-300 bg-green-500/10 text-green-700 dark:text-green-400"
                       : isEnterprise
-                        ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        ? "border border-border bg-background text-foreground hover:bg-muted"
                         : plan.popular
                           ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-gray-900 text-white hover:bg-gray-800"
+                          : "bg-foreground text-background hover:bg-foreground/90"
                   } disabled:opacity-50`}
                 >
                   {loading === plan.id ? (

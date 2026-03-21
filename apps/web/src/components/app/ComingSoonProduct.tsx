@@ -64,7 +64,7 @@ export function ComingSoonProduct({
       </div>
 
       {/* CTA */}
-      <button className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors">
+      <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors">
         <Bell className="h-4 w-4" />
         {t("coming_soon.notify_me")}
       </button>

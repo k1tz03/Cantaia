@@ -104,14 +104,14 @@ export default function GanttContextMenu({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.1, ease: "easeOut" }}
-        className="fixed z-50 min-w-[180px] max-w-[280px] bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
+        className="fixed z-50 min-w-[180px] max-w-[280px] bg-background rounded-lg shadow-xl border border-border py-1 overflow-hidden"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((item, idx) => (
           <React.Fragment key={idx}>
             {/* Separator line */}
             {item.separator && idx > 0 && (
-              <div className="my-1 h-px bg-gray-100" />
+              <div className="my-1 h-px bg-muted" />
             )}
 
             {/* Custom render */}
@@ -125,10 +125,10 @@ export default function GanttContextMenu({
                 className={[
                   "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors",
                   item.disabled
-                    ? "text-gray-300 cursor-not-allowed"
+                    ? "text-muted-foreground cursor-not-allowed"
                     : item.variant === "danger"
                       ? "text-red-600 hover:bg-red-50"
-                      : "text-gray-700 hover:bg-blue-50 hover:text-blue-700",
+                      : "text-foreground hover:bg-primary/10 hover:text-primary",
                 ].join(" ")}
               >
                 {item.icon && (
@@ -174,7 +174,7 @@ export function ColorPickerRow({
           className={[
             "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
             color === currentColor
-              ? "border-gray-800 ring-1 ring-gray-300"
+              ? "border-foreground ring-1 ring-border"
               : "border-white shadow-sm",
           ].join(" ")}
           style={{ backgroundColor: color }}

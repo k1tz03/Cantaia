@@ -92,12 +92,12 @@ export default function GanttToolbar({
   if (readOnly) return null;
 
   return (
-    <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+    <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-muted/50">
       {/* Add buttons */}
       <button
         type="button"
         onClick={onAddPhase}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground rounded-md hover:bg-background hover:shadow-sm border border-transparent hover:border-border transition-all"
         title="Ctrl+Shift+P"
       >
         <Layers className="h-3.5 w-3.5 text-violet-500" />
@@ -107,7 +107,7 @@ export default function GanttToolbar({
       <button
         type="button"
         onClick={onAddTask}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground rounded-md hover:bg-background hover:shadow-sm border border-transparent hover:border-border transition-all"
         title="Ctrl+Shift+T"
       >
         <ListPlus className="h-3.5 w-3.5 text-blue-500" />
@@ -117,7 +117,7 @@ export default function GanttToolbar({
       <button
         type="button"
         onClick={onAddMilestone}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground rounded-md hover:bg-background hover:shadow-sm border border-transparent hover:border-border transition-all"
       >
         <Diamond className="h-3.5 w-3.5 text-amber-500" />
         {t("toolbar.addMilestone")}
@@ -129,8 +129,8 @@ export default function GanttToolbar({
         className={[
           "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all border",
           isSelectionMode
-            ? "bg-blue-50 text-blue-700 border-blue-200"
-            : "text-gray-700 border-transparent hover:bg-white hover:shadow-sm hover:border-gray-200",
+            ? "bg-primary/10 text-primary border-primary/20"
+            : "text-foreground border-transparent hover:bg-background hover:shadow-sm hover:border-border",
         ].join(" ")}
       >
         <MousePointer2 className="h-3.5 w-3.5" />
@@ -138,7 +138,7 @@ export default function GanttToolbar({
       </button>
 
       {/* Separator */}
-      <div className="h-5 w-px bg-gray-200 mx-1" />
+      <div className="h-5 w-px bg-muted mx-1" />
 
       {/* Undo/Redo */}
       <button
@@ -148,8 +148,8 @@ export default function GanttToolbar({
         className={[
           "flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all border border-transparent",
           canUndo
-            ? "text-gray-700 hover:bg-white hover:shadow-sm hover:border-gray-200"
-            : "text-gray-300 cursor-not-allowed",
+            ? "text-foreground hover:bg-background hover:shadow-sm hover:border-border"
+            : "text-muted-foreground cursor-not-allowed",
         ].join(" ")}
         title="Ctrl+Z"
       >
@@ -164,8 +164,8 @@ export default function GanttToolbar({
         className={[
           "flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all border border-transparent",
           canRedo
-            ? "text-gray-700 hover:bg-white hover:shadow-sm hover:border-gray-200"
-            : "text-gray-300 cursor-not-allowed",
+            ? "text-foreground hover:bg-background hover:shadow-sm hover:border-border"
+            : "text-muted-foreground cursor-not-allowed",
         ].join(" ")}
         title="Ctrl+Y"
       >
@@ -177,13 +177,13 @@ export default function GanttToolbar({
       <div className="flex-1" />
 
       {/* Duration info */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="h-3.5 w-3.5" />
         <span>
           {t("header.totalDuration")}: {totalDuration}{t("taskList.daysShort")}
           {endDate && (
             <>
-              <span className="mx-1 text-gray-300">&middot;</span>
+              <span className="mx-1 text-muted-foreground">&middot;</span>
               {t("header.end")}: {formatSwissDate(endDate)}
             </>
           )}

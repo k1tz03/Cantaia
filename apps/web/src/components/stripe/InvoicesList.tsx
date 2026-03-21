@@ -18,25 +18,25 @@ function getStatusBadge(status: string | null) {
   switch (status) {
     case "paid":
       return (
-        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+        <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
           Paye
         </span>
       );
     case "open":
       return (
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
           Ouverte
         </span>
       );
     case "void":
       return (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           Annulee
         </span>
       );
     default:
       return (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {status || "—"}
         </span>
       );
@@ -65,7 +65,7 @@ export default function InvoicesList() {
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">Aucune facture</p>
       </div>
@@ -73,41 +73,41 @@ export default function InvoicesList() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
+    <div className="overflow-hidden rounded-lg border border-border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100 bg-gray-50">
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+          <tr className="border-b border-border bg-muted">
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
               Date
             </th>
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
               Numero
             </th>
-            <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500">
+            <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
               Montant
             </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500">
+            <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
               Statut
             </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500">
+            <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
               PDF
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-border">
           {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-gray-50">
-              <td className="px-4 py-2.5 text-gray-700">
+            <tr key={invoice.id} className="hover:bg-muted">
+              <td className="px-4 py-2.5 text-foreground">
                 {new Date(invoice.date * 1000).toLocaleDateString("fr-CH", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
                 })}
               </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-gray-500">
+              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                 {invoice.number || "—"}
               </td>
-              <td className="px-4 py-2.5 text-right font-medium text-gray-900">
+              <td className="px-4 py-2.5 text-right font-medium text-foreground">
                 {invoice.amount.toFixed(2)} {(invoice.currency || "chf").toUpperCase()}
               </td>
               <td className="px-4 py-2.5 text-center">
@@ -119,13 +119,13 @@ export default function InvoicesList() {
                     href={invoice.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
                   >
                     <FileText className="h-3.5 w-3.5" />
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 ) : (
-                  <span className="text-gray-300">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
               </td>
             </tr>

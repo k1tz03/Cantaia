@@ -33,20 +33,20 @@ const SEVERITY_CONFIG: Record<
   }
 > = {
   red: {
-    bg: "bg-red-50",
-    border: "border-red-200",
+    bg: "bg-red-500/10",
+    border: "border-red-200 dark:border-red-800",
     iconColor: "text-red-500",
     Icon: AlertTriangle,
   },
   yellow: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    bg: "bg-amber-500/10",
+    border: "border-amber-200 dark:border-amber-800",
     iconColor: "text-amber-500",
     Icon: AlertCircle,
   },
   green: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-200 dark:border-emerald-800",
     iconColor: "text-emerald-500",
     Icon: CheckCircle,
   },
@@ -60,10 +60,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  budget: "bg-blue-100 text-blue-700",
-  planning: "bg-purple-100 text-purple-700",
-  supplier: "bg-orange-100 text-orange-700",
-  opportunity: "bg-teal-100 text-teal-700",
+  budget: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  planning: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
+  supplier: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+  opportunity: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
 };
 
 export function IntelligentAlerts({
@@ -112,7 +112,7 @@ export function IntelligentAlerts({
       <div className="flex flex-col items-center gap-3 py-6">
         <button
           onClick={handleGenerate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-[#1D4ED8] transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Sparkles className="w-4 h-4" />
           Generer des alertes IA
@@ -130,19 +130,19 @@ export function IntelligentAlerts({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="rounded-lg border border-gray-200 p-4 animate-pulse"
+            className="rounded-lg border border-border p-4 animate-pulse"
           >
             <div className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-gray-200 mt-0.5 shrink-0" />
+              <div className="w-5 h-5 rounded-full bg-muted mt-0.5 shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-2/3" />
-                <div className="h-3 bg-gray-100 rounded w-full" />
-                <div className="h-3 bg-gray-100 rounded w-4/5" />
+                <div className="h-4 bg-muted rounded w-2/3" />
+                <div className="h-3 bg-muted rounded w-full" />
+                <div className="h-3 bg-muted rounded w-4/5" />
               </div>
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
           <Loader2 className="w-3 h-3 animate-spin" />
           Analyse en cours...
         </p>
@@ -153,13 +153,13 @@ export function IntelligentAlerts({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
 
       {alerts.length === 0 && !error && (
-        <div className="text-center py-6 text-sm text-gray-500">
+        <div className="text-center py-6 text-sm text-muted-foreground">
           Aucune alerte generee pour ce projet.
         </div>
       )}
@@ -179,20 +179,20 @@ export function IntelligentAlerts({
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm text-gray-900">
+                  <span className="font-medium text-sm text-foreground">
                     {alert.title}
                   </span>
                   <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-gray-100 text-gray-700"}`}
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-muted text-muted-foreground"}`}
                   >
                     {CATEGORY_LABELS[alert.category] || alert.category}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {alert.description}
                 </p>
                 {alert.action && (
-                  <span className="inline-block mt-2 px-2 py-0.5 rounded bg-white/70 border border-gray-200 text-xs text-gray-700">
+                  <span className="inline-block mt-2 px-2 py-0.5 rounded bg-background/70 border border-border text-xs text-foreground">
                     {alert.action}
                   </span>
                 )}
@@ -207,7 +207,7 @@ export function IntelligentAlerts({
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors inline-flex items-center gap-1"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             Rafraichir

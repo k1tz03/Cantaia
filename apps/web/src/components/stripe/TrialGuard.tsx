@@ -114,15 +114,15 @@ export function TrialGuard() {
   // Trial expired overlay — blocking, full-screen
   if (isTrialExpired) {
     return (
-      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+      <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
         <div className="max-w-2xl text-center p-8">
-          <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+          <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center">
             <Clock className="h-8 w-8 text-amber-600" />
           </div>
-          <h1 className="text-2xl font-bold mb-4 text-gray-900">
+          <h1 className="text-2xl font-bold mb-4 text-foreground">
             Votre essai gratuit est termin&eacute;
           </h1>
-          <p className="text-gray-600 mb-8 text-lg">
+          <p className="text-muted-foreground mb-8 text-lg">
             Choisissez un plan pour continuer &agrave; utiliser Cantaia et
             acc&eacute;der &agrave; tous vos projets.
           </p>
@@ -133,7 +133,7 @@ export function TrialGuard() {
             Voir les plans
             <ArrowRight className="h-4 w-4" />
           </a>
-          <p className="mt-6 text-sm text-gray-400">
+          <p className="mt-6 text-sm text-muted-foreground">
             Vos donn&eacute;es sont conserv&eacute;es et seront accessibles
             d&egrave;s l&apos;activation d&apos;un plan.
           </p>

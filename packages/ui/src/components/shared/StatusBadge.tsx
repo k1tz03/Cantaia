@@ -16,19 +16,19 @@ type StatusVariant =
   | "cancelled";
 
 const variantStyles: Record<StatusVariant, string> = {
-  planning: "bg-blue-100 text-blue-700",
-  active: "bg-emerald-100 text-emerald-700",
-  paused: "bg-amber-100 text-amber-700",
-  on_hold: "bg-orange-100 text-orange-700",
-  closing: "bg-purple-100 text-purple-700",
-  completed: "bg-slate-100 text-slate-600",
-  archived: "bg-gray-100 text-gray-500",
-  open: "bg-blue-100 text-blue-700",
-  todo: "bg-blue-100 text-blue-700",
-  in_progress: "bg-indigo-100 text-indigo-700",
-  waiting: "bg-amber-100 text-amber-700",
-  done: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
+  planning: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  paused: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  on_hold: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+  closing: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
+  completed: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+  archived: "bg-gray-500/10 text-gray-500 dark:text-gray-400",
+  open: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  todo: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  in_progress: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",
+  waiting: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  done: "bg-green-500/10 text-green-700 dark:text-green-400",
+  cancelled: "bg-red-500/10 text-red-700 dark:text-red-400",
 };
 
 interface StatusBadgeProps {

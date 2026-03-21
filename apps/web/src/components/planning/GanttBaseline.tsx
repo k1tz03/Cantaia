@@ -86,7 +86,7 @@ export default function GanttBaseline({
               initial={{ opacity: 0, scaleX: 0 }}
               animate={{ opacity: 1, scaleX: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.1 }}
-              className="absolute bg-gray-300 rounded-full"
+              className="absolute bg-muted-foreground/30 rounded-full"
               style={{
                 left: bar.blX,
                 top: bar.blY,

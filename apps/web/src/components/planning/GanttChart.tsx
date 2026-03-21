@@ -514,7 +514,7 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.rename"),
-          icon: <PenLine className="h-4 w-4 text-gray-500" />,
+          icon: <PenLine className="h-4 w-4 text-muted-foreground" />,
           onClick: () => {
             // Trigger inline rename — handled by task list
             if (onPhaseUpdate) {
@@ -531,7 +531,7 @@ export default function GanttChart({
           onClick: () => {},
           render: () => (
             <div key="color-picker">
-              <div className="px-3 py-1.5 text-xs font-medium text-gray-500">
+              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 {t("contextMenu.changeColor")}
               </div>
               <ColorPickerRow
@@ -545,13 +545,13 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.duplicate"),
-          icon: <Copy className="h-4 w-4 text-gray-500" />,
+          icon: <Copy className="h-4 w-4 text-muted-foreground" />,
           onClick: () => handleDuplicatePhase(phase.id),
           separator: true,
         },
         {
           label: t("contextMenu.insertBefore"),
-          icon: <ArrowUp className="h-4 w-4 text-gray-500" />,
+          icon: <ArrowUp className="h-4 w-4 text-muted-foreground" />,
           onClick: () => {
             if (onAddPhaseProp) {
               onAddPhaseProp({ sort_order: phase.sort_order } as any);
@@ -560,7 +560,7 @@ export default function GanttChart({
         },
         {
           label: t("contextMenu.insertAfter"),
-          icon: <ArrowDown className="h-4 w-4 text-gray-500" />,
+          icon: <ArrowDown className="h-4 w-4 text-muted-foreground" />,
           onClick: () => {
             if (onAddPhaseProp) {
               onAddPhaseProp({ sort_order: phase.sort_order + 1 } as any);
@@ -594,12 +594,12 @@ export default function GanttChart({
       const items: ContextMenuItem[] = [
         {
           label: t("contextMenu.edit"),
-          icon: <PenLine className="h-4 w-4 text-gray-500" />,
+          icon: <PenLine className="h-4 w-4 text-muted-foreground" />,
           onClick: () => handleOpenSidePanel(task.id),
         },
         {
           label: t("contextMenu.duplicate"),
-          icon: <Copy className="h-4 w-4 text-gray-500" />,
+          icon: <Copy className="h-4 w-4 text-muted-foreground" />,
           onClick: () => handleDuplicateTask(task.id),
         },
         {
@@ -865,7 +865,7 @@ export default function GanttChart({
   }, [planningId, planning.tasks]);
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden relative">
+    <div className="flex flex-col h-full bg-background rounded-lg border border-border overflow-hidden relative">
       {/* Header toolbar */}
       <GanttHeader
         planning={planning}
@@ -894,7 +894,7 @@ export default function GanttChart({
                   ? `${t("toolbar.undo")}: ${undoRedo.undoDescription}`
                   : t("toolbar.undo")
               }
-              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <Undo2 className="h-4 w-4" />
             </button>
@@ -906,7 +906,7 @@ export default function GanttChart({
                   ? `${t("toolbar.redo")}: ${undoRedo.redoDescription}`
                   : t("toolbar.redo")
               }
-              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -935,7 +935,7 @@ export default function GanttChart({
       <div ref={containerRef} className="flex flex-1 min-h-0 relative">
         {/* Left panel: task list (hidden on mobile) */}
         <div
-          className="hidden md:flex flex-col border-r border-gray-200 overflow-hidden"
+          className="hidden md:flex flex-col border-r border-border overflow-hidden"
           style={{ width: `${splitPercent}%` }}
         >
           <GanttTaskList
@@ -961,7 +961,7 @@ export default function GanttChart({
           className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize hover:bg-blue-100 active:bg-blue-200 transition-colors z-20 shrink-0"
           onPointerDown={handleSplitPointerDown}
         >
-          <div className="w-0.5 h-8 bg-gray-300 rounded-full" />
+          <div className="w-0.5 h-8 bg-muted-foreground/30 rounded-full" />
         </div>
 
         {/* Right panel: timeline */}
@@ -1046,11 +1046,11 @@ export default function GanttChart({
       {/* ── Bulk move modal ─────────────────────────────────────────────── */}
       {showBulkMoveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-base font-semibold text-foreground mb-3">
               {t("selection.move")}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {t("selection.moveDays")}
             </p>
             <input
@@ -1059,7 +1059,7 @@ export default function GanttChart({
               onChange={(e) =>
                 setBulkMoveDays(parseInt(e.target.value, 10) || 0)
               }
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 mb-4"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 mb-4"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleBulkMove();
@@ -1069,7 +1069,7 @@ export default function GanttChart({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowBulkMoveModal(false)}
-                className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
                 {t("config.cancel")}
               </button>

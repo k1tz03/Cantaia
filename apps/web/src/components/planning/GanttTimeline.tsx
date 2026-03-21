@@ -422,14 +422,14 @@ export default function GanttTimeline({
       {/* Timeline header (scrolls horizontally in sync) */}
       <div
         ref={headerScrollRef}
-        className="overflow-hidden border-b border-gray-200 bg-gray-50 shrink-0"
+        className="overflow-hidden border-b border-border bg-muted shrink-0"
         style={{ height: HEADER_HEIGHT }}
       >
         <div className="relative" style={{ width: totalWidth, height: HEADER_HEIGHT }}>
           {columns.map((col, i) => (
             <div
               key={i}
-              className="absolute top-0 flex flex-col items-center justify-center border-r border-gray-200 text-xs text-gray-500"
+              className="absolute top-0 flex flex-col items-center justify-center border-r border-border text-xs text-muted-foreground"
               style={{
                 left: col.x,
                 width: col.width,
@@ -437,7 +437,7 @@ export default function GanttTimeline({
               }}
             >
               {col.subLabel && (
-                <span className="text-[10px] text-gray-400 leading-none">
+                <span className="text-[10px] text-muted-foreground leading-none">
                   {col.subLabel}
                 </span>
               )}
@@ -470,8 +470,8 @@ export default function GanttTimeline({
                 className={[
                   "absolute top-0 bottom-0 border-r",
                   col.isWeekend
-                    ? "bg-gray-50/60 border-gray-100"
-                    : "border-gray-100",
+                    ? "bg-muted/60 border-border"
+                    : "border-border",
                 ].join(" ")}
                 style={{ left: col.x, width: col.width }}
               />
@@ -481,7 +481,7 @@ export default function GanttTimeline({
             {rowItems.map((_, idx) => (
               <div
                 key={`row-${idx}`}
-                className="absolute left-0 right-0 border-b border-gray-50"
+                className="absolute left-0 right-0 border-b border-border"
                 style={{ top: idx * ROW_HEIGHT, height: ROW_HEIGHT }}
               />
             ))}

@@ -42,13 +42,13 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-[#111827] mb-2">{title}</h3>
-        <p className="text-sm text-[#6B7280] mb-6">{description}</p>
+      <div className="relative bg-background rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+        <p className="text-sm text-muted-foreground mb-6">{description}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-[#374151] bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-foreground bg-muted rounded-md hover:bg-muted/80 transition-colors"
             disabled={loading}
           >
             {cancelLabel || t("cancel")}
@@ -59,7 +59,7 @@ export function ConfirmDialog({
             className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
               variant === "danger"
                 ? "bg-red-600 hover:bg-red-700"
-                : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                : "bg-primary hover:bg-primary/90"
             }`}
           >
             {loading ? t("loading") : confirmLabel || t("confirm")}

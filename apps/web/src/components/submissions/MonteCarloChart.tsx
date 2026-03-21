@@ -334,10 +334,11 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
                 <XAxis
                   dataKey="bin"
                   tickFormatter={formatCompactCHF}
-                  tick={{ fontSize: 10, fill: "#9CA3AF" }}
-                  axisLine={{ stroke: "#E5E7EB" }}
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
                   tickLine={false}
                   interval="preserveStartEnd"
+                  className="fill-muted-foreground"
                 />
                 <YAxis hide />
                 <Tooltip content={<HistogramTooltip />} />
@@ -397,15 +398,15 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">P10 (optimiste)</div>
               <div className="text-sm font-semibold text-muted-foreground">CHF {formatFullCHF(Math.round(result.p10))}</div>
             </div>
-            <div className="rounded-lg border border-blue-100 bg-primary/10/50 p-3 text-center">
+            <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 text-center">
               <div className="text-[10px] uppercase tracking-wider text-blue-400 mb-1">P50 (mediane)</div>
               <div className="text-sm font-bold text-primary">CHF {formatFullCHF(Math.round(result.p50))}</div>
             </div>
-            <div className="rounded-lg border border-amber-100 bg-amber-500/10/50 p-3 text-center">
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-500/10 p-3 text-center">
               <div className="text-[10px] uppercase tracking-wider text-amber-500 mb-1">P80 (prudent)</div>
               <div className="text-sm font-bold text-amber-700 dark:text-amber-400">CHF {formatFullCHF(Math.round(result.p80))}</div>
             </div>
-            <div className="rounded-lg border border-red-100 bg-red-500/10/50 p-3 text-center">
+            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-500/10 p-3 text-center">
               <div className="text-[10px] uppercase tracking-wider text-red-400 mb-1">P95 (worst case)</div>
               <div className="text-sm font-bold text-red-600">CHF {formatFullCHF(Math.round(result.p95))}</div>
             </div>

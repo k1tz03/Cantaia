@@ -23,8 +23,8 @@ export function UsageLimitBanner({ current, limit, plan }: UsageLimitBannerProps
     <div
       className={`px-4 py-3 flex items-center justify-between text-sm ${
         isBlocked
-          ? "bg-red-50 text-red-800 border-b border-red-200"
-          : "bg-amber-50 text-amber-800 border-b border-amber-200"
+          ? "bg-red-500/10 text-red-800 dark:text-red-300 border-b border-red-200 dark:border-red-800"
+          : "bg-amber-500/10 text-amber-800 dark:text-amber-300 border-b border-amber-200 dark:border-amber-800"
       }`}
     >
       <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function UsageLimitBanner({ current, limit, plan }: UsageLimitBannerProps
       {!isBlocked && (
         <button
           onClick={() => setDismissed(true)}
-          className="p-1 hover:bg-amber-100 rounded"
+          className="p-1 hover:bg-amber-500/20 rounded"
           aria-label="Fermer"
         >
           <X className="h-4 w-4" />

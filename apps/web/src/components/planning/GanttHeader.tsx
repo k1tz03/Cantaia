@@ -71,22 +71,22 @@ export default function GanttHeader({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white">
+    <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-background">
       {/* Title + project */}
       <div className="flex items-center gap-2 min-w-0 mr-auto">
-        <Calendar className="h-5 w-5 text-blue-600 shrink-0" />
+        <Calendar className="h-5 w-5 text-primary shrink-0" />
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-gray-900 truncate">
+          <h2 className="text-base font-semibold text-foreground truncate">
             {planning.title}
           </h2>
           {projectName && (
-            <p className="text-xs text-gray-500 truncate">{projectName}</p>
+            <p className="text-xs text-muted-foreground truncate">{projectName}</p>
           )}
         </div>
       </div>
 
       {/* Zoom buttons */}
-      <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+      <div className="flex items-center rounded-lg border border-border bg-muted p-0.5">
         {zoomOptions.map((opt) => (
           <button
             key={opt.value}
@@ -94,8 +94,8 @@ export default function GanttHeader({
             className={[
               "px-3 py-1 text-xs font-medium rounded-md transition-colors",
               zoom === opt.value
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700",
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             ].join(" ")}
           >
             {opt.label}
@@ -104,7 +104,7 @@ export default function GanttHeader({
       </div>
 
       {/* Duration badge */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-lg text-xs text-blue-700">
+      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 rounded-lg text-xs text-primary">
         <Clock className="h-3.5 w-3.5" />
         <span>
           {t("header.totalDuration")}: {totalDays} {t("header.days")}
@@ -123,7 +123,7 @@ export default function GanttHeader({
               ? "bg-red-100 text-red-800 ring-2 ring-red-300"
               : isCriticalHigh
                 ? "bg-red-50 text-red-700 hover:bg-red-100"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100",
+                : "bg-muted text-muted-foreground hover:bg-muted",
           ].join(" ")}
           title={t("criticalPathHighlight")}
         >
@@ -144,7 +144,7 @@ export default function GanttHeader({
           {/* Save baseline */}
           <button
             onClick={onSaveBaseline}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border border-border rounded-md hover:bg-muted transition-colors"
             title={t("baseline.save")}
           >
             <Bookmark className="h-3.5 w-3.5" />
@@ -160,7 +160,7 @@ export default function GanttHeader({
                   "flex items-center gap-1 px-2 py-1 text-xs border rounded-md transition-colors",
                   showBaseline
                     ? "text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100"
-                    : "text-gray-600 border-gray-200 hover:bg-gray-50",
+                    : "text-muted-foreground border-border hover:bg-muted",
                 ].join(" ")}
                 title={showBaseline ? t("baseline.hide") : t("baseline.show")}
               >
@@ -177,7 +177,7 @@ export default function GanttHeader({
               {/* Reset baseline */}
               <button
                 onClick={onResetBaseline}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border border-border rounded-md hover:bg-muted transition-colors"
                 title={t("baseline.reset")}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
