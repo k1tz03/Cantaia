@@ -22,7 +22,7 @@ const PLAN_PRICES: Record<string, number> = {
   trial: 0,
   starter: 149,
   pro: 349,
-  enterprise: 990,
+  enterprise: 790,
 };
 
 interface OrgData {

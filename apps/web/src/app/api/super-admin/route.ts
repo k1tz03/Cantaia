@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     } catch { /* table may not exist */ }
 
     // MRR calculation from org plans
-    const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+    const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
     let mrr = 0;
     for (const o of (orgsList.data || [])) {
       const plan = o.plan || o.subscription_plan || "trial";
@@ -465,7 +465,7 @@ export async function GET(request: NextRequest) {
         }
       }
       const orgLookup = new Map(orgsData.map((o: any) => [o.id, o]));
-      const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+      const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
 
       const perOrg = orgIds.map((oid) => {
         const stats = orgMap.get(oid)!;

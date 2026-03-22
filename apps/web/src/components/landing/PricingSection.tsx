@@ -4,78 +4,147 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { AnimatedSection } from "./AnimatedSection";
 
+const PLANS = [
+  {
+    key: "starter" as const,
+    featuresKeys: [
+      "users",
+      "projects",
+      "emailClassification",
+      "basicPV",
+      "tasks",
+      "plans",
+      "emailSupport",
+    ],
+    highlight: false,
+  },
+  {
+    key: "pro" as const,
+    featuresKeys: [
+      "users",
+      "projects",
+      "emailClassification",
+      "advancedPV",
+      "dailyBriefing",
+      "submissions",
+      "intelligence",
+      "visits",
+      "archiving",
+      "prioritySupport",
+    ],
+    highlight: true,
+  },
+  {
+    key: "enterprise" as const,
+    featuresKeys: [
+      "users",
+      "projects",
+      "allProFeatures",
+      "subdomain",
+      "branding",
+      "customIntegrations",
+      "dedicatedSupport",
+      "training",
+    ],
+    highlight: false,
+  },
+];
+
 export function PricingSection() {
   const t = useTranslations("landing.pricing");
-
-  const features = [
-    t("feature1"),
-    t("feature2"),
-    t("feature3"),
-    t("feature4"),
-    t("feature5"),
-    t("feature6"),
-  ];
 
   return (
     <section id="pricing" className="relative bg-gradient-to-b from-white to-[#F8FAFC]">
       <div className="mx-auto max-w-[1200px] px-6 py-20 lg:py-28">
         <AnimatedSection>
           <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-500 mb-5 shadow-sm">
-              Tarification simple
-            </div>
             <h2 className="font-display text-3xl font-bold text-[#111827] sm:text-4xl">
-              {t("singleTitle")}
+              {t("title")}
             </h2>
             <p className="mt-3 text-lg text-[#6B7280]">
-              {t("singleSubtitle")}
+              {t("subtitle")}
             </p>
           </div>
         </AnimatedSection>
 
         <AnimatedSection delay={0.2}>
-          <div className="mx-auto max-w-[480px]">
-            <div className="relative rounded-2xl border border-gray-100 bg-white shadow-2xl shadow-gray-200/60 overflow-hidden transition-all duration-300 hover:shadow-[0_20px_60px_rgba(37,99,235,0.12)]">
-              {/* Top gradient accent */}
-              <div className="h-1.5 bg-gradient-to-r from-[#2563EB] via-[#3B82F6] to-[#10B981]" />
-              <div className="p-8 pt-7">
-                <div className="text-center">
-                  <h3 className="font-display text-xl font-bold text-[#111827]">{t("planName")}</h3>
-                  <div className="mt-5 flex items-baseline justify-center gap-1">
-                    <span className="font-display text-6xl font-extrabold bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">{t("price")}</span>
-                    <span className="text-xl text-[#6B7280]">{t("priceCurrency")}</span>
-                  </div>
-                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-sm text-[#2563EB] font-medium">
-                    {t("priceNote")}
-                  </p>
-                </div>
+          <div className="grid w-full max-w-5xl mx-auto grid-cols-1 gap-8 sm:grid-cols-3">
+            {PLANS.map(({ key, featuresKeys, highlight }) => {
+              const nameKey = `${key}Name` as const;
+              const descKey = `${key}Desc` as const;
+              const priceKey = `${key}Price` as const;
+              const isEnterprise = key === "enterprise";
 
-                <div className="mt-8 space-y-3.5">
-                  {features.map((feature, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#10B981]/10 flex-shrink-0">
-                        <svg className="h-3 w-3 text-[#10B981]" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-[#374151]">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <Link
-                  href="/register"
-                  className="mt-8 block w-full rounded-xl bg-[#2563EB] py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+              return (
+                <div
+                  key={key}
+                  className={`relative rounded-2xl border bg-white p-8 shadow-sm transition-shadow duration-200 hover:shadow-lg ${
+                    highlight
+                      ? "border-[#2563EB] border-2 shadow-md"
+                      : "border-slate-200"
+                  }`}
                 >
-                  {t("cta")}
-                </Link>
+                  {highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#2563EB] px-4 py-1 text-xs font-semibold text-white">
+                      {t("popular")}
+                    </div>
+                  )}
 
-                <p className="mt-3 text-center text-sm text-[#6B7280]">
-                  {t("noCommitment")}
-                </p>
-              </div>
-            </div>
+                  <h3 className="text-lg font-semibold text-[#111827]">
+                    {t(nameKey)}
+                  </h3>
+                  <p className="mt-2 text-sm text-[#6B7280]">{t(descKey)}</p>
+
+                  <p className="mt-6 text-3xl font-bold text-[#111827]">
+                    {t("currency")} {t(priceKey)}
+                    <span className="text-sm font-normal text-[#6B7280]">
+                      {t("perMonth")}
+                    </span>
+                  </p>
+
+                  <ul className="mt-8 space-y-3">
+                    {featuresKeys.map((fk) => (
+                      <li key={fk} className="flex items-start gap-3 text-sm">
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#10B981]/10 flex-shrink-0 mt-0.5">
+                          <svg
+                            className="h-3 w-3 text-[#10B981]"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                        <span className="text-[#374151]">
+                          {t(`${key}Features.${fk}`)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link
+                    href={isEnterprise ? "mailto:contact@cantaia.io" : "/register"}
+                    className={`mt-8 block w-full rounded-xl py-3 text-center text-sm font-semibold transition-all duration-200 ${
+                      highlight
+                        ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/25 hover:bg-[#1D4ED8]"
+                        : "border border-slate-200 bg-white text-[#111827] hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    {isEnterprise ? t("contactUs") : t("choosePlan")}
+                  </Link>
+                </div>
+              );
+            })}
           </div>
+        </AnimatedSection>
+
+        <AnimatedSection delay={0.3}>
+          <p className="mt-8 text-center text-sm text-[#6B7280]">
+            {t("noCommitment")}
+          </p>
         </AnimatedSection>
       </div>
     </section>

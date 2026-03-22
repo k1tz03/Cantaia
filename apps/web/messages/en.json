@@ -1075,7 +1075,7 @@
       "proPrice": "349",
       "proDesc": "For growing companies",
       "proFeatures": {
-        "users": "Up to 15 users",
+        "users": "Up to 20 users",
         "projects": "50 projects",
         "emailClassification": "Advanced AI email classification",
         "advancedPV": "Advanced minutes + voice transcription",
@@ -1087,6 +1087,7 @@
         "prioritySupport": "Priority support"
       },
       "enterpriseName": "Enterprise",
+      "enterprisePrice": "790",
       "enterpriseDesc": "For large groups",
       "enterpriseFeatures": {
         "users": "Unlimited users",
@@ -1369,7 +1370,7 @@
     "planStarterF2": "10 projects",
     "planStarterF3": "AI email classification",
     "planStarterF4": "Email support",
-    "planProF1": "Up to 15 users",
+    "planProF1": "Up to 20 users",
     "planProF2": "50 projects",
     "planProF3": "Advanced AI classification",
     "planProF4": "Smart daily briefing",

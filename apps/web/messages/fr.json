@@ -1075,7 +1075,7 @@
       "proPrice": "349",
       "proDesc": "Pour les entreprises en croissance",
       "proFeatures": {
-        "users": "Jusqu'à 15 utilisateurs",
+        "users": "Jusqu'à 20 utilisateurs",
         "projects": "50 projets",
         "emailClassification": "Classement emails IA avancé",
         "advancedPV": "PV avancé + transcription vocale",
@@ -1087,6 +1087,7 @@
         "prioritySupport": "Support prioritaire"
       },
       "enterpriseName": "Enterprise",
+      "enterprisePrice": "790",
       "enterpriseDesc": "Pour les grands groupes",
       "enterpriseFeatures": {
         "users": "Utilisateurs illimités",
@@ -1369,7 +1370,7 @@
     "planStarterF2": "10 projets",
     "planStarterF3": "Classement emails IA",
     "planStarterF4": "Support par email",
-    "planProF1": "Jusqu'à 15 utilisateurs",
+    "planProF1": "Jusqu'à 20 utilisateurs",
     "planProF2": "50 projets",
     "planProF3": "Classement IA avancé",
     "planProF4": "Briefing quotidien intelligent",

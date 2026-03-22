@@ -29,7 +29,7 @@ const PLANS = [
     popular: true,
     features: [
       "20 utilisateurs",
-      "Projets illimites",
+      "50 projets",
       "Classification + analyse prix IA",
       "PV + soumissions + plans",
       "Briefing quotidien",
@@ -38,7 +38,7 @@ const PLANS = [
   },
   {
     id: "enterprise",
-    price: 0, // Custom
+    price: 790,
     features: [
       "Utilisateurs illimites",
       "Projets illimites",
@@ -62,7 +62,7 @@ export default function PlanSelector({
   async function handleSelectPlan(planId: string) {
     if (planId === "enterprise") {
       // Open contact form or mailto
-      window.open("mailto:contact@cantaia.ch?subject=Cantaia Enterprise", "_blank");
+      window.open("mailto:contact@cantaia.io?subject=Cantaia Enterprise", "_blank");
       return;
     }
 
@@ -148,18 +148,12 @@ export default function PlanSelector({
                 </h4>
 
                 <div className="mt-2">
-                  {isEnterprise ? (
-                    <p className="text-2xl font-bold text-foreground">
-                      {t("onQuote")}
-                    </p>
-                  ) : (
-                    <p className="text-2xl font-bold text-foreground">
-                      {plan.price} CHF
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {t("perMonth")}
-                      </span>
-                    </p>
-                  )}
+                  <p className="text-2xl font-bold text-foreground">
+                    {plan.price} CHF
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {t("perMonth")}
+                    </span>
+                  </p>
                 </div>
 
                 <ul className="mt-4 space-y-2">

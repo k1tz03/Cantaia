@@ -437,7 +437,7 @@ export default function OrganizationDetailPage() {
 
               {/* Profitability banner */}
               {(() => {
-                const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 990 };
+                const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
                 const revenue = PLAN_PRICES[orgPlan] || 0;
                 const costMonthly = statsData.overview.projected_monthly;
                 const margin = revenue > 0 ? ((revenue - costMonthly) / revenue) * 100 : 0;

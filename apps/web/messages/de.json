@@ -1075,7 +1075,7 @@
       "proPrice": "349",
       "proDesc": "Für wachsende Unternehmen",
       "proFeatures": {
-        "users": "Bis zu 15 Benutzer",
+        "users": "Bis zu 20 Benutzer",
         "projects": "50 Projekte",
         "emailClassification": "Erweiterte KI E-Mail-Klassifizierung",
         "advancedPV": "Erweitertes Protokoll + Sprachtranskription",
@@ -1087,6 +1087,7 @@
         "prioritySupport": "Prioritäts-Support"
       },
       "enterpriseName": "Enterprise",
+      "enterprisePrice": "790",
       "enterpriseDesc": "Für grosse Gruppen",
       "enterpriseFeatures": {
         "users": "Unbegrenzte Benutzer",
@@ -1369,7 +1370,7 @@
     "planStarterF2": "10 Projekte",
     "planStarterF3": "KI-E-Mail-Klassifizierung",
     "planStarterF4": "E-Mail-Support",
-    "planProF1": "Bis zu 15 Benutzer",
+    "planProF1": "Bis zu 20 Benutzer",
     "planProF2": "50 Projekte",
     "planProF3": "Erweiterte KI-Klassifizierung",
     "planProF4": "Intelligentes tägliches Briefing",

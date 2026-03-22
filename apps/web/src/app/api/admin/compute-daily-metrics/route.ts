@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     const PLAN_MRR: Record<string, number> = {
       starter: 149,
       pro: 349,
-      enterprise: 990,
+      enterprise: 790,
     };
 
     const totalMrr = (orgPlans || []).reduce(

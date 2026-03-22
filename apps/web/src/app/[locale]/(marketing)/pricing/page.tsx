@@ -4,19 +4,19 @@ import { Link } from "@/i18n/navigation";
 
 const pricingSeo: Record<string, { title: string; description: string }> = {
   fr: {
-    title: "Tarifs Cantaia — 99 CHF/mois, tout inclus",
+    title: "Tarifs Cantaia — Plans dès 149 CHF/mois",
     description:
-      "Un seul plan à 99 CHF/mois. Triage email IA, PV automatiques, soumissions CFC, estimation de prix, gestion des plans. Essai gratuit 14 jours, sans engagement.",
+      "3 plans adaptés : Starter (149 CHF), Pro (349 CHF), Enterprise (790 CHF). Triage email IA, PV automatiques, soumissions CFC, estimation de prix, gestion des plans. Essai gratuit 14 jours.",
   },
   en: {
-    title: "Cantaia Pricing — CHF 99/month, all inclusive",
+    title: "Cantaia Pricing — Plans from CHF 149/month",
     description:
-      "One plan at CHF 99/month. AI email triage, automatic meeting minutes, CFC submissions, price estimation, plan management. Free 14-day trial, no commitment.",
+      "3 tailored plans: Starter (CHF 149), Pro (CHF 349), Enterprise (CHF 790). AI email triage, automatic meeting minutes, CFC submissions, price estimation, plan management. Free 14-day trial.",
   },
   de: {
-    title: "Cantaia Preise — CHF 99/Monat, alles inklusive",
+    title: "Cantaia Preise — Pläne ab CHF 149/Monat",
     description:
-      "Ein Plan für CHF 99/Monat. KI-E-Mail-Triage, automatische Sitzungsprotokolle, CFC-Ausschreibungen, Preisschätzung, Planverwaltung. 14 Tage kostenlos testen.",
+      "3 passende Pläne: Starter (CHF 149), Pro (CHF 349), Enterprise (CHF 790). KI-E-Mail-Triage, automatische Sitzungsprotokolle, CFC-Ausschreibungen, Preisschätzung, Planverwaltung. 14 Tage kostenlos.",
   },
 };
 
@@ -45,18 +45,18 @@ export async function generateMetadata({
 const pricingJsonLd = {
   "@context": "https://schema.org",
   "@type": "Product",
-  name: "Cantaia Fondateur",
+  name: "Cantaia",
   description:
     "AI-powered construction management: email triage, meeting minutes, CFC submissions, price estimation, plan management.",
   brand: { "@type": "Brand", name: "Cantaia" },
   offers: {
-    "@type": "Offer",
+    "@type": "AggregateOffer",
     url: "https://cantaia.io/fr/pricing",
     priceCurrency: "CHF",
-    price: "99",
-    priceValidUntil: "2027-01-01",
+    lowPrice: "149",
+    highPrice: "790",
+    offerCount: "3",
     availability: "https://schema.org/InStock",
-    description: "Plan Fondateur — tout inclus, prix bloqué 12 mois",
   },
 };
 
@@ -149,16 +149,12 @@ export default function PricingPage() {
               <p className="mt-2 text-sm text-slate-500">{t(descKey)}</p>
 
               <p className="mt-6 text-3xl font-bold text-slate-900">
-                {isEnterprise ? (
-                  <span className="text-2xl">{t("customPrice")}</span>
-                ) : (
-                  <>
-                    {t("currency")} {t(priceKey)}
-                    <span className="text-sm font-normal text-slate-500">
-                      {t("perMonth")}
-                    </span>
-                  </>
-                )}
+                <>
+                  {t("currency")} {t(priceKey)}
+                  <span className="text-sm font-normal text-slate-500">
+                    {t("perMonth")}
+                  </span>
+                </>
               </p>
 
               <ul className="mt-8 space-y-3">
