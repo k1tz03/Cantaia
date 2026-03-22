@@ -31,6 +31,7 @@ import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
+import { PriceRequestWizard } from "@/components/submissions/detail/PriceRequestWizard";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -164,6 +165,7 @@ export default function SubmissionDetailPage() {
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
 
   const { setActiveProject } = useActiveProject();
 
@@ -196,6 +198,17 @@ export default function SubmissionDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load org suppliers for the price request wizard
+  useEffect(() => {
+    fetch("/api/suppliers")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.suppliers) setSuppliers(json.suppliers);
+        else if (Array.isArray(json)) setSuppliers(json);
+      })
+      .catch(() => {});
+  }, []);
 
   // Poll during analysis — with 5min client-side timeout matching server maxDuration
   useEffect(() => {
@@ -401,12 +414,35 @@ export default function SubmissionDetailPage() {
           />
         )}
         {activeTab === "requests" && (
-          <RequestsTabContent
+          <PriceRequestWizard
             submissionId={id}
-            materialGroups={materialGroups}
-            items={items}
-            priceRequests={priceRequests}
-            onRefresh={fetchData}
+            lots={materialGroups.map((g) => {
+              const groupItems = items.filter((i) => i.material_group === g);
+              const firstItem = groupItems[0];
+              return {
+                id: g,
+                name: g,
+                cfc_code: firstItem?.cfc_code || null,
+                items_count: groupItems.length,
+              } as any;
+            })}
+            suppliers={suppliers}
+            budgetGroups={
+              ((submission as any)?.budget_estimate as BudgetResult | null)?.estimates
+                ? Object.entries(
+                    (((submission as any).budget_estimate as BudgetResult).estimates || []).reduce(
+                      (acc: Record<string, number>, item: BudgetEstimate) => {
+                        const g = item.material_group;
+                        acc[g] = (acc[g] || 0) + (item.prix_median || 0) * (item.quantity || 1);
+                        return acc;
+                      },
+                      {} as Record<string, number>
+                    )
+                  ).map(([group, total]) => ({ group, total_median: total }))
+                : undefined
+            }
+            existingRequests={priceRequests as any}
+            onComplete={fetchData}
           />
         )}
         {activeTab === "comparison" && (
