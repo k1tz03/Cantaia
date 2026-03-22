@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Enrich with user/org info via separate queries
-    const userIds = [...new Set((tickets || []).map((t: any) => t.user_id as string))];
-    const orgIds = [...new Set((tickets || []).map((t: any) => t.organization_id as string))];
+    const userIds: string[] = Array.from(new Set((tickets || []).map((t: any) => t.user_id)));
+    const orgIds: string[] = Array.from(new Set((tickets || []).map((t: any) => t.organization_id)));
 
     let usersMap: Record<string, any> = {};
     let orgsMap: Record<string, any> = {};
