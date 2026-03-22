@@ -99,6 +99,7 @@ export function Sidebar() {
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
   ];
 
   // Section: RÉFÉRENTIELS
@@ -208,6 +209,7 @@ export function Sidebar() {
 
   const mobileExtraItems: NavItem[] = [
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
