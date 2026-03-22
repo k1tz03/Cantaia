@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
     conversation_id?: string;
     message: string;
     project_id?: string;
+    attachments?: Array<{
+      file_url: string;
+      file_name: string;
+      file_type: string;
+      extracted_text?: string;
+      is_image?: boolean;
+    }>;
   };
   try {
     body = await request.json();
@@ -95,6 +102,7 @@ export async function POST(request: NextRequest) {
     conversation_id: conversationId,
     role: "user",
     content: body.message,
+    attachments: body.attachments || [],
   });
 
   // Load last 20 messages for context (reduced from 50 to control token costs)
@@ -111,6 +119,52 @@ export async function POST(request: NextRequest) {
       content: m.content,
     }),
   );
+
+  // If attachments are present, replace the last user message with multi-content
+  if (body.attachments && body.attachments.length > 0 && messages.length > 0) {
+    const lastIdx = messages.length - 1;
+    if (messages[lastIdx].role === "user") {
+      const userContent: any[] = [];
+
+      for (const att of body.attachments) {
+        if (att.is_image) {
+          // Vision: send image directly as base64
+          try {
+            const imgRes = await fetch(att.file_url);
+            const imgBuf = await imgRes.arrayBuffer();
+            const base64 = Buffer.from(imgBuf).toString("base64");
+            const mediaType = att.file_type as
+              | "image/jpeg"
+              | "image/png"
+              | "image/webp"
+              | "image/gif";
+            userContent.push({
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: base64 },
+            });
+          } catch (e) {
+            userContent.push({
+              type: "text",
+              text: `[Image: ${att.file_name} - failed to load]`,
+            });
+          }
+        } else if (att.extracted_text) {
+          // Text extraction: inject document content as context
+          userContent.push({
+            type: "text",
+            text: `[Document: ${att.file_name}]\n${att.extracted_text}`,
+          });
+        }
+      }
+
+      // Add the user's text message
+      userContent.push({ type: "text", text: body.message });
+
+      // Use multi-content format only if we have more than just the text
+      messages[lastIdx].content =
+        userContent.length === 1 ? body.message : userContent;
+    }
+  }
 
   // Build context for system prompt
   let projectName: string | undefined;

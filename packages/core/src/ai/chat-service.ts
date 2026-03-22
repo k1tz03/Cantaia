@@ -6,9 +6,23 @@
 
 import { MODEL_FOR_TASK } from "./ai-utils";
 
+export type ChatMessageContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: {
+            type: "base64";
+            media_type: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+            data: string;
+          };
+        }
+    >;
+
 export interface ChatMessage {
   role: "user" | "assistant";
-  content: string;
+  content: ChatMessageContent;
 }
 
 export interface ChatStreamChunk {
@@ -35,7 +49,7 @@ export async function* streamChatResponse(
       model,
       max_tokens: 2048,
       system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: messages.map((m) => ({ role: m.role, content: m.content as any })),
       stream: true,
     });
   } catch (err: any) {
