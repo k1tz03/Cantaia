@@ -10,6 +10,10 @@ import {
   Trash2,
   MessageSquare,
   Loader2,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -62,6 +66,14 @@ export default function ChatPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<Array<{
+    file: File;
+    preview?: string;
+    uploaded?: { file_url: string; file_name: string; file_type: string; file_size: number; extracted_text?: string; is_image?: boolean };
+  }>>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -194,6 +206,15 @@ export default function ChatPage() {
     }
 
     try {
+      // Upload pending files before sending message
+      let attachments: Array<{ file_url: string; file_name: string; file_type: string; file_size: number; extracted_text?: string; is_image?: boolean }> = [];
+      if (pendingFiles.length > 0) {
+        setUploading(true);
+        attachments = await uploadFiles();
+        setUploading(false);
+        setPendingFiles([]);
+      }
+
       abortRef.current = new AbortController();
 
       const res = await fetch("/api/chat", {
@@ -202,6 +223,7 @@ export default function ChatPage() {
         body: JSON.stringify({
           conversation_id: activeConvId || undefined,
           message: msg,
+          attachments: attachments.length > 0 ? attachments : undefined,
         }),
         signal: abortRef.current.signal,
       });
@@ -348,6 +370,74 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionSeed]);
 
+  // --- File upload helpers ---
+  const ALLOWED_TYPES = [
+    "image/jpeg", "image/png", "image/webp",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+  ];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const MAX_FILES = 3;
+
+  function handleFileSelect(files: FileList | File[]) {
+    const selected = Array.from(files).filter(
+      (f) =>
+        (ALLOWED_TYPES.includes(f.type) || f.name.endsWith(".msg") || f.name.endsWith(".eml")) &&
+        f.size <= MAX_FILE_SIZE
+    );
+    setPendingFiles((prev) => {
+      const combined = [
+        ...prev,
+        ...selected.map((file) => ({
+          file,
+          preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+        })),
+      ];
+      return combined.slice(0, MAX_FILES);
+    });
+  }
+
+  function removePendingFile(index: number) {
+    setPendingFiles((prev) => {
+      const removed = prev[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  async function uploadFiles(): Promise<
+    Array<{
+      file_url: string;
+      file_name: string;
+      file_type: string;
+      file_size: number;
+      extracted_text?: string;
+      is_image?: boolean;
+    }>
+  > {
+    const results = [];
+    for (const pf of pendingFiles) {
+      if (pf.uploaded) {
+        results.push(pf.uploaded);
+        continue;
+      }
+      const formData = new FormData();
+      formData.append("file", pf.file);
+      formData.append("conversation_id", activeConvId || "temp");
+      try {
+        const res = await fetch("/api/chat/upload", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          results.push(data);
+        }
+      } catch (e) {
+        console.error("[Chat] Upload error:", e);
+      }
+    }
+    return results;
+  }
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
       {/* Left panel — Conversation list */}
@@ -407,7 +497,25 @@ export default function ChatPage() {
       </div>
 
       {/* Right panel — Chat area */}
-      <div className="flex flex-1 flex-col">
+      <div
+        className={cn("relative flex flex-1 flex-col", dragOver && "ring-2 ring-primary ring-inset")}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files.length > 0) {
+            handleFileSelect(e.dataTransfer.files);
+          }
+        }}
+      >
+        {/* Drag overlay */}
+        {dragOver && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+            <p className="text-sm font-medium text-primary">Déposez vos fichiers ici</p>
+          </div>
+        )}
+
         {/* Mobile header with new conversation button */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
           <button
@@ -499,32 +607,83 @@ export default function ChatPage() {
 
         {/* Input area */}
         <div className="border-t border-border bg-background px-4 py-3">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                handleTextareaInput();
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={t("placeholder")}
-              rows={1}
-              disabled={isStreaming}
-              className="flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
-              style={{ maxHeight: 160 }}
-            />
-            <button
-              onClick={() => sendMessage()}
-              disabled={!input.trim() || isStreaming}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isStreaming ? (
-                <Loader2 className="h-4.5 w-4.5 animate-spin" />
-              ) : (
-                <Send className="h-4.5 w-4.5" />
-              )}
-            </button>
+          <div className="mx-auto max-w-3xl">
+            {/* File preview chips */}
+            {pendingFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-1 pb-2">
+                {pendingFiles.map((pf, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs text-foreground"
+                  >
+                    {pf.file.type.startsWith("image/") ? (
+                      <ImageIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    )}
+                    <span className="max-w-[120px] truncate">{pf.file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingFile(i)}
+                      className="text-muted-foreground hover:text-foreground ml-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={[...ALLOWED_TYPES, ".msg", ".eml"].join(",")}
+                onChange={(e) => {
+                  if (e.target.files) handleFileSelect(e.target.files);
+                  e.target.value = "";
+                }}
+                className="hidden"
+              />
+              {/* Paperclip button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || pendingFiles.length >= MAX_FILES}
+                className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                title="Joindre un fichier"
+              >
+                <Paperclip className="h-5 w-5" />
+              </button>
+
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  handleTextareaInput();
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder={t("placeholder")}
+                rows={1}
+                disabled={isStreaming}
+                className="flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
+                style={{ maxHeight: 160 }}
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={(!input.trim() && pendingFiles.length === 0) || isStreaming || uploading}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isStreaming || uploading ? (
+                  <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                ) : (
+                  <Send className="h-4.5 w-4.5" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
