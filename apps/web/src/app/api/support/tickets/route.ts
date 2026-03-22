@@ -28,9 +28,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
     const offset = (page - 1) * limit;
 
+    // Fetch tickets (simple select, no FK joins to avoid constraint name issues)
     let query = (admin as any)
       .from("support_tickets")
-      .select("*, users!support_tickets_user_id_fkey(first_name, last_name, email), organizations!support_tickets_organization_id_fkey(name)", { count: "exact" });
+      .select("*", { count: "exact" });
 
     if (!isSuperAdmin) {
       query = query.eq("user_id", user.id);
@@ -47,6 +48,37 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("[Support] List error:", error);
       return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 });
+    }
+
+    // Enrich with user/org info via separate queries
+    const userIds = [...new Set((tickets || []).map((t: any) => t.user_id))];
+    const orgIds = [...new Set((tickets || []).map((t: any) => t.organization_id))];
+
+    let usersMap: Record<string, any> = {};
+    let orgsMap: Record<string, any> = {};
+
+    if (userIds.length > 0) {
+      const { data: users } = await admin
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .in("id", userIds);
+      if (users) {
+        for (const u of users) {
+          usersMap[u.id] = u;
+        }
+      }
+    }
+
+    if (orgIds.length > 0) {
+      const { data: orgs } = await admin
+        .from("organizations")
+        .select("id, name")
+        .in("id", orgIds);
+      if (orgs) {
+        for (const o of orgs) {
+          orgsMap[o.id] = o;
+        }
+      }
     }
 
     // Get message counts per ticket
@@ -66,13 +98,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const enriched = (tickets || []).map((t: any) => ({
-      ...t,
-      message_count: messageCounts[t.id] || 0,
-      user_name: t.users ? `${t.users.first_name || ""} ${t.users.last_name || ""}`.trim() : "",
-      user_email: t.users?.email || "",
-      org_name: t.organizations?.name || "",
-    }));
+    const enriched = (tickets || []).map((t: any) => {
+      const u = usersMap[t.user_id];
+      const o = orgsMap[t.organization_id];
+      return {
+        ...t,
+        message_count: messageCounts[t.id] || 0,
+        user_name: u ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : "",
+        user_email: u?.email || "",
+        org_name: o?.name || "",
+      };
+    });
 
     return NextResponse.json({
       success: true,

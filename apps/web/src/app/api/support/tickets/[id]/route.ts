@@ -23,10 +23,10 @@ export async function GET(
 
     const isSuperAdmin = profile?.is_superadmin === true;
 
-    // Fetch ticket
+    // Fetch ticket (no FK joins to avoid constraint name issues)
     const { data: ticket, error: ticketError } = await (admin as any)
       .from("support_tickets")
-      .select("*, users!support_tickets_user_id_fkey(first_name, last_name, email), organizations!support_tickets_organization_id_fkey(name, subscription_plan)")
+      .select("*")
       .eq("id", id)
       .single();
 
@@ -38,6 +38,19 @@ export async function GET(
     if (!isSuperAdmin && ticket.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // Enrich with user/org info
+    const { data: ticketUser } = await admin
+      .from("users")
+      .select("first_name, last_name, email")
+      .eq("id", ticket.user_id)
+      .single();
+
+    const { data: ticketOrg } = await admin
+      .from("organizations")
+      .select("name, subscription_plan")
+      .eq("id", ticket.organization_id)
+      .single();
 
     // Fetch messages
     const { data: messages } = await (admin as any)
@@ -57,10 +70,10 @@ export async function GET(
       success: true,
       ticket: {
         ...ticket,
-        user_name: ticket.users ? `${ticket.users.first_name || ""} ${ticket.users.last_name || ""}`.trim() : "",
-        user_email: ticket.users?.email || "",
-        org_name: ticket.organizations?.name || "",
-        org_plan: ticket.organizations?.subscription_plan || "trial",
+        user_name: ticketUser ? `${ticketUser.first_name || ""} ${ticketUser.last_name || ""}`.trim() : "",
+        user_email: ticketUser?.email || "",
+        org_name: ticketOrg?.name || "",
+        org_plan: ticketOrg?.subscription_plan || "trial",
       },
       messages: messages || [],
     });

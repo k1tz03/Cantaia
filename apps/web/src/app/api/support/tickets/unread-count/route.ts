@@ -19,29 +19,41 @@ export async function GET(_request: NextRequest) {
 
     const isSuperAdmin = profile?.is_superadmin === true;
 
-    let query = (admin as any).from("support_tickets").select("id", { count: "exact", head: true });
+    // PostgREST cannot compare two columns, so fetch and count in JS
+    let query = (admin as any)
+      .from("support_tickets")
+      .select("id, last_read_at, last_admin_reply_at, last_user_reply_at, last_admin_read_at");
 
-    if (isSuperAdmin) {
-      // Tickets with new user replies that admin hasn't read
-      query = query
-        .not("last_user_reply_at", "is", null)
-        .or("last_admin_read_at.is.null,last_user_reply_at.gt.last_admin_read_at");
-    } else {
-      // User's tickets with new admin replies
-      query = query
-        .eq("user_id", user.id)
-        .not("last_admin_reply_at", "is", null)
-        .or("last_read_at.is.null,last_admin_reply_at.gt.last_read_at");
+    if (!isSuperAdmin) {
+      query = query.eq("user_id", user.id);
     }
 
-    const { count, error } = await query;
+    // Only fetch non-closed tickets for performance
+    query = query.neq("status", "closed");
+
+    const { data: tickets, error } = await query;
 
     if (error) {
       console.error("[Support] Unread count error:", error);
       return NextResponse.json({ count: 0 });
     }
 
-    return NextResponse.json({ count: count || 0 });
+    let count = 0;
+    for (const t of tickets || []) {
+      if (isSuperAdmin) {
+        // Ticket has new user reply that admin hasn't read
+        if (t.last_user_reply_at && (!t.last_admin_read_at || new Date(t.last_user_reply_at) > new Date(t.last_admin_read_at))) {
+          count++;
+        }
+      } else {
+        // User's ticket has new admin reply they haven't read
+        if (t.last_admin_reply_at && (!t.last_read_at || new Date(t.last_admin_reply_at) > new Date(t.last_read_at))) {
+          count++;
+        }
+      }
+    }
+
+    return NextResponse.json({ count });
   } catch (error) {
     console.error("[Support] Unread count error:", error);
     return NextResponse.json({ count: 0 });
