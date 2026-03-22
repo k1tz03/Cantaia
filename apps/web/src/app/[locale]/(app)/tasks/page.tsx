@@ -83,10 +83,14 @@ export default function TasksPage() {
       list = list.filter((t) => t.project_id === filterProject);
     }
 
-    if (filterStatus === "active") {
-      list = list.filter((t) => t.status !== "done" && t.status !== "cancelled");
-    } else if (filterStatus !== "all") {
-      list = list.filter((t) => t.status === filterStatus);
+    // In Kanban mode, skip the status filter — all 5 columns are always visible
+    // so the user needs to see tasks in done/cancelled columns too.
+    if (viewMode !== "kanban") {
+      if (filterStatus === "active") {
+        list = list.filter((t) => t.status !== "done" && t.status !== "cancelled");
+      } else if (filterStatus !== "all") {
+        list = list.filter((t) => t.status === filterStatus);
+      }
     }
 
     if (filterPriority !== "all") {
@@ -123,7 +127,7 @@ export default function TasksPage() {
     }
 
     return list;
-  }, [tasks, filterProject, filterStatus, filterPriority, filterSource, filterDeadline, searchQuery]);
+  }, [tasks, filterProject, filterStatus, filterPriority, filterSource, filterDeadline, searchQuery, viewMode]);
 
   const sortedTasks = useMemo(() => {
     const sorted = [...filteredTasks];
