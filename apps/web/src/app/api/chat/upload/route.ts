@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
 
     if (file.type === "application/pdf") {
       try {
-        const pdfParse = (await import("pdf-parse")).default;
+        const pdfModule = await import("pdf-parse");
+        const pdfParse = (pdfModule as any).default || pdfModule;
         const result = await pdfParse(buffer);
         extractedText = result.text.slice(0, 50000); // max 50K chars
       } catch (e) {
