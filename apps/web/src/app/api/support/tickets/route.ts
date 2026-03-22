@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("[Support] List error:", error);
-      return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to fetch tickets", detail: error.message || error.code || JSON.stringify(error) }, { status: 500 });
     }
 
     // Enrich with user/org info via separate queries
