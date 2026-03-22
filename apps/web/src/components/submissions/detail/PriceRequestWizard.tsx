@@ -36,7 +36,7 @@ export function PriceRequestWizard({
   lots,
   suppliers,
   budgetGroups,
-  existingRequests: _existingRequests,
+  existingRequests,
   onComplete,
 }: PriceRequestWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);

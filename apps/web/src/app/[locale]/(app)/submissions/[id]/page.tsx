@@ -13,9 +13,16 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Eye,
+  Plus,
+  Clock,
+  RotateCcw,
   CheckCircle2,
+  AlertTriangle,
   X,
   Calculator,
+  CheckSquare,
+  ListFilter,
   CalendarRange,
   TrendingUp,
   Database,
@@ -708,7 +715,887 @@ function ItemsTabContent({
   );
 }
 
-// ── (RequestsTabContent removed — replaced by PriceRequestWizard) ──
+// ── Tab 2: Price requests per material group ─────────────────
+function RequestsTabContent({
+  submissionId,
+  materialGroups,
+  items,
+  priceRequests,
+  onRefresh,
+}: {
+  submissionId: string;
+  materialGroups: string[];
+  items: SubmissionItem[];
+  priceRequests: PriceRequestData[];
+  onRefresh: () => void;
+}) {
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Record<string, string[]>>({});
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<any>(null);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split("T")[0];
+  });
+  const [relancing, setRelancing] = useState<string | null>(null);
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ company_name: "", email: "", contact_name: "", phone: "" });
+  const [saveToDb, setSaveToDb] = useState(true);
+  const [addingSupplier, setAddingSupplier] = useState(false);
+  const [previewData, setPreviewData] = useState<{ subject: string; body: string; to: string; supplier_name: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewSupplier, setPreviewSupplier] = useState<string>("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [showRelanceModal, setShowRelanceModal] = useState(false);
+  const [relanceRequest, setRelanceRequest] = useState<PriceRequestData | null>(null);
+  const [relanceSubject, setRelanceSubject] = useState("");
+  const [relanceBody, setRelanceBody] = useState("");
+  // Cross-category selection mode
+  const [selectionMode, setSelectionMode] = useState<"group" | "free">("group");
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [freeSupplierIds, setFreeSupplierIds] = useState<string[]>([]);
+
+  // Load org suppliers
+  useEffect(() => {
+    fetch("/api/suppliers")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.suppliers) setSuppliers(json.suppliers);
+        else if (Array.isArray(json)) setSuppliers(json);
+      })
+      .catch(() => {});
+  }, []);
+
+  function toggleSupplier(group: string, supplierId: string) {
+    setSelectedSuppliers((prev) => {
+      const current = prev[group] || [];
+      const next = current.includes(supplierId)
+        ? current.filter((id) => id !== supplierId)
+        : [...current, supplierId];
+      return { ...prev, [group]: next };
+    });
+  }
+
+  const hasSelection = selectionMode === "free"
+    ? selectedItemIds.size > 0 && freeSupplierIds.length > 0
+    : Object.values(selectedSuppliers).some((ids) => ids.length > 0);
+
+  async function handleSend() {
+    setSending(true);
+    setSendResult(null);
+    try {
+      const groups = selectionMode === "free"
+        ? [{
+            material_group: "Sélection personnalisée",
+            supplier_ids: freeSupplierIds,
+            item_ids: [...selectedItemIds],
+          }]
+        : Object.entries(selectedSuppliers)
+          .filter(([, ids]) => ids.length > 0)
+          .map(([group, ids]) => ({
+            material_group: group,
+            supplier_ids: ids,
+          }));
+
+      // Collect manual supplier info for temp IDs
+      const manualSuppliers = suppliers
+        .filter((s: any) => s._manual && s.id.startsWith("temp-"))
+        .map((s: any) => ({
+          id: s.id,
+          company_name: s.company_name,
+          email: s.email,
+          contact_name: s.contact_name || undefined,
+        }));
+
+      const payload: Record<string, unknown> = { groups, deadline };
+      if (editSubject) payload.custom_subject = editSubject;
+      if (editBody) payload.custom_body = editBody;
+      if (manualSuppliers.length > 0) payload.manual_suppliers = manualSuppliers;
+
+      const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      setSendResult(json);
+      if (json.success) {
+        setSelectedSuppliers({});
+        setShowSendModal(false);
+        setPreviewData(null);
+        setEditSubject("");
+        setEditBody("");
+        onRefresh();
+      }
+    } catch (err: any) {
+      setSendResult({ error: err.message });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function openRelanceModal(pr: PriceRequestData) {
+    setRelanceRequest(pr);
+    const contactFirstName = pr.suppliers?.contact_name?.split(/\s+/)[0] || null;
+    const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
+    const deadlineStr = pr.deadline
+      ? new Date(pr.deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+
+    setRelanceSubject(`Relance — Demande de prix — ${pr.material_group}`);
+    setRelanceBody(
+      [
+        `${greeting},`,
+        `Nous nous permettons de revenir vers vous concernant notre demande de prix pour le groupe ${pr.material_group}.`,
+        ...(deadlineStr ? [`Pour rappel, le délai de réponse souhaité était fixé au ${deadlineStr}.`] : []),
+        `Nous vous serions reconnaissants de bien vouloir nous faire parvenir votre offre dans les meilleurs délais.`,
+        `Cordialement`,
+      ].join("\n\n")
+    );
+    setShowRelanceModal(true);
+  }
+
+  async function handleRelanceSend() {
+    if (!relanceRequest) return;
+    setRelancing(relanceRequest.id);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/relance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request_id: relanceRequest.id,
+          custom_subject: relanceSubject,
+          custom_body: relanceBody,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowRelanceModal(false);
+        setRelanceRequest(null);
+        onRefresh();
+      }
+    } catch {}
+    setRelancing(null);
+  }
+
+  async function handleAddSupplier() {
+    if (!newSupplier.company_name || !newSupplier.email) return;
+    setAddingSupplier(true);
+    try {
+      if (saveToDb) {
+        const res = await fetch("/api/suppliers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newSupplier),
+        });
+        const json = await res.json();
+        if (json.id || json.supplier) {
+          // Refetch full supplier list to get the new supplier with all fields
+          try {
+            const listRes = await fetch("/api/suppliers");
+            const listJson = await listRes.json();
+            if (listJson.suppliers) setSuppliers(listJson.suppliers);
+            else if (Array.isArray(listJson)) setSuppliers(listJson);
+          } catch {
+            // Fallback: add locally
+            const created = json.supplier || json;
+            setSuppliers((prev) => [...prev, { id: created.id, ...newSupplier }]);
+          }
+        }
+      } else {
+        // Add locally only (temporary supplier) — stays visible with "Manuel" badge
+        const tempId = `temp-${Date.now()}`;
+        setSuppliers((prev) => [...prev, { id: tempId, ...newSupplier, _manual: true }]);
+      }
+      setNewSupplier({ company_name: "", email: "", contact_name: "", phone: "" });
+      setShowAddSupplier(false);
+    } catch {}
+    setAddingSupplier(false);
+  }
+
+  async function loadPreview(group: string, supplierId: string) {
+    setPreviewLoading(true);
+    try {
+      const params = new URLSearchParams({ group, supplier_id: supplierId, deadline });
+      // For manual suppliers, pass their info as query params
+      if (supplierId.startsWith("temp-")) {
+        const manual = suppliers.find((s: any) => s.id === supplierId);
+        if (manual) {
+          params.set("manual_name", manual.company_name || "");
+          params.set("manual_email", manual.email || "");
+          if (manual.contact_name) params.set("manual_contact", manual.contact_name);
+        }
+      }
+      const res = await fetch(`/api/submissions/${submissionId}/preview-email?${params}`);
+      const json = await res.json();
+      if (json.success) {
+        setPreviewData({ subject: json.subject, body: json.body, to: json.to, supplier_name: json.supplier_name });
+        setPreviewSupplier(supplierId);
+        setEditSubject(json.subject);
+        setEditBody(json.body_text || json.subject);
+      }
+    } catch {}
+    setPreviewLoading(false);
+  }
+
+  function getRequestStatus(pr: PriceRequestData): { label: string; className: string; icon: React.ElementType } {
+    if (pr.status === "responded") {
+      return { label: "Répondu", className: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle2 };
+    }
+    if (pr.deadline) {
+      const deadlineDate = new Date(pr.deadline);
+      const now = new Date();
+      if (deadlineDate < now) {
+        return { label: "En retard", className: "bg-red-500/10 text-red-700 dark:text-red-400", icon: AlertTriangle };
+      }
+    }
+    return { label: "En attente", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Clock };
+  }
+
+  // Group existing requests by material_group
+  const requestsByGroup: Record<string, PriceRequestData[]> = {};
+  for (const pr of priceRequests) {
+    if (!requestsByGroup[pr.material_group]) requestsByGroup[pr.material_group] = [];
+    requestsByGroup[pr.material_group].push(pr);
+  }
+
+  // Collect all selected (group, supplierId) pairs for preview selector
+  const allSelected = Object.entries(selectedSuppliers).flatMap(([group, ids]) =>
+    ids.map((sid) => ({ group, supplierId: sid }))
+  );
+
+  function toggleItemSelection(itemId: string) {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleFreeSupplier(supplierId: string) {
+    setFreeSupplierIds(prev =>
+      prev.includes(supplierId) ? prev.filter(id => id !== supplierId) : [...prev, supplierId]
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Mode toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSelectionMode("group")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            selectionMode === "group" ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <ListFilter className="h-3.5 w-3.5" />
+          Par groupe
+        </button>
+        <button
+          onClick={() => setSelectionMode("free")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            selectionMode === "free" ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <CheckSquare className="h-3.5 w-3.5" />
+          Sélection libre
+        </button>
+      </div>
+
+      {/* Action bar */}
+      {hasSelection && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between">
+          <div className="text-sm text-blue-900">
+            {selectionMode === "free"
+              ? `${selectedItemIds.size} article(s) · ${freeSupplierIds.length} fournisseur(s)`
+              : `${Object.values(selectedSuppliers).flat().length} fournisseur(s) sélectionné(s)`
+            }
+          </div>
+          <button
+            onClick={() => setShowSendModal(true)}
+            className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 flex items-center gap-2"
+          >
+            <Send className="h-4 w-4" />
+            Envoyer les demandes
+          </button>
+        </div>
+      )}
+
+      {/* ── Free selection mode ── */}
+      {selectionMode === "free" && (
+        <div className="space-y-4">
+          {/* Item selection table */}
+          <div className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Sélectionner les articles</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedItemIds(new Set(items.map(i => i.id)))}
+                  className="text-xs text-brand hover:underline"
+                >
+                  Tout sélectionner
+                </button>
+                <span className="text-muted-foreground">|</span>
+                <button
+                  onClick={() => setSelectedItemIds(new Set())}
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  Désélectionner
+                </button>
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <table className="w-full min-w-[600px]">
+                <thead className="sticky top-0 bg-muted z-10">
+                  <tr className="text-[11px] font-medium text-muted-foreground uppercase">
+                    <th className="w-10 px-3 py-2"></th>
+                    <th className="text-left px-3 py-2 w-16">N°</th>
+                    <th className="text-left px-3 py-2">Description</th>
+                    <th className="text-left px-3 py-2 w-24">Groupe</th>
+                    <th className="text-center px-3 py-2 w-14">Unité</th>
+                    <th className="text-right px-3 py-2 w-16">Qté</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {items.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => toggleItemSelection(item.id)}
+                      className={`text-sm cursor-pointer transition-colors ${
+                        selectedItemIds.has(item.id) ? "bg-primary/10/50" : "hover:bg-muted"
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={() => toggleItemSelection(item.id)}
+                          className="rounded border-border text-brand focus:ring-brand"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground">{item.item_number || "—"}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        <div className="truncate max-w-[300px]">{item.description}</div>
+                        {item.product_name && (
+                          <span className="inline-block mt-0.5 text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1 py-0.5 rounded">
+                            {item.product_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{item.material_group}</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{item.unit || "—"}</td>
+                      <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                        {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Supplier selection for free mode */}
+          {selectedItemIds.size > 0 && (
+            <div className="bg-background border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
+                  Envoyer à ({selectedItemIds.size} article{selectedItemIds.size > 1 ? "s" : ""})
+                </span>
+                <button
+                  onClick={() => setShowAddSupplier(true)}
+                  className="text-xs px-2 py-1 text-brand hover:bg-brand/5 rounded flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Ajouter
+                </button>
+              </div>
+              <div className="px-4 py-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {suppliers.map((supplier: any) => {
+                    const isSelected = freeSupplierIds.includes(supplier.id);
+                    return (
+                      <button
+                        key={supplier.id}
+                        onClick={() => toggleFreeSupplier(supplier.id)}
+                        className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                          isSelected ? "bg-primary/10 border-blue-300 text-blue-900" :
+                          "bg-background border-border text-foreground hover:border-brand/30"
+                        }`}
+                      >
+                        <span className="font-medium block truncate">{supplier.company_name}</span>
+                        {supplier.email && (
+                          <span className="text-muted-foreground block truncate">{supplier.email}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Group mode (existing) ── */}
+      {selectionMode === "group" && materialGroups.map((group) => {
+        const groupItems = items.filter((i) => i.material_group === group);
+        const existingRequests = requestsByGroup[group] || [];
+
+        return (
+          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-foreground">{group}</span>
+                <span className="text-xs text-muted-foreground">{groupItems.length} postes</span>
+              </div>
+              {existingRequests.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {existingRequests.length} demande(s) envoyée(s)
+                </span>
+              )}
+            </div>
+
+            {/* Tracking section — existing requests with full status + relance */}
+            {existingRequests.filter(pr => pr.sent_at).length > 0 && (
+              <div className="border-b border-border px-4 py-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Suivi des demandes</p>
+                {existingRequests.filter(pr => pr.sent_at).map((pr) => {
+                  const status = getRequestStatus(pr);
+                  const StatusIcon = status.icon;
+                  const sentDate = pr.sent_at ? new Date(pr.sent_at) : null;
+                  const deadlineDate = pr.deadline ? new Date(pr.deadline) : null;
+                  const now = new Date();
+                  const daysSinceSent = sentDate ? Math.floor((now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                  const canRelance = pr.status !== "responded" && (
+                    (deadlineDate && deadlineDate < now) ||
+                    daysSinceSent >= 7
+                  );
+
+                  return (
+                    <div
+                      key={pr.id}
+                      className="px-3 py-3 rounded-lg text-sm bg-background border border-border space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <StatusIcon className={`h-4 w-4 shrink-0 ${
+                            pr.status === "responded" ? "text-green-600" :
+                            status.label === "En retard" ? "text-red-600" : "text-amber-500"
+                          }`} />
+                          <div className="min-w-0">
+                            <span className="font-medium text-foreground">
+                              {pr.suppliers?.company_name || "Fournisseur"}
+                            </span>
+                            {pr.suppliers?.email && (
+                              <span className="text-xs text-muted-foreground ml-2">{pr.suppliers.email}</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pl-7">
+                        <span className="font-mono text-muted-foreground">{pr.tracking_code}</span>
+                        {sentDate && (
+                          <span>Envoyé le {sentDate.toLocaleDateString("fr-CH")}</span>
+                        )}
+                        {deadlineDate && (
+                          <span className="flex items-center gap-1">
+                            <span className={`inline-block w-2 h-2 rounded-full ${
+                              pr.status === "responded" ? "bg-green-500" :
+                              deadlineDate < now ? "bg-red-500" :
+                              deadlineDate.getTime() - now.getTime() < 3 * 24 * 60 * 60 * 1000 ? "bg-amber-500" :
+                              "bg-green-500"
+                            }`} />
+                            Deadline: {deadlineDate.toLocaleDateString("fr-CH")}
+                          </span>
+                        )}
+                        {(pr.relance_count || 0) > 0 && (
+                          <span className="text-orange-600 font-medium">
+                            {pr.relance_count} relance{(pr.relance_count || 0) > 1 ? "s" : ""}
+                            {pr.last_relance_at && (
+                              <span className="text-muted-foreground font-normal ml-1">
+                                (dernière: {new Date(pr.last_relance_at).toLocaleDateString("fr-CH")})
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {canRelance && (
+                        <div className="pl-7">
+                          <button
+                            onClick={() => openRelanceModal(pr)}
+                            disabled={relancing === pr.id}
+                            className="text-xs px-3 py-1.5 border border-orange-300 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-500/10 disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {relancing === pr.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3 w-3" />
+                            )}
+                            Relancer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Supplier selection */}
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground">Sélectionner des fournisseurs :</p>
+                <button
+                  onClick={() => setShowAddSupplier(true)}
+                  className="text-xs px-2 py-1 text-brand hover:bg-brand/5 rounded flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Ajouter un fournisseur
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {suppliers.map((supplier: any) => {
+                  const isSelected = (selectedSuppliers[group] || []).includes(supplier.id);
+                  const alreadySent = existingRequests.some((pr) =>
+                    pr.supplier_id === supplier.id ||
+                    (supplier.email && pr.suppliers?.email === supplier.email)
+                  );
+                  return (
+                    <button
+                      key={supplier.id}
+                      onClick={() => !alreadySent && toggleSupplier(group, supplier.id)}
+                      disabled={alreadySent}
+                      className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                        alreadySent ? "bg-muted border-border text-muted-foreground cursor-not-allowed" :
+                        isSelected ? "bg-primary/10 border-blue-300 text-blue-900" :
+                        "bg-background border-border text-foreground hover:border-brand/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium block truncate">{supplier.company_name}</span>
+                        {supplier._manual && (
+                          <span className="text-[10px] bg-orange-500/10 text-orange-600 px-1 py-0.5 rounded shrink-0">Manuel</span>
+                        )}
+                      </div>
+                      {supplier.email && (
+                        <span className="text-muted-foreground block truncate">{supplier.email}</span>
+                      )}
+                      {alreadySent && <span className="text-green-600">Demande envoyée</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {suppliers.length === 0 && (
+                <p className="text-xs text-muted-foreground py-2">
+                  Aucun fournisseur.{" "}
+                  <button onClick={() => setShowAddSupplier(true)} className="text-brand hover:underline">
+                    Ajouter un fournisseur
+                  </button>
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {selectionMode === "group" && materialGroups.length === 0 && (
+        <div className="text-center py-16">
+          <Send className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Analysez d&apos;abord le descriptif pour grouper les postes</p>
+        </div>
+      )}
+
+      {/* Send modal with preview */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+              <h3 className="text-lg font-bold text-foreground">Confirmer l&apos;envoi</h3>
+              <button onClick={() => { setShowSendModal(false); setPreviewData(null); }} className="text-muted-foreground hover:text-muted-foreground text-xl">&times;</button>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Délai de réponse</label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => { setDeadline(e.target.value); setPreviewData(null); }}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
+                />
+              </div>
+              <div className="bg-muted border border-border rounded-lg p-3 space-y-2">
+                {Object.entries(selectedSuppliers)
+                  .filter(([, ids]) => ids.length > 0)
+                  .map(([group, ids]) => (
+                    <div key={group}>
+                      <p className="text-xs font-medium text-foreground">{group}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {ids.map((sid) => {
+                          const s = suppliers.find((sup: any) => sup.id === sid);
+                          return (
+                            <span key={sid} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              {s?.company_name || sid}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Email preview — editable */}
+              <div className="border border-border rounded-lg">
+                <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Eye className="h-4 w-4" />
+                    Aperçu de l&apos;email
+                  </div>
+                  {allSelected.length > 0 && (
+                    <select
+                      value={previewSupplier}
+                      onChange={(e) => {
+                        const pair = allSelected.find((p) => p.supplierId === e.target.value);
+                        if (pair) loadPreview(pair.group, pair.supplierId);
+                      }}
+                      className="text-xs border border-border rounded px-2 py-1 bg-background"
+                    >
+                      <option value="">Choisir un destinataire...</option>
+                      {allSelected.map((pair) => {
+                        const s = suppliers.find((sup: any) => sup.id === pair.supplierId);
+                        return (
+                          <option key={`${pair.group}-${pair.supplierId}`} value={pair.supplierId}>
+                            {s?.company_name || pair.supplierId} — {pair.group}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+                {previewLoading ? (
+                  <div className="p-6 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 text-brand animate-spin" />
+                  </div>
+                ) : previewData ? (
+                  <div className="p-4 space-y-3">
+                    <div className="text-xs">
+                      <p className="text-muted-foreground mb-1">À : <span className="text-foreground">{previewData.to}</span></p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Objet</label>
+                      <input
+                        type="text"
+                        value={editSubject}
+                        onChange={(e) => setEditSubject(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:ring-1 focus:ring-brand focus:border-brand"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Corps du message</label>
+                      <textarea
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                        style={{ minHeight: "300px" }}
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Le marqueur [TABLEAU AUTOMATIQUE] sera remplacé par le tableau des postes. Le code de suivi est ajouté automatiquement.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-xs text-muted-foreground">
+                    Sélectionnez un destinataire pour voir l&apos;aperçu
+                  </div>
+                )}
+              </div>
+
+              {/* Error display */}
+              {(sendResult?.error || sendResult?.microsoft_error) && (
+                <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-700 dark:text-red-400">
+                    {sendResult.microsoft_error && (
+                      <p className="font-medium">{sendResult.microsoft_error}</p>
+                    )}
+                    {sendResult.error && <p>{sendResult.error}</p>}
+                    {sendResult.results?.filter((r: any) => r.error).map((r: any, i: number) => (
+                      <p key={i} className="text-xs mt-1 text-red-600">{r.error}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => { setShowSendModal(false); setPreviewData(null); }}
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={sending}
+                className="px-6 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relance modal with editable preview */}
+      {showRelanceModal && relanceRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Relancer le fournisseur</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {relanceRequest.suppliers?.company_name} — {relanceRequest.tracking_code}
+                </p>
+              </div>
+              <button onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }} className="text-muted-foreground hover:text-muted-foreground text-xl">&times;</button>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Objet</label>
+                <input
+                  type="text"
+                  value={relanceSubject}
+                  onChange={(e) => setRelanceSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:ring-1 focus:ring-brand focus:border-brand"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Message</label>
+                <textarea
+                  value={relanceBody}
+                  onChange={(e) => setRelanceBody(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background font-mono leading-relaxed focus:ring-1 focus:ring-brand focus:border-brand resize-y"
+                  style={{ minHeight: "220px" }}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Le code de suivi ({relanceRequest.tracking_code}) est ajouté automatiquement.</p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => { setShowRelanceModal(false); setRelanceRequest(null); }}
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleRelanceSend}
+                disabled={relancing === relanceRequest.id}
+                className="px-5 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {relancing === relanceRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Envoyer la relance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add supplier modal */}
+      {showAddSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Ajouter un fournisseur</h3>
+              <button onClick={() => setShowAddSupplier(false)} className="text-muted-foreground hover:text-muted-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Nom de l&apos;entreprise <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newSupplier.company_name}
+                  onChange={(e) => setNewSupplier((prev) => ({ ...prev, company_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                  placeholder="Ex: Holcim Suisse SA"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newSupplier.email}
+                  onChange={(e) => setNewSupplier((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                  placeholder="offres@holcim.ch"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
+                  <input
+                    type="text"
+                    value={newSupplier.contact_name}
+                    onChange={(e) => setNewSupplier((prev) => ({ ...prev, contact_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                    placeholder="Jean Dupont"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={newSupplier.phone}
+                    onChange={(e) => setNewSupplier((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                    placeholder="+41 21 000 00 00"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveToDb}
+                  onChange={(e) => setSaveToDb(e.target.checked)}
+                  className="rounded border-border text-brand focus:ring-brand"
+                />
+                <span className="text-xs text-muted-foreground">Sauvegarder dans la base fournisseurs</span>
+              </label>
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddSupplier(false)}
+                className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAddSupplier}
+                disabled={addingSupplier || !newSupplier.company_name || !newSupplier.email}
+                className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {addingSupplier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Tab 3: Comparative analysis ──────────────────────────────
 function ComparisonTabContent({
