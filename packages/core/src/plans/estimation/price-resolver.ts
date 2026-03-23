@@ -361,7 +361,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
         }
       }
     }
-    } // end if (!project_id || rawCandidates.length === 0)
+    } // end if (!project_id)
 
     if (rawCandidates.length >= 2) {
       // Deduplicate by (unit_price, created_at)
