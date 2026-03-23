@@ -303,16 +303,40 @@ export function ReportForm({ projectId }: ReportFormProps) {
 
   return (
     <div className="p-4 space-y-3">
-      {/* Date picker */}
-      <div className="flex items-center gap-3">
+      {/* Date picker with prev/next buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const d = new Date(reportDate);
+            d.setDate(d.getDate() - 1);
+            setReportDate(d.toISOString().split("T")[0]);
+          }}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white hover:bg-gray-50 active:bg-gray-100"
+        >
+          ←
+        </button>
         <input
           type="date"
           value={reportDate}
           onChange={e => setReportDate(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white text-center"
         />
+        <button
+          type="button"
+          onClick={() => {
+            const d = new Date(reportDate);
+            d.setDate(d.getDate() + 1);
+            const tomorrow = d.toISOString().split("T")[0];
+            const today = new Date().toISOString().split("T")[0];
+            if (tomorrow <= today) setReportDate(tomorrow);
+          }}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white hover:bg-gray-50 active:bg-gray-100"
+        >
+          →
+        </button>
         {report?.status && (
-          <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+          <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
             report.status === "draft" ? "bg-gray-100 text-gray-600" :
             report.status === "submitted" ? "bg-green-100 text-green-700" :
             "bg-blue-100 text-blue-700"

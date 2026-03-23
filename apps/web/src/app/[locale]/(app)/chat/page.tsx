@@ -430,6 +430,9 @@ export default function ChatPage() {
         if (res.ok) {
           const data = await res.json();
           results.push(data);
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.error("[Chat] Upload failed:", res.status, errData);
         }
       } catch (e) {
         console.error("[Chat] Upload error:", e);
