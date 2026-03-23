@@ -19,9 +19,9 @@
 |---------|-------------|--------|
 | **Cantaia Soumissions** | Gestion des soumissions, appels d'offres, comparaison fournisseurs | ACTIF |
 | **Cantaia Mail** | Sync Outlook en temps réel + classification IA des emails par projet | ACTIF |
-| **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | ACTIF |
+| **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | ACTIF (Chiffrage IA désactivé) |
 | **Cantaia PV** | Procès-verbaux de chantier | GREYED OUT (teaser) |
-| **Plans** | Registre de plans + estimation multi-modèle | ACTIF |
+| **Plans** | Registre de plans + estimation multi-modèle | ACTIF (Estimation désactivée) |
 | **Portail Chef d'Equipe** | Rapports journaliers, accès PIN, 4 onglets mobile-first | ACTIF |
 | **Rapports Chantier** | Centralisation heures et bons de livraison pour assistantes | ACTIF |
 | **Support Tickets** | Systeme tickets conversationnel user-admin | ACTIF |
@@ -2008,6 +2008,7 @@ Page super-admin : 3 IAs (Claude Sonnet 4.5, GPT-4.1, Gemini 2.5 Pro) discutent 
 - Synthèse finale par Claude (top 5 recommandations, désaccords, quick wins)
 - Export Markdown (.md)
 - Lien dans la sidebar super-admin
+- **PROJECT_CONTEXT** : Le prompt système inclut des contraintes critiques (pas encore de clients payants, estimation budget temporairement désactivée, objectif unicorn CHF 1B) pour orienter les recommandations
 
 #### Route API
 - `POST /api/super-admin/ai-roundtable` : Orchestration multi-modèle séquentielle
@@ -2074,6 +2075,25 @@ Remplacement de l'ancien onglet "Demandes de prix" par un wizard 4 étapes.
 | `support` | Privé | 10 MB |
 | `chat-attachments` | Privé | 10 MB |
 | `site-report-photos` | Privé | 10 MB |
+
+### 23.13 Budget Estimation UI — Temporairement masqué (2026-03-23)
+
+**Raison** : Les prix estimés sont incorrects (ex: CHF 3.5M au lieu de CHF 110K) à cause du cross-project price matching. Masqué pour éviter de montrer des chiffres faux aux clients.
+
+**Éléments masqués** (code conservé avec marqueur `HIDDEN: Budget estimation temporarily disabled`) :
+- Soumission détail : onglet "Budget IA", colonnes prix (PU Méd./Total/Source) dans Postes, bannière "Estimer les prix", Monte Carlo chart
+- Plan détail : onglet "Estimation V2", bouton "Lancer l'estimation V2"
+- Cantaia Prix : onglet "Chiffrage IA" (défaut changé vers "Import prix")
+
+**Éléments toujours actifs** :
+- Analyse soumissions (extraction postes depuis Excel/PDF)
+- Analyse plans (Claude Vision)
+- Demandes de prix (wizard 4 étapes)
+- Import prix, Analyse prix, Historique
+- Collection de données prix en arrière-plan (DB continue de s'enrichir)
+- API `/api/submissions/[id]/estimate-budget` et `/api/plans/estimate-v2` toujours fonctionnelles (juste pas appelées depuis l'UI)
+
+**Pour réactiver** : Retirer les `{false && ...}` wrappers et décommenter les tabs dans les fichiers concernés.
 
 ---
 
