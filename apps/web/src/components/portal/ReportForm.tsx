@@ -530,18 +530,32 @@ export function ReportForm({ projectId }: ReportFormProps) {
         </div>
       )}
 
-      {/* Remarks section */}
+      {/* Weather + Remarks section */}
       <SectionHeader id="remarks" title={t("remarks")} />
       {openSection === "remarks" && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <textarea
-            value={remarks}
-            onChange={e => setRemarks(e.target.value)}
-            placeholder={t("remarksPlaceholder")}
-            disabled={isLocked}
-            rows={3}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-sm bg-gray-50 resize-none"
-          />
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">{t("weather") || "Météo"}</label>
+            <input
+              type="text"
+              value={weather}
+              onChange={e => setWeather(e.target.value)}
+              placeholder="Ex: Ensoleillé, 18°C"
+              disabled={isLocked}
+              className="w-full rounded border border-gray-200 px-3 py-2 text-sm bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">{t("remarks")}</label>
+            <textarea
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder={t("remarksPlaceholder")}
+              disabled={isLocked}
+              rows={3}
+              className="w-full rounded border border-gray-200 px-3 py-2 text-sm bg-gray-50 resize-none"
+            />
+          </div>
         </div>
       )}
 

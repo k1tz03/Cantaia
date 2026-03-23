@@ -3129,6 +3129,7 @@
     "portalDescription": "Description / Instructions",
     "siteReports": "Site reports",
     "unlock": "Unlock",
-    "noSubmission": "No submission selected"
+    "noSubmission": "No submission selected",
+    "weather": "Weather"
   }
 }

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   LifeBuoy, Copy, RefreshCw, Unlock, CheckCircle2,
-  Loader2, ClipboardList
+  Loader2, ClipboardList, X, Users, Wrench, FileText,
+  Truck, Clock, MessageSquare, Cloud
 } from "lucide-react";
 
 interface SiteReportsTabProps {
@@ -21,6 +22,33 @@ interface SiteReport {
   created_at: string;
 }
 
+interface ReportEntry {
+  id: string;
+  entry_type: "labor" | "machine" | "delivery_note";
+  crew_member_id: string | null;
+  work_description: string | null;
+  duration_hours: number | null;
+  is_driver: boolean;
+  machine_description: string | null;
+  is_rented: boolean;
+  note_number: string | null;
+  supplier_name: string | null;
+  photo_url: string | null;
+  portal_crew_members: { name: string; role: string | null } | null;
+}
+
+interface ReportDetail {
+  report: {
+    id: string;
+    report_date: string;
+    submitted_by_name: string;
+    status: string;
+    remarks: string | null;
+    weather: string | null;
+  };
+  entries: ReportEntry[];
+}
+
 export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   const t = useTranslations("portal");
   const [config, setConfig] = useState<any>(null);
@@ -29,6 +57,11 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   const [saving, setSaving] = useState(false);
   const [pin, setPin] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Detail modal
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ReportDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   async function fetchData() {
     setLoading(true);
@@ -52,6 +85,32 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   useEffect(() => {
     fetchData();
   }, [projectId]);
+
+  async function fetchReportDetail(reportId: string) {
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/site-reports/${reportId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDetail(data);
+      }
+    } catch (e) {
+      console.error("[SiteReports] Detail fetch error:", e);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function openDetail(reportId: string) {
+    setSelectedReportId(reportId);
+    setDetail(null);
+    fetchReportDetail(reportId);
+  }
+
+  function closeDetail() {
+    setSelectedReportId(null);
+    setDetail(null);
+  }
 
   async function togglePortal(enabled: boolean) {
     setSaving(true);
@@ -114,6 +173,29 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   }
 
   const isEnabled = config?.portal_enabled;
+
+  // Group labor entries by crew member for the detail view
+  function groupLaborByWorker(entries: ReportEntry[]) {
+    const laborEntries = entries.filter(e => e.entry_type === "labor");
+    const grouped: Record<string, { name: string; role: string | null; is_driver: boolean; lines: { description: string; hours: number }[] }> = {};
+    for (const entry of laborEntries) {
+      const key = entry.crew_member_id || "unknown";
+      if (!grouped[key]) {
+        grouped[key] = {
+          name: entry.portal_crew_members?.name || "—",
+          role: entry.portal_crew_members?.role || null,
+          is_driver: false,
+          lines: [],
+        };
+      }
+      if (entry.is_driver) grouped[key].is_driver = true;
+      grouped[key].lines.push({
+        description: entry.work_description || "—",
+        hours: Number(entry.duration_hours) || 0,
+      });
+    }
+    return Object.values(grouped);
+  }
 
   return (
     <div className="space-y-6">
@@ -232,7 +314,11 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
               </thead>
               <tbody>
                 {reports.map(report => (
-                  <tr key={report.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <tr
+                    key={report.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => openDetail(report.id)}
+                  >
                     <td className="px-4 py-2.5 text-sm text-foreground">
                       {new Date(report.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </td>
@@ -251,7 +337,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                     <td className="px-4 py-2.5">
                       {report.status === "submitted" && (
                         <button
-                          onClick={() => toggleReportLock(report.id, report.status)}
+                          onClick={(e) => { e.stopPropagation(); toggleReportLock(report.id, report.status); }}
                           className="text-muted-foreground hover:text-foreground"
                           title={t("unlock")}
                         >
@@ -266,6 +352,217 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
           </div>
         )}
       </div>
+
+      {/* Report Detail Modal */}
+      {selectedReportId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeDetail}>
+          <div
+            className="bg-background rounded-xl shadow-xl border border-border w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {detailLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : detail ? (
+              <ReportDetailContent
+                detail={detail}
+                groupLaborByWorker={groupLaborByWorker}
+                onClose={closeDetail}
+                t={t}
+              />
+            ) : (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Erreur de chargement
+                <button onClick={closeDetail} className="block mx-auto mt-4 text-primary hover:underline">Fermer</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ReportDetailContent({
+  detail,
+  groupLaborByWorker,
+  onClose,
+  t,
+}: {
+  detail: ReportDetail;
+  groupLaborByWorker: (entries: ReportEntry[]) => { name: string; role: string | null; is_driver: boolean; lines: { description: string; hours: number }[] }[];
+  onClose: () => void;
+  t: any;
+}) {
+  const { report, entries } = detail;
+  const laborGroups = groupLaborByWorker(entries);
+  const machineEntries = entries.filter(e => e.entry_type === "machine");
+  const deliveryEntries = entries.filter(e => e.entry_type === "delivery_note");
+  const totalHours = laborGroups.reduce((sum, g) => sum + g.lines.reduce((s, l) => s + l.hours, 0), 0);
+  const machineHours = machineEntries.reduce((sum, e) => sum + Number(e.duration_hours || 0), 0);
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">
+            Rapport du {new Date(report.report_date).toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {report.submitted_by_name || "—"}
+            <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              report.status === "draft" ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" :
+              report.status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+            }`}>
+              {t(report.status as any)}
+            </span>
+          </p>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-2 hover:bg-muted text-muted-foreground">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {/* Weather */}
+        {report.weather && (
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 px-4 py-3">
+            <Cloud className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <p className="text-sm text-foreground">{report.weather}</p>
+          </div>
+        )}
+
+        {/* Summary bar */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-foreground">{laborGroups.length}</div>
+            <div className="text-xs text-muted-foreground">{t("workers")}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-foreground">{totalHours.toFixed(1)}h</div>
+            <div className="text-xs text-muted-foreground">{t("totalHours")}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-foreground">{machineEntries.length}</div>
+            <div className="text-xs text-muted-foreground">{t("machines")}</div>
+          </div>
+        </div>
+
+        {/* Labor entries grouped by worker */}
+        {laborGroups.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              {t("personnel")} ({laborGroups.length})
+            </h4>
+            <div className="space-y-2">
+              {laborGroups.map((group, gi) => {
+                const workerHours = group.lines.reduce((s, l) => s + l.hours, 0);
+                return (
+                  <div key={gi} className="rounded-lg border border-border bg-background overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30">
+                      <span className="text-sm font-medium text-foreground">{group.name}</span>
+                      {group.role && <span className="text-xs text-muted-foreground">{group.role}</span>}
+                      {group.is_driver && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 text-xs">
+                          <Truck className="h-3 w-3" />
+                          {t("driver")}
+                        </span>
+                      )}
+                      <span className="ml-auto text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {workerHours.toFixed(1)}h
+                      </span>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {group.lines.map((line, li) => (
+                        <div key={li} className="flex items-center justify-between px-4 py-2">
+                          <span className="text-sm text-foreground">{line.description}</span>
+                          <span className="text-sm font-medium text-foreground whitespace-nowrap ml-4">{line.hours.toFixed(1)}h</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Machine entries */}
+        {machineEntries.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-primary" />
+              {t("machines")} ({machineEntries.length})
+              <span className="ml-auto text-xs font-normal text-muted-foreground">{machineHours.toFixed(1)}h total</span>
+            </h4>
+            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+              {machineEntries.map((entry, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground">{entry.machine_description || "—"}</span>
+                    {entry.is_rented && (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs">
+                        {t("rented")}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{Number(entry.duration_hours || 0).toFixed(1)}h</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Delivery notes */}
+        {deliveryEntries.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              {t("deliveryNotes")} ({deliveryEntries.length})
+            </h4>
+            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+              {deliveryEntries.map((entry, i) => (
+                <div key={i} className="px-4 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{entry.note_number || "—"}</span>
+                    <span className="text-sm text-muted-foreground">{entry.supplier_name || "—"}</span>
+                  </div>
+                  {entry.photo_url && (
+                    <img
+                      src={entry.photo_url}
+                      alt={`BL ${entry.note_number}`}
+                      className="mt-2 h-24 w-auto rounded-lg object-cover border border-border"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Remarks */}
+        {report.remarks && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              {t("remarks")}
+            </h4>
+            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+              <p className="text-sm text-foreground whitespace-pre-wrap">{report.remarks}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {laborGroups.length === 0 && machineEntries.length === 0 && deliveryEntries.length === 0 && !report.remarks && (
+          <p className="text-sm text-muted-foreground text-center py-6">Aucune donnée dans ce rapport</p>
+        )}
+      </div>
+    </>
   );
 }
