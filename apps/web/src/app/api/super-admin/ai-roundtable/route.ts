@@ -96,13 +96,6 @@ const DISCUSSION_TOPICS = [
   "Quelles améliorations UX prioritaires pour les utilisateurs mobiles sur le terrain ?",
 ];
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout après ${ms / 1000}s`)), ms)),
-  ]);
-}
-
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 3000): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
