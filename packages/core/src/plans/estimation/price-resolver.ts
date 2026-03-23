@@ -218,10 +218,11 @@ function weightedPercentiles(
 
 interface PriceResolverParamsV3 extends PriceResolverParams {
   inflation_rate?: number;
+  project_id?: string; // Scope tier 1 to same project only
 }
 
 export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixUnitaire> {
-  const { cfc_code, description, unite, region, quarter, org_id, supabase, inflation_rate = 0.028 } = params;
+  const { cfc_code, description, unite, region, quarter, org_id, supabase, inflation_rate = 0.028, project_id } = params;
 
   const keywords = extractKeywords(description);
   const hasCfcCode = Boolean(cfc_code && cfc_code.trim().length >= 2);
@@ -236,6 +237,71 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
   try {
     let rawCandidates: any[] = [];
 
+    // If project_id is provided, scope tier 1 to offers from same project's submissions only
+    let projectSubmissionIds: string[] | null = null;
+    if (project_id) {
+      const { data: projectSubs } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('project_id', project_id);
+      if (projectSubs && projectSubs.length > 0) {
+        projectSubmissionIds = projectSubs.map((s: any) => s.id);
+        // Get offer IDs from those submissions
+        const { data: projectOffers } = await supabase
+          .from('supplier_offers')
+          .select('id')
+          .in('submission_id', projectSubmissionIds);
+        if (projectOffers && projectOffers.length > 0) {
+          const offerIds = projectOffers.map((o: any) => o.id);
+          // Only query offer_line_items from this project's offers
+          // Use helper to build scoped queries
+          const scopeFilter = (query: any) => query.in('offer_id', offerIds);
+
+          // 1a. Par code CFC (si disponible)
+          if (hasCfcCode) {
+            const safeCfc = sanitizeForFilter(cfc_code);
+            const cfcPrefix = sanitizeForFilter(cfc_code.split('.')[0]);
+            let q = supabase
+              .from('offer_line_items')
+              .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
+              .eq('organization_id', org_id)
+              .or(`cfc_subcode.eq.${safeCfc},cfc_subcode.like.${cfcPrefix}%`)
+              .gt('unit_price', 0)
+              .lt('unit_price', maxPrice)
+              .order('created_at', { ascending: false })
+              .limit(100);
+            q = scopeFilter(q);
+            const { data } = await q;
+            if (data && data.length > 0) rawCandidates = rawCandidates.concat(data);
+          }
+
+          // 1b/1c. Par mots-clés
+          if (keywords.length > 0) {
+            for (let ki = 0; ki < Math.min(keywords.length, 2); ki++) {
+              const kw = sanitizeForFilter(keywords[ki]);
+              if (kw.length >= 4) {
+                let q = supabase
+                  .from('offer_line_items')
+                  .select('unit_price, cfc_subcode, normalized_description, supplier_description, unit_normalized, created_at, offer_id')
+                  .eq('organization_id', org_id)
+                  .or(`normalized_description.ilike.%${kw}%,supplier_description.ilike.%${kw}%`)
+                  .gt('unit_price', 0)
+                  .lt('unit_price', maxPrice)
+                  .order('created_at', { ascending: false })
+                  .limit(100);
+                q = scopeFilter(q);
+                const { data } = await q;
+                if (data && data.length > 0) rawCandidates = rawCandidates.concat(data);
+              }
+            }
+          }
+        }
+        // If no offers exist for this project, rawCandidates stays empty → falls through to tiers 2-6
+      }
+    }
+
+    // Fallback: if no project_id provided OR no project-scoped results, use org-wide search
+    if (!project_id || rawCandidates.length === 0) {
     // 1a. Par code CFC (si disponible)
     if (hasCfcCode) {
       const safeCfc = sanitizeForFilter(cfc_code);
@@ -294,6 +360,7 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
         }
       }
     }
+    } // end if (!project_id || rawCandidates.length === 0)
 
     if (rawCandidates.length >= 2) {
       // Deduplicate by (unit_price, created_at)

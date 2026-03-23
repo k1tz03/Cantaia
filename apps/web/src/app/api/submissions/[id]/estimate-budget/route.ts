@@ -174,6 +174,7 @@ export async function POST(
               quarter,
               org_id: orgId,
               supabase: admin,
+              project_id: submission.project_id,
             });
 
             sourceLog[prix.source] = (sourceLog[prix.source] || 0) + 1;
