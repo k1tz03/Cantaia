@@ -341,16 +341,32 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   if (!data) return "";
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
-  // Polyfill DOMMatrix for pdf-parse in serverless (Node.js doesn't have it)
-  if (typeof globalThis.DOMMatrix === "undefined") {
-    (globalThis as any).DOMMatrix = class DOMMatrix {
-      constructor() { return Object.create(null); }
-    };
-  }
   try {
+    // Use pdf-parse with explicit pdfjs version that works in Node.js serverless
+    // Polyfill browser globals that pdfjs-dist needs
+    if (typeof globalThis.DOMMatrix === "undefined") {
+      (globalThis as any).DOMMatrix = class DOMMatrix {
+        m11 = 1; m12 = 0; m13 = 0; m14 = 0;
+        m21 = 0; m22 = 1; m23 = 0; m24 = 0;
+        m31 = 0; m32 = 0; m33 = 1; m34 = 0;
+        m41 = 0; m42 = 0; m43 = 0; m44 = 1;
+        a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+        is2D = true; isIdentity = true;
+        inverse() { return new (globalThis as any).DOMMatrix(); }
+        multiply() { return new (globalThis as any).DOMMatrix(); }
+        translate() { return new (globalThis as any).DOMMatrix(); }
+        scale() { return new (globalThis as any).DOMMatrix(); }
+        rotate() { return new (globalThis as any).DOMMatrix(); }
+        transformPoint() { return { x: 0, y: 0, z: 0, w: 1 }; }
+      };
+    }
+    if (typeof globalThis.Path2D === "undefined") {
+      (globalThis as any).Path2D = class Path2D { };
+    }
     const pdfParseModule = await import("pdf-parse");
     const pdfParse = (pdfParseModule as any).default || pdfParseModule;
     const pdf = await pdfParse(buffer);
+    console.log(`[ANALYZE] PDF text length: ${pdf.text.length} chars, pages: ${pdf.numpages}`);
     return pdf.text;
   } catch (e: any) {
     console.error("[ANALYZE] PDF parse error:", e.message);
