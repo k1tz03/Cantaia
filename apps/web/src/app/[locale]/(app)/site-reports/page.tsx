@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Clock, FileText, Download, Filter, ChevronLeft, ChevronRight, Loader2, Image as ImageIcon } from "lucide-react";
+import { Clock, FileText, Download, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 function getMonday(date: Date): string {
   const d = new Date(date);
