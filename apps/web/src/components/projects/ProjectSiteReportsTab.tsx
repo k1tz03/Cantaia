@@ -29,7 +29,6 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   const [saving, setSaving] = useState(false);
   const [pin, setPin] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<any>(null);
 
   async function fetchData() {
     setLoading(true);
