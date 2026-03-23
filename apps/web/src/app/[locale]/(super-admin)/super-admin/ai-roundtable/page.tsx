@@ -37,10 +37,23 @@ export default function AIRoundtablePage() {
   const [thinking, setThinking] = useState<{ speaker: string; role: string } | null>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
 
-  // Auto-scroll to bottom when new messages arrive or thinking changes
+  // Detect if user scrolled up (window scroll)
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    function handleScroll() {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      userScrolledUp.current = scrollHeight - scrollTop - clientHeight > 200;
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Auto-scroll only if user is near the bottom
+  useEffect(() => {
+    if (!userScrolledUp.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [conversation.length, thinking, synthesis]);
 
   async function startRoundtable() {
