@@ -86,30 +86,10 @@ export async function POST(request: NextRequest) {
     const isImage = file.type.startsWith("image/");
 
     if (file.type === "application/pdf") {
-      // Polyfill browser globals for pdfjs-dist in serverless
-      if (typeof globalThis.DOMMatrix === "undefined") {
-        (globalThis as any).DOMMatrix = class DOMMatrix {
-          m11 = 1; m12 = 0; m13 = 0; m14 = 0;
-          m21 = 0; m22 = 1; m23 = 0; m24 = 0;
-          m31 = 0; m32 = 0; m33 = 1; m34 = 0;
-          m41 = 0; m42 = 0; m43 = 0; m44 = 1;
-          a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-          is2D = true; isIdentity = true;
-          inverse() { return new (globalThis as any).DOMMatrix(); }
-          multiply() { return new (globalThis as any).DOMMatrix(); }
-          translate() { return new (globalThis as any).DOMMatrix(); }
-          scale() { return new (globalThis as any).DOMMatrix(); }
-          rotate() { return new (globalThis as any).DOMMatrix(); }
-          transformPoint() { return { x: 0, y: 0, z: 0, w: 1 }; }
-        };
-      }
-      if (typeof globalThis.Path2D === "undefined") {
-        (globalThis as any).Path2D = class Path2D { };
-      }
       try {
         const pdfModule = await import("pdf-parse");
         const pdfParse = (pdfModule as any).default || pdfModule;
-        const result = await pdfParse(buffer);
+        const result = await pdfParse(buffer, { version: "v1.10.100" });
         extractedText = result.text.slice(0, 50000); // max 50K chars
       } catch (e) {
         console.warn("[Chat Upload] PDF parse failed:", e);
