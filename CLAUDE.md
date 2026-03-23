@@ -13,7 +13,7 @@
 - **Domaines** : cantaia.io (principal)
 - **Multi-tenant** : subdomaines (ex: `hrs.cantaia.io`)
 
-### Sept produits
+### Onze produits
 
 | Produit | Description | Status |
 |---------|-------------|--------|
@@ -22,8 +22,12 @@
 | **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | ACTIF |
 | **Cantaia PV** | Procès-verbaux de chantier | GREYED OUT (teaser) |
 | **Plans** | Registre de plans + estimation multi-modèle | ACTIF |
-| **Portail Chef d'Équipe** | Portail terrain PIN-protégé (rapports journaliers, bons de livraison, personnel) | ACTIF |
-| **Rapports Chantier** | Centralisation rapports terrain (heures, bons de livraison, exports) | ACTIF |
+| **Portail Chef d'Equipe** | Rapports journaliers, accès PIN, 4 onglets mobile-first | ACTIF |
+| **Rapports Chantier** | Centralisation heures et bons de livraison pour assistantes | ACTIF |
+| **Support Tickets** | Systeme tickets conversationnel user-admin | ACTIF |
+| **Table Ronde IA** | Discussion autonome Claude x GPT x Gemini | ACTIF |
+| **Planning** | Gantt chart IA depuis soumissions, export PDF A3, partage public | ACTIF |
+| **Direction & Financials** | Vue rentabilite org, stats projet, marge, KPIs direction | ACTIF |
 
 ### Redirect post-login : `/mail`
 
@@ -39,7 +43,7 @@ cantaia/ (racine)
 │   └── outlook-addin/       # Plugin Outlook (prévu)
 ├── packages/
 │   ├── core/                # Logique métier, IA, services (~87 fichiers TS)
-│   ├── database/            # 56 migrations SQL + types TypeScript
+│   ├── database/            # 62 migrations SQL + types TypeScript
 │   ├── ui/                  # Composants React partagés (shadcn-based)
 │   └── config/              # Tailwind, tsconfig, constantes
 ├── scripts/
@@ -141,7 +145,7 @@ locales: ["fr", "en", "de"], defaultLocale: "fr"
 - **Auth** : Supabase session check sur routes protégées (cookies 7 jours, `SameSite=Lax`)
 - **Subdomain** : Production `hrs.cantaia.io` → org "hrs" ; Dev `?org=hrs` ou header `x-organization-subdomain`
 - **Subdomaines réservés** : www, app, api, admin, super-admin, mail, smtp, ftp, dev, staging, test, demo, help, support, docs, status, blog, cdn, static
-- **Routes protégées** (31) : `/dashboard`, `/projects`, `/tasks`, `/meetings`, `/settings`, `/briefing`, `/direction`, `/admin`, `/super-admin`, `/analytics`, `/api-costs`, `/clients`, `/debug`, `/logs`, `/submissions`, `/mail`, `/pv`, `/suppliers`, `/pricing-intelligence`, `/plans`, `/visits`, `/onboarding`
+- **Routes protégées** (20) : `/action-board`, `/dashboard`, `/projects`, `/tasks`, `/settings`, `/briefing`, `/direction`, `/admin`, `/super-admin`, `/submissions`, `/mail`, `/pv`, `/pv-chantier`, `/suppliers`, `/plans`, `/visits`, `/chat`, `/support`, `/cantaia-prix`, `/site-reports`, `/onboarding`
 
 ### Variables d'environnement
 ```
@@ -200,7 +204,7 @@ ADMIN_SECRET_KEY
 
 ---
 
-## 5. Base de Données (53 migrations)
+## 5. Base de Données (62 migrations)
 
 ### Tables principales
 
@@ -287,13 +291,45 @@ ADMIN_SECRET_KEY
 - **`ingested_plan_quantities`** : quantités historiques importées
 - **Vue matérialisée** `mv_reference_prices` : agrégation des prix ingérés
 
-### Migrations récentes (048-053)
+### Migrations récentes (048-062)
 - **048** : `onboarding_completed` tracking
 - **049** : `submissions` enhanced fields
 - **050** : submission tracking fields
 - **051** : manual supplier addition to submissions
 - **052** : `product_name` + `budget_estimate` on submissions
 - **053** : `visit_photos` table + `photos_count`/`handwritten_notes_transcription` on `client_visits`
+- **054** : fix `users` RLS recursion
+- **055** : `project_plannings`, `planning_tasks`, `planning_dependencies` tables
+- **056** : `plan_status`, `plan_period_end`, `extra_seats` sur `organizations`
+- **057** : Learning Engine (`intelligence_score`, `inflation_rate` sur orgs, `ai_risks`/`ai_duration_correction` sur `planning_tasks`, indexes)
+- **058** : Planning fixes (colonnes manquantes, constraints)
+- **059** : `support_tickets` + `support_messages` (tickets conversationnels user-admin)
+- **060** : `attachments JSONB` sur `chat_messages` (upload fichiers dans chat IA)
+- **061** : Portail Chef d'Equipe (`portal_crew_members`, `site_reports`, `site_report_entries`, champs portal sur `projects`)
+- **062** : Financials projet (`invoiced_amount`, `purchase_costs`, `closed_at` sur `projects`)
+
+#### Support (Migration 059)
+- **`support_tickets`** : user_id, organization_id, subject (max 200 chars), category (bug/question/feature_request/billing), priority (low/medium/high), status (open/in_progress/resolved/closed), last_read_at, last_admin_reply_at, last_user_reply_at, last_admin_read_at
+- **`support_messages`** : ticket_id, sender_id, sender_role (user/admin), content, attachments (JSONB `[{file_url, file_name, file_size, file_type}]`)
+- RLS : user voit ses propres tickets + messages associes ; superadmin accès total via admin client
+- Trigger `trg_support_ticket_updated` met à jour `updated_at`
+
+#### Chat Attachments (Migration 060)
+- `chat_messages.attachments JSONB` : `[{file_url, file_name, file_size, file_type, extracted_text?}]`
+
+#### Portail Chef d'Equipe (Migration 061)
+- **`projects`** ajouts : `portal_enabled BOOLEAN`, `portal_pin_hash TEXT`, `portal_pin_salt TEXT`, `portal_description TEXT`, `portal_submission_id UUID`
+- **`portal_crew_members`** : project_id, name, role, is_active, created_at
+- **`site_reports`** : project_id, report_date, submitted_by_name, status (draft/submitted/locked), remarks, weather, created_at, updated_at. UNIQUE(project_id, report_date, submitted_by_name)
+- **`site_report_entries`** : report_id, entry_type (labor/machine/delivery_note), crew_member_id, work_description, duration_hours, is_driver, machine_description, is_rented, note_number, supplier_name, photo_url
+
+#### Project Financials (Migration 062)
+- **`projects`** ajouts : `invoiced_amount DECIMAL(12,2)`, `purchase_costs DECIMAL(12,2)`, `closed_at TIMESTAMPTZ`
+
+#### Planning (Migration 055 + 058)
+- **`project_plannings`** : project_id, submission_id, title, status, config (JSONB), share_token, share_expires_at, ai_summary, ai_recommendations
+- **`planning_tasks`** : planning_id, name, cfc_code, start_date, end_date, duration_days, progress, dependencies[], color, is_milestone, phase, ai_risks (JSONB), ai_duration_correction
+- **`planning_dependencies`** : source_task_id, target_task_id, dependency_type (FS/FF/SS/SF), lag_days
 
 ### RLS (Row Level Security)
 - Pattern standard : `organization_id = (SELECT organization_id FROM users WHERE id = auth.uid())`
@@ -304,7 +340,7 @@ ADMIN_SECRET_KEY
 
 ---
 
-## 6. Routes API (~150 endpoints)
+## 6. Routes API (~190 endpoints)
 
 ### Auth
 | Route | Méthode | Description |
@@ -410,6 +446,13 @@ ADMIN_SECRET_KEY
 | `/api/submissions/[id]/relance` | POST | Envoyer relance fournisseur |
 | `/api/submissions/export` | POST | Exporter soumission |
 | `/api/submissions/receive-quote` | POST | Webhook réception devis fournisseur |
+| `/api/submissions/[id]/estimate-budget` | POST | Budget IA (CFC match + Claude Haiku fallback) |
+
+### Fournisseurs (extended)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/suppliers/[id]/history` | GET | Historique interactions fournisseur |
+| `/api/suppliers/[id]/recalculate-score` | POST | Recalculer score fournisseur |
 
 ### Prix
 | Route | Méthode | Description |
@@ -465,6 +508,7 @@ ADMIN_SECRET_KEY
 | `/api/chat` | POST | Message chat (SSE streaming, Claude) |
 | `/api/chat/conversations` | GET/POST | Conversations |
 | `/api/chat/conversations/[id]` | GET/PATCH/DELETE | Détail conversation |
+| `/api/chat/upload` | POST | Upload fichier pour chat (PDF/Excel/images extraction texte + Vision) |
 
 ### Briefing
 | Route | Méthode | Description |
@@ -547,10 +591,73 @@ ADMIN_SECRET_KEY
 | `/api/debug/supabase-test` | GET | Test Supabase |
 | `/api/debug/microsoft-status` | GET | Statut OAuth Microsoft |
 | `/api/debug/org-merge` | GET/POST | Merge organisations |
+| `/api/debug/email-connection` | GET | Debug email connection status |
+
+### Support Tickets
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/support/tickets` | GET/POST | Liste tickets utilisateur / Créer ticket |
+| `/api/support/tickets/[id]` | GET/PATCH | Détail ticket + messages / Mettre à jour statut |
+| `/api/support/tickets/[id]/messages` | POST | Ajouter message au thread |
+| `/api/support/tickets/[id]/attachments` | POST | Upload pièce jointe (bucket `support`) |
+| `/api/support/tickets/unread-count` | GET | Compteur messages non lus (pour badge sidebar) |
+
+### Portail Chef d'Equipe (public, auth PIN)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/portal/[projectId]/auth` | POST | Vérifier PIN, set session cookie JWT 7 jours |
+| `/api/portal/[projectId]/info` | GET | Infos projet (nom, description, adresse) |
+| `/api/portal/[projectId]/submission` | GET | Postes soumission liée (sans prix) |
+| `/api/portal/[projectId]/plans` | GET | Plans du projet |
+| `/api/portal/[projectId]/crew` | GET/POST/DELETE | CRUD membres équipe |
+| `/api/portal/[projectId]/reports` | GET/POST | Liste/créer rapports journaliers |
+| `/api/portal/[projectId]/reports/[reportId]` | GET/PATCH | Détail/mettre à jour rapport |
+
+### Rapports Chantier (centralisation)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/site-reports/hours` | GET | Heures agrégées par semaine (filtre projet) |
+| `/api/site-reports/delivery-notes` | GET | Bons de livraison (filtre fournisseur) |
+| `/api/site-reports/export-hours` | POST | Export Excel heures |
+| `/api/site-reports/export-notes` | POST | Export PDF bons de livraison |
+
+### Direction & Financials
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/projects/[id]/financials` | GET/POST | Stats financières projet (heures, machines, ouvriers, bons, marge) + mise à jour |
+| `/api/direction/stats` | GET | Stats rentabilité org (total facturé, coûts, marge moyenne %, top performers) |
+
+### Planning
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/planning/generate` | POST | Générer planning depuis soumission (Claude IA) |
+| `/api/planning/[id]` | GET/PATCH | Détail planning / Mettre à jour tâches |
+| `/api/planning/[id]/export-pdf` | GET | Export Gantt PDF format A3 |
+| `/api/planning/[id]/share` | POST | Générer lien de partage public (token) |
+| `/api/planning/public/[token]` | GET | Vue publique planning partagé |
+
+### Projets (extensions)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/projects/[id]/portal` | GET/POST | Config portail (toggle, PIN, soumission liée, description) |
+| `/api/projects/[id]/portal/regenerate-pin` | POST | Régénérer PIN portail |
+| `/api/projects/[id]/site-reports` | GET | Rapports chantier du projet |
+| `/api/projects/[id]/site-reports/[reportId]` | GET/PATCH | Détail/verrouiller rapport |
+| `/api/projects/[id]/nav-counts` | GET | Compteurs sidebar projet (7 requêtes parallèles) |
+
+### AI Roundtable (Super-Admin)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/super-admin/ai-roundtable` | POST | Discussion multi-modèle (Claude Sonnet 4.5 + GPT-4.1 + Gemini 2.5 Pro) |
+
+### Auth (extensions)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/auth/admin-consent-url` | GET | URL consentement admin Azure AD |
 
 ---
 
-## 7. Pages & Routing (~78 pages)
+## 7. Pages & Routing (~90 pages)
 
 Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 
@@ -567,6 +674,7 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `/register` — Inscription
 - `/forgot-password` — Mot de passe oublié
 - `/reset-password` — Réinitialisation
+- `/admin-consent` — Consentement admin Azure AD (pour sync email org-wide)
 
 ### Onboarding `(onboarding)`
 - `/onboarding` — Wizard 3 étapes (premier login)
@@ -575,8 +683,9 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `/dashboard` — Tableau de bord principal (KPIs, stats)
 - `/mail` — Module Cantaia Mail (vue décisions : urgent/thisWeek/info, thread Graph, délégation, transfert, sync Outlook)
 - `/projects` — Liste projets
-  - `/projects/[id]` — Détail projet (onglets: Overview, Emails, Plans, Prix, Submissions, Tasks, Meetings, Visits, Closure, Settings)
+  - `/projects/[id]` — Détail projet (onglets: Overview, Emails, Plans, Prix, Submissions, Tasks, Meetings, Visits, Planning, Site Reports, Closure, Settings)
   - `/projects/[id]/settings` — Paramètres projet
+  - `/projects/[id]/planning` — Gantt chart IA (génération depuis soumission, édition, export PDF A3, partage public)
   - `/projects/[id]/closure` — Workflow clôture
   - `/projects/[id]/closure/reception` — Document de réception (provisoire/définitive/partielle)
   - `/projects/[id]/closure/upload-signed` — Upload documents signés
@@ -608,6 +717,16 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `/chat` — Chat IA (conversations Claude avec contexte projet)
 - `/pricing-intelligence` — Analytique prix
 - `/settings` — Paramètres (onglets: Profil, Préférences email, Classification, Partage données, Intégrations, Abonnement)
+- `/support` — Liste tickets support utilisateur
+  - `/support/[id]` — Détail ticket (thread conversationnel, pièces jointes)
+- `/site-reports` — Centralisation rapports chantier (2 onglets: Heures, Bons de livraison, navigation hebdomadaire, exports)
+- `/action-board` — Tableau d'actions (vue alternative)
+
+### Portail `portal` — Public (PIN auth, pas de layout app)
+- `/portal/[projectId]` — Portail chef d'équipe (4 onglets bottom nav: Chantier, Soumission, Plans, Rapport)
+
+### Public `(public)` — Pages publiques non-auth
+- `/planning/[token]` — Vue publique planning partagé (lecture seule, Gantt)
 
 ### Admin `(admin)` — Org Admin (1 page, 4 onglets)
 - `/admin` — Panneau admin unifié (4 onglets via `?tab=`)
@@ -617,7 +736,7 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
   - **Paramètres** : infos organisation, branding (logo, couleur), configuration
 - `/debug` — Page debug (diagnostics)
 
-### Super-Admin `(super-admin)` — Superadmin uniquement (11 pages)
+### Super-Admin `(super-admin)` — Superadmin uniquement (13 pages)
 - `/super-admin` — Dashboard (métriques globales, orgs, Sentry errors, revenue, alertes paiement/trial/inactivité)
 - `/super-admin/organizations` — Toutes les orgs (colonnes: appels IA, coûts IA, marge %)
   - `/super-admin/organizations/[id]` — Détail org (membres, subscription, métriques IA par membre/fonction)
@@ -629,27 +748,36 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `/super-admin/operations` — Outils opérationnels (force sync, force briefing, CRON, impersonation, diagnostics)
 - `/super-admin/data-intelligence` — Dashboard data intel (C2 benchmarks, C3 patterns, agrégation)
 - `/super-admin/config` — Config globale (feature flags, API keys, table PLAN_FEATURES read-only)
+- `/super-admin/support` — Liste tous les tickets + 4 KPIs (ouverts, en cours, résolus, temps moyen résolution)
+  - `/super-admin/support/[id]` — Détail ticket admin avec sidebar infos utilisateur
+- `/super-admin/ai-roundtable` — Table Ronde IA (Claude x GPT x Gemini, discussion autonome multi-rounds)
 
-### Layouts (7)
+### Layouts (9)
 1. `[locale]/layout.tsx` — Root (fonts, intl, theme, toaster, cookies)
 2. `(marketing)/layout.tsx` — MarketingHeader + MarketingFooter
 3. `(auth)/layout.tsx` — Formulaire centré, grille subtile
 4. `(onboarding)/layout.tsx` — AuthProvider, fond slate-50
-5. `(app)/layout.tsx` — AuthProvider, BrandingProvider, AppEmailProvider, Sidebar, CommandPalette, OnboardingGuard, TrialGuard
+5. `(app)/layout.tsx` — AuthProvider, BrandingProvider, AppEmailProvider, AppActiveProjectProvider, Sidebar, CommandPalette, OnboardingGuard, TrialGuard
 6. `(admin)/layout.tsx` — Sidebar admin collapsible
 7. `(super-admin)/layout.tsx` — Sidebar dark (amber accents), vérification accès async
+8. `(public)/layout.tsx` — Layout minimal sans auth (pages publiques partagées)
+9. `portal/[projectId]/layout.tsx` — Layout portail terrain (pas de sidebar, bottom navigation mobile)
 
 ---
 
 ## 8. Composants Clés
 
-### `apps/web/src/components/` (23 dossiers, 123 fichiers)
+### `apps/web/src/components/` (27 dossiers, 160+ fichiers)
 
-#### App Core (`app/`, 5 fichiers)
-- `Sidebar.tsx` — Navigation latérale principale (collapsible, groupes projets, liens produits)
+#### App Core (`app/`, 10 fichiers)
+- `Sidebar.tsx` — Navigation latérale principale (collapsible, groupes projets, liens produits, badges support/unread)
 - `EmailDetailPanel.tsx` — Détail email complet (corps, PJ, réponse IA, tâches, classification)
 - `OnboardingGuard.tsx` / `OnboardingChecklist.tsx` — Onboarding
 - `ComingSoonProduct.tsx` — Page teaser produit (Cantaia PV)
+- `ActiveProjectSection.tsx` — Section projet actif dans la sidebar
+- `DashboardOrgView.tsx` — Vue dashboard org avec rentabilité
+- `ProjectSwitcher.tsx` — Sélecteur de projet rapide
+- `ThemeToggle.tsx` — Toggle dark/light mode
 
 #### Auth (`auth/`, 5 fichiers)
 - `AuthCard.tsx`, `LoginForm.tsx`, `RegisterForm.tsx`, `MicrosoftButton.tsx`, `GoogleButton.tsx`
@@ -670,8 +798,11 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `PlanAlertsBanner.tsx`, `PlanReferenceAlert.tsx`, `PlanDistributeModal.tsx`
 - `plan-detail-types.ts` — Types TypeScript
 
-#### Projects (`projects/`, 10 fichiers — onglets)
+#### Projects (`projects/`, 13 fichiers — onglets)
 - `ProjectOverviewTab.tsx`, `ProjectEmailsTab.tsx`, `ProjectPlansTab.tsx`, `ProjectPrixTab.tsx`, `ProjectSubmissionsTab.tsx`, `ProjectTasksTab.tsx`, `ProjectMeetingsTab.tsx`, `ProjectVisitsTab.tsx`, `ProjectClosureTab.tsx`, `ArchiveSettingsTab.tsx`
+- `ProjectPlanningTab.tsx` — Onglet Gantt chart IA (génération, édition, export, partage)
+- `ProjectSiteReportsTab.tsx` — Onglet rapports chantier (config portail + liste rapports)
+- `ProjectFinancialsSection.tsx` — Section financière dans Closure (montant facturé, coûts, marge)
 
 #### Cantaia Prix (`cantaia-prix/`, 10 fichiers)
 - `EstimateTab.tsx` — Chiffrage IA
@@ -688,7 +819,12 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `PositionsTable.tsx` — Table postes (chapitres > positions)
 - `EditableCell.tsx`, `SortableRow.tsx` (dnd-kit)
 - `SubmissionStatusBadge.tsx`
-- **Detail** (`detail/`, 11 fichiers) : `ComparisonTab.tsx`, `SuppliersTab.tsx`, `ItemsTab.tsx`, `TrackingTab.tsx`, `DocumentsTab.tsx`, `IntelligenceTab.tsx`, `NegotiationTab.tsx`, `SendPriceRequestModal.tsx`, `SubmissionDetailHeader.tsx`, `shared.ts`, `index.ts`
+- **Detail** (`detail/`, 16 fichiers) : `ComparisonTab.tsx`, `SuppliersTab.tsx`, `ItemsTab.tsx`, `TrackingTab.tsx`, `DocumentsTab.tsx`, `IntelligenceTab.tsx`, `NegotiationTab.tsx`, `SendPriceRequestModal.tsx`, `SubmissionDetailHeader.tsx`, `shared.ts`, `index.ts`
+- `PriceRequestWizard.tsx` — Wizard 4 étapes pour demandes de prix
+- `GroupSelectionStep.tsx` — Étape 1: sélection groupes matériaux
+- `ItemSelectionStep.tsx` — Étape 2: sélection postes individuels par groupe
+- `SupplierAssignmentStep.tsx` — Étape 3: assignation fournisseurs avec recommandation IA
+- `SendPreviewStep.tsx` — Étape 4: prévisualisation email + envoi batch
 
 #### Tasks (`tasks/`, 9 fichiers)
 - `TaskKanbanView.tsx` — Kanban 5 colonnes (todo, in_progress, waiting, done, cancelled)
@@ -709,10 +845,12 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 - `SubscriptionTab.tsx` — Abonnement Stripe
 - `OrganisationTab.tsx`, `SaveButton.tsx`
 
-#### Suppliers (`suppliers/`, 3 fichiers)
+#### Suppliers (`suppliers/`, 5 fichiers)
 - `AISearchDialog.tsx` — Recherche IA fournisseurs
 - `SupplierFormDialog.tsx` — Formulaire créer/éditer
 - `SupplierImportDialog.tsx` — Import bulk CSV
+- `SupplierPriceChart.tsx` — Graphique recharts évolution prix fournisseur
+- `SupplierTimeline.tsx` — Timeline interactions fournisseur
 
 #### Emails (`emails/`, 2 fichiers)
 - `ClassificationSuggestions.tsx` — Dropdown suggestions classification
@@ -735,8 +873,36 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 #### Super-Admin (`super-admin/`, 1 fichier)
 - `ImpersonationBanner.tsx` — Bannière rouge lors d'impersonation
 
-#### Providers (`providers/`, 4 fichiers)
-- `AuthProvider.tsx`, `BrandingProvider.tsx`, `AppEmailProvider.tsx`, `OrganizationProvider.tsx`
+#### Support (`support/`, 5 fichiers)
+- `TicketStatusBadge.tsx` — Badge coloré par statut (open=blue, in_progress=amber, resolved=green, closed=gray)
+- `TicketCategoryBadge.tsx` — Badge par catégorie (bug=red, question=blue, feature_request=purple, billing=amber)
+- `TicketThread.tsx` — Vue thread conversationnelle avec bulles user/admin
+- `TicketReplyInput.tsx` — Input réponse avec pièce jointe
+- `TicketCreateModal.tsx` — Modal création ticket (sujet, catégorie, priorité, message initial)
+
+#### Portal (`portal/`, 1 fichier)
+- `ReportForm.tsx` — Formulaire rapport journalier (personnel + machines + bons de livraison + remarques/météo)
+
+#### Planning (`planning/`, 16 fichiers)
+- `GanttChart.tsx` — Composant Gantt principal (SVG, zoom, scroll horizontal)
+- `GanttBar.tsx` — Barre tâche individuelle (drag resize, couleur par phase)
+- `GanttBaseline.tsx` — Overlay baseline pour comparaison planifié vs réel
+- `GanttHeader.tsx` — En-tête avec titre, boutons actions
+- `GanttToolbar.tsx` — Barre d'outils (zoom, filtres, export, partage)
+- `GanttTimeline.tsx` — Échelle temporelle (jours/semaines/mois)
+- `GanttTaskList.tsx` — Liste tâches panel gauche (nom, dates, durée)
+- `GanttSidePanel.tsx` — Panel latéral détail tâche
+- `GanttDependencyArrows.tsx` — Flèches SVG dépendances (FS/FF/SS/SF)
+- `GanttMilestone.tsx` — Losange milestone
+- `GanttContextMenu.tsx` — Menu contextuel (ajouter, supprimer, modifier tâche)
+- `GanttConfigModal.tsx` — Modal config planning (dates, phases)
+- `DurationTooltip.tsx` — Tooltip durée au survol
+- `planning-types.ts` — Types TypeScript pour planning
+- `useUndoRedo.ts` — Hook undo/redo pour édition planning
+- `index.ts` — Exports
+
+#### Providers (`providers/`, 5 fichiers)
+- `AuthProvider.tsx`, `BrandingProvider.tsx`, `AppEmailProvider.tsx`, `OrganizationProvider.tsx`, `AppActiveProjectProvider.tsx`
 
 #### Landing (`landing/`, 12 fichiers)
 - `HeroSection.tsx`, `FeaturesSection.tsx`, `PricingSection.tsx`, `FAQSection.tsx`
@@ -747,9 +913,10 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 #### Marketing (`marketing/`, 2 fichiers)
 - `Header.tsx`, `Footer.tsx`
 
-#### UI partagé (`ui/`, 5 fichiers)
+#### UI partagé (`ui/`, 6 fichiers)
 - `Breadcrumb.tsx`, `CommandPalette.tsx` (Cmd/Ctrl+K), `ConfirmDialog.tsx`, `EmptyState.tsx`
 - `IntelligentAlerts.tsx` — Alertes IA proactives (budget/planning/fournisseurs), severity cards
+- `ProjectBreadcrumb.tsx` — Breadcrumb contextuel pour pages projet
 
 #### App Intelligence (`app/`, 2 fichiers ajoutés)
 - `IntelligenceScore.tsx` — Score maturité IA 5 dimensions (Prix, Plans, Planning, Emails, Fournisseurs), 0-100
@@ -992,14 +1159,14 @@ pnpm clean
 
 ## 13. État Actuel (Mars 2026)
 
-- **Build** : ~90 pages, ~180 routes API, 0 erreurs
-- **Migrations** : 001-062
-- **Composants** : 150+ fichiers dans 27 dossiers
+- **Build** : ~90 pages, ~190 routes API, 0 erreurs
+- **Migrations** : 001-062 (62 fichiers SQL)
+- **Composants** : 160+ fichiers dans 27 dossiers
 - **Core** : ~95 fichiers TypeScript
 - **Post-login redirect** : `/mail`
 - **Domaine** : cantaia.io (principal, migré depuis cantaia.ch le 2026-03-19)
 - **Admin** : panneau unifié 4 onglets (Overview, Membres, Abonnement, Paramètres), visible aux org admins (role=admin) + superadmins
-- **Super-admin** : 13 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, ai-costs, operations, data-intelligence, config, support, ai-roundtable)
+- **Super-admin** : 13 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, ai-costs, operations, data-intelligence, config, support, support/[id], ai-roundtable)
 - **Stripe** : Checkout Sessions, Subscriptions, Billing Portal, Webhooks (checkout.completed, subscription.updated/deleted, invoice.payment_failed/succeeded)
 - **Plan enforcement** : `checkUsageLimit()` sur 14 routes IA, `TrialGuard` + `UsageLimitBanner` côté client
 - **Sentry** : configuré, gated derrière cookie consent RGPD
@@ -1926,7 +2093,7 @@ Remplacement de l'ancien onglet "Demandes de prix" par un wizard 4 étapes.
 13. **SÉCURITÉ** : Définir `OUTLOOK_WEBHOOK_SECRET` sur Vercel (min 16 chars) — OUTLOOK.6
 14. **SÉCURITÉ** : Migrer bucket "plans" de public à privé + adapter le code pour utiliser signed URLs — SEC2.NC3
 15. **SÉCURITÉ** : Implémenter rate limiting sur les routes IA (recommandé: `@upstash/ratelimit`) — SEC2.NC1
-16. Appliquer migrations 054-057 sur Supabase (plan_status, extra_seats, api_usage index, learning engine)
+16. Appliquer migrations 054-058 sur Supabase (RLS fix, planning tables, stripe columns, learning engine, planning fixes)
 17. Définir `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_ENTERPRISE` sur Vercel (Price IDs depuis Stripe Dashboard)
 18. Configurer DNS: cantaia.io doit pointer vers Vercel
 19. Configurer DNS: cantaia.ch, cantaia.com, cantaia.app → redirect vers cantaia.io
@@ -1935,6 +2102,7 @@ Remplacement de l'ancien onglet "Demandes de prix" par un wizard 4 étapes.
 22. Créer bucket Storage `support` (privé, 10 MB)
 23. Créer bucket Storage `chat-attachments` (privé, 10 MB)
 24. Créer bucket Storage `site-report-photos` (privé, 10 MB)
+25. Appliquer `apply_all_missing.sql` sur Supabase (script qui applique toutes les migrations manquantes)
 
 ---
 
