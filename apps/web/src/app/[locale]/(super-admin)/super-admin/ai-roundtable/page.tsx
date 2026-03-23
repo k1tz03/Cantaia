@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Bot, Play, Download, RefreshCw, Sparkles } from "lucide-react";
 
 interface Message {
@@ -34,12 +34,21 @@ export default function AIRoundtablePage() {
   const [synthesis, setSynthesis] = useState("");
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [thinking, setThinking] = useState<{ speaker: string; role: string } | null>(null);
+
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive or thinking changes
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversation.length, thinking, synthesis]);
 
   async function startRoundtable() {
     setLoading(true);
     setConversation([]);
     setSynthesis("");
     setError("");
+    setThinking(null);
     const start = Date.now();
 
     const timer = setInterval(() => {
@@ -59,12 +68,58 @@ export default function AIRoundtablePage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Erreur serveur");
+        clearInterval(timer);
+        setLoading(false);
         return;
       }
 
-      const data = await res.json();
-      setConversation(data.conversation || []);
-      setSynthesis(data.synthesis || "");
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setError("Streaming not supported");
+        clearInterval(timer);
+        setLoading(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === "thinking") {
+                setThinking({ speaker: data.speaker, role: data.role });
+              } else if (data.type === "message") {
+                setThinking(null);
+                setConversation(prev => [...prev, {
+                  speaker: data.speaker,
+                  role: data.role,
+                  content: data.content,
+                  color: data.color,
+                  round: data.round,
+                }]);
+              } else if (data.type === "synthesis") {
+                setThinking(null);
+                setSynthesis(data.content);
+              } else if (data.type === "done") {
+                setLoading(false);
+              }
+            } catch {
+              // Ignore malformed SSE data
+            }
+          }
+        }
+      }
     } catch (e: any) {
       setError(e.message || "Erreur réseau");
     } finally {
@@ -105,11 +160,16 @@ export default function AIRoundtablePage() {
     URL.revokeObjectURL(url);
   }
 
+  // Group messages by round for display
   const groupedByRound: Record<number, Message[]> = {};
   for (const m of conversation) {
     if (!groupedByRound[m.round]) groupedByRound[m.round] = [];
     groupedByRound[m.round].push(m);
   }
+
+  // Determine the current round from the latest message or thinking state
+  const showConfig = conversation.length === 0 && !loading;
+  const showConversation = conversation.length > 0 || loading;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -125,8 +185,8 @@ export default function AIRoundtablePage() {
         </div>
       </div>
 
-      {/* Config */}
-      {conversation.length === 0 && !loading && (
+      {/* Config — shown only when no conversation and not loading */}
+      {showConfig && (
         <div className="space-y-6">
           {/* Topic selection */}
           <div className="rounded-lg border border-border p-6 space-y-4">
@@ -219,49 +279,51 @@ export default function AIRoundtablePage() {
         </div>
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="relative">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center animate-pulse">{SPEAKER_ICONS.Claude.emoji}</div>
-              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.3s" }}>{SPEAKER_ICONS["GPT-4o"].emoji}</div>
-              <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.6s" }}>{SPEAKER_ICONS.Gemini.emoji}</div>
-            </div>
-          </div>
-          <p className="text-foreground font-medium">Les IA discutent...</p>
-          <p className="text-sm text-muted-foreground mt-1">{elapsed}s — {rounds} tours x 3 IA + synthèse</p>
-          <p className="text-xs text-muted-foreground mt-4">Cela peut prendre 2-5 minutes</p>
-        </div>
-      )}
-
-      {/* Results */}
-      {!loading && conversation.length > 0 && (
+      {/* Conversation — shown during loading (messages stream in) and after completion */}
+      {showConversation && (
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Sujet</p>
               <p className="text-base font-medium text-foreground">{customTopic.trim() || topic}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{conversation.length} messages &middot; {Object.keys(groupedByRound).length} tours &middot; {elapsed}s</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {conversation.length} messages &middot; {Object.keys(groupedByRound).length} tours &middot; {elapsed}s
+                {loading && " — en cours..."}
+              </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={exportMarkdown}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export .md
-              </button>
-              <button
-                onClick={() => { setConversation([]); setSynthesis(""); }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Nouvelle session
-              </button>
-            </div>
+            {!loading && (
+              <div className="flex gap-2">
+                <button
+                  onClick={exportMarkdown}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export .md
+                </button>
+                <button
+                  onClick={() => { setConversation([]); setSynthesis(""); setThinking(null); }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Nouvelle session
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Initial loading state — before first message arrives */}
+          {loading && conversation.length === 0 && !thinking && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center animate-pulse">{SPEAKER_ICONS.Claude.emoji}</div>
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.3s" }}>{SPEAKER_ICONS["GPT-4o"].emoji}</div>
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.6s" }}>{SPEAKER_ICONS.Gemini.emoji}</div>
+              </div>
+              <p className="text-foreground font-medium">Lancement de la table ronde...</p>
+              <p className="text-xs text-muted-foreground mt-1">{elapsed}s</p>
+            </div>
+          )}
 
           {/* Conversation by round */}
           {Object.entries(groupedByRound).map(([round, messages]) => (
@@ -288,6 +350,17 @@ export default function AIRoundtablePage() {
             </div>
           ))}
 
+          {/* Thinking indicator — shown while an AI is generating */}
+          {thinking && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-muted/20 animate-pulse">
+              <span>{SPEAKER_ICONS[thinking.speaker]?.emoji || "🤔"}</span>
+              <span className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{thinking.speaker}</span> ({thinking.role}) réfléchit...
+              </span>
+              <span className="text-xs text-muted-foreground ml-auto">{elapsed}s</span>
+            </div>
+          )}
+
           {/* Synthesis */}
           {synthesis && (
             <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-6">
@@ -298,6 +371,9 @@ export default function AIRoundtablePage() {
               <div className="prose prose-sm dark:prose-invert max-w-none text-foreground whitespace-pre-wrap">{synthesis}</div>
             </div>
           )}
+
+          {/* Scroll anchor */}
+          <div ref={endRef} />
         </div>
       )}
 
