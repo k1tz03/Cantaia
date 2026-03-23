@@ -22,6 +22,7 @@ import {
   UserCheck,
   Loader2,
   CalendarRange,
+  ClipboardList,
 } from "lucide-react";
 import { TaskCreateModal } from "@/components/tasks/TaskCreateModal";
 import { TaskDetailPanel } from "@/components/tasks/TaskDetailPanel";
@@ -38,6 +39,7 @@ import { ProjectPlansTab } from "@/components/projects/ProjectPlansTab";
 import { ProjectPrixTab } from "@/components/projects/ProjectPrixTab";
 import { ProjectClosureTab } from "@/components/projects/ProjectClosureTab";
 import { ProjectPlanningTab } from "@/components/projects/ProjectPlanningTab";
+import { ProjectSiteReportsTab } from "@/components/projects/ProjectSiteReportsTab";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 
@@ -50,6 +52,7 @@ const baseTabs = [
   { key: "submissions", icon: FileSpreadsheet },
   { key: "plans", icon: Map },
   { key: "planning", icon: CalendarRange },
+  { key: "site-reports", icon: ClipboardList },
   { key: "prix", icon: FileStack },
   { key: "archiving", icon: FolderArchive },
   { key: "closure", icon: ShieldCheck },
@@ -266,6 +269,10 @@ export default function ProjectDetailPage() {
 
         {activeTab === "planning" && (
           <ProjectPlanningTab projectId={project.id} />
+        )}
+
+        {activeTab === "site-reports" && (
+          <ProjectSiteReportsTab projectId={project.id} />
         )}
 
         {activeTab === "prix" && <ProjectPrixTab benchmark={benchmark} />}
