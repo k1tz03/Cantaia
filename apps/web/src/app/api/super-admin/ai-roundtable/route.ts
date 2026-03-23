@@ -89,7 +89,14 @@ const DISCUSSION_TOPICS = [
   "Quelles améliorations UX prioritaires pour les utilisateurs mobiles sur le terrain ?",
 ];
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 5000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout après ${ms / 1000}s`)), ms)),
+  ]);
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 3000): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
@@ -109,7 +116,7 @@ async function callClaude(systemPrompt: string, messages: { role: string; conten
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  return withRetry(async () => {
+  return withTimeout(withRetry(async () => {
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 1500,
@@ -117,14 +124,14 @@ async function callClaude(systemPrompt: string, messages: { role: string; conten
       messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
     });
     return (response.content[0] as any).text || "";
-  });
+  }), 45000, "Claude");
 }
 
 async function callGPT(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const OpenAI = (await import("openai")).default;
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  return withRetry(async () => {
+  return withTimeout(withRetry(async () => {
     const response = await client.chat.completions.create({
       model: "gpt-4o",
       max_tokens: 1500,
@@ -134,7 +141,7 @@ async function callGPT(systemPrompt: string, messages: { role: string; content: 
       ],
     });
     return response.choices[0]?.message?.content || "";
-  });
+  }), 45000, "GPT-4o");
 }
 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
@@ -144,10 +151,10 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
 
   const fullPrompt = systemPrompt + "\n\n" + messages.map(m => `${m.role === "user" ? "Discussion" : "Toi"}: ${m.content}`).join("\n\n");
 
-  return withRetry(async () => {
+  return withTimeout(withRetry(async () => {
     const result = await model.generateContent(fullPrompt);
     return result.response.text() || "";
-  });
+  }), 45000, "Gemini");
 }
 
 export async function POST(request: NextRequest) {
