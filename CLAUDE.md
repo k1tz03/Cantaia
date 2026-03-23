@@ -13,7 +13,7 @@
 - **Domaines** : cantaia.io (principal)
 - **Multi-tenant** : subdomaines (ex: `hrs.cantaia.io`)
 
-### Cinq produits
+### Sept produits
 
 | Produit | Description | Status |
 |---------|-------------|--------|
@@ -22,6 +22,8 @@
 | **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | ACTIF |
 | **Cantaia PV** | Procès-verbaux de chantier | GREYED OUT (teaser) |
 | **Plans** | Registre de plans + estimation multi-modèle | ACTIF |
+| **Portail Chef d'Équipe** | Portail terrain PIN-protégé (rapports journaliers, bons de livraison, personnel) | ACTIF |
+| **Rapports Chantier** | Centralisation rapports terrain (heures, bons de livraison, exports) | ACTIF |
 
 ### Redirect post-login : `/mail`
 
@@ -990,14 +992,14 @@ pnpm clean
 
 ## 13. État Actuel (Mars 2026)
 
-- **Build** : ~78 pages, ~155 routes API, 0 erreurs
-- **Migrations** : 001-057
+- **Build** : ~90 pages, ~180 routes API, 0 erreurs
+- **Migrations** : 001-062
 - **Composants** : 150+ fichiers dans 27 dossiers
 - **Core** : ~95 fichiers TypeScript
 - **Post-login redirect** : `/mail`
 - **Domaine** : cantaia.io (principal, migré depuis cantaia.ch le 2026-03-19)
 - **Admin** : panneau unifié 4 onglets (Overview, Membres, Abonnement, Paramètres), visible aux org admins (role=admin) + superadmins
-- **Super-admin** : 11 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, ai-costs, operations, data-intelligence, config)
+- **Super-admin** : 13 pages (overview, orgs, orgs/create, orgs/[id], users, billing, metrics, ai-costs, operations, data-intelligence, config, support, ai-roundtable)
 - **Stripe** : Checkout Sessions, Subscriptions, Billing Portal, Webhooks (checkout.completed, subscription.updated/deleted, invoice.payment_failed/succeeded)
 - **Plan enforcement** : `checkUsageLimit()` sur 14 routes IA, `TrialGuard` + `UsageLimitBanner` côté client
 - **Sentry** : configuré, gated derrière cookie consent RGPD
@@ -1694,6 +1696,220 @@ Les chefs de projet peuvent maintenant capturer des photos lors des visites clie
 
 ---
 
+## 23. Session 2026-03-23 — Features & Fixes
+
+### 23.1 Support Tickets System
+
+Système de tickets support conversationnel user-admin.
+
+#### Migration 059
+- **`support_tickets`** : user_id, organization_id, subject, category (bug/question/feature_request/billing), status (open/in_progress/resolved/closed), priority (low/medium/high/urgent), assigned_to, resolved_at, closed_at
+- **`support_messages`** : ticket_id, sender_id, sender_role (user/admin), content, attachments (JSONB)
+- RLS standard par `organization_id` + superadmin accès total
+
+#### Routes API (7)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/support/tickets` | GET/POST | Liste tickets user / Créer ticket |
+| `/api/support/tickets/[id]` | GET/PATCH | Détail ticket + messages / Mettre à jour statut |
+| `/api/support/tickets/[id]/messages` | GET/POST | Messages du ticket / Ajouter message |
+| `/api/support/attachments/upload` | POST | Upload pièce jointe (bucket `support`) |
+| `/api/support/unread` | GET | Compteur messages non lus |
+
+#### Composants (5)
+- `TicketStatusBadge.tsx` — Badge coloré par statut (open=blue, in_progress=amber, resolved=green, closed=gray)
+- `TicketCategoryBadge.tsx` — Badge par catégorie (bug=red, question=blue, feature_request=purple, billing=amber)
+- `TicketThread.tsx` — Vue thread conversationnelle avec bulles user/admin
+- `TicketReplyInput.tsx` — Input réponse avec pièce jointe
+- `TicketCreateModal.tsx` — Modal création ticket (sujet, catégorie, priorité, message initial)
+
+#### Pages (4)
+- `/support` — Liste tickets utilisateur
+- `/support/[id]` — Détail ticket (thread conversationnel)
+- `/super-admin/support` — Liste tous les tickets + 4 KPIs (ouverts, en cours, résolus, temps moyen résolution)
+- `/super-admin/support/[id]` — Détail ticket admin avec sidebar infos utilisateur
+
+#### Sidebar
+- Lien "Support" avec badge non-lus (polling toutes les 60s)
+
+### 23.2 Chat IA avec Upload de Fichiers
+
+Extension du chat IA pour supporter l'envoi de fichiers (documents + images).
+
+#### Migration 060
+- `attachments JSONB` ajouté à `chat_messages`
+
+#### Route API
+- `POST /api/chat/upload` : Upload vers bucket `chat-attachments`, extraction texte depuis PDF (`pdfjs-dist`) et Excel (`xlsx`), retourne `extracted_text` pour documents et `is_image` pour Claude Vision
+
+#### Chat route modifiée
+- Accepte `attachments[]` dans le payload
+- Construit des messages multi-contenu pour Claude : blocs texte pour documents, images base64 pour Vision
+
+#### Frontend
+- Bouton trombone + zone drag & drop
+- Chips preview fichiers avec suppression
+- Enter pour envoyer
+
+### 23.3 Portail Chef d'Équipe
+
+Portail terrain PIN-protégé pour les chefs d'équipe sans compte Cantaia.
+
+#### Migration 061
+- **Projets** : `portal_enabled`, `portal_pin_hash`, `portal_pin_salt`, `portal_description`, `portal_submission_id`
+- **`portal_crew_members`** : project_id, name, role, is_active
+- **`site_reports`** : project_id, report_date, status (draft/submitted/locked), submitted_by, submitted_at, locked_at, locked_by, weather, remarks, personnel_data (JSONB), machines_data (JSONB), delivery_notes_data (JSONB)
+- **`site_report_entries`** : report_id, entry_type (labor/machine/delivery_note), data (JSONB)
+
+#### Auth portail
+- PIN 6 chiffres hashé SHA-256 avec salt
+- JWT cookie 7 jours
+- Rate limiting : 5 tentatives / 15 min de blocage
+
+#### Pages portail
+- `/portal/[projectId]` — 4 onglets bottom navigation :
+  - **Chantier** : infos projet, description
+  - **Soumission** : postes de la soumission liée (sans prix)
+  - **Plans** : plans du projet
+  - **Rapport** : formulaire rapport journalier
+
+#### Formulaire rapport
+- **Personnel** : checklist équipe + saisie heures (description travail + heures + toggle conducteur)
+- **Machines** : description + heures + toggle location
+- **Bons de livraison** : n° + fournisseur + capture photo
+- **Remarques + Météo**
+
+#### Gestion équipe
+- Liste persistante par projet, ajout/suppression membres
+
+#### Statuts rapport
+- `draft` → `submitted` → `locked` (le conducteur peut déverrouiller)
+
+#### Onglet conducteur
+- "Rapports chantier" dans le détail projet avec config portail (toggle, lien, PIN, picker soumission, description) + liste rapports avec modal détail
+
+#### Routes API (13)
+- 9 routes portail (publiques, validées par PIN) : auth, reports CRUD, crew, plans, submission items
+- 4 routes app (auth Supabase) : portal config, reports list, report detail, report lock/unlock
+
+### 23.4 Centralisation Assistantes (Rapports Chantier)
+
+Page centralisée pour les assistantes : vue agrégée des heures et bons de livraison de tous les projets.
+
+#### Page
+- `/site-reports` dans la sidebar (section Référentiels)
+- 2 onglets : **Heures** (heures hebdomadaires par ouvrier, filtre projet) + **Bons de livraison** (bons avec photos, filtre fournisseur)
+- Navigation hebdomadaire (boutons semaine précédente/suivante)
+- Export Excel + PDF
+
+#### Routes API (4)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/site-reports/hours` | GET | Heures par semaine (filtre projet) |
+| `/api/site-reports/delivery-notes` | GET | Bons de livraison (filtre fournisseur) |
+| `/api/site-reports/export-hours` | POST | Export Excel heures |
+| `/api/site-reports/export-notes` | POST | Export PDF bons de livraison |
+
+### 23.5 Statistiques Direction (Financials)
+
+Données financières projets et KPIs direction.
+
+#### Migration 062
+- `invoiced_amount DECIMAL(12,2)`, `purchase_costs DECIMAL(12,2)`, `closed_at TIMESTAMPTZ` sur `projects`
+
+#### Routes API (2)
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/api/projects/[id]/financials` | GET/POST | Stats projet (heures, machines, ouvriers, bons, marge, heures/1000 CHF) + mise à jour champs financiers |
+| `/api/direction/stats` | GET | Stats rentabilité org (total facturé, coûts, marge, marge moyenne %, top performers, ranking efficacité) |
+
+#### Composants
+- `ProjectFinancialsSection` dans l'onglet Closure : montant facturé + coûts d'achat → calcul marge automatique
+- `DashboardOrgView` enrichi : section Rentabilité avec 4 KPIs + table projets finalisés
+
+### 23.6 AI Roundtable
+
+Page super-admin : 3 IAs (Claude Sonnet 4.5, GPT-4.1, Gemini 2.5 Pro) discutent de sujets produit de manière autonome.
+
+#### Page
+- `/super-admin/ai-roundtable`
+
+#### Fonctionnalités
+- 5 sujets prédéfinis + input sujet custom
+- 2-5 rounds configurables, chaque IA répond séquentiellement
+- Rôles spécialisés : Claude = Architecte Produit, GPT = UX Designer & Stratège, Gemini = Product Manager & Data Analyst
+- Synthèse finale par Claude (top 5 recommandations, désaccords, quick wins)
+- Export Markdown (.md)
+- Lien dans la sidebar super-admin
+
+#### Route API
+- `POST /api/super-admin/ai-roundtable` : Orchestration multi-modèle séquentielle
+
+### 23.7 Refonte Wizard Demandes de Prix
+
+Remplacement de l'ancien onglet "Demandes de prix" par un wizard 4 étapes.
+
+#### Étapes
+1. **Groupes** : Sélection des groupes de matériaux avec checkboxes
+2. **Postes** (NOUVEAU) : Sélection individuelle des postes par groupe — permet de splitter les groupes entre fournisseurs
+3. **Fournisseurs** : Assignation fournisseurs par groupe avec recommandation IA (matching CFC)
+4. **Envoi** : Prévisualisation email + envoi batch
+
+### 23.8 Bug Fixes
+
+| ID | Module | Description | Fix |
+|----|--------|-------------|-----|
+| B3 | Tasks | Modal création tâche illisible en dark mode | Adapté les couleurs pour dark mode |
+| B4 | Pricing | Prix abonnement incorrects sur plusieurs pages | Corrigé : Starter 149, Pro 349, Enterprise 790 CHF partout + landing 3 tiers |
+| KANBAN.1 | Tasks | Tâches disparaissent au drag en mode Kanban quand un filtre statut est actif | Filtre statut ignoré en mode Kanban |
+| NAV.6 | Sidebar | Lien "Tâches" absent de la sidebar | Ajouté sous Briefing |
+| PDF.1 | Chat upload | `pdf-parse` incompatible Vercel serverless | Migré vers `pdfjs-dist/legacy/build/pdf.mjs` |
+| BUDGET.1 | Soumissions | Prix historiques d'autres projets contaminaient les estimations | Tier 1 du price-resolver scopé au même projet |
+| BUILD.* | Divers | Imports inutilisés causant des erreurs TS | Nettoyés |
+
+### 23.9 Nouvelles pages (résumé)
+
+| Page | Route | Accès |
+|------|-------|-------|
+| Support (user) | `/support` | Tous les utilisateurs |
+| Support détail | `/support/[id]` | Propriétaire du ticket |
+| Support (admin) | `/super-admin/support` | Superadmin |
+| Support détail (admin) | `/super-admin/support/[id]` | Superadmin |
+| Portail chef d'équipe | `/portal/[projectId]` | Public (PIN) |
+| Rapports chantier | `/site-reports` | Tous les utilisateurs |
+| AI Roundtable | `/super-admin/ai-roundtable` | Superadmin |
+
+### 23.10 Nouvelles routes API (~25)
+
+| Module | Nombre | Description |
+|--------|--------|-------------|
+| Support | 7 | CRUD tickets, messages, upload PJ, compteur non-lus |
+| Portail | 9 | Auth PIN, rapports CRUD, équipe, plans, postes soumission |
+| Site Reports | 4 | Heures, bons de livraison, export Excel, export PDF |
+| Direction | 2 | Financials projet, stats org |
+| Chat | 1 | Upload fichiers avec extraction texte |
+| AI Roundtable | 1 | Orchestration multi-modèle |
+| Financials | 1 | GET/POST financials projet |
+
+### 23.11 Migrations à appliquer
+
+| Migration | Description |
+|-----------|-------------|
+| 059 | `support_tickets` + `support_messages` |
+| 060 | `attachments JSONB` sur `chat_messages` |
+| 061 | Portail (champs portal sur projects, `portal_crew_members`, `site_reports`, `site_report_entries`) |
+| 062 | Financials projet (`invoiced_amount`, `purchase_costs`, `closed_at`) |
+
+### 23.12 Buckets Storage à créer
+
+| Bucket | Visibilité | Taille max |
+|--------|------------|------------|
+| `support` | Privé | 10 MB |
+| `chat-attachments` | Privé | 10 MB |
+| `site-report-photos` | Privé | 10 MB |
+
+---
+
 ### TODO manuels pour Julien
 1. Appliquer migration 011 sur Supabase (`plan_registry`)
 2. Créer bucket Storage "plans" (**PRIVÉ**, 50MB max) — SEC2.NC3
@@ -1715,6 +1931,10 @@ Les chefs de projet peuvent maintenant capturer des photos lors des visites clie
 18. Configurer DNS: cantaia.io doit pointer vers Vercel
 19. Configurer DNS: cantaia.ch, cantaia.com, cantaia.app → redirect vers cantaia.io
 20. `git push` pour déployer sur Vercel (tous les commits sont locaux)
+21. Appliquer migrations 059-062 sur Supabase (support tickets, chat attachments, portail chef d'équipe, project financials)
+22. Créer bucket Storage `support` (privé, 10 MB)
+23. Créer bucket Storage `chat-attachments` (privé, 10 MB)
+24. Créer bucket Storage `site-report-photos` (privé, 10 MB)
 
 ---
 
