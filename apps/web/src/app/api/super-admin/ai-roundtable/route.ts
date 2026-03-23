@@ -28,6 +28,13 @@ UTILISATEURS: Chefs de projet construction, conducteurs de travaux, assistantes,
 PRICING: Trial 14j gratuit, Starter 149 CHF/mois, Pro 349 CHF/mois, Enterprise 790 CHF/mois
 CONCURRENTS: Procore, PlanGrid, Fieldwire, BauMaster, Dalux
 BASE CLIENTS: PME construction suisses (5-50 employés)
+
+CONTRAINTES CRITIQUES:
+- PAS DE CLIENTS ENCORE — le site est en phase pré-lancement. Pas de user testing possible. Vous devez être PROACTIFS et VISIONNAIRES.
+- L'estimation de prix (Budget IA, Chiffrage IA, estimation plans) est DÉSACTIVÉE côté UI car les prix sont incorrects. Le code et la collecte de données restent actifs.
+- L'objectif est de faire de Cantaia une LICORNE — pensez grand, mais pragmatique. Chaque suggestion doit être réaliste à implémenter.
+- Priorisez les fonctionnalités qui CONVERTISSENT (trial → payant) et qui créent un EFFET WOW dès la première utilisation.
+- Le fondateur (Julien) est développeur ET chef de projet construction — il connaît le terrain.
 `;
 
 const AI_ROLES = {
