@@ -101,7 +101,6 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
   async function toggleReportLock(reportId: string, currentStatus: string) {
     const newStatus = currentStatus === "submitted" ? "draft" : "locked";
-    const action = newStatus === "draft" ? "unlock" : "lock";
     await fetch(`/api/projects/${projectId}/site-reports/${reportId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
