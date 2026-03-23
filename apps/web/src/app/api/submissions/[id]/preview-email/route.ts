@@ -82,13 +82,19 @@ export async function GET(
       .eq("id", userProfile?.organization_id)
       .maybeSingle();
 
-    // Get items for this group
+    // Get items for this group, optionally filtered by item_ids
+    const itemIdsParam = request.nextUrl.searchParams.get("item_ids");
+    const itemIdsFilter = itemIdsParam ? new Set(itemIdsParam.split(",")) : null;
+
     const { data: allItems } = await (admin as any)
       .from("submission_items")
       .select("*")
       .eq("submission_id", submissionId);
 
-    const groupItems = (allItems || []).filter((i: any) => i.material_group === group);
+    let groupItems = (allItems || []).filter((i: any) => i.material_group === group);
+    if (itemIdsFilter && itemIdsFilter.size > 0) {
+      groupItems = groupItems.filter((i: any) => itemIdsFilter.has(i.id));
+    }
 
     // Generate preview tracking code
     const shortId = submissionId.slice(0, 4).toUpperCase();

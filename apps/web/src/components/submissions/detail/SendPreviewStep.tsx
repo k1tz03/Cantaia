@@ -55,6 +55,9 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
     setPreviewOpen(supplierId);
     try {
       const params = new URLSearchParams({ group: groupName, supplier_id: supplierId });
+      if (selectedItemIds && selectedItemIds.size > 0) {
+        params.set("item_ids", Array.from(selectedItemIds).join(","));
+      }
       const res = await fetch(`/api/submissions/${submissionId}/preview-email?${params}`);
       if (res.ok) {
         const data = await res.json();
