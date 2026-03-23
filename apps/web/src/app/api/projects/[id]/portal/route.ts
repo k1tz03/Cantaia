@@ -45,7 +45,7 @@ export async function GET(
       portal_submission_id: project.portal_submission_id || null,
       submissions: submissions || [],
       report_count: reportCount || 0,
-      portal_url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/portal/${id}`,
+      portal_url: `${(process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/portal/${id}`,
     });
   } catch (error) {
     console.error("[Portal Config] GET error:", error);
