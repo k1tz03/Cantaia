@@ -16,7 +16,7 @@ export async function POST(
     const admin = createAdminClient();
     const { data: profile } = await admin.from("users").select("organization_id").eq("id", user.id).single();
 
-    const { data: project } = await admin
+    const { data: project } = await (admin as any)
       .from("projects")
       .select("id, organization_id")
       .eq("id", id)
@@ -29,7 +29,7 @@ export async function POST(
     const pin = generatePin();
     const salt = generateSalt();
 
-    const { error } = await admin
+    const { error } = await (admin as any)
       .from("projects")
       .update({
         portal_pin_hash: hashPin(pin, salt),

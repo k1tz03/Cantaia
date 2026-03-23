@@ -10,7 +10,7 @@ export async function GET(
     const { projectId } = await params;
     const admin = createAdminClient();
 
-    const { data: project } = await admin
+    const { data: project } = await (admin as any)
       .from("projects")
       .select("id, name, code, address, city, status, portal_description, portal_pin_salt, portal_enabled")
       .eq("id", projectId)

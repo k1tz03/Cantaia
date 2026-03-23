@@ -4,7 +4,7 @@ import { verifyPortalToken } from "@/lib/portal/auth";
 
 async function checkPortalAuth(projectId: string) {
   const admin = createAdminClient();
-  const { data: project } = await admin
+  const { data: project } = await (admin as any)
     .from("projects")
     .select("portal_pin_salt, portal_enabled")
     .eq("id", projectId)

@@ -33,7 +33,7 @@ export async function POST(
 
     const admin = createAdminClient();
 
-    const { data: project, error } = await admin
+    const { data: project, error } = await (admin as any)
       .from("projects")
       .select("id, portal_enabled, portal_pin_hash, portal_pin_salt")
       .eq("id", projectId)

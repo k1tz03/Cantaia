@@ -16,7 +16,7 @@ export async function GET(
     const admin = createAdminClient();
     const { data: profile } = await admin.from("users").select("organization_id").eq("id", user.id).single();
 
-    const { data: project } = await admin
+    const { data: project } = await (admin as any)
       .from("projects")
       .select("id, organization_id, portal_enabled, portal_description, portal_submission_id")
       .eq("id", id)
@@ -66,7 +66,7 @@ export async function POST(
     const admin = createAdminClient();
     const { data: profile } = await admin.from("users").select("organization_id").eq("id", user.id).single();
 
-    const { data: project } = await admin
+    const { data: project } = await (admin as any)
       .from("projects")
       .select("id, organization_id, portal_pin_hash")
       .eq("id", id)
@@ -96,7 +96,7 @@ export async function POST(
       updates.portal_enabled = true;
 
       // Return the PIN only this once (it's never stored in clear)
-      const { error } = await admin.from("projects").update(updates).eq("id", id);
+      const { error } = await (admin as any).from("projects").update(updates).eq("id", id);
       if (error) {
         return NextResponse.json({ error: "Failed to update" }, { status: 500 });
       }
@@ -104,7 +104,7 @@ export async function POST(
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await admin.from("projects").update(updates).eq("id", id);
+      const { error } = await (admin as any).from("projects").update(updates).eq("id", id);
       if (error) {
         return NextResponse.json({ error: "Failed to update" }, { status: 500 });
       }
