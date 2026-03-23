@@ -419,6 +419,7 @@ export default function SubmissionDetailPage() {
                 items_count: groupItems.length,
               } as any;
             })}
+            items={items}
             suppliers={suppliers}
             budgetGroups={
               ((submission as any)?.budget_estimate as BudgetResult | null)?.estimates

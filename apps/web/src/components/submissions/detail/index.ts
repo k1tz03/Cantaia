@@ -9,6 +9,7 @@ export { DocumentsTab } from "./DocumentsTab";
 export { SendPriceRequestModal } from "./SendPriceRequestModal";
 export { PriceRequestWizard } from "./PriceRequestWizard";
 export { GroupSelectionStep } from "./GroupSelectionStep";
+export { ItemSelectionStep } from "./ItemSelectionStep";
 export { SupplierAssignmentStep } from "./SupplierAssignmentStep";
 export { SendPreviewStep } from "./SendPreviewStep";
 export { formatCHF, STATUS_COLORS } from "./shared";

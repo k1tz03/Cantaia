@@ -10,6 +10,7 @@ interface SendPreviewStepProps {
   lots: SubmissionLot[];
   suppliers: Supplier[];
   assignments: SupplierAssignment;
+  selectedItemIds?: Set<string>;
   onBack: () => void;
   onComplete?: () => void;
 }
@@ -22,7 +23,7 @@ interface PreviewData {
   items_count: number;
 }
 
-export function SendPreviewStep({ submissionId, lots, suppliers, assignments, onBack, onComplete }: SendPreviewStepProps) {
+export function SendPreviewStep({ submissionId, lots, suppliers, assignments, selectedItemIds, onBack, onComplete }: SendPreviewStepProps) {
   const [previewOpen, setPreviewOpen] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -77,10 +78,15 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, on
           supplier_ids: supplierIds,
         }));
 
+      const payload: Record<string, unknown> = { groups };
+      if (selectedItemIds && selectedItemIds.size > 0) {
+        payload.item_ids = Array.from(selectedItemIds);
+      }
+
       const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groups }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { GroupSelectionStep } from "./GroupSelectionStep";
+import { ItemSelectionStep } from "./ItemSelectionStep";
 import { SupplierAssignmentStep } from "./SupplierAssignmentStep";
 import { SendPreviewStep } from "./SendPreviewStep";
 import type { SubmissionLot, Supplier, PriceRequest } from "./shared";
@@ -12,6 +13,16 @@ interface BudgetGroup {
   total_median?: number;
 }
 
+interface WizardItem {
+  id: string;
+  item_number: string | null;
+  description: string;
+  unit: string | null;
+  quantity: number | null;
+  material_group: string;
+  cfc_code: string | null;
+}
+
 export interface SupplierAssignment {
   [groupName: string]: string[]; // group name -> supplier IDs
 }
@@ -19,6 +30,7 @@ export interface SupplierAssignment {
 interface PriceRequestWizardProps {
   submissionId: string;
   lots: SubmissionLot[];
+  items: WizardItem[];
   suppliers: Supplier[];
   budgetGroups?: BudgetGroup[];
   existingRequests?: PriceRequest[];
@@ -27,6 +39,7 @@ interface PriceRequestWizardProps {
 
 const STEPS = [
   { key: "groups", label: "Groupes" },
+  { key: "items", label: "Postes" },
   { key: "suppliers", label: "Fournisseurs" },
   { key: "send", label: "Envoi" },
 ];
@@ -34,6 +47,7 @@ const STEPS = [
 export function PriceRequestWizard({
   submissionId,
   lots,
+  items,
   suppliers,
   budgetGroups,
   existingRequests: _existingRequests,
@@ -41,13 +55,32 @@ export function PriceRequestWizard({
 }: PriceRequestWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [assignments, setAssignments] = useState<SupplierAssignment>({});
 
   function handleGroupsNext(groups: string[]) {
     setSelectedGroups(groups);
+    // Initialize selectedItemIds with ALL items from the selected groups
+    const allItemIds = new Set<string>();
+    for (const item of items) {
+      if (groups.includes(item.material_group)) {
+        allItemIds.add(item.id);
+      }
+    }
+    setSelectedItemIds(allItemIds);
+    setCurrentStep(1);
+  }
+
+  function handleItemsNext() {
     // Pre-assign suppliers by CFC matching for each selected group
     const newAssignments: SupplierAssignment = {};
-    for (const groupName of groups) {
+    for (const groupName of selectedGroups) {
+      // Only include groups that still have selected items
+      const hasSelectedItems = items.some(
+        (item) => item.material_group === groupName && selectedItemIds.has(item.id)
+      );
+      if (!hasSelectedItems) continue;
+
       const lot = lots.find((l) => l.name === groupName);
       if (!lot) continue;
       // Keep existing assignments if the group was already configured
@@ -59,13 +92,55 @@ export function PriceRequestWizard({
       }
     }
     setAssignments(newAssignments);
-    setCurrentStep(1);
+    setCurrentStep(2);
   }
 
   function handleSuppliersNext(updated: SupplierAssignment) {
     setAssignments(updated);
-    setCurrentStep(2);
+    setCurrentStep(3);
   }
+
+  function toggleItem(itemId: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function selectAllGroup(group: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      for (const item of items) {
+        if (item.material_group === group) next.add(item.id);
+      }
+      return next;
+    });
+  }
+
+  function deselectAllGroup(group: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      for (const item of items) {
+        if (item.material_group === group) next.delete(item.id);
+      }
+      return next;
+    });
+  }
+
+  // Build filtered lots for steps 3 & 4: only groups with selected items, with updated items_count
+  const filteredLots = lots
+    .filter((l) => selectedGroups.includes(l.name))
+    .filter((l) =>
+      items.some((item) => item.material_group === l.name && selectedItemIds.has(item.id))
+    )
+    .map((l) => ({
+      ...l,
+      items_count: items.filter(
+        (item) => item.material_group === l.name && selectedItemIds.has(item.id)
+      ).length,
+    }));
 
   return (
     <div>
@@ -110,21 +185,34 @@ export function PriceRequestWizard({
         />
       )}
       {currentStep === 1 && (
-        <SupplierAssignmentStep
-          lots={lots.filter((l) => selectedGroups.includes(l.name))}
-          suppliers={suppliers}
-          assignments={assignments}
+        <ItemSelectionStep
+          items={items}
+          selectedGroups={selectedGroups}
+          selectedItemIds={selectedItemIds}
+          onToggleItem={toggleItem}
+          onSelectAllGroup={selectAllGroup}
+          onDeselectAllGroup={deselectAllGroup}
           onBack={() => setCurrentStep(0)}
-          onNext={handleSuppliersNext}
+          onNext={handleItemsNext}
         />
       )}
       {currentStep === 2 && (
-        <SendPreviewStep
-          submissionId={submissionId}
-          lots={lots.filter((l) => selectedGroups.includes(l.name))}
+        <SupplierAssignmentStep
+          lots={filteredLots}
           suppliers={suppliers}
           assignments={assignments}
           onBack={() => setCurrentStep(1)}
+          onNext={handleSuppliersNext}
+        />
+      )}
+      {currentStep === 3 && (
+        <SendPreviewStep
+          submissionId={submissionId}
+          lots={filteredLots}
+          suppliers={suppliers}
+          assignments={assignments}
+          selectedItemIds={selectedItemIds}
+          onBack={() => setCurrentStep(2)}
           onComplete={onComplete}
         />
       )}
