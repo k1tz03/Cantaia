@@ -23,13 +23,17 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
-    const { data: submission, error } = await admin
+    const { data: submission, error } = await (admin as any)
       .from("submissions")
       .select("*, projects(id, name, code, color, client_name, city, address, organization_id)")
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !submission) {
+    if (error) {
+      console.error("[submissions] GET error:", error);
+      return NextResponse.json({ error: "Submission not found", detail: error.message }, { status: 404 });
+    }
+    if (!submission) {
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
 
