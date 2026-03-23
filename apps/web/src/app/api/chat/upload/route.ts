@@ -87,10 +87,15 @@ export async function POST(request: NextRequest) {
 
     if (file.type === "application/pdf") {
       try {
-        const pdfModule = await import("pdf-parse");
-        const pdfParse = (pdfModule as any).default || pdfModule;
-        const result = await pdfParse(buffer, { version: "v1.10.100" });
-        extractedText = result.text.slice(0, 50000); // max 50K chars
+        const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+        const textParts: string[] = [];
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i);
+          const content = await page.getTextContent();
+          textParts.push(content.items.map((item: any) => item.str).join(" "));
+        }
+        extractedText = textParts.join("\n").slice(0, 50000);
       } catch (e) {
         console.warn("[Chat Upload] PDF parse failed:", e);
       }

@@ -361,15 +361,19 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
   try {
-    // Force pdf-parse to use legacy pdfjs v1.10.100 which works in Node.js without DOM
-    const pdfParseModule = await import("pdf-parse");
-    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-    const pdf = await pdfParse(buffer, {
-      // Use the bundled legacy version that doesn't need DOMMatrix/Canvas
-      version: "v1.10.100",
-    });
-    console.log(`[ANALYZE] PDF text length: ${pdf.text.length} chars, pages: ${pdf.numpages}`);
-    return pdf.text;
+    // Use pdfjs-dist legacy build directly (works in Node.js without DOM APIs)
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const textParts: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item: any) => item.str).join(" ");
+      textParts.push(pageText);
+    }
+    const text = textParts.join("\n");
+    console.log(`[ANALYZE] PDF text length: ${text.length} chars, pages: ${doc.numPages}`);
+    return text;
   } catch (e: any) {
     console.error("[ANALYZE] PDF parse error:", e.message);
     return "";

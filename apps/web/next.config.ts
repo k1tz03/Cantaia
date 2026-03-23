@@ -6,7 +6,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@cantaia/ui", "@cantaia/core", "@cantaia/database"],
-  serverExternalPackages: ["ffmpeg-static", "pdf-parse"],
+  serverExternalPackages: ["ffmpeg-static", "pdf-parse", "pdfjs-dist"],
   images: {
     formats: ["image/avif", "image/webp"],
   },
