@@ -8,7 +8,6 @@ import { ReportForm } from "@/components/portal/ReportForm";
 // Inline tab components to keep it simple
 // Tab 1: Chantier (site info)
 function SiteTab({ projectId }: { projectId: string }) {
-  const t = useTranslations("portal");
   const [info, setInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +57,6 @@ function SiteTab({ projectId }: { projectId: string }) {
 
 // Tab 2: Soumission (no prices)
 function SubmissionTab({ projectId }: { projectId: string }) {
-  const t = useTranslations("portal");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -132,7 +130,6 @@ function SubmissionTab({ projectId }: { projectId: string }) {
 
 // Tab 3: Plans
 function PlansTab({ projectId }: { projectId: string }) {
-  const t = useTranslations("portal");
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
