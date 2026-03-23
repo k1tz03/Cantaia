@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useTranslations } from "next-intl";
-import { Building2, FileText, Map, ClipboardList, Lock, Loader2, AlertCircle } from "lucide-react";
+import { Building2, FileText, Map, ClipboardList, Lock, Loader2, AlertCircle, Phone, ShieldAlert, HardHat } from "lucide-react";
 import { ReportForm } from "@/components/portal/ReportForm";
 
 // Inline tab components to keep it simple
@@ -51,7 +51,77 @@ function SiteTab({ projectId }: { projectId: string }) {
           <p className="text-sm text-gray-600 whitespace-pre-wrap">{info.description}</p>
         </div>
       )}
-      <p className="text-center text-xs text-gray-400 mt-8">{t("welcome")}</p>
+      {/* Numéros d'urgence */}
+      <div className="bg-red-50 rounded-xl p-4 shadow-sm border border-red-100">
+        <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+          <Phone className="h-4 w-4" />
+          Numéros d'urgence
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: "Urgences", number: "112" },
+            { label: "Ambulance", number: "144" },
+            { label: "Police", number: "117" },
+            { label: "Pompiers", number: "118" },
+            { label: "REGA", number: "1414" },
+            { label: "Tox Info", number: "145" },
+          ].map(({ label, number }) => (
+            <a
+              key={number}
+              href={`tel:${number}`}
+              className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 border border-red-100 active:bg-red-100 transition-colors"
+            >
+              <span className="text-sm text-gray-700">{label}</span>
+              <span className="text-sm font-bold text-red-600">{number}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Règles de sécurité SUVA */}
+      <div className="bg-amber-50 rounded-xl p-4 shadow-sm border border-amber-100">
+        <h3 className="text-sm font-semibold text-amber-700 mb-3 flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4" />
+          Règles de sécurité — SUVA
+        </h3>
+        <div className="space-y-2">
+          {[
+            { icon: "🪖", text: "Port du casque obligatoire sur le chantier" },
+            { icon: "👟", text: "Chaussures de sécurité S3 obligatoires" },
+            { icon: "🦺", text: "Gilet haute visibilité obligatoire" },
+            { icon: "🧤", text: "Gants de protection selon les travaux" },
+            { icon: "👓", text: "Lunettes de protection lors de travaux à risque" },
+            { icon: "🔊", text: "Protection auditive en zone bruyante (>85 dB)" },
+            { icon: "⛔", text: "Interdiction de travailler sous l'influence d'alcool ou de drogues" },
+            { icon: "🚧", text: "Sécuriser les zones de travail et les fouilles" },
+            { icon: "⚡", text: "Respecter les distances de sécurité avec les lignes électriques" },
+            { icon: "🪜", text: "Ne jamais travailler en hauteur sans protection contre les chutes" },
+          ].map(({ icon, text }, i) => (
+            <div key={i} className="flex items-start gap-2.5 rounded-lg bg-white px-3 py-2 border border-amber-100">
+              <span className="text-base shrink-0">{icon}</span>
+              <span className="text-sm text-gray-700">{text}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-amber-600 mt-3 text-center">
+          Chaque collaborateur a le droit de dire STOP en cas de danger — Règle vitale SUVA
+        </p>
+      </div>
+
+      <div className="bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-100">
+        <h3 className="text-sm font-semibold text-blue-700 mb-2 flex items-center gap-2">
+          <HardHat className="h-4 w-4" />
+          En cas d'accident
+        </h3>
+        <ol className="space-y-1.5 text-sm text-gray-700 list-decimal list-inside">
+          <li><strong>Protéger</strong> — Sécuriser la zone (baliser, couper les machines)</li>
+          <li><strong>Alerter</strong> — Appeler le 144 (ambulance) ou le 112 (urgences)</li>
+          <li><strong>Secourir</strong> — Premiers soins sans se mettre en danger</li>
+          <li><strong>Informer</strong> — Prévenir le conducteur de travaux immédiatement</li>
+        </ol>
+      </div>
+
+      <p className="text-center text-xs text-gray-400 mt-4">{t("welcome")}</p>
     </div>
   );
 }
