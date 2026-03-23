@@ -296,7 +296,8 @@ export default function PlanDetailPage() {
           />
         )}
 
-        {activeTab === "estimation" && (
+        {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+        {false && activeTab === "estimation" && (
           <PlanEstimationTab
             estimationV2={estimationV2}
             estimatingV2={estimatingV2}

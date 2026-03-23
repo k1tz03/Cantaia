@@ -286,7 +286,8 @@ export default function SubmissionDetailPage() {
     { key: "items", label: "Postes", icon: FileSpreadsheet, count: items.length },
     { key: "requests", label: "Demandes de prix", icon: Send, count: priceRequests.length },
     { key: "comparison", label: "Analyse comparative", icon: BarChart3, count: quotes.length },
-    { key: "budget", label: "Budget IA", icon: Calculator },
+    // HIDDEN: Budget estimation temporarily disabled — prices unreliable
+    // { key: "budget", label: "Budget IA", icon: Calculator },
     { key: "summary", label: "Récapitulatif", icon: ClipboardList },
   ];
 
@@ -450,7 +451,8 @@ export default function SubmissionDetailPage() {
             onRefresh={fetchData}
           />
         )}
-        {activeTab === "budget" && (
+        {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+        {false && activeTab === "budget" && (
           <BudgetTabContent
             submissionId={id}
             items={items}
@@ -553,7 +555,8 @@ function ItemsTabContent({
 
   return (
     <div className="space-y-3">
-      {!hasBudget && items.length > 0 && (
+      {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+      {false && !hasBudget && items.length > 0 && (
         <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Calculator className="h-5 w-5 text-primary shrink-0" />
@@ -602,7 +605,8 @@ function ItemsTabContent({
                     {quotedCount}/{groupItems.length} cotés
                   </span>
                 )}
-                {hasBudget && groupTotal > 0 && (
+                {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+                {false && hasBudget && groupTotal > 0 && (
                   <span className="text-sm font-semibold text-foreground">
                     {formatCHF(groupTotal)}
                   </span>
@@ -619,9 +623,10 @@ function ItemsTabContent({
                       <th className="text-center px-4 py-2 w-16">Unité</th>
                       <th className="text-right px-4 py-2 w-20">Quantité</th>
                       <th className="text-center px-4 py-2 w-20">CFC</th>
-                      {hasBudget && <th className="text-right px-4 py-2 w-24">PU Méd.</th>}
-                      {hasBudget && <th className="text-right px-4 py-2 w-24">Total</th>}
-                      <th className="text-center px-4 py-2 w-20">Source</th>
+                      {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+                      {false && hasBudget && <th className="text-right px-4 py-2 w-24">PU Méd.</th>}
+                      {false && hasBudget && <th className="text-right px-4 py-2 w-24">Total</th>}
+                      {false && <th className="text-center px-4 py-2 w-20">Source</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -658,16 +663,18 @@ function ItemsTabContent({
                               </span>
                             )}
                           </td>
-                          {hasBudget && (
+                          {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+                          {false && hasBudget && (
                             <td className="px-4 py-2 text-right font-medium text-foreground">
                               {unitPrice != null ? formatCHF(unitPrice) : "—"}
                             </td>
                           )}
-                          {hasBudget && (
+                          {false && hasBudget && (
                             <td className="px-4 py-2 text-right text-muted-foreground">
                               {totalPrice != null ? formatCHF(totalPrice) : "—"}
                             </td>
                           )}
+                          {false && (
                           <td className="px-4 py-2 text-center">
                             {hasQuote ? (
                               <span className="text-[10px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">
@@ -695,6 +702,7 @@ function ItemsTabContent({
                               </span>
                             )}
                           </td>
+                          )}
                         </tr>
                       );
                     })}

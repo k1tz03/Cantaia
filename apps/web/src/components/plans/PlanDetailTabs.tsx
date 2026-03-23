@@ -23,7 +23,8 @@ export function PlanDetailTabs({
     { key: "versions", icon: History, label: `${t("tabVersions")} (${versionsCount})` },
     { key: "info", icon: Info, label: t("tabInfo") },
     { key: "analysis", icon: Sparkles, label: t("tabAnalysis") },
-    { key: "estimation", icon: Calculator, label: "Estimation V2", badge: estimationScore },
+    // HIDDEN: Budget estimation temporarily disabled — prices unreliable
+    // { key: "estimation", icon: Calculator, label: "Estimation V2", badge: estimationScore },
   ];
 
   return (

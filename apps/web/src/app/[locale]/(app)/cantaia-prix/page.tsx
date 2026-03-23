@@ -29,8 +29,8 @@ export default function CantaiaPrixPage() {
   const urlPlanId = searchParams.get("plan_id");
   const urlAnalysisId = searchParams.get("analysis_id");
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<Tab>("estimate");
+  // Tab state — default to "import" since "estimate" (Chiffrage IA) is hidden
+  const [activeTab, setActiveTab] = useState<Tab>("import");
 
   // Config state
   const [config, setConfig] = useState<PricingConfig>(DEFAULT_CONFIG);
@@ -305,7 +305,8 @@ export default function CantaiaPrixPage() {
         {/* Tabs */}
         <div className="mb-6 flex flex-wrap gap-1 rounded-lg bg-muted p-0.5 w-fit">
           {([
-            { key: "estimate" as Tab, label: "Chiffrage IA", icon: Calculator },
+            // HIDDEN: Budget estimation temporarily disabled — prices unreliable
+            // { key: "estimate" as Tab, label: "Chiffrage IA", icon: Calculator },
             { key: "import" as Tab, label: "Import prix", icon: Upload },
             { key: "analysis" as Tab, label: "Analyse prix", icon: BarChart3 },
             { key: "history" as Tab, label: "Historique", icon: Clock },
@@ -326,8 +327,8 @@ export default function CantaiaPrixPage() {
           ))}
         </div>
 
-        {/* TAB 1: Chiffrage IA */}
-        {activeTab === "estimate" && (
+        {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
+        {false && activeTab === "estimate" && (
           <EstimateTab
             config={config}
             setConfig={setConfig}
