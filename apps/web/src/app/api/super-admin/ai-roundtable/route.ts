@@ -78,7 +78,7 @@ async function callGPT(systemPrompt: string, messages: { role: string; content: 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4.1",
     max_tokens: 1500,
     messages: [
       { role: "system", content: systemPrompt },
@@ -92,7 +92,7 @@ async function callGPT(systemPrompt: string, messages: { role: string; content: 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
   const fullPrompt = systemPrompt + "\n\n" + messages.map(m => `${m.role === "user" ? "Discussion" : "Toi"}: ${m.content}`).join("\n\n");
 
