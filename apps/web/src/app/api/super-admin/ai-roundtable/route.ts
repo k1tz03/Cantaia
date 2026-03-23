@@ -96,21 +96,6 @@ const DISCUSSION_TOPICS = [
   "Quelles améliorations UX prioritaires pour les utilisateurs mobiles sur le terrain ?",
 ];
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 3000): Promise<T> {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (e: any) {
-      const status = e?.status || e?.statusCode || 0;
-      if ((status === 429 || status === 529 || status === 503) && i < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, delayMs * (i + 1)));
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw new Error("Max retries exceeded");
-}
 
 async function callClaude(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
