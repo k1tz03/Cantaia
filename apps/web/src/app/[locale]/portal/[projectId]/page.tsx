@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useTranslations } from "next-intl";
 import { Building2, FileText, Map, ClipboardList, Lock, Loader2, AlertCircle } from "lucide-react";
+import { ReportForm } from "@/components/portal/ReportForm";
 
 // Inline tab components to keep it simple
 // Tab 1: Chantier (site info)
@@ -293,11 +294,7 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
         {activeTab === "site" && <SiteTab projectId={projectId} />}
         {activeTab === "submission" && <SubmissionTab projectId={projectId} />}
         {activeTab === "plans" && <PlansTab projectId={projectId} />}
-        {activeTab === "report" && (
-          <div className="p-4">
-            <p className="text-center text-gray-500 text-sm">Chargement du rapport...</p>
-          </div>
-        )}
+        {activeTab === "report" && <ReportForm projectId={projectId} />}
       </div>
 
       {/* Bottom navigation */}
