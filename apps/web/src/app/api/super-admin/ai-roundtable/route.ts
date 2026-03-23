@@ -78,7 +78,7 @@ async function callGPT(systemPrompt: string, messages: { role: string; content: 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await client.chat.completions.create({
-    model: "gpt-4.1",
+    model: "gpt-4o",
     max_tokens: 1500,
     messages: [
       { role: "system", content: systemPrompt },
@@ -92,7 +92,7 @@ async function callGPT(systemPrompt: string, messages: { role: string; content: 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const fullPrompt = systemPrompt + "\n\n" + messages.map(m => `${m.role === "user" ? "Discussion" : "Toi"}: ${m.content}`).join("\n\n");
 
@@ -102,6 +102,7 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth check
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -116,85 +117,89 @@ export async function POST(request: NextRequest) {
     const selectedTopic = topic || DISCUSSION_TOPICS[Math.floor(Math.random() * DISCUSSION_TOPICS.length)];
     const actualRounds = Math.min(Math.max(rounds, 2), 5);
 
-    const conversation: { speaker: string; role: string; content: string; color: string; round: number }[] = [];
+    // Create SSE stream
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        function send(data: any) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        }
 
-    // Opening topic
-    const openingPrompt = `Voici le sujet de discussion de cette table ronde IA:\n\n"${selectedTopic}"\n\nContexte du projet:\n${PROJECT_CONTEXT}\n\nDonne ton analyse initiale en 200-300 mots. Sois concret et actionnable.`;
+        send({ type: "start", topic: selectedTopic, rounds: actualRounds });
 
-    for (let round = 1; round <= actualRounds; round++) {
-      const isLastRound = round === actualRounds;
+        const conversation: { speaker: string; role: string; content: string; color: string; round: number }[] = [];
 
-      // Build conversation history for each AI
-      const historyText = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
+        const openingPrompt = `Voici le sujet de discussion de cette table ronde IA:\n\n"${selectedTopic}"\n\nContexte du projet:\n${PROJECT_CONTEXT}\n\nDonne ton analyse initiale en 200-300 mots. Sois concret et actionnable. Utilise des bullet points et des titres pour structurer.`;
 
-      const roundInstruction = isLastRound
-        ? "\n\nC'est le DERNIER tour. Donne tes recommandations finales: top 3 actions prioritaires avec score impact (1-10) et effort (1-10). Sois synthétique."
-        : round === 1
-          ? ""
-          : `\n\nTour ${round}/${actualRounds}. Rebondis sur ce que les autres ont dit. Sois d'accord ou en désaccord. Approfondis les meilleures idées. Ajoute de nouvelles perspectives.`;
+        const aiOrder = [
+          { key: "claude", fn: callClaude, ...AI_ROLES.claude },
+          { key: "gpt", fn: callGPT, ...AI_ROLES.gpt },
+          { key: "gemini", fn: callGemini, ...AI_ROLES.gemini },
+        ];
 
-      // Claude speaks
-      const claudeSystem = `${AI_ROLES.claude.instruction}\n\nContexte projet:\n${PROJECT_CONTEXT}${roundInstruction}`;
-      const claudeHistory = round === 1
-        ? [{ role: "user", content: openingPrompt }]
-        : [{ role: "user", content: `Discussion en cours:\n\n${historyText}\n\nC'est ton tour (Tour ${round}). Continue la discussion.${roundInstruction}` }];
+        for (let round = 1; round <= actualRounds; round++) {
+          const isLastRound = round === actualRounds;
 
-      try {
-        const claudeResponse = await callClaude(claudeSystem, claudeHistory);
-        conversation.push({ speaker: "Claude", role: AI_ROLES.claude.role, content: claudeResponse, color: AI_ROLES.claude.color, round });
-      } catch (e: any) {
-        conversation.push({ speaker: "Claude", role: AI_ROLES.claude.role, content: `[Erreur: ${e.message}]`, color: AI_ROLES.claude.color, round });
-      }
+          const roundInstruction = isLastRound
+            ? "\n\nC'est le DERNIER tour. Donne tes recommandations finales: top 3 actions prioritaires avec score impact (1-10) et effort (1-10). Structure avec des titres et bullet points."
+            : round === 1
+              ? "\n\nStructure ta réponse avec des titres et bullet points."
+              : `\n\nTour ${round}/${actualRounds}. Rebondis sur ce que les autres ont dit. Sois d'accord ou en désaccord. Approfondis les meilleures idées. Structure avec des titres et bullet points.`;
 
-      // GPT speaks
-      const updatedHistory1 = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
-      const gptSystem = `${AI_ROLES.gpt.instruction}\n\nContexte projet:\n${PROJECT_CONTEXT}${roundInstruction}`;
-      const gptMessages = round === 1
-        ? [{ role: "user", content: `${openingPrompt}\n\nVoici ce que Claude (Architecte Produit) a dit:\n${conversation[conversation.length - 1].content}\n\nDonne ta perspective.` }]
-        : [{ role: "user", content: `Discussion en cours:\n\n${updatedHistory1}\n\nC'est ton tour (Tour ${round}). Continue la discussion.${roundInstruction}` }];
+          for (const ai of aiOrder) {
+            // Send "thinking" event before calling the AI
+            send({ type: "thinking", speaker: ai.name, role: ai.role, round });
 
-      try {
-        const gptResponse = await callGPT(gptSystem, gptMessages);
-        conversation.push({ speaker: "GPT-4o", role: AI_ROLES.gpt.role, content: gptResponse, color: AI_ROLES.gpt.color, round });
-      } catch (e: any) {
-        conversation.push({ speaker: "GPT-4o", role: AI_ROLES.gpt.role, content: `[Erreur: ${e.message}]`, color: AI_ROLES.gpt.color, round });
-      }
+            // Build conversation history
+            const historyText = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
 
-      // Gemini speaks
-      const updatedHistory2 = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
-      const geminiSystem = `${AI_ROLES.gemini.instruction}\n\nContexte projet:\n${PROJECT_CONTEXT}${roundInstruction}`;
-      const geminiMessages = round === 1
-        ? [{ role: "user", content: `${openingPrompt}\n\nDiscussion:\n${updatedHistory2}\n\nDonne ta perspective en tant que Product Manager.` }]
-        : [{ role: "user", content: `Discussion en cours:\n\n${updatedHistory2}\n\nC'est ton tour (Tour ${round}). Continue la discussion.${roundInstruction}` }];
+            const systemPrompt = `${ai.instruction}\n\nContexte projet:\n${PROJECT_CONTEXT}${roundInstruction}`;
+            const messages = round === 1 && conversation.length === 0
+              ? [{ role: "user", content: openingPrompt }]
+              : round === 1
+                ? [{ role: "user", content: `${openingPrompt}\n\nDiscussion jusqu'ici:\n${historyText}\n\nDonne ta perspective.` }]
+                : [{ role: "user", content: `Discussion en cours:\n\n${historyText}\n\nC'est ton tour (Tour ${round}). Continue la discussion.${roundInstruction}` }];
 
-      try {
-        const geminiResponse = await callGemini(geminiSystem, geminiMessages);
-        conversation.push({ speaker: "Gemini", role: AI_ROLES.gemini.role, content: geminiResponse, color: AI_ROLES.gemini.color, round });
-      } catch (e: any) {
-        conversation.push({ speaker: "Gemini", role: AI_ROLES.gemini.role, content: `[Erreur: ${e.message}]`, color: AI_ROLES.gemini.color, round });
-      }
-    }
+            try {
+              const response = await ai.fn(systemPrompt, messages);
+              const msg = { speaker: ai.name, role: ai.role, content: response, color: ai.color, round };
+              conversation.push(msg);
+              send({ type: "message", ...msg });
+            } catch (e: any) {
+              const errorMsg = { speaker: ai.name, role: ai.role, content: `[Erreur: ${e.message}]`, color: ai.color, round };
+              conversation.push(errorMsg);
+              send({ type: "message", ...errorMsg });
+            }
+          }
+        }
 
-    // Generate final synthesis with Claude
-    const fullDiscussion = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
+        // Synthesis
+        send({ type: "thinking", speaker: "Synthese", role: "Rapport final", round: 0 });
 
-    let synthesis = "";
-    try {
-      synthesis = await callClaude(
-        "Tu es un consultant senior. Génère une synthèse structurée de cette table ronde IA. Format:\n\n## Synthèse\nRésumé en 2-3 phrases.\n\n## Top 5 Recommandations\nPour chaque: titre, description, impact (1-10), effort (1-10), unanimité (oui/non — les 3 IA sont d'accord).\n\n## Points de désaccord\nOù les IA ne sont pas d'accord et pourquoi.\n\n## Quick Wins (impact élevé, effort faible)\nActions réalisables en moins d'une semaine.\n\nSois concis et actionnable.",
-        [{ role: "user", content: `Voici la discussion complète:\n\n${fullDiscussion}` }]
-      );
-    } catch {}
+        const fullDiscussion = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
 
-    return NextResponse.json({
-      success: true,
-      topic: selectedTopic,
-      rounds: actualRounds,
-      conversation,
-      synthesis,
-      topics: DISCUSSION_TOPICS,
+        try {
+          const synthesis = await callClaude(
+            "Tu es un consultant senior. Génère une synthèse structurée de cette table ronde IA. Format:\n\n## Synthèse\nRésumé en 2-3 phrases.\n\n## Top 5 Recommandations\nPour chaque: titre, description, impact (1-10), effort (1-10), unanimité (oui/non).\n\n## Points de désaccord\nOù les IA ne sont pas d'accord et pourquoi.\n\n## Quick Wins\nActions réalisables en moins d'une semaine.\n\nSois concis et actionnable.",
+            [{ role: "user", content: `Voici la discussion complète:\n\n${fullDiscussion}` }]
+          );
+          send({ type: "synthesis", content: synthesis });
+        } catch (e: any) {
+          send({ type: "synthesis", content: `[Erreur synthese: ${e.message}]` });
+        }
+
+        send({ type: "done" });
+        controller.close();
+      },
     });
 
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error: any) {
     console.error("[AI Roundtable] Error:", error);
     return NextResponse.json({ error: error.message || "Internal error" }, { status: 500 });
