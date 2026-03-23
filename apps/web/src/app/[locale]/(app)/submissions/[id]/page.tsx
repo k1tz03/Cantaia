@@ -666,12 +666,12 @@ function ItemsTabContent({
                           {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
                           {false && hasBudget && (
                             <td className="px-4 py-2 text-right font-medium text-foreground">
-                              {unitPrice != null ? formatCHF(unitPrice) : "—"}
+                              {unitPrice != null ? formatCHF(unitPrice as number) : "—"}
                             </td>
                           )}
                           {false && hasBudget && (
                             <td className="px-4 py-2 text-right text-muted-foreground">
-                              {totalPrice != null ? formatCHF(totalPrice) : "—"}
+                              {totalPrice != null ? formatCHF(totalPrice as number) : "—"}
                             </td>
                           )}
                           {false && (
