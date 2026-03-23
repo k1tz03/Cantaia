@@ -230,8 +230,8 @@ export default function AIRoundtablePage() {
                 <h3 className="text-sm font-semibold text-foreground">Nombre de tours</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">Plus de tours = discussion plus approfondie mais plus longue (~1 min/tour)</p>
               </div>
-              <div className="flex items-center gap-2">
-                {[2, 3, 4, 5].map(n => (
+              <div className="flex items-center gap-3">
+                {[3, 5, 10].map(n => (
                   <button
                     key={n}
                     onClick={() => setRounds(n)}
@@ -242,6 +242,14 @@ export default function AIRoundtablePage() {
                     {n}
                   </button>
                 ))}
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={rounds}
+                  onChange={(e) => setRounds(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-16 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground text-center"
+                />
               </div>
             </div>
           </div>

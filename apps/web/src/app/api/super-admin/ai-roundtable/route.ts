@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     const { topic, rounds = 3 } = body;
 
     const selectedTopic = topic || DISCUSSION_TOPICS[Math.floor(Math.random() * DISCUSSION_TOPICS.length)];
-    const actualRounds = Math.min(Math.max(rounds, 2), 5);
+    const actualRounds = Math.min(Math.max(rounds, 1), 20);
 
     // Create SSE stream
     const encoder = new TextEncoder();
