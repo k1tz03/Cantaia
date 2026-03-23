@@ -259,9 +259,28 @@ async function performAnalysis(id: string, submission: any) {
     console.log(`[ANALYZE] Extracted text: ${textContent.length} chars`);
 
     if (!textContent || textContent.length < 50) {
-      console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
-      await setAnalysisError(admin, id, "Document vide ou illisible");
-      return;
+      console.log("[ANALYZE] Text extraction returned too little text, trying Vision fallback...", { textLength: textContent?.length ?? 0 });
+      // Fallback: use Claude Vision to read scanned PDF
+      if (fileType === "pdf") {
+        try {
+          const visionText = await extractPdfWithVision(admin, fileUrl);
+          if (visionText && visionText.length >= 50) {
+            textContent = visionText;
+            console.log(`[ANALYZE] Vision fallback extracted ${textContent.length} chars`);
+          } else {
+            console.error("[ANALYZE] Vision fallback also returned too little text");
+            await setAnalysisError(admin, id, "Document vide ou illisible — le PDF semble être un scan sans texte exploitable");
+            return;
+          }
+        } catch (e: any) {
+          console.error("[ANALYZE] Vision fallback failed:", e.message);
+          await setAnalysisError(admin, id, "Document vide ou illisible");
+          return;
+        }
+      } else {
+        await setAnalysisError(admin, id, "Document vide ou illisible");
+        return;
+      }
     }
 
     // ── Step 2: Claude extraction ──
@@ -353,6 +372,48 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     return pdf.text;
   } catch (e: any) {
     console.error("[ANALYZE] PDF parse error:", e.message);
+    return "";
+  }
+}
+
+async function extractPdfWithVision(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  console.log("[ANALYZE] Using Claude Vision to read scanned PDF...");
+  const { data, error } = await admin.storage.from("submissions").download(fileUrl);
+  if (error || !data) {
+    console.error("[ANALYZE] Vision: PDF download failed");
+    return "";
+  }
+  const buffer = Buffer.from(await data.arrayBuffer());
+  const base64 = buffer.toString("base64");
+
+  try {
+    const AnthropicModule = await import("@anthropic-ai/sdk");
+    const Anthropic = (AnthropicModule as any).default || AnthropicModule;
+    const client = new Anthropic();
+
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-5-20250514",
+      max_tokens: 16000,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: base64 },
+          },
+          {
+            type: "text",
+            text: "Extrais tout le texte de ce document PDF. C'est une soumission/descriptif de construction. Retourne le texte brut complet avec les numéros de poste, descriptions, unités et quantités. Conserve la structure originale.",
+          },
+        ],
+      }],
+    } as any);
+
+    const text = (response.content[0] as any)?.text || "";
+    console.log(`[ANALYZE] Vision extracted ${text.length} chars`);
+    return text;
+  } catch (e: any) {
+    console.error("[ANALYZE] Vision API error:", e.message);
     return "";
   }
 }
