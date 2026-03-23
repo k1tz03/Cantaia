@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
-  LifeBuoy, Copy, RefreshCw, Eye, Lock, Unlock, CheckCircle2,
-  AlertCircle, Loader2, ClipboardList, Users, Clock, Calendar
+  LifeBuoy, Copy, RefreshCw, Unlock, CheckCircle2,
+  Loader2, ClipboardList
 } from "lucide-react";
 
 interface SiteReportsTabProps {
