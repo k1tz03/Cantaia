@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   Plus, Trash2, Camera, Loader2, CheckCircle2, ChevronDown, ChevronUp,
-  Truck, Save, Send, AlertCircle
+  Truck, Save, Send, AlertCircle, Lock
 } from "lucide-react";
 
 interface CrewMember {
@@ -309,7 +309,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
           type="date"
           value={reportDate}
           onChange={e => setReportDate(e.target.value)}
-          disabled={isLocked}
           className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
         />
         {report?.status && (
@@ -323,6 +322,12 @@ export function ReportForm({ projectId }: ReportFormProps) {
         )}
       </div>
 
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-700 border border-amber-200">
+          <Lock className="h-4 w-4 shrink-0" />
+          Ce rapport a été envoyé et ne peut plus être modifié. Changez la date pour créer un nouveau rapport.
+        </div>
+      )}
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" /> {error}
