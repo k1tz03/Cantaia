@@ -259,28 +259,9 @@ async function performAnalysis(id: string, submission: any) {
     console.log(`[ANALYZE] Extracted text: ${textContent.length} chars`);
 
     if (!textContent || textContent.length < 50) {
-      console.log("[ANALYZE] Text extraction returned too little text, trying Vision fallback...", { textLength: textContent?.length ?? 0 });
-      // Fallback: use Claude Vision to read scanned PDF
-      if (fileType === "pdf") {
-        try {
-          const visionText = await extractPdfWithVision(admin, fileUrl);
-          if (visionText && visionText.length >= 50) {
-            textContent = visionText;
-            console.log(`[ANALYZE] Vision fallback extracted ${textContent.length} chars`);
-          } else {
-            console.error("[ANALYZE] Vision fallback also returned too little text");
-            await setAnalysisError(admin, id, "Document vide ou illisible — le PDF semble être un scan sans texte exploitable");
-            return;
-          }
-        } catch (e: any) {
-          console.error("[ANALYZE] Vision fallback failed:", e.message);
-          await setAnalysisError(admin, id, "Document vide ou illisible");
-          return;
-        }
-      } else {
-        await setAnalysisError(admin, id, "Document vide ou illisible");
-        return;
-      }
+      console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
+      await setAnalysisError(admin, id, "Document vide ou illisible — impossible d'extraire le texte du document");
+      return;
     }
 
     // ── Step 2: Claude extraction ──
@@ -360,36 +341,10 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   if (!data) return "";
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
-  try {
-    // Use pdfjs-dist legacy build directly (works in Node.js without DOM APIs)
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-    const textParts: string[] = [];
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const pageText = content.items.map((item: any) => item.str).join(" ");
-      textParts.push(pageText);
-    }
-    const text = textParts.join("\n");
-    console.log(`[ANALYZE] PDF text length: ${text.length} chars, pages: ${doc.numPages}`);
-    return text;
-  } catch (e: any) {
-    console.error("[ANALYZE] PDF parse error:", e.message);
-    return "";
-  }
-}
 
-async function extractPdfWithVision(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
-  console.log("[ANALYZE] Using Claude Vision to read scanned PDF...");
-  const { data, error } = await admin.storage.from("submissions").download(fileUrl);
-  if (error || !data) {
-    console.error("[ANALYZE] Vision: PDF download failed");
-    return "";
-  }
-  const buffer = Buffer.from(await data.arrayBuffer());
+  // Use Claude directly to read PDF — most reliable method for serverless
+  // Works with both text PDFs and scanned PDFs
   const base64 = buffer.toString("base64");
-
   try {
     const AnthropicModule = await import("@anthropic-ai/sdk");
     const Anthropic = (AnthropicModule as any).default || AnthropicModule;
@@ -404,20 +359,20 @@ async function extractPdfWithVision(admin: ReturnType<typeof createAdminClient>,
           {
             type: "document",
             source: { type: "base64", media_type: "application/pdf", data: base64 },
-          },
+          } as any,
           {
             type: "text",
-            text: "Extrais tout le texte de ce document PDF. C'est une soumission/descriptif de construction. Retourne le texte brut complet avec les numéros de poste, descriptions, unités et quantités. Conserve la structure originale.",
+            text: "Extrais TOUT le texte de ce document PDF de construction/soumission. Retourne le texte brut complet et fidèle avec : numéros de poste, descriptions complètes, unités, quantités. Conserve la structure et l'ordre du document. Ne résume rien, copie le texte intégralement.",
           },
         ],
       }],
-    } as any);
+    });
 
     const text = (response.content[0] as any)?.text || "";
-    console.log(`[ANALYZE] Vision extracted ${text.length} chars`);
+    console.log(`[ANALYZE] Claude PDF extraction: ${text.length} chars`);
     return text;
   } catch (e: any) {
-    console.error("[ANALYZE] Vision API error:", e.message);
+    console.error("[ANALYZE] Claude PDF extraction error:", e.message);
     return "";
   }
 }
