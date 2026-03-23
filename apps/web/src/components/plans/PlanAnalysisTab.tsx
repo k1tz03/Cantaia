@@ -363,7 +363,7 @@ export function PlanAnalysisTab({
           )}
 
           {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
-          {false && result.quantities.length > 0 && (
+          {false && result?.quantities?.length > 0 && (
             <div className="rounded-lg border-2 border-dashed border-brand/30 bg-brand/5 p-6 text-center">
               <Calculator className="h-8 w-8 text-brand mx-auto mb-2" />
               <h3 className="text-sm font-semibold text-foreground">Estimation multi-modele</h3>
