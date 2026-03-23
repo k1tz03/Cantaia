@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Send, Eye, Loader2, CheckCircle2, AlertCircle, Mail } from "lucide-react";
+import { ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Mail, Search } from "lucide-react";
 import type { SubmissionLot, Supplier } from "./shared";
 import type { SupplierAssignment } from "./PriceRequestWizard";
 
@@ -177,7 +177,7 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, on
                     onClick={() => handlePreview(supplier.id, groups[0])}
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
                   >
-                    <Eye className="h-3 w-3" />
+                    <Search className="h-3 w-3" />
                     Previsualiser
                   </button>
                 </td>
