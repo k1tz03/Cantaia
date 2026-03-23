@@ -232,7 +232,7 @@ export default function SiteReportsPage() {
           {hoursData?.hours && hoursData.hours.length > 0 && (
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/30">
-                <h3 className="text-sm font-semibold text-foreground">D\u00e9tail des heures</h3>
+                <h3 className="text-sm font-semibold text-foreground">Détail des heures</h3>
               </div>
               <table className="w-full">
                 <thead>
@@ -262,7 +262,7 @@ export default function SiteReportsPage() {
           {(!hoursData?.hours || hoursData.hours.length === 0) && (
             <div className="flex flex-col items-center py-12 text-muted-foreground">
               <Clock className="h-10 w-10 mb-3 opacity-30" />
-              <p>Aucune heure pour cette p\u00e9riode</p>
+              <p>Aucune heure pour cette période</p>
             </div>
           )}
         </div>
@@ -289,7 +289,7 @@ export default function SiteReportsPage() {
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Projet</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">N\u00b0 Bon</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">N° Bon</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Fournisseur</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Photo</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Soumis par</th>
@@ -322,7 +322,7 @@ export default function SiteReportsPage() {
           {(!notesData?.notes || notesData.notes.length === 0) && (
             <div className="flex flex-col items-center py-12 text-muted-foreground">
               <FileText className="h-10 w-10 mb-3 opacity-30" />
-              <p>Aucun bon de livraison pour cette p\u00e9riode</p>
+              <p>Aucun bon de livraison pour cette période</p>
             </div>
           )}
         </div>
