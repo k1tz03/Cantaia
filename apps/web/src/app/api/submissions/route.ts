@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     let query = (admin as any)
       .from("submissions")
-      .select("*, projects(id, name, code, color, client_name, city)")
+      .select("*, projects!submissions_project_id_fkey(id, name, code, color, client_name, city)")
       .eq("organization_id", profile.organization_id)
       .order("created_at", { ascending: false });
 

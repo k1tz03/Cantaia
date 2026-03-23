@@ -37,7 +37,7 @@ export async function GET(
     // Verify submission belongs to user's org
     const { data: submissionCheck } = await (admin as any)
       .from("submissions")
-      .select("project_id, projects(organization_id)")
+      .select("project_id, projects!submissions_project_id_fkey(organization_id)")
       .eq("id", submissionId)
       .maybeSingle();
 

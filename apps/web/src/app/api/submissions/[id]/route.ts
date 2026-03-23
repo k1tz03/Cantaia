@@ -25,7 +25,7 @@ export async function GET(
 
     const { data: submission, error } = await (admin as any)
       .from("submissions")
-      .select("*, projects(id, name, code, color, client_name, city, address, organization_id)")
+      .select("*, projects!submissions_project_id_fkey(id, name, code, color, client_name, city, address, organization_id)")
       .eq("id", id)
       .maybeSingle();
 
@@ -264,7 +264,7 @@ export async function DELETE(
     // Delete file from storage — handle both schema versions
     const { data: submission } = await (admin as any)
       .from("submissions")
-      .select("*, projects(organization_id)")
+      .select("*, projects!submissions_project_id_fkey(organization_id)")
       .eq("id", id)
       .maybeSingle();
 

@@ -50,7 +50,7 @@ export async function POST(
     // Get submission for project name
     const { data: submission } = await admin
       .from("submissions")
-      .select("*, projects(id, name)")
+      .select("*, projects!submissions_project_id_fkey(id, name)")
       .eq("id", submissionId)
       .maybeSingle();
 
