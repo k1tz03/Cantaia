@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { ShieldCheck, CheckSquare } from "lucide-react";
 import { formatDate } from "@/lib/mock-data";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
+import { ProjectFinancialsSection } from "./ProjectFinancialsSection";
 
 export function ProjectClosureTab({
   project,
@@ -19,6 +20,8 @@ export function ProjectClosureTab({
 
   return (
     <div className="space-y-4">
+      <ProjectFinancialsSection projectId={project.id} />
+
       <div className="rounded-md border border-border bg-background p-6">
         <div className="flex items-center justify-between">
           <div>

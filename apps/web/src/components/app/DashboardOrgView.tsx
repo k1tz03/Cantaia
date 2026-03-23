@@ -18,6 +18,10 @@ import {
   Clock,
   ShieldAlert,
   AlertCircle,
+  Banknote,
+  Receipt,
+  Percent,
+  BarChart3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCHF } from "@/lib/format";
@@ -85,6 +89,25 @@ interface PlanRecord {
   project_id: string;
   is_current_version?: boolean;
   validation_status?: string;
+}
+
+interface FinancialProject {
+  project_id: string;
+  project_name: string;
+  invoiced_amount: number;
+  purchase_costs: number;
+  margin: number;
+  margin_pct: number;
+  total_labor_hours?: number;
+  hours_per_thousand?: number;
+}
+
+interface DirectionStats {
+  total_invoiced: number;
+  total_costs: number;
+  total_margin: number;
+  avg_margin_pct: number;
+  projects: FinancialProject[];
 }
 
 type HealthStatus = "critical" | "warning" | "good";
@@ -490,6 +513,8 @@ export function DashboardOrgView() {
   const [plans, setPlans] = useState<PlanRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [finStats, setFinStats] = useState<DirectionStats | null>(null);
+  const [finLoading, setFinLoading] = useState(true);
 
   // ---- Data fetching ----
   useEffect(() => {
@@ -545,6 +570,18 @@ export function DashboardOrgView() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // ---- Fetch direction financial stats ----
+  useEffect(() => {
+    fetch("/api/direction/stats")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
+      .then((data) => setFinStats(data))
+      .catch(() => setFinStats(null))
+      .finally(() => setFinLoading(false));
   }, []);
 
   // ---- Derived data ----
@@ -755,6 +792,111 @@ export function DashboardOrgView() {
           ))}
         </div>
       )}
+
+      {/* Profitability Section */}
+      <div className="mt-8 print:mt-4">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="h-5 w-5 text-brand" />
+          <h2 className="text-lg font-semibold text-foreground">{t("profitability")}</h2>
+        </div>
+
+        {finLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-brand" />
+          </div>
+        ) : !finStats || finStats.projects.length === 0 ? (
+          <div className="rounded-lg border border-border bg-background p-8 text-center">
+            <Banknote className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{t("noData")}</p>
+          </div>
+        ) : (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <KPICard
+                icon={Banknote}
+                label={t("totalInvoiced")}
+                value={formatCHF(finStats.total_invoiced)}
+                iconColor="text-emerald-500"
+              />
+              <KPICard
+                icon={Receipt}
+                label={t("totalCosts")}
+                value={formatCHF(finStats.total_costs)}
+                iconColor="text-red-500"
+              />
+              <KPICard
+                icon={TrendingUp}
+                label={t("totalMargin")}
+                value={formatCHF(finStats.total_margin)}
+                valueColor={finStats.total_margin >= 0 ? "text-green-600" : "text-red-600"}
+                iconColor={finStats.total_margin >= 0 ? "text-green-500" : "text-red-500"}
+              />
+              <KPICard
+                icon={Percent}
+                label={t("avgMarginPct")}
+                value={`${finStats.avg_margin_pct.toFixed(1)}%`}
+                valueColor={finStats.avg_margin_pct >= 0 ? "text-green-600" : "text-red-600"}
+                iconColor={finStats.avg_margin_pct >= 0 ? "text-green-500" : "text-red-500"}
+              />
+            </div>
+
+            {/* Projects table */}
+            <div className="rounded-lg border border-border bg-background overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("projectName")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("invoicedAmount")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("purchaseCosts")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("margin")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("marginPct")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("totalHours")}</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">{t("hoursPerThousand")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {finStats.projects.map((fp) => (
+                      <tr
+                        key={fp.project_id}
+                        className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/projects/${fp.project_id}`)}
+                      >
+                        <td className="px-4 py-2.5 font-medium text-foreground">{fp.project_name}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                          {formatCHF(fp.invoiced_amount)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                          {formatCHF(fp.purchase_costs)}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-2.5 text-right tabular-nums font-medium",
+                          fp.margin >= 0 ? "text-green-600" : "text-red-600"
+                        )}>
+                          {formatCHF(fp.margin)}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-2.5 text-right tabular-nums font-medium",
+                          fp.margin_pct >= 0 ? "text-green-600" : "text-red-600"
+                        )}>
+                          {fp.margin_pct.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                          {fp.total_labor_hours ? `${fp.total_labor_hours}h` : "\u2014"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                          {fp.hours_per_thousand ? fp.hours_per_thousand.toFixed(1) : "\u2014"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
