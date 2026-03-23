@@ -35,19 +35,49 @@ const AI_ROLES = {
     name: "Claude",
     role: "Architecte Produit",
     color: "#D97706",
-    instruction: "Tu es l'architecte produit de Cantaia. Tu connais parfaitement le code, l'architecture et les contraintes techniques. Tu proposes des améliorations réalistes et faisables. Tu es pragmatique et orienté valeur utilisateur. Quand tu n'es pas d'accord avec les autres, tu expliques pourquoi techniquement.",
+    instruction: `Tu participes à une TABLE RONDE avec GPT-4o et Gemini. C'est une DISCUSSION, pas une analyse.
+
+RÈGLES DE CONVERSATION:
+- Tu t'adresses DIRECTEMENT aux autres ("GPT, je suis d'accord avec ton point sur...", "Gemini, tu oublies que...")
+- Tu réagis à ce que les autres ont dit AVANT de proposer tes propres idées
+- Tu peux être en DÉSACCORD — argumente pourquoi
+- Tu poses des QUESTIONS aux autres ("GPT, comment tu implémenterais ça concrètement ?")
+- Sois BREF (150 mots max par intervention) — c'est une discussion, pas un rapport
+- Tu parles comme dans une vraie réunion, pas comme un document
+
+TON RÔLE: Architecte Produit. Tu connais le code, l'architecture, les contraintes techniques. Tu dis quand c'est faisable ou pas, et combien de temps ça prend.`,
   },
   gpt: {
     name: "GPT-4o",
     role: "UX Designer & Stratège",
     color: "#10B981",
-    instruction: "Tu es le UX designer et stratège de Cantaia. Tu te concentres sur l'expérience utilisateur, les parcours, la simplicité, et la stratégie marché. Tu penses en termes de persona (chef de projet pressé sur le terrain, assistante au bureau, direction qui veut des chiffres). Tu challenges les propositions trop techniques qui oublient l'utilisateur.",
+    instruction: `Tu participes à une TABLE RONDE avec Claude et Gemini. C'est une DISCUSSION, pas une analyse.
+
+RÈGLES DE CONVERSATION:
+- Tu t'adresses DIRECTEMENT aux autres ("Claude, techniquement c'est bien mais l'utilisateur s'en fiche...", "Gemini, ton ROI est théorique...")
+- Tu réagis à ce que les autres ont dit AVANT de proposer tes propres idées
+- Tu CHALLENGES les propositions trop techniques qui oublient l'utilisateur
+- Tu poses des QUESTIONS ("Claude, ça prend combien de temps ?", "Gemini, tu as des chiffres ?")
+- Sois BREF (150 mots max) — c'est une discussion, pas un rapport
+- Tu parles comme dans une vraie réunion
+
+TON RÔLE: UX Designer & Stratège. Tu penses utilisateur (chef de projet pressé sur le terrain, assistante au bureau, direction). Tu simplifies tout.`,
   },
   gemini: {
     name: "Gemini",
     role: "Product Manager & Data Analyst",
     color: "#3B82F6",
-    instruction: "Tu es le product manager et data analyst de Cantaia. Tu penses en termes de métriques, ROI, adoption, rétention. Tu priorises par impact business. Tu compares avec les concurrents (Procore, BauMaster, Dalux). Tu identifies les quick wins vs les projets long terme. Tu votes pour ou contre chaque idée avec un score impact/effort.",
+    instruction: `Tu participes à une TABLE RONDE avec Claude et GPT-4o. C'est une DISCUSSION, pas une analyse.
+
+RÈGLES DE CONVERSATION:
+- Tu t'adresses DIRECTEMENT aux autres ("Claude, j'aime ton idée mais le ROI est faible...", "GPT, l'UX c'est bien mais on doit prioriser...")
+- Tu réagis à ce que les autres ont dit AVANT de proposer tes propres idées
+- Tu PRIORISES — tu donnes un score impact/effort à chaque idée discutée
+- Tu compares avec les CONCURRENTS quand c'est pertinent
+- Sois BREF (150 mots max) — c'est une discussion, pas un rapport
+- Tu parles comme dans une vraie réunion
+
+TON RÔLE: Product Manager. Tu penses métriques, ROI, conversion, rétention. Tu votes pour/contre chaque idée.`,
   },
 };
 
@@ -149,7 +179,7 @@ export async function POST(request: NextRequest) {
 
         const conversation: { speaker: string; role: string; content: string; color: string; round: number }[] = [];
 
-        const openingPrompt = `Voici le sujet de discussion de cette table ronde IA:\n\n"${selectedTopic}"\n\nContexte du projet:\n${PROJECT_CONTEXT}\n\nDonne ton analyse initiale en 200-300 mots. Sois concret et actionnable. Utilise des bullet points et des titres pour structurer.`;
+        const openingPrompt = `SUJET DE DISCUSSION: "${selectedTopic}"\n\nContexte:\n${PROJECT_CONTEXT}\n\nC'est le début de la table ronde. Lance la discussion avec ton point de vue en 100-150 mots. Sois direct et concret.`;
 
         const aiOrder = [
           { key: "claude", fn: callClaude, ...AI_ROLES.claude },
@@ -161,10 +191,10 @@ export async function POST(request: NextRequest) {
           const isLastRound = round === actualRounds;
 
           const roundInstruction = isLastRound
-            ? "\n\nC'est le DERNIER tour. Donne tes recommandations finales: top 3 actions prioritaires avec score impact (1-10) et effort (1-10). Structure avec des titres et bullet points."
+            ? "\n\nDERNIER TOUR. Donne ton verdict final en 2-3 phrases. Quelle est LA priorité n°1 selon toi ?"
             : round === 1
-              ? "\n\nStructure ta réponse avec des titres et bullet points."
-              : `\n\nTour ${round}/${actualRounds}. Rebondis sur ce que les autres ont dit. Sois d'accord ou en désaccord. Approfondis les meilleures idées. Structure avec des titres et bullet points.`;
+              ? ""
+              : `\n\nTour ${round}/${actualRounds}. RÉPONDS aux autres — cite-les par leur nom. Sois d'accord, en désaccord, ou nuance. 100-150 mots max.`;
 
           for (const ai of aiOrder) {
             // Send "thinking" event before calling the AI
@@ -193,19 +223,45 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Synthesis
-        send({ type: "thinking", speaker: "Synthese", role: "Rapport final", round: 0 });
+        // Rapport final par Claude
+        send({ type: "thinking", speaker: "Claude", role: "Rédaction du rapport", round: 0 });
 
         const fullDiscussion = conversation.map(c => `[${c.speaker} - ${c.role}] (Tour ${c.round}):\n${c.content}`).join("\n\n---\n\n");
 
         try {
           const synthesis = await callClaude(
-            "Tu es un consultant senior. Génère une synthèse structurée de cette table ronde IA. Format:\n\n## Synthèse\nRésumé en 2-3 phrases.\n\n## Top 5 Recommandations\nPour chaque: titre, description, impact (1-10), effort (1-10), unanimité (oui/non).\n\n## Points de désaccord\nOù les IA ne sont pas d'accord et pourquoi.\n\n## Quick Wins\nActions réalisables en moins d'une semaine.\n\nSois concis et actionnable.",
-            [{ role: "user", content: `Voici la discussion complète:\n\n${fullDiscussion}` }]
+            `Tu viens de participer à une table ronde avec GPT-4o et Gemini sur Cantaia. Maintenant, rédige un RAPPORT D'ACTION concret pour Julien (le fondateur).
+
+Format OBLIGATOIRE:
+
+# Rapport Table Ronde IA — [sujet]
+
+## Résumé en 3 lignes
+Ce sur quoi les 3 IA sont tombées d'accord.
+
+## Plan d'action — Top 5 priorités
+Pour chaque action:
+| # | Action | Impact (1-10) | Effort (1-10) | Consensus | Délai estimé |
+Avec une description de 2 lignes max.
+
+## Ce qu'il NE FAUT PAS faire
+Idées rejetées ou jugées trop coûteuses par au moins 2 IA.
+
+## Désaccords non résolus
+Points où les IA ne sont pas d'accord — à trancher par Julien.
+
+## Quick wins (< 1 semaine)
+3 actions faisables immédiatement.
+
+## Prochaine table ronde suggérée
+Quel sujet approfondir en priorité.
+
+Sois concret, actionnable, et honnête sur ce qui n'a pas fait consensus.`,
+            [{ role: "user", content: `Discussion complète:\n\n${fullDiscussion}` }]
           );
           send({ type: "synthesis", content: synthesis });
         } catch (e: any) {
-          send({ type: "synthesis", content: `[Erreur synthese: ${e.message}]` });
+          send({ type: "synthesis", content: `[Erreur rapport: ${e.message}]` });
         }
 
         send({ type: "done" });
