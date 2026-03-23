@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
     const isImage = file.type.startsWith("image/");
 
     if (file.type === "application/pdf") {
+      // Polyfill DOMMatrix for pdf-parse in serverless
+      if (typeof globalThis.DOMMatrix === "undefined") {
+        (globalThis as any).DOMMatrix = class DOMMatrix {
+          constructor() { return Object.create(null); }
+        };
+      }
       try {
         const pdfModule = await import("pdf-parse");
         const pdfParse = (pdfModule as any).default || pdfModule;

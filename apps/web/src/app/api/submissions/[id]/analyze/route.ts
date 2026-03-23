@@ -341,10 +341,21 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   if (!data) return "";
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
-  const pdfParseModule = await import("pdf-parse");
-  const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-  const pdf = await pdfParse(buffer);
-  return pdf.text;
+  // Polyfill DOMMatrix for pdf-parse in serverless (Node.js doesn't have it)
+  if (typeof globalThis.DOMMatrix === "undefined") {
+    (globalThis as any).DOMMatrix = class DOMMatrix {
+      constructor() { return Object.create(null); }
+    };
+  }
+  try {
+    const pdfParseModule = await import("pdf-parse");
+    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+    const pdf = await pdfParse(buffer);
+    return pdf.text;
+  } catch (e: any) {
+    console.error("[ANALYZE] PDF parse error:", e.message);
+    return "";
+  }
 }
 
 async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
