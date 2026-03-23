@@ -59,45 +59,65 @@ const DISCUSSION_TOPICS = [
   "Quelles améliorations UX prioritaires pour les utilisateurs mobiles sur le terrain ?",
 ];
 
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 5000): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      const status = e?.status || e?.statusCode || 0;
+      if ((status === 429 || status === 529 || status === 503) && i < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 async function callClaude(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1500,
-    system: systemPrompt,
-    messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+  return withRetry(async () => {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+    });
+    return (response.content[0] as any).text || "";
   });
-
-  return (response.content[0] as any).text || "";
 }
 
 async function callGPT(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const OpenAI = (await import("openai")).default;
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 1500,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content })),
-    ],
+  return withRetry(async () => {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 1500,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content })),
+      ],
+    });
+    return response.choices[0]?.message?.content || "";
   });
-
-  return response.choices[0]?.message?.content || "";
 }
 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
 
   const fullPrompt = systemPrompt + "\n\n" + messages.map(m => `${m.role === "user" ? "Discussion" : "Toi"}: ${m.content}`).join("\n\n");
 
-  const result = await model.generateContent(fullPrompt);
-  return result.response.text() || "";
+  return withRetry(async () => {
+    const result = await model.generateContent(fullPrompt);
+    return result.response.text() || "";
+  });
 }
 
 export async function POST(request: NextRequest) {
