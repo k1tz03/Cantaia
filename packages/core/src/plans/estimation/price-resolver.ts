@@ -300,8 +300,9 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
       }
     }
 
-    // Fallback: if no project_id provided OR no project-scoped results, use org-wide search
-    if (!project_id || rawCandidates.length === 0) {
+    // Fallback: only use org-wide search if NO project_id was provided
+    // When project_id is set, skip org-wide tier 1 entirely to avoid cross-project contamination
+    if (!project_id) {
     // 1a. Par code CFC (si disponible)
     if (hasCfcCode) {
       const safeCfc = sanitizeForFilter(cfc_code);
