@@ -33,6 +33,7 @@ import {
   Camera,
   Mic,
   LifeBuoy,
+  ClipboardList,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -106,6 +107,7 @@ export function Sidebar() {
   const referenceItems: NavItem[] = [
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
+    { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active" },
   ];
 
@@ -213,6 +215,7 @@ export function Sidebar() {
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
+    { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     ...((isManager || isSuperAdmin) ? [
       { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
     ] : []),
