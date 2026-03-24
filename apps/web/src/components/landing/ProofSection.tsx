@@ -15,7 +15,7 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
     function step(now: number) {
       const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
       setCount(Math.round(eased * target));
       if (progress < 1) requestAnimationFrame(step);
     }
@@ -26,17 +26,20 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
 }
 
 const stats = [
-  { target: 2500, suffix: "+", label: "offres analysées" },
-  { target: 60, suffix: "+", label: "fournisseurs référencés" },
-  { display: "3 ans", label: "de données réelles" },
+  { target: 2500, suffix: "+", label: "offres analysees" },
+  { target: 60, suffix: "+", label: "fournisseurs references" },
+  { display: "3 ans", label: "de donnees reelles" },
   { display: "🇨🇭", label: "Made in Switzerland" },
 ];
 
 export function ProofSection() {
   return (
-    <section className="bg-white border-y border-gray-100">
+    <section className="relative bg-[#0F0F11]">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+
       <div className="mx-auto max-w-[1200px] px-6 py-14">
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-gray-200">
+        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-[#27272A]">
           {stats.map((stat, i) => (
             <motion.div
               key={i}
@@ -46,14 +49,14 @@ export function ProofSection() {
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
             >
-              <div className="font-display text-3xl font-bold bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] bg-clip-text text-transparent">
+              <div className="font-display text-3xl font-bold bg-gradient-to-r from-[#F97316] to-[#FB923C] bg-clip-text text-transparent">
                 {stat.target != null ? (
                   <CountUp target={stat.target} suffix={stat.suffix} />
                 ) : (
                   stat.display
                 )}
               </div>
-              <div className="mt-1.5 text-sm font-medium text-[#6B7280]">{stat.label}</div>
+              <div className="mt-1.5 text-sm font-medium text-[#71717A]">{stat.label}</div>
             </motion.div>
           ))}
         </div>

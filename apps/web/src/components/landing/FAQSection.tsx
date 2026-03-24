@@ -1,7 +1,7 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { AnimatedSection } from "./AnimatedSection";
 
 export function TrustSection() {
   const t = useTranslations("landing.proof");
@@ -20,42 +20,59 @@ export function TrustSection() {
   ];
 
   return (
-    <section className="relative bg-[#111827] overflow-hidden">
+    <section className="relative bg-[#0F0F11] overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+
       {/* Decorative gradient orbs */}
-      <div className="absolute top-0 left-1/4 h-[400px] w-[400px] rounded-full bg-[#2563EB]/5 blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 h-[300px] w-[300px] rounded-full bg-[#10B981]/5 blur-3xl" />
+      <div className="absolute top-0 left-1/4 h-[400px] w-[400px] rounded-full bg-[#F97316]/5 blur-3xl" />
+      <div className="absolute bottom-0 right-1/4 h-[300px] w-[300px] rounded-full bg-[#22C55E]/5 blur-3xl" />
 
-      <div className="relative mx-auto max-w-[1200px] px-6 py-20 lg:py-28">
-        <AnimatedSection>
-          <h2 className="text-center font-display text-3xl font-bold text-white sm:text-4xl">
-            {t("title")}
-          </h2>
-        </AnimatedSection>
+      <div className="relative mx-auto max-w-[1200px] px-6 py-24 lg:py-32">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+          className="text-center font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl"
+        >
+          {t("title")}
+        </motion.h2>
 
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
           {cards.map((card, i) => (
-            <AnimatedSection key={i} delay={i * 0.1}>
-              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 h-full transition-all duration-300 hover:bg-white/[0.08] hover:border-white/20">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-2xl mb-5">{card.emoji}</div>
-                <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-400">{card.description}</p>
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              className="rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm p-7 h-full transition-all duration-300 hover:border-[#3F3F46]"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#27272A] text-2xl mb-5">
+                {card.emoji}
               </div>
-            </AnimatedSection>
+              <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#71717A]">{card.description}</p>
+            </motion.div>
           ))}
         </div>
 
-        <AnimatedSection delay={0.3}>
-          <div className="mt-16 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-8 px-4">
-            <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-white/10">
-              {bottomStats.map((stat, i) => (
-                <div key={i} className="flex flex-col items-center px-8 md:px-12">
-                  <div className="font-display text-2xl font-bold text-white">{stat.value}</div>
-                  <div className="mt-1.5 text-sm font-medium text-gray-400">{stat.label}</div>
-                </div>
-              ))}
-            </div>
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-16 rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm py-8 px-4"
+        >
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-[#27272A]">
+            {bottomStats.map((stat, i) => (
+              <div key={i} className="flex flex-col items-center px-8 md:px-12">
+                <div className="font-display text-2xl font-bold bg-gradient-to-r from-[#F97316] to-[#FB923C] bg-clip-text text-transparent">{stat.value}</div>
+                <div className="mt-1.5 text-sm font-medium text-[#71717A]">{stat.label}</div>
+              </div>
+            ))}
           </div>
-        </AnimatedSection>
+        </motion.div>
       </div>
     </section>
   );
