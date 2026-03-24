@@ -867,7 +867,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                 return (
                   <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
                     {isHtml ? (
-                      <div className="prose prose-sm prose-invert max-w-none text-[#D4D4D8] email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(mainMsg.body.content) }} />
+                      <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(mainMsg.body.content) }} />
                     ) : (
                       <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{mainMsg.body.content}</div>
                     )}
@@ -896,7 +896,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                   <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                 </div>
               ) : fallbackIsHtml ? (
-                <div className="prose prose-sm prose-invert max-w-none text-[#D4D4D8] email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
               ) : (
                 <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{fallbackBody}</div>
               )}
@@ -1039,7 +1039,7 @@ function ThreadView({ thread, currentUserEmail }: {
                 </div>
                 <div className="px-4 py-4">
                   {isHtml ? (
-                    <div className="prose prose-sm prose-invert max-w-none text-[#D4D4D8] email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }} />
+                    <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }} />
                   ) : (
                     <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap">{msg.body.content}</div>
                   )}
@@ -1213,7 +1213,7 @@ function ReplyModal({ email, onClose, onDone }: {
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm prose-invert max-w-none text-[#A1A1AA]" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                      <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                     ) : (
                       <div className="text-sm text-[#A1A1AA] whitespace-pre-wrap">{fallbackBody}</div>
                     )}
