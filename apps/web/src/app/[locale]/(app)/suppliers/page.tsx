@@ -349,14 +349,14 @@ export default function SuppliersPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setAiSearchOpen(true)}
-                  className="flex items-center gap-2 px-3 py-2 border border-[#27272A] rounded-md hover:bg-[#1C1C1F] text-sm font-medium text-[#FAFAFA]"
+                  className="flex items-center gap-2 px-3 py-2 border border-[#3F3F46] bg-[#18181B] rounded-md hover:bg-[#1C1C1F] text-sm font-medium text-[#D4D4D8]"
                 >
                   <Sparkles className="h-4 w-4 text-[#F97316]" />
                   Recherche IA
                 </button>
                 <button
                   onClick={() => setImportOpen(true)}
-                  className="flex items-center gap-2 px-3 py-2 border border-[#27272A] rounded-md hover:bg-[#1C1C1F] text-sm font-medium text-[#FAFAFA]"
+                  className="flex items-center gap-2 px-3 py-2 border border-[#3F3F46] bg-[#18181B] rounded-md hover:bg-[#1C1C1F] text-sm font-medium text-[#D4D4D8]"
                 >
                   <Upload className="h-4 w-4" />
                   Importer CSV
@@ -408,13 +408,13 @@ export default function SuppliersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("search")}
-                  className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B] focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]"
+                  className="w-full pl-10 pr-4 py-2 border border-[#3F3F46] rounded-md text-sm bg-[#18181B] text-[#D4D4D8] placeholder:text-[#52525B] focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]"
                 />
               </div>
               <select
                 value={filterSpecialty}
                 onChange={(e) => setFilterSpecialty(e.target.value)}
-                className="px-3 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B]"
+                className="px-3 py-2 border border-[#3F3F46] rounded-md text-sm bg-[#18181B] text-[#D4D4D8]"
               >
                 <option value="">{t("allSpecialties")}</option>
                 {allSpecialties.map((sp) => (
@@ -424,7 +424,7 @@ export default function SuppliersPage() {
               <select
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
-                className="px-3 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B]"
+                className="px-3 py-2 border border-[#3F3F46] rounded-md text-sm bg-[#18181B] text-[#D4D4D8]"
               >
                 <option value="">{t("allZones")}</option>
                 {allZones.map((z) => (
@@ -434,7 +434,7 @@ export default function SuppliersPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B]"
+                className="px-3 py-2 border border-[#3F3F46] rounded-md text-sm bg-[#18181B] text-[#D4D4D8]"
               >
                 <option value="">{t("allStatuses")}</option>
                 <option value="active">{t("statusActive")}</option>

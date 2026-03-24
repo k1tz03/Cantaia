@@ -134,11 +134,11 @@ export default function VisitsPage() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="min-h-full bg-[#0F0F11] p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-display font-extrabold text-foreground">
+          <h1 className="flex items-center gap-2 text-2xl font-display font-extrabold text-[#FAFAFA]">
             <UserCheck className="h-6 w-6 text-primary" />
             {t("title")}
           </h1>

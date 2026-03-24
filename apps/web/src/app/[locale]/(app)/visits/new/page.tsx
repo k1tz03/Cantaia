@@ -244,7 +244,7 @@ export default function NewVisitPage() {
   // ──── Step 1: Pre-visit info ────
   if (step === "info") {
     return (
-      <div className="p-6">
+      <div className="min-h-full bg-[#0F0F11] p-6">
         <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
@@ -388,7 +388,7 @@ export default function NewVisitPage() {
   // ──── Step 2: Recording ────
   if (step === "recording") {
     return (
-      <div className="p-6">
+      <div className="min-h-full bg-[#0F0F11] p-6">
         <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
           <Mic className="h-5 w-5 text-red-500" />
           {t("clientVisit")} — {form.client_name || "Client"}

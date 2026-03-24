@@ -127,7 +127,7 @@ export default function BriefingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6 lg:p-8">
+    <div className="min-h-full bg-[#0F0F11] mx-auto max-w-4xl p-6 lg:p-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">

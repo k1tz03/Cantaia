@@ -231,7 +231,7 @@ export default function PlanDetailPage() {
 
   if (!plan) {
     return (
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
           <Link href="/plans" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
             <ArrowLeft className="h-4 w-4" />
@@ -250,7 +250,7 @@ export default function PlanDetailPage() {
   const currentVersion = versions.find((v) => v.is_current) || versions[0];
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         <Link href="/plans" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" />

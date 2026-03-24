@@ -19,10 +19,10 @@ export default function AdminLayout({
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    <div className="flex min-h-screen bg-muted">
+    <div className="flex min-h-screen bg-[#0F0F11]">
       {/* Minimal Admin Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-background transition-all duration-200 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[#27272A] bg-[#111113] transition-all duration-200 ${
           collapsed ? "w-[60px]" : "w-[200px]"
         }`}
       >

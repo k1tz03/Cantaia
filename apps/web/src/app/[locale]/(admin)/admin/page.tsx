@@ -26,9 +26,9 @@ export default function AdminPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#18181B]">
+    <div className="min-h-screen bg-[#0F0F11]">
       {/* Header with tabs */}
-      <div className="border-b border-[#27272A] bg-[#18181B]">
+      <div className="border-b border-[#27272A] bg-[#0F0F11]">
         <div className="mx-auto max-w-7xl px-6">
           <h1 className="pt-6 text-2xl font-display font-extrabold text-[#FAFAFA]">
             {t("title")}

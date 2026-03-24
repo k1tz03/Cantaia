@@ -55,7 +55,7 @@
     @apply border-border;
   }
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
   .dark {
     color-scheme: dark;

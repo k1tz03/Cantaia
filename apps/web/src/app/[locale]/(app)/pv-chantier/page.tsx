@@ -112,11 +112,11 @@ export default function PVChantierPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-full bg-[#0F0F11] px-4 py-6 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">{t("title")}</h1>
+          <h1 className="text-xl font-semibold text-[#FAFAFA]">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {filteredMeetings.length}{" "}
             {filteredMeetings.length <= 1 ? "PV" : "PV"}

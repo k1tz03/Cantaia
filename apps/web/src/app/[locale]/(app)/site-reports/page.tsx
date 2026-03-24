@@ -105,11 +105,11 @@ export default function SiteReportsPage() {
   const dayDates = getDayDates(weekStart);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="min-h-full bg-[#0F0F11] mx-auto max-w-7xl px-4 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-extrabold text-foreground">{t("siteReports")}</h1>
+          <h1 className="text-2xl font-display font-extrabold text-[#FAFAFA]">{t("siteReports")}</h1>
           <p className="text-sm text-muted-foreground">Centralisation heures et bons de livraison</p>
         </div>
         <div className="flex items-center gap-2">

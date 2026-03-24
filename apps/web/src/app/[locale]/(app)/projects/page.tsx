@@ -190,7 +190,7 @@ export default function ProjectsPage() {
   const isLoading = !profileLoaded || projectsLoading;
   if (isLoading) {
     return (
-      <div className="px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-full bg-[#0F0F11] px-4 py-5 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div>
             <div className="h-6 w-32 animate-pulse rounded-lg bg-[#27272A]" />
@@ -237,11 +237,11 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full bg-[#0F0F11] px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-xl font-extrabold text-[#FAFAFA]">{t("title")}</h1>
+          <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA]">{t("title")}</h1>
           <p className="mt-0.5 text-[13px] text-[#71717A]">
             {t("subtitle")}
             {enrichedProjects.length > 0 && (

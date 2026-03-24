@@ -285,7 +285,7 @@ export default function CantaiaPrixPage() {
   const quantitiesPreview = analysisData?.analysis_result?.quantities;
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         {/* Header */}
         <div className="mb-6">

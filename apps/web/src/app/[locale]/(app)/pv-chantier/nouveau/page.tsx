@@ -322,7 +322,7 @@ export default function NouveauPVPage() {
   );
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="min-h-full bg-[#0F0F11] p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <button

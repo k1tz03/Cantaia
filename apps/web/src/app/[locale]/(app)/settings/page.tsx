@@ -70,10 +70,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-[calc(100vh-64px)]">
+    <div className="flex flex-col md:flex-row h-full min-h-[calc(100vh-64px)] bg-[#0F0F11]">
       {/* Mobile: horizontal tab bar */}
-      <nav className="md:hidden border-b border-border bg-muted px-4 pt-4 pb-0">
-        <h1 className="mb-3 text-sm font-semibold text-foreground">
+      <nav className="md:hidden border-b border-[#27272A] bg-[#111113] px-4 pt-4 pb-0">
+        <h1 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
           {t("title")}
         </h1>
         <div className="flex gap-1 overflow-x-auto scrollbar-hide -mb-px pb-0">
@@ -87,11 +87,11 @@ export default function SettingsPage() {
                 onClick={() => setTab(tab.id)}
                 className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
                   isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "border-[#F97316] text-[#F97316]"
+                    : "border-transparent text-[#A1A1AA] hover:text-[#FAFAFA]"
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-[#F97316]" : "text-[#A1A1AA]"}`} />
                 {t(`tab_${tab.id}`)}
               </button>
             );
@@ -100,8 +100,8 @@ export default function SettingsPage() {
       </nav>
 
       {/* Desktop: left sidebar */}
-      <nav className="hidden md:block w-[200px] shrink-0 border-r border-border bg-muted p-4">
-        <h1 className="mb-4 px-2 text-sm font-semibold text-foreground">
+      <nav className="hidden md:block w-[200px] shrink-0 border-r border-[#27272A] bg-[#111113] p-4">
+        <h1 className="mb-4 px-2 text-sm font-semibold text-[#FAFAFA]">
           {t("title")}
         </h1>
         <ul className="space-y-0.5">
@@ -115,11 +115,11 @@ export default function SettingsPage() {
                   onClick={() => setTab(tab.id)}
                   className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
                     isActive
-                      ? "border-l-2 border-primary bg-background font-medium text-primary shadow-sm"
-                      : "text-muted-foreground hover:bg-background hover:text-foreground"
+                      ? "border-l-2 border-[#F97316] bg-[#18181B] font-medium text-[#F97316] shadow-sm"
+                      : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? "text-[#F97316]" : "text-[#A1A1AA]"}`} />
                   {t(`tab_${tab.id}`)}
                 </button>
               </li>
@@ -129,9 +129,9 @@ export default function SettingsPage() {
       </nav>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex-1 overflow-y-auto bg-[#0F0F11] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
-          <h2 className="mb-6 text-lg font-semibold text-foreground">
+          <h2 className="mb-6 text-lg font-semibold text-[#FAFAFA]">
             {t(`tab_${activeTab}`)}
           </h2>
 

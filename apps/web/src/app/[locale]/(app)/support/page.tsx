@@ -73,11 +73,11 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="min-h-full bg-[#0F0F11] mx-auto max-w-5xl px-4 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-extrabold text-foreground">{t("title")}</h1>
+          <h1 className="text-2xl font-display font-extrabold text-[#FAFAFA]">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("myTickets")}</p>
         </div>
         <button

@@ -442,9 +442,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen">
+    <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen bg-[#0F0F11]">
       {/* Left panel — Conversation list */}
-      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-border bg-muted shrink-0">
+      <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-[#27272A] bg-[#111113] shrink-0">
         <div className="p-3 border-b border-border">
           <button
             onClick={startNewConversation}

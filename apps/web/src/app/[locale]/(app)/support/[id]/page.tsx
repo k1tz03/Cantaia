@@ -113,7 +113,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 flex flex-col h-[calc(100vh-64px)]">
+    <div className="min-h-full bg-[#0F0F11] mx-auto max-w-4xl px-4 py-6 flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
       <div className="mb-4">
         <Link href="/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">

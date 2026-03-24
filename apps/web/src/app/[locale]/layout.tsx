@@ -137,13 +137,13 @@ export default async function LocaleLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <NextIntlClientProvider messages={messages}>
             {children}
-            <Toaster position="bottom-right" richColors closeButton theme="system" />
+            <Toaster position="bottom-right" richColors closeButton theme="dark" />
             <CookieConsent />
           </NextIntlClientProvider>
         </ThemeProvider>
