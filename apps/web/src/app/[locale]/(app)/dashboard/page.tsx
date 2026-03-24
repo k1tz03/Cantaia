@@ -290,13 +290,13 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0F0F11]">
       <div className="p-4 sm:p-6 lg:px-8 max-w-[1400px] mx-auto space-y-5">
 
         {/* ===== GREETING ROW ===== */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-[24px] sm:text-[28px] font-extrabold text-foreground tracking-[-0.5px]">
+            <h1 className="font-display text-[24px] sm:text-[28px] font-extrabold text-[#FAFAFA] tracking-[-0.5px]">
               {t(getGreetingKey(), { name: "" })}
               <span className="text-gradient-orange">{firstName}</span>
             </h1>
@@ -309,14 +309,14 @@ export default function DashboardPage() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-card px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-foreground hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-[#18181B] px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
               {t("syncMailAction")}
             </button>
             <Link
               href="/tasks"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-card px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-foreground hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-[#18181B] px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-[#FAFAFA] hover:bg-[#27272A]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("newTaskAction")}
@@ -333,13 +333,13 @@ export default function DashboardPage() {
 
         {/* ===== VIEW TOGGLE ===== */}
         {showOrgToggle && (
-          <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-[#27272A] rounded-lg p-1 w-fit">
             <button
               onClick={() => router.replace("/dashboard")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "personal"
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
+                  : "text-muted-foreground hover:text-[#FAFAFA]"
               }`}
             >
               {t("personalView")}
@@ -348,8 +348,8 @@ export default function DashboardPage() {
               onClick={() => router.replace("/dashboard?view=org")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "org"
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
+                  : "text-muted-foreground hover:text-[#FAFAFA]"
               }`}
             >
               {t("orgView")}
@@ -372,7 +372,7 @@ export default function DashboardPage() {
               {/* Emails */}
               <Link
                 href="/mail"
-                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#F97316] to-[#FB923C]" />
                 <div className="flex justify-between items-center mb-2">
@@ -385,7 +385,7 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </div>
-                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{unreadCount}</div>
+                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{unreadCount}</div>
                 <div className="text-[12px] text-muted-foreground mt-1">{t("unreadEmails")}</div>
                 {unreadCount > 0 && (
                   <div className="text-[11px] font-medium text-[#FB923C] mt-1">
@@ -397,7 +397,7 @@ export default function DashboardPage() {
               {/* Tasks */}
               <Link
                 href="/tasks"
-                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#EF4444] to-[#F87171]" />
                 <div className="flex justify-between items-center mb-2">
@@ -410,7 +410,7 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </div>
-                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.pendingTasks}</div>
+                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pendingTasks}</div>
                 <div className="text-[12px] text-muted-foreground mt-1">{t("pendingTasks")}</div>
                 {stats.overdueTasks > 0 && (
                   <div className="text-[11px] font-medium text-[#F87171] mt-1">
@@ -422,7 +422,7 @@ export default function DashboardPage() {
               {/* Submissions / PV */}
               <Link
                 href="/submissions"
-                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" />
                 <div className="flex justify-between items-center mb-2">
@@ -435,14 +435,14 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </div>
-                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.pvThisWeek}</div>
+                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pvThisWeek}</div>
                 <div className="text-[12px] text-muted-foreground mt-1">{t("activeSubmissions")}</div>
               </Link>
 
               {/* Projects */}
               <Link
                 href="/projects"
-                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#10B981] to-[#34D399]" />
                 <div className="flex justify-between items-center mb-2">
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-[11px] font-semibold text-[#34D399]">{t("stable")}</span>
                 </div>
-                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.activeProjects}</div>
+                <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.activeProjects}</div>
                 <div className="text-[12px] text-muted-foreground mt-1">{t("activeProjects")}</div>
               </Link>
             </>
@@ -465,7 +465,7 @@ export default function DashboardPage() {
               <Zap className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-display text-sm font-bold text-foreground">
+              <div className="font-display text-sm font-bold text-[#FAFAFA]">
                 {t("actionsToday", { count: actionsCount })}
               </div>
               <div className="text-[12px] text-[#D4D4D8] mt-0.5">
@@ -506,7 +506,7 @@ export default function DashboardPage() {
           {/* -- LEFT: Projects -- */}
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h2 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+              <h2 className="font-display text-sm font-bold text-[#FAFAFA] flex items-center gap-2">
                 <FolderKanban className="h-4 w-4" />
                 {t("myProjects")}
               </h2>
@@ -519,7 +519,7 @@ export default function DashboardPage() {
               {loading ? (
                 <><ProjectCardSkeleton /><ProjectCardSkeleton /><ProjectCardSkeleton /></>
               ) : stats.projectsList.length === 0 ? (
-                <div className="rounded-[10px] border border-[#27272A] bg-card flex flex-col items-center justify-center py-10">
+                <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] flex flex-col items-center justify-center py-10">
                   <FolderKanban className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
                   <Link
@@ -547,14 +547,14 @@ export default function DashboardPage() {
                     <Link
                       key={project.id}
                       href={`/projects/${project.id}`}
-                      className="group relative block overflow-hidden rounded-[10px] border border-[#27272A] bg-card p-[14px_16px] transition-all duration-150 hover:border-[#3F3F46] hover:bg-[#1C1C20]"
+                      className="group relative block overflow-hidden rounded-[10px] border border-[#27272A] bg-[#18181B] p-[14px_16px] transition-all duration-150 hover:border-[#3F3F46] hover:bg-[#1C1C20]"
                     >
                       {/* Left color bar */}
                       <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: color }} />
 
                       {/* Top row */}
                       <div className="flex justify-between items-center">
-                        <span className="font-display text-sm font-semibold text-foreground">{project.name}</span>
+                        <span className="font-display text-sm font-semibold text-[#FAFAFA]">{project.name}</span>
                         <span
                           className={`text-[10px] px-2 py-[3px] rounded font-semibold ${
                             health === "good"
@@ -609,14 +609,14 @@ export default function DashboardPage() {
           {/* -- RIGHT: Activity Feed + AI Briefing -- */}
           <div className="space-y-3">
             <div className="flex justify-between items-center mb-1">
-              <h2 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+              <h2 className="font-display text-sm font-bold text-[#FAFAFA] flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 {t("recentActivity")}
               </h2>
             </div>
 
             {/* Activity feed */}
-            <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
+            <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
               {!loading && recentDone.length === 0 ? (
                 <p className="text-center text-xs text-muted-foreground py-4">{t("noRecentActivity")}</p>
               ) : (
@@ -631,7 +631,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[12px] text-[#D4D4D8] leading-snug truncate">
-                          <span className="font-semibold text-foreground">{t("pendingTasks").split(" ")[0]}</span>{" "}
+                          <span className="font-semibold text-[#FAFAFA]">{t("pendingTasks").split(" ")[0]}</span>{" "}
                           {task.title}
                         </p>
                         <p className="text-[10px] text-[#52525B] mt-0.5">
@@ -692,8 +692,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
 
           {/* Deadlines */}
-          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
-            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+          <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
+            <h3 className="font-display text-[13px] font-bold text-[#FAFAFA] mb-3 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-[#F97316]" />
               {t("deadlinesSoon")}
             </h3>
@@ -732,8 +732,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Priority Tasks */}
-          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
-            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+          <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
+            <h3 className="font-display text-[13px] font-bold text-[#FAFAFA] mb-3 flex items-center gap-2">
               <CheckSquare className="h-4 w-4 text-[#EF4444]" />
               {t("priorityTasks")}
             </h3>
@@ -778,8 +778,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Quick Access */}
-          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
-            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+          <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
+            <h3 className="font-display text-[13px] font-bold text-[#FAFAFA] mb-3 flex items-center gap-2">
               <Zap className="h-4 w-4 text-[#F97316]" />
               {t("quickAccess")}
             </h3>
@@ -790,7 +790,7 @@ export default function DashboardPage() {
                   <Link
                     key={sc.href}
                     href={sc.href}
-                    className="flex items-center gap-2 rounded-lg bg-muted p-[10px] transition-all hover:bg-[#3F3F46]"
+                    className="flex items-center gap-2 rounded-lg bg-[#27272A] p-[10px] transition-all hover:bg-[#3F3F46]"
                   >
                     <Icon className="h-4 w-4 shrink-0" style={{ color: sc.color }} />
                     <span className="text-[11px] font-medium text-[#D4D4D8]">{sc.label}</span>
