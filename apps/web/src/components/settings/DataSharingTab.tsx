@@ -222,7 +222,7 @@ export function DataSharingTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
       </div>
     );
   }
@@ -230,18 +230,18 @@ export function DataSharingTab() {
   return (
     <div className="space-y-6">
       {/* Introduction */}
-      <div className="rounded-lg border border-primary/20 bg-primary/10 p-5">
+      <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/10 p-5">
         <div className="flex items-start gap-3">
-          <Shield className="mt-0.5 h-5 w-5 text-primary" />
+          <Shield className="mt-0.5 h-5 w-5 text-[#F97316]" />
           <div>
-            <h3 className="text-sm font-semibold text-primary">
+            <h3 className="text-sm font-semibold text-[#F97316]">
               Partage de données anonymisées
             </h3>
-            <p className="mt-1 text-sm text-primary">
+            <p className="mt-1 text-sm text-[#F97316]">
               Activez le partage par module pour accéder aux benchmarks du marché.
               Vos données sont anonymisées et agrégées — aucune donnée brute n'est partagée.
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-primary">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#F97316]">
               <span className="flex items-center gap-1">
                 <Lock className="h-3.5 w-3.5" />
                 Min. 3 contributeurs requis
@@ -261,8 +261,8 @@ export function DataSharingTab() {
 
       {/* Toggle all + status message */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{activeCount}</span> /{" "}
+        <div className="text-sm text-[#71717A]">
+          <span className="font-medium text-[#FAFAFA]">{activeCount}</span> /{" "}
           {CONSENT_MODULES.length} modules actifs
         </div>
         <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export function DataSharingTab() {
             type="button"
             onClick={() => toggleAll(activeCount < CONSENT_MODULES.length)}
             disabled={saving !== null}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+            className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50"
           >
             {saving === "all" ? (
               <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
@@ -308,19 +308,19 @@ export function DataSharingTab() {
               className={`rounded-lg border p-4 transition-colors ${
                 isActive
                   ? "border-green-500/20 bg-green-500/10"
-                  : "border-border bg-background"
+                  : "border-[#27272A] bg-[#0F0F11]"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <Icon
-                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-green-600" : "text-muted-foreground"}`}
+                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-green-600" : "text-[#71717A]"}`}
                   />
                   <div>
-                    <h4 className="text-sm font-medium text-foreground">
+                    <h4 className="text-sm font-medium text-[#FAFAFA]">
                       {mod.label}
                     </h4>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-[#71717A]">
                       {mod.description}
                     </p>
                     <div className="mt-2 text-xs">
@@ -330,7 +330,7 @@ export function DataSharingTab() {
                           {mod.benefitOptIn}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">
+                        <span className="text-[#71717A]">
                           {mod.benefitOptOut}
                         </span>
                       )}
@@ -342,16 +342,16 @@ export function DataSharingTab() {
                   onClick={() => toggleModule(mod.module, !isActive)}
                   disabled={saving !== null}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    isActive ? "bg-green-500" : "bg-muted"
+                    isActive ? "bg-green-500" : "bg-[#27272A]"
                   } ${saving !== null ? "opacity-50" : ""}`}
                 >
                   {isSaving ? (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-background shadow">
-                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F0F11] shadow">
+                      <Loader2 className="h-3 w-3 animate-spin text-[#71717A]" />
                     </span>
                   ) : (
                     <span
-                      className={`inline-block h-5 w-5 rounded-full bg-background shadow transition-transform ${
+                      className={`inline-block h-5 w-5 rounded-full bg-[#0F0F11] shadow transition-transform ${
                         isActive ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
@@ -364,8 +364,8 @@ export function DataSharingTab() {
       </div>
 
       {/* Privacy footer */}
-      <div className="rounded-lg border border-border bg-muted p-4">
-        <p className="text-xs text-muted-foreground">
+      <div className="rounded-lg border border-[#27272A] bg-[#27272A] p-4">
+        <p className="text-xs text-[#71717A]">
           <strong>Protection des données :</strong> Conforme au RGPD et à la LPD suisse.
           Vos données sont anonymisées avant tout traitement collectif.
           Aucune donnée personnelle ou d'entreprise n'est revendue ni transmise à des tiers.

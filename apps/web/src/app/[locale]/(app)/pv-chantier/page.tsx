@@ -24,9 +24,9 @@ const STATUS_CONFIG: Record<
   MeetingStatus,
   { labelKey: string; icon: React.ElementType; color: string; bg: string; animate?: boolean }
 > = {
-  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-muted-foreground", bg: "bg-muted" },
+  scheduled: { labelKey: "status_draft", icon: FileText, color: "text-[#71717A]", bg: "bg-[#27272A]" },
   recording: { labelKey: "status_recording", icon: Mic, color: "text-red-400", bg: "bg-red-500/10" },
-  transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-primary", bg: "bg-primary/10" },
+  transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-[#F97316]", bg: "bg-[#F97316]/10" },
   generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-400", bg: "bg-violet-500/10" },
   review: { labelKey: "status_review", icon: Pencil, color: "text-orange-400", bg: "bg-orange-500/10" },
   finalized: { labelKey: "status_finalized", icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10" },
@@ -106,7 +106,7 @@ export default function PVChantierPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
       </div>
     );
   }
@@ -117,7 +117,7 @@ export default function PVChantierPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[#FAFAFA]">{t("title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-[#71717A]">
             {filteredMeetings.length}{" "}
             {filteredMeetings.length <= 1 ? "PV" : "PV"}
           </p>
@@ -128,7 +128,7 @@ export default function PVChantierPage() {
             <button
               type="button"
               onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
             >
               <Filter className="h-3.5 w-3.5" />
               {projectFilter === "all"
@@ -137,17 +137,17 @@ export default function PVChantierPage() {
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             {showProjectDropdown && (
-              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-border bg-background py-1 shadow-lg">
+              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
                 <button
                   type="button"
                   onClick={() => {
                     setProjectFilter("all");
                     setShowProjectDropdown(false);
                   }}
-                  className={`flex w-full px-3 py-1.5 text-sm transition-colors hover:bg-muted ${
+                  className={`flex w-full px-3 py-1.5 text-sm transition-colors hover:bg-[#27272A] ${
                     projectFilter === "all"
-                      ? "font-medium text-primary"
-                      : "text-muted-foreground"
+                      ? "font-medium text-[#F97316]"
+                      : "text-[#71717A]"
                   }`}
                 >
                   {t("all_projects")}
@@ -160,10 +160,10 @@ export default function PVChantierPage() {
                       setProjectFilter(p.id);
                       setShowProjectDropdown(false);
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-muted ${
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-[#27272A] ${
                       projectFilter === p.id
-                        ? "font-medium text-primary"
-                        : "text-muted-foreground"
+                        ? "font-medium text-[#F97316]"
+                        : "text-[#71717A]"
                     }`}
                   >
                     <span
@@ -190,13 +190,13 @@ export default function PVChantierPage() {
       {/* Content */}
       {filteredMeetings.length === 0 ? (
         <div className="mt-12 flex flex-col items-center justify-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <FileText className="h-7 w-7 text-muted-foreground" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#27272A]">
+            <FileText className="h-7 w-7 text-[#71717A]" />
           </div>
-          <p className="mt-4 text-sm font-medium text-foreground">
+          <p className="mt-4 text-sm font-medium text-[#FAFAFA]">
             {t("no_pv_yet")}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-[#71717A]">
             {t("no_pv_description")}
           </p>
           <Link
@@ -208,29 +208,29 @@ export default function PVChantierPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-6 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-border bg-background">
+        <div className="mt-6 -mx-4 sm:mx-0 overflow-x-auto rounded-lg sm:border border-[#27272A] bg-[#0F0F11]">
           <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="border-b border-border bg-muted">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+              <tr className="border-b border-[#27272A] bg-[#27272A]">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   #
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_title")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_project")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_date")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_participants")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_actions")}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#71717A]">
                   {t("col_status")}
                 </th>
                 <th className="w-10 px-4 py-3" />
@@ -248,17 +248,17 @@ export default function PVChantierPage() {
                 return (
                   <tr
                     key={meeting.id}
-                    className="transition-colors hover:bg-muted"
+                    className="transition-colors hover:bg-[#27272A]"
                   >
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-sm font-medium text-[#FAFAFA]">
                         {meeting.meeting_number ?? "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/pv-chantier/${meeting.id}`}
-                        className="text-sm font-medium text-foreground hover:text-primary"
+                        className="text-sm font-medium text-[#FAFAFA] hover:text-[#F97316]"
                       >
                         {meeting.title}
                       </Link>
@@ -272,27 +272,27 @@ export default function PVChantierPage() {
                               backgroundColor: project.color,
                             }}
                           />
-                          <span className="max-w-[120px] truncate text-sm text-muted-foreground">
+                          <span className="max-w-[120px] truncate text-sm text-[#71717A]">
                             {project.name}
                           </span>
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm text-foreground">
+                      <div className="text-sm text-[#FAFAFA]">
                         {formatDate(meeting.meeting_date)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
+                        <Users className="h-3.5 w-3.5 text-[#71717A]" />
+                        <span className="text-sm text-[#71717A]">
                           {meeting.participants?.length || 0}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-[#71717A]">
                         {actionsCount}
                       </span>
                     </td>
@@ -313,7 +313,7 @@ export default function PVChantierPage() {
                           e.stopPropagation();
                           setDeleteTarget(meeting.id);
                         }}
-                        className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+                        className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
                         title={t("delete_pv")}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -330,20 +330,20 @@ export default function PVChantierPage() {
       {/* Delete confirmation dialog */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg bg-[#0F0F11] p-6 shadow-xl">
             <div className="mb-4 flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              <h3 className="text-base font-semibold text-foreground">
+              <h3 className="text-base font-semibold text-[#FAFAFA]">
                 {t("delete_pv")}
               </h3>
             </div>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-[#71717A]">
               {t("delete_pv_confirm")}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
+                className="rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
               >
                 {t("cancel")}
               </button>

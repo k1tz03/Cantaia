@@ -73,18 +73,18 @@ export default function GanttConfigModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-[#0F0F11] rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#27272A]">
           <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">
+            <Calendar className="h-5 w-5 text-[#F97316]" />
+            <h2 className="text-lg font-semibold text-[#FAFAFA]">
               {t("config.title")}
             </h2>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 text-muted-foreground hover:text-muted-foreground transition-colors rounded-md hover:bg-muted"
+            className="p-1 text-[#71717A] hover:text-[#71717A] transition-colors rounded-md hover:bg-[#27272A]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -94,17 +94,17 @@ export default function GanttConfigModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Start date */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
               {t("config.startDate")}{" "}
               <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
               />
             </div>
@@ -112,28 +112,28 @@ export default function GanttConfigModal({
 
           {/* End date (optional) */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
               {t("config.endDate")}
-              <span className="ml-1 text-xs text-muted-foreground font-normal">
+              <span className="ml-1 text-xs text-[#71717A] font-normal">
                 ({t("config.optional")})
               </span>
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 min={startDate || undefined}
-                className="w-full pl-10 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
 
           {/* Project type */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              <Building2 className="inline h-4 w-4 mr-1 text-muted-foreground" />
+            <label className="block text-sm font-medium text-[#FAFAFA] mb-2">
+              <Building2 className="inline h-4 w-4 mr-1 text-[#71717A]" />
               {t("config.projectType")}
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -145,8 +145,8 @@ export default function GanttConfigModal({
                   className={[
                     "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors text-left",
                     projectType === pt.value
-                      ? "border-blue-500 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-border hover:bg-muted",
+                      ? "border-blue-500 bg-[#F97316]/10 text-[#F97316]"
+                      : "border-[#27272A] text-[#71717A] hover:border-[#27272A] hover:bg-[#27272A]",
                   ].join(" ")}
                 >
                   <span>{pt.icon}</span>
@@ -158,14 +158,14 @@ export default function GanttConfigModal({
 
           {/* Canton */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              <MapPin className="inline h-4 w-4 mr-1 text-muted-foreground" />
+            <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
+              <MapPin className="inline h-4 w-4 mr-1 text-[#71717A]" />
               {t("config.canton")}
             </label>
             <select
               value={canton}
               onChange={(e) => setCanton(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background"
+              className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[#0F0F11]"
             >
               {SWISS_CANTONS.map((c) => (
                 <option key={c} value={c}>
@@ -177,9 +177,9 @@ export default function GanttConfigModal({
 
           {/* Constraints */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
               {t("config.constraints")}
-              <span className="ml-1 text-xs text-muted-foreground font-normal">
+              <span className="ml-1 text-xs text-[#71717A] font-normal">
                 ({t("config.optional")})
               </span>
             </label>
@@ -188,7 +188,7 @@ export default function GanttConfigModal({
               onChange={(e) => setConstraints(e.target.value)}
               rows={3}
               placeholder={t("config.constraintsPlaceholder")}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
           </div>
 
@@ -205,7 +205,7 @@ export default function GanttConfigModal({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg transition-colors"
               disabled={isGenerating}
             >
               {t("config.cancel")}

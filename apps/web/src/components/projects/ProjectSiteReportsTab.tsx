@@ -169,7 +169,7 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-[#F97316]" /></div>;
   }
 
   const isEnabled = config?.portal_enabled;
@@ -200,19 +200,19 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
   return (
     <div className="space-y-6">
       {/* Portal Config Section */}
-      <div className="rounded-lg border border-border bg-background p-5">
-        <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-          <LifeBuoy className="h-5 w-5 text-primary" />
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-5">
+        <h3 className="text-base font-semibold text-[#FAFAFA] mb-4 flex items-center gap-2">
+          <LifeBuoy className="h-5 w-5 text-[#F97316]" />
           {t("configPortal")}
         </h3>
 
         {/* Toggle */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-foreground">{t("enablePortal")}</span>
+          <span className="text-sm text-[#FAFAFA]">{t("enablePortal")}</span>
           <button
             onClick={() => togglePortal(!isEnabled)}
             disabled={saving}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEnabled ? "bg-primary" : "bg-muted"}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEnabled ? "bg-[#F97316]" : "bg-[#27272A]"}`}
           >
             <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white transition-transform ${isEnabled ? "translate-x-6" : "translate-x-1"}`} />
           </button>
@@ -222,15 +222,15 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
           <div className="space-y-4">
             {/* Link */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">{t("shareLink")}</label>
+              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("shareLink")}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   readOnly
                   value={config?.portal_url || ""}
-                  className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground font-mono"
+                  className="flex-1 rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] font-mono"
                 />
-                <button onClick={copyLink} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">
+                <button onClick={copyLink} className="rounded-md border border-[#27272A] px-3 py-2 text-sm hover:bg-[#27272A]">
                   {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
@@ -238,17 +238,17 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* PIN */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">{t("pinCode")}</label>
+              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("pinCode")}</label>
               <div className="flex items-center gap-3">
                 {pin ? (
-                  <span className="text-2xl font-mono font-bold tracking-[0.3em] text-foreground">{pin}</span>
+                  <span className="text-2xl font-mono font-bold tracking-[0.3em] text-[#FAFAFA]">{pin}</span>
                 ) : (
-                  <span className="text-sm text-muted-foreground">••••••</span>
+                  <span className="text-sm text-[#71717A]">••••••</span>
                 )}
                 <button
                   onClick={regeneratePin}
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium hover:bg-[#27272A]"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   {t("regeneratePin")}
@@ -261,11 +261,11 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* Submission picker */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">{t("selectSubmission")}</label>
+              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("selectSubmission")}</label>
               <select
                 value={config?.portal_submission_id || ""}
                 onChange={e => updateConfig("portal_submission_id", e.target.value || null)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
               >
                 <option value="">— {t("noSubmission")} —</option>
                 {(config?.submissions || []).map((s: any) => (
@@ -276,12 +276,12 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
 
             {/* Description */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">{t("portalDescription")}</label>
+              <label className="text-xs font-medium text-[#71717A] uppercase mb-1 block">{t("portalDescription")}</label>
               <textarea
                 defaultValue={config?.portal_description || ""}
                 onBlur={e => updateConfig("portal_description", e.target.value)}
                 rows={3}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground resize-none"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] resize-none"
                 placeholder="Instructions pour le chef d'équipe..."
               />
             </div>
@@ -290,25 +290,25 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
       </div>
 
       {/* Reports List Section */}
-      <div className="rounded-lg border border-border bg-background p-5">
-        <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-primary" />
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-5">
+        <h3 className="text-base font-semibold text-[#FAFAFA] mb-4 flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-[#F97316]" />
           {t("siteReports")}
-          <span className="text-sm font-normal text-muted-foreground">({reports.length})</span>
+          <span className="text-sm font-normal text-[#71717A]">({reports.length})</span>
         </h3>
 
         {reports.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Aucun rapport reçu</p>
+          <p className="text-sm text-[#71717A] text-center py-8">Aucun rapport reçu</p>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-lg border border-[#27272A] overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Chef d'équipe</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Statut</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Ouvriers</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Heures</th>
+                <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Date</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Chef d'équipe</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Statut</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">Ouvriers</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">Heures</th>
                   <th className="px-4 py-2.5 w-10"></th>
                 </tr>
               </thead>
@@ -316,13 +316,13 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                 {reports.map(report => (
                   <tr
                     key={report.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                    className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
                     onClick={() => openDetail(report.id)}
                   >
-                    <td className="px-4 py-2.5 text-sm text-foreground">
+                    <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">
                       {new Date(report.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-foreground">{report.submitted_by_name || "—"}</td>
+                    <td className="px-4 py-2.5 text-sm text-[#FAFAFA]">{report.submitted_by_name || "—"}</td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
@@ -332,13 +332,13 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                         {t(report.status as any)}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-right text-foreground">{report.workers_count}</td>
-                    <td className="px-4 py-2.5 text-sm text-right text-foreground">{report.total_hours.toFixed(1)}h</td>
+                    <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.workers_count}</td>
+                    <td className="px-4 py-2.5 text-sm text-right text-[#FAFAFA]">{report.total_hours.toFixed(1)}h</td>
                     <td className="px-4 py-2.5">
                       {report.status === "submitted" && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleReportLock(report.id, report.status); }}
-                          className="text-muted-foreground hover:text-foreground"
+                          className="text-[#71717A] hover:text-[#FAFAFA]"
                           title={t("unlock")}
                         >
                           <Unlock className="h-3.5 w-3.5" />
@@ -357,12 +357,12 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
       {selectedReportId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeDetail}>
           <div
-            className="bg-background rounded-xl shadow-xl border border-border w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+            className="bg-[#0F0F11] rounded-xl shadow-xl border border-[#27272A] w-full max-w-2xl max-h-[85vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             {detailLoading ? (
               <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
               </div>
             ) : detail ? (
               <ReportDetailContent
@@ -372,9 +372,9 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                 t={t}
               />
             ) : (
-              <div className="p-6 text-center text-sm text-muted-foreground">
+              <div className="p-6 text-center text-sm text-[#71717A]">
                 Erreur de chargement
-                <button onClick={closeDetail} className="block mx-auto mt-4 text-primary hover:underline">Fermer</button>
+                <button onClick={closeDetail} className="block mx-auto mt-4 text-[#F97316] hover:underline">Fermer</button>
               </div>
             )}
           </div>
@@ -405,12 +405,12 @@ function ReportDetailContent({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-[#FAFAFA]">
             Rapport du {new Date(report.report_date).toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </h3>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-[#71717A] mt-0.5">
             {report.submitted_by_name || "—"}
             <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
               report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
@@ -421,7 +421,7 @@ function ReportDetailContent({
             </span>
           </p>
         </div>
-        <button onClick={onClose} className="rounded-lg p-2 hover:bg-muted text-muted-foreground">
+        <button onClick={onClose} className="rounded-lg p-2 hover:bg-[#27272A] text-[#71717A]">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -429,50 +429,50 @@ function ReportDetailContent({
       <div className="p-5 space-y-5">
         {/* Weather */}
         {report.weather && (
-          <div className="flex items-start gap-3 rounded-lg bg-muted/50 px-4 py-3">
-            <Cloud className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <p className="text-sm text-foreground">{report.weather}</p>
+          <div className="flex items-start gap-3 rounded-lg bg-[#27272A]/50 px-4 py-3">
+            <Cloud className="h-4 w-4 text-[#71717A] mt-0.5 shrink-0" />
+            <p className="text-sm text-[#FAFAFA]">{report.weather}</p>
           </div>
         )}
 
         {/* Summary bar */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-lg font-semibold text-foreground">{laborGroups.length}</div>
-            <div className="text-xs text-muted-foreground">{t("workers")}</div>
+          <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-[#FAFAFA]">{laborGroups.length}</div>
+            <div className="text-xs text-[#71717A]">{t("workers")}</div>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-lg font-semibold text-foreground">{totalHours.toFixed(1)}h</div>
-            <div className="text-xs text-muted-foreground">{t("totalHours")}</div>
+          <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-[#FAFAFA]">{totalHours.toFixed(1)}h</div>
+            <div className="text-xs text-[#71717A]">{t("totalHours")}</div>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-lg font-semibold text-foreground">{machineEntries.length}</div>
-            <div className="text-xs text-muted-foreground">{t("machines")}</div>
+          <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-3 py-2.5 text-center">
+            <div className="text-lg font-semibold text-[#FAFAFA]">{machineEntries.length}</div>
+            <div className="text-xs text-[#71717A]">{t("machines")}</div>
           </div>
         </div>
 
         {/* Labor entries grouped by worker */}
         {laborGroups.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-[#FAFAFA] mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#F97316]" />
               {t("personnel")} ({laborGroups.length})
             </h4>
             <div className="space-y-2">
               {laborGroups.map((group, gi) => {
                 const workerHours = group.lines.reduce((s, l) => s + l.hours, 0);
                 return (
-                  <div key={gi} className="rounded-lg border border-border bg-background overflow-hidden">
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30">
-                      <span className="text-sm font-medium text-foreground">{group.name}</span>
-                      {group.role && <span className="text-xs text-muted-foreground">{group.role}</span>}
+                  <div key={gi} className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-[#27272A]/30">
+                      <span className="text-sm font-medium text-[#FAFAFA]">{group.name}</span>
+                      {group.role && <span className="text-xs text-[#71717A]">{group.role}</span>}
                       {group.is_driver && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 text-xs">
                           <Truck className="h-3 w-3" />
                           {t("driver")}
                         </span>
                       )}
-                      <span className="ml-auto text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <span className="ml-auto text-xs font-medium text-[#71717A] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {workerHours.toFixed(1)}h
                       </span>
@@ -480,8 +480,8 @@ function ReportDetailContent({
                     <div className="divide-y divide-border">
                       {group.lines.map((line, li) => (
                         <div key={li} className="flex items-center justify-between px-4 py-2">
-                          <span className="text-sm text-foreground">{line.description}</span>
-                          <span className="text-sm font-medium text-foreground whitespace-nowrap ml-4">{line.hours.toFixed(1)}h</span>
+                          <span className="text-sm text-[#FAFAFA]">{line.description}</span>
+                          <span className="text-sm font-medium text-[#FAFAFA] whitespace-nowrap ml-4">{line.hours.toFixed(1)}h</span>
                         </div>
                       ))}
                     </div>
@@ -495,23 +495,23 @@ function ReportDetailContent({
         {/* Machine entries */}
         {machineEntries.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-[#FAFAFA] mb-3 flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-[#F97316]" />
               {t("machines")} ({machineEntries.length})
-              <span className="ml-auto text-xs font-normal text-muted-foreground">{machineHours.toFixed(1)}h total</span>
+              <span className="ml-auto text-xs font-normal text-[#71717A]">{machineHours.toFixed(1)}h total</span>
             </h4>
-            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+            <div className="rounded-lg border border-[#27272A] overflow-hidden divide-y divide-border">
               {machineEntries.map((entry, i) => (
                 <div key={i} className="flex items-center justify-between px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-foreground">{entry.machine_description || "—"}</span>
+                    <span className="text-sm text-[#FAFAFA]">{entry.machine_description || "—"}</span>
                     {entry.is_rented && (
                       <span className="inline-flex items-center rounded-full bg-amber-500/10 text-amber-400 px-2 py-0.5 text-xs">
                         {t("rented")}
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-medium text-foreground">{Number(entry.duration_hours || 0).toFixed(1)}h</span>
+                  <span className="text-sm font-medium text-[#FAFAFA]">{Number(entry.duration_hours || 0).toFixed(1)}h</span>
                 </div>
               ))}
             </div>
@@ -521,22 +521,22 @@ function ReportDetailContent({
         {/* Delivery notes */}
         {deliveryEntries.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-[#FAFAFA] mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[#F97316]" />
               {t("deliveryNotes")} ({deliveryEntries.length})
             </h4>
-            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+            <div className="rounded-lg border border-[#27272A] overflow-hidden divide-y divide-border">
               {deliveryEntries.map((entry, i) => (
                 <div key={i} className="px-4 py-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{entry.note_number || "—"}</span>
-                    <span className="text-sm text-muted-foreground">{entry.supplier_name || "—"}</span>
+                    <span className="text-sm font-medium text-[#FAFAFA]">{entry.note_number || "—"}</span>
+                    <span className="text-sm text-[#71717A]">{entry.supplier_name || "—"}</span>
                   </div>
                   {entry.photo_url && (
                     <img
                       src={entry.photo_url}
                       alt={`BL ${entry.note_number}`}
-                      className="mt-2 h-24 w-auto rounded-lg object-cover border border-border"
+                      className="mt-2 h-24 w-auto rounded-lg object-cover border border-[#27272A]"
                     />
                   )}
                 </div>
@@ -548,19 +548,19 @@ function ReportDetailContent({
         {/* Remarks */}
         {report.remarks && (
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-[#FAFAFA] mb-2 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-[#F97316]" />
               {t("remarks")}
             </h4>
-            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-              <p className="text-sm text-foreground whitespace-pre-wrap">{report.remarks}</p>
+            <div className="rounded-lg border border-[#27272A] bg-[#27272A]/30 px-4 py-3">
+              <p className="text-sm text-[#FAFAFA] whitespace-pre-wrap">{report.remarks}</p>
             </div>
           </div>
         )}
 
         {/* Empty state */}
         {laborGroups.length === 0 && machineEntries.length === 0 && deliveryEntries.length === 0 && !report.remarks && (
-          <p className="text-sm text-muted-foreground text-center py-6">Aucune donnée dans ce rapport</p>
+          <p className="text-sm text-[#71717A] text-center py-6">Aucune donnée dans ce rapport</p>
         )}
       </div>
     </>

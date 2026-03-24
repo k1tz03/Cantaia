@@ -47,19 +47,19 @@ export default function CookieConsent() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4">
-      <div className="mx-auto flex max-w-3xl items-center gap-4 rounded-xl border border-border bg-background px-5 py-4 shadow-lg">
-        <p className="flex-1 text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-3xl items-center gap-4 rounded-xl border border-[#27272A] bg-[#0F0F11] px-5 py-4 shadow-lg">
+        <p className="flex-1 text-sm text-[#71717A]">
           Ce site utilise des cookies pour fonctionner et améliorer votre expérience.{" "}
           <a
             href={`/${locale}/legal/privacy`}
-            className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            className="font-medium text-[#F97316] underline underline-offset-2 hover:text-[#F97316]/80"
           >
             En savoir plus
           </a>
         </p>
         <button
           onClick={handleAccept}
-          className="shrink-0 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+          className="shrink-0 rounded-lg bg-[#F97316] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#F97316]/90"
         >
           Accepter
         </button>

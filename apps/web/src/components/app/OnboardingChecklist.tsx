@@ -141,11 +141,11 @@ export function OnboardingChecklist() {
   const progress = Math.round((completedCount / steps.length) * 100);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-border bg-background shadow-lg relative">
+    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-[#27272A] bg-[#0F0F11] shadow-lg relative">
       {/* Close button */}
       <button
         onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
-        className="absolute right-2 top-2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        className="absolute right-2 top-2 rounded-full p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
         title="Fermer"
       >
         <X className="h-3.5 w-3.5" />
@@ -159,29 +159,29 @@ export function OnboardingChecklist() {
           <Sparkles className="h-4 w-4 text-brand" />
         </div>
         <div className="flex-1 text-left">
-          <p className="text-sm font-medium text-foreground">Prise en main</p>
+          <p className="text-sm font-medium text-[#FAFAFA]">Prise en main</p>
           <div className="mt-1 flex items-center gap-2">
-            <div className="h-1.5 flex-1 rounded-full bg-muted">
+            <div className="h-1.5 flex-1 rounded-full bg-[#27272A]">
               <div
                 className="h-1.5 rounded-full bg-brand transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-[#71717A]">
               {completedCount}/{steps.length}
             </span>
           </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 text-[#71717A]" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <ChevronUp className="h-4 w-4 text-[#71717A]" />
         )}
       </button>
 
       {/* Steps */}
       {open && (
-        <div className="border-t border-border px-2 py-2">
+        <div className="border-t border-[#27272A] px-2 py-2">
           {steps.map((step) => {
             const isDone = completedSteps.has(step.id);
             return (
@@ -189,20 +189,20 @@ export function OnboardingChecklist() {
                 key={step.id}
                 onClick={() => handleStepClick(step)}
                 className={`flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                  isDone ? "opacity-60" : "hover:bg-muted"
+                  isDone ? "opacity-60" : "hover:bg-[#27272A]"
                 }`}
               >
                 {isDone ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                 ) : (
-                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Circle className="mt-0.5 h-4 w-4 shrink-0 text-[#71717A]" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                  <p className={`text-sm font-medium ${isDone ? "text-[#71717A] line-through" : "text-[#FAFAFA]"}`}>
                     {step.title}
                   </p>
                   {!isDone && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{step.description}</p>
+                    <p className="text-[11px] text-[#71717A] mt-0.5">{step.description}</p>
                   )}
                 </div>
               </button>
@@ -210,7 +210,7 @@ export function OnboardingChecklist() {
           })}
           <button
             onClick={handleDismiss}
-            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="mt-1 flex w-full items-center justify-center gap-1 py-1.5 text-[11px] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
           >
             <X className="h-3 w-3" />
             Masquer

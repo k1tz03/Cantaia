@@ -121,10 +121,10 @@ export default function NewSubmissionPage() {
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto overflow-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/submissions" className="p-1 hover:bg-muted rounded">
-          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+        <Link href="/submissions" className="p-1 hover:bg-[#27272A] rounded">
+          <ArrowLeft className="h-4 w-4 text-[#71717A]" />
         </Link>
-        <h1 className="text-xl font-bold text-foreground">Nouvelle soumission</h1>
+        <h1 className="text-xl font-bold text-[#FAFAFA]">Nouvelle soumission</h1>
       </div>
 
       <div className="space-y-6">
@@ -137,19 +137,19 @@ export default function NewSubmissionPage() {
         )}
 
         {/* Project selection */}
-        <div className="bg-background border border-border rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Projet</h2>
+        <div className="bg-[#0F0F11] border border-[#27272A] rounded-xl p-6 space-y-4">
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">Projet</h2>
 
           {!createNewProject ? (
             <>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                <label className="block text-xs font-medium text-[#71717A] mb-1">
                   Projet existant
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
                   disabled={loadingProjects}
                 >
                   <option value="">
@@ -172,7 +172,7 @@ export default function NewSubmissionPage() {
           ) : (
             <>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                <label className="block text-xs font-medium text-[#71717A] mb-1">
                   Nom du projet *
                 </label>
                 <input
@@ -180,12 +180,12 @@ export default function NewSubmissionPage() {
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Les Cèdres — Gros-œuvre"
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  <label className="block text-xs font-medium text-[#71717A] mb-1">
                     Maître d'ouvrage
                   </label>
                   <input
@@ -193,11 +193,11 @@ export default function NewSubmissionPage() {
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     placeholder="SA Immobilière"
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  <label className="block text-xs font-medium text-[#71717A] mb-1">
                     Ville
                   </label>
                   <input
@@ -205,13 +205,13 @@ export default function NewSubmissionPage() {
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Lausanne"
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] focus:outline-none focus:ring-2 focus:ring-brand/20"
                   />
                 </div>
               </div>
               <button
                 onClick={() => { setCreateNewProject(false); setNewProjectName(""); }}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-[#71717A] hover:text-[#FAFAFA]"
               >
                 Utiliser un projet existant
               </button>
@@ -221,10 +221,10 @@ export default function NewSubmissionPage() {
 
         {/* File upload */}
         <div
-          className={`bg-background border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+          className={`bg-[#0F0F11] border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
             dragOver ? "border-brand bg-brand/5" :
             file ? "border-green-300 bg-green-500/10" :
-            "border-border hover:border-brand/50"
+            "border-[#27272A] hover:border-brand/50"
           }`}
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -247,28 +247,28 @@ export default function NewSubmissionPage() {
                   <FileSpreadsheet className="h-6 w-6 text-green-600" />
                 )}
               </div>
-              <p className="text-sm font-medium text-foreground">{file.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">{(file.size / 1024).toFixed(0)} KB</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">{file.name}</p>
+              <p className="text-xs text-[#71717A] mt-1">{(file.size / 1024).toFixed(0)} KB</p>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="text-xs text-muted-foreground hover:text-red-500 mt-2"
+                className="text-xs text-[#71717A] hover:text-red-500 mt-2"
               >
                 Supprimer
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
-                <Upload className="h-6 w-6 text-muted-foreground" />
+              <div className="w-12 h-12 rounded-xl bg-[#27272A] flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6 text-[#71717A]" />
               </div>
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-[#FAFAFA]">
                 Glissez un descriptif ici ou cliquez pour parcourir
               </p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, XLSX, XLS — 20 Mo max</p>
+              <p className="text-xs text-[#71717A] mt-1">PDF, XLSX, XLS — 20 Mo max</p>
             </div>
           )}
         </div>
@@ -277,7 +277,7 @@ export default function NewSubmissionPage() {
         <div className="flex justify-end gap-3">
           <Link
             href="/submissions"
-            className="px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-muted"
+            className="px-4 py-2 border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] hover:bg-[#27272A]"
           >
             Annuler
           </Link>

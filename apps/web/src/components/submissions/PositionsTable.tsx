@@ -82,10 +82,10 @@ export function PositionsTable({
   if (positions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-          <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
+        <div className="w-16 h-16 rounded-full bg-[#27272A] flex items-center justify-center mb-4">
+          <FileSpreadsheet className="h-8 w-8 text-[#71717A]" />
         </div>
-        <h3 className="text-lg font-medium text-foreground mb-1">
+        <h3 className="text-lg font-medium text-[#FAFAFA] mb-1">
           {t("no_positions")}
         </h3>
       </div>
@@ -93,7 +93,7 @@ export function PositionsTable({
   }
 
   return (
-    <div className="bg-background border border-border rounded-lg overflow-hidden">
+    <div className="bg-[#0F0F11] border border-[#27272A] rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <DndContext
           sensors={sensors}
@@ -106,30 +106,30 @@ export function PositionsTable({
           >
             <table className="w-full min-w-[850px]">
               <thead>
-                <tr className="border-b border-border bg-muted">
+                <tr className="border-b border-[#27272A] bg-[#27272A]">
                   <th className="w-[36px]" />
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[120px]">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[120px]">
                     {t("position_number")}
                   </th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[100px]">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[100px]">
                     {t("can_code")}
                   </th>
-                  <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase">
+                  <th className="text-left px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase">
                     {t("description_col")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[90px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[90px]">
                     {t("quantity")}
                   </th>
-                  <th className="text-center px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[60px]">
+                  <th className="text-center px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[60px]">
                     {t("unit")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[110px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[110px]">
                     {t("unit_price")}
                   </th>
-                  <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[110px]">
+                  <th className="text-right px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[110px]">
                     {t("total")}
                   </th>
-                  <th className="text-center px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase w-[70px]">
+                  <th className="text-center px-3 py-2.5 text-xs font-medium text-[#71717A] uppercase w-[70px]">
                     {t("confidence")}
                   </th>
                   <th className="w-[40px]" />

@@ -158,11 +158,11 @@ export default function AdminSubscriptionTab() {
       )}
 
       {/* Current Plan Card */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <CreditCard className="h-5 w-5 text-primary" />
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-[#FAFAFA]">
+              <CreditCard className="h-5 w-5 text-[#F97316]" />
               {t("currentPlan")}
             </h2>
             <div className="mt-3">
@@ -171,18 +171,18 @@ export default function AdminSubscriptionTab() {
                   isTrial
                     ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                     : plan === "pro"
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-[#F97316]/10 text-[#F97316]"
                       : plan === "enterprise"
                         ? "bg-purple-500/10 text-purple-700 dark:text-purple-400"
-                        : "bg-muted text-foreground"
+                        : "bg-[#27272A] text-[#FAFAFA]"
                 }`}
               >
                 {planLabel}
               </span>
               {planPrice > 0 && (
-                <span className="ml-3 text-2xl font-bold text-foreground">
+                <span className="ml-3 text-2xl font-bold text-[#FAFAFA]">
                   {planPrice} CHF
-                  <span className="text-sm font-normal text-muted-foreground">
+                  <span className="text-sm font-normal text-[#71717A]">
                     {t("perMonth")}
                   </span>
                 </span>
@@ -209,7 +209,7 @@ export default function AdminSubscriptionTab() {
             {hasSubscription && (
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                className="rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
               >
                 {t("cancelSubscription")}
               </button>
@@ -220,20 +220,20 @@ export default function AdminSubscriptionTab() {
 
       {/* Payment Method */}
       {hasSubscription && (
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 {t("paymentMethod")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-[#71717A]">
                 Gerez votre moyen de paiement via le portail Stripe.
               </p>
             </div>
             <button
               onClick={handleManagePayment}
               disabled={portalLoading}
-              className="flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
             >
               {portalLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -248,7 +248,7 @@ export default function AdminSubscriptionTab() {
 
       {/* Invoices */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
+        <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
           {t("invoices")}
         </h3>
         <InvoicesList />
@@ -270,17 +270,17 @@ export default function AdminSubscriptionTab() {
       {/* Cancel confirmation modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-foreground">
+          <div className="w-full max-w-sm rounded-lg bg-[#0F0F11] p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-[#FAFAFA]">
               {t("confirmCancel")}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-[#71717A]">
               {t("cancelConfirm")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 Annuler
               </button>

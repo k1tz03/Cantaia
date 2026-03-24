@@ -41,14 +41,14 @@ export function SortableRow({
       ref={setNodeRef}
       style={style}
       data-position-id={pos.id}
-      className={`text-sm border-b border-border ${isDragging ? "bg-brand/5" : pos.flags.length > 0 ? "bg-amber-500/10/50" : "hover:bg-muted"} ${pos.is_new ? "bg-green-500/10/30" : ""}`}
+      className={`text-sm border-b border-[#27272A] ${isDragging ? "bg-brand/5" : pos.flags.length > 0 ? "bg-amber-500/10/50" : "hover:bg-[#27272A]"} ${pos.is_new ? "bg-green-500/10/30" : ""}`}
     >
       {/* Drag handle */}
       <td className="w-[36px] px-1">
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-muted-foreground transition-colors"
+          className="cursor-grab active:cursor-grabbing p-1 text-[#71717A] hover:text-[#71717A] transition-colors"
           aria-label="Reorder"
         >
           <GripVertical className="h-4 w-4" />
@@ -60,28 +60,28 @@ export function SortableRow({
         isEditing={editingCell?.col === "position_number"}
         onStartEdit={() => onStartEdit("position_number")}
         onSave={(v) => onCellEdit("position_number", v)}
-        className="px-3 py-2 font-mono text-xs text-muted-foreground"
+        className="px-3 py-2 font-mono text-xs text-[#71717A]"
       />
       <EditableCell
         value={pos.can_code || ""}
         isEditing={editingCell?.col === "can_code"}
         onStartEdit={() => onStartEdit("can_code")}
         onSave={(v) => onCellEdit("can_code", v)}
-        className="px-3 py-2 font-mono text-xs text-muted-foreground"
+        className="px-3 py-2 font-mono text-xs text-[#71717A]"
       />
       <EditableCell
         value={pos.description}
         isEditing={editingCell?.col === "description"}
         onStartEdit={() => onStartEdit("description")}
         onSave={(v) => onCellEdit("description", v)}
-        className="px-3 py-2 text-foreground"
+        className="px-3 py-2 text-[#FAFAFA]"
       />
       <EditableCell
         value={pos.quantity != null ? String(pos.quantity) : ""}
         isEditing={editingCell?.col === "quantity"}
         onStartEdit={() => onStartEdit("quantity")}
         onSave={(v) => onCellEdit("quantity", v)}
-        className="px-3 py-2 text-right text-muted-foreground"
+        className="px-3 py-2 text-right text-[#71717A]"
         inputType="number"
       />
       <EditableCell
@@ -89,14 +89,14 @@ export function SortableRow({
         isEditing={editingCell?.col === "unit"}
         onStartEdit={() => onStartEdit("unit")}
         onSave={(v) => onCellEdit("unit", v)}
-        className="px-3 py-2 text-center text-xs text-muted-foreground"
+        className="px-3 py-2 text-center text-xs text-[#71717A]"
       />
       <EditableCell
         value={pos.unit_price != null ? String(pos.unit_price) : ""}
         isEditing={editingCell?.col === "unit_price"}
         onStartEdit={() => onStartEdit("unit_price")}
         onSave={(v) => onCellEdit("unit_price", v)}
-        className="px-3 py-2 text-right text-muted-foreground"
+        className="px-3 py-2 text-right text-[#71717A]"
         inputType="number"
       />
       <EditableCell
@@ -104,7 +104,7 @@ export function SortableRow({
         isEditing={editingCell?.col === "total"}
         onStartEdit={() => onStartEdit("total")}
         onSave={(v) => onCellEdit("total", v)}
-        className="px-3 py-2 text-right font-medium text-foreground"
+        className="px-3 py-2 text-right font-medium text-[#FAFAFA]"
         inputType="number"
       />
       <td className="px-3 py-2 text-center">
@@ -117,7 +117,7 @@ export function SortableRow({
       <td className="px-1 py-2">
         <button
           onClick={onDelete}
-          className="p-1 text-muted-foreground hover:text-red-500 rounded transition-colors"
+          className="p-1 text-[#71717A] hover:text-red-500 rounded transition-colors"
           title={deleteLabel}
         >
           <Trash2 className="h-3.5 w-3.5" />

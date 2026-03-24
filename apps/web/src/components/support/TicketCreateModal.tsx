@@ -77,11 +77,11 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-background shadow-xl max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-lg rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-foreground">{t("newTicket")}</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-muted">
+        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("newTicket")}</h2>
+          <button type="button" onClick={onClose} className="rounded p-1 text-[#71717A] hover:bg-[#27272A]">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -97,13 +97,13 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
 
             {/* Subject */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">{t("subject")} *</label>
+              <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">{t("subject")} *</label>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 maxLength={200}
-                className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${submitted && missingSubject ? fieldErrorClass : "border-border"}`}
+                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingSubject ? fieldErrorClass : "border-[#27272A]"}`}
                 placeholder={t("subjectPlaceholder")}
               />
             </div>
@@ -111,11 +111,11 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
             {/* Category + Priority */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">{t("category")} *</label>
+                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">{t("category")} *</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
                 >
                   <option value="bug">{t("categoryBug")}</option>
                   <option value="question">{t("categoryQuestion")}</option>
@@ -124,16 +124,16 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">{t("priority")} *</label>
+                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">{t("priority")} *</label>
                 <div className="flex gap-3 mt-1.5">
                   {(["low", "medium", "high"] as const).map((p) => (
-                    <label key={p} className="flex items-center gap-1.5 text-sm text-foreground">
+                    <label key={p} className="flex items-center gap-1.5 text-sm text-[#FAFAFA]">
                       <input
                         type="radio"
                         name="priority"
                         checked={priority === p}
                         onChange={() => setPriority(p)}
-                        className="h-3.5 w-3.5 border-border text-primary"
+                        className="h-3.5 w-3.5 border-[#27272A] text-[#F97316]"
                       />
                       {t(`priority${p.charAt(0).toUpperCase() + p.slice(1)}` as any)}
                     </label>
@@ -144,12 +144,12 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
 
             {/* Message */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">{t("message")} *</label>
+              <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">{t("message")} *</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}
-                className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${submitted && missingMessage ? fieldErrorClass : "border-border"}`}
+                className={`w-full rounded-md border bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] ${submitted && missingMessage ? fieldErrorClass : "border-[#27272A]"}`}
                 placeholder={t("messagePlaceholder")}
               />
               {submitted && missingMessage && (
@@ -159,14 +159,14 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
           </div>
 
           {/* Footer */}
-          <div className="border-t border-border px-5 py-3.5 flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted">
+          <div className="border-t border-[#27272A] px-5 py-3.5 flex items-center justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]">
               Annuler
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#F97316]/90 disabled:opacity-50"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("send")}

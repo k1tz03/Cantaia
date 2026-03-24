@@ -11,7 +11,7 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
     },
     reviewed: {
       label: t("status_reviewed"),
-      className: "bg-primary/10 text-primary",
+      className: "bg-[#F97316]/10 text-[#F97316]",
     },
     exported: {
       label: t("status_exported"),
@@ -19,7 +19,7 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
     },
     archived: {
       label: t("status_archived"),
-      className: "bg-muted text-muted-foreground",
+      className: "bg-[#27272A] text-[#71717A]",
     },
     extracting: {
       label: t("status_extracting"),
@@ -29,7 +29,7 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
 
   const c = config[status] || {
     label: status,
-    className: "bg-muted text-muted-foreground",
+    className: "bg-[#27272A] text-[#71717A]",
   };
 
   return (

@@ -300,7 +300,7 @@ export default function DashboardPage() {
               {t(getGreetingKey(), { name: "" })}
               <span className="text-gradient-orange">{firstName}</span>
             </h1>
-            <p className="mt-1 flex items-center gap-2 text-[13px] text-muted-foreground">
+            <p className="mt-1 flex items-center gap-2 text-[13px] text-[#71717A]">
               <Calendar className="h-3.5 w-3.5" />
               {formatDateLocale()}
             </p>
@@ -339,7 +339,7 @@ export default function DashboardPage() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "personal"
                   ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
-                  : "text-muted-foreground hover:text-[#FAFAFA]"
+                  : "text-[#71717A] hover:text-[#FAFAFA]"
               }`}
             >
               {t("personalView")}
@@ -349,7 +349,7 @@ export default function DashboardPage() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "org"
                   ? "bg-[#18181B] shadow-sm text-[#FAFAFA]"
-                  : "text-muted-foreground hover:text-[#FAFAFA]"
+                  : "text-[#71717A] hover:text-[#FAFAFA]"
               }`}
             >
               {t("orgView")}
@@ -386,7 +386,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{unreadCount}</div>
-                <div className="text-[12px] text-muted-foreground mt-1">{t("unreadEmails")}</div>
+                <div className="text-[12px] text-[#71717A] mt-1">{t("unreadEmails")}</div>
                 {unreadCount > 0 && (
                   <div className="text-[11px] font-medium text-[#FB923C] mt-1">
                     {Math.min(unreadCount, 2)} {t("urgentEmails").toLowerCase()}
@@ -411,7 +411,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pendingTasks}</div>
-                <div className="text-[12px] text-muted-foreground mt-1">{t("pendingTasks")}</div>
+                <div className="text-[12px] text-[#71717A] mt-1">{t("pendingTasks")}</div>
                 {stats.overdueTasks > 0 && (
                   <div className="text-[11px] font-medium text-[#F87171] mt-1">
                     {stats.overdueTasks} {t("overdueLabel")}
@@ -436,7 +436,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.pvThisWeek}</div>
-                <div className="text-[12px] text-muted-foreground mt-1">{t("activeSubmissions")}</div>
+                <div className="text-[12px] text-[#71717A] mt-1">{t("activeSubmissions")}</div>
               </Link>
 
               {/* Projects */}
@@ -452,7 +452,7 @@ export default function DashboardPage() {
                   <span className="text-[11px] font-semibold text-[#34D399]">{t("stable")}</span>
                 </div>
                 <div className="font-display text-[32px] font-extrabold text-[#FAFAFA] leading-none">{stats.activeProjects}</div>
-                <div className="text-[12px] text-muted-foreground mt-1">{t("activeProjects")}</div>
+                <div className="text-[12px] text-[#71717A] mt-1">{t("activeProjects")}</div>
               </Link>
             </>
           )}
@@ -520,8 +520,8 @@ export default function DashboardPage() {
                 <><ProjectCardSkeleton /><ProjectCardSkeleton /><ProjectCardSkeleton /></>
               ) : stats.projectsList.length === 0 ? (
                 <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] flex flex-col items-center justify-center py-10">
-                  <FolderKanban className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
+                  <FolderKanban className="h-8 w-8 text-[#71717A] mb-2" />
+                  <p className="text-sm text-[#71717A]">{t("noProjects")}</p>
                   <Link
                     href="/projects/new"
                     className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#F97316] hover:underline"
@@ -569,14 +569,14 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Meta */}
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                      <div className="text-[11px] text-[#71717A] mt-0.5">
                         {project.code}
                         {project.client_name && ` · ${project.client_name}`}
                         {project.city && ` · ${project.city}`}
                       </div>
 
                       {/* Stats row */}
-                      <div className="flex gap-4 mt-2 text-[11px] text-muted-foreground">
+                      <div className="flex gap-4 mt-2 text-[11px] text-[#71717A]">
                         <span>
                           <Mail className="inline h-3 w-3 mr-1 -mt-px" />
                           <span className="font-semibold text-[#D4D4D8]">{tc.total}</span> {t("emailsLabel")}
@@ -618,7 +618,7 @@ export default function DashboardPage() {
             {/* Activity feed */}
             <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
               {!loading && recentDone.length === 0 ? (
-                <p className="text-center text-xs text-muted-foreground py-4">{t("noRecentActivity")}</p>
+                <p className="text-center text-xs text-[#71717A] py-4">{t("noRecentActivity")}</p>
               ) : (
                 <div className="space-y-0">
                   {recentDone.map((task, i) => (
@@ -698,7 +698,7 @@ export default function DashboardPage() {
               {t("deadlinesSoon")}
             </h3>
             {!loading && stats.deadlines.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-3 text-center">{t("noDeadlines")}</p>
+              <p className="text-xs text-[#71717A] py-3 text-center">{t("noDeadlines")}</p>
             ) : (
               <div className="space-y-0">
                 {stats.deadlines.map((task, i) => {
@@ -738,7 +738,7 @@ export default function DashboardPage() {
               {t("priorityTasks")}
             </h3>
             {!loading && stats.priorityTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-3 text-center">{t("noPriorityTasks")}</p>
+              <p className="text-xs text-[#71717A] py-3 text-center">{t("noPriorityTasks")}</p>
             ) : (
               <div className="space-y-0">
                 {stats.priorityTasks.map((task, i) => {
@@ -768,7 +768,7 @@ export default function DashboardPage() {
                       />
                       <span className="text-[11px] text-[#D4D4D8] flex-1 truncate">{task.title}</span>
                       {projShort && (
-                        <span className="text-[10px] text-muted-foreground shrink-0">{projShort}</span>
+                        <span className="text-[10px] text-[#71717A] shrink-0">{projShort}</span>
                       )}
                     </div>
                   );

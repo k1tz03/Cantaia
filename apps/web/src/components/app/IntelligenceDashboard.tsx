@@ -60,13 +60,13 @@ function CounterCard({
   bg: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-lg border border-[#27272A] bg-[#27272A]/50 px-3 py-2.5">
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${bg}`}>
         <Icon className={`h-4 w-4 ${color}`} />
       </div>
       <div className="min-w-0">
-        <div className="font-display text-lg font-bold text-foreground">{value}</div>
-        <div className="text-[10px] text-muted-foreground leading-tight">{label}</div>
+        <div className="font-display text-lg font-bold text-[#FAFAFA]">{value}</div>
+        <div className="text-[10px] text-[#71717A] leading-tight">{label}</div>
       </div>
     </div>
   );
@@ -111,14 +111,14 @@ export default function IntelligenceDashboard() {
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className="rounded-xl border border-[#27272A] bg-[#18181B]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-4">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10">
             <Brain className="h-4 w-4 text-violet-600" />
           </div>
-          <h2 className="font-display text-sm font-semibold text-foreground">
+          <h2 className="font-display text-sm font-semibold text-[#FAFAFA]">
             {t("title")}
           </h2>
         </div>
@@ -135,14 +135,14 @@ export default function IntelligenceDashboard() {
           {/* Right: Counters + Journal */}
           <div className="space-y-4">
             {/* Org counters */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+              <h4 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-3">
                 {t("orgCountersTitle")}
               </h4>
               {loading ? (
                 <div className="grid grid-cols-2 gap-2 animate-pulse">
                   {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-16 rounded-lg bg-muted" />
+                    <div key={i} className="h-16 rounded-lg bg-[#27272A]" />
                   ))}
                 </div>
               ) : (
@@ -180,18 +180,18 @@ export default function IntelligenceDashboard() {
             </div>
 
             {/* Learning journal */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+              <h4 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-3">
                 {t("journalTitle")}
               </h4>
               {loading ? (
                 <div className="space-y-3 animate-pulse">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <div className="h-7 w-7 rounded-full bg-muted" />
+                      <div className="h-7 w-7 rounded-full bg-[#27272A]" />
                       <div className="flex-1 space-y-1">
-                        <div className="h-3 w-36 rounded bg-muted" />
-                        <div className="h-2 w-12 rounded bg-muted" />
+                        <div className="h-3 w-36 rounded bg-[#27272A]" />
+                        <div className="h-2 w-12 rounded bg-[#27272A]" />
                       </div>
                     </div>
                   ))}
@@ -201,8 +201,8 @@ export default function IntelligenceDashboard() {
                   {data.journal.map((entry, idx) => {
                     const config = JOURNAL_ICONS[entry.type] || {
                       icon: Brain,
-                      color: "text-muted-foreground",
-                      bg: "bg-muted",
+                      color: "text-[#71717A]",
+                      bg: "bg-[#27272A]",
                     };
                     const Icon = config.icon;
                     return (
@@ -216,10 +216,10 @@ export default function IntelligenceDashboard() {
                           <Icon className={`h-3 w-3 ${config.color}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-foreground leading-snug">
+                          <p className="text-xs text-[#FAFAFA] leading-snug">
                             {entry.description}
                           </p>
-                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <p className="text-[10px] text-[#71717A] flex items-center gap-1 mt-0.5">
                             <Clock className="h-2.5 w-2.5" />
                             {formatJournalDate(entry.date)}
                           </p>
@@ -229,7 +229,7 @@ export default function IntelligenceDashboard() {
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-3">
+                <p className="text-xs text-[#71717A] text-center py-3">
                   {t("journalEmpty")}
                 </p>
               )}

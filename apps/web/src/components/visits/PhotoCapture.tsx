@@ -142,7 +142,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
         <button
           type="button"
           onClick={() => cameraInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
         >
           <Camera className="h-4 w-4" />
           {t("takePhoto")}
@@ -150,7 +150,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
         >
           <Upload className="h-4 w-4" />
           {t("uploadPhoto")}
@@ -179,7 +179,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
       {pendingFiles.length > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {pendingFiles.map((p) => (
-            <div key={p.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+            <div key={p.id} className="group relative aspect-square overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A]">
               <img
                 src={p.preview}
                 alt=""

@@ -31,8 +31,8 @@ export function PlanEstimationTab({
       {!estimationV2 && !estimatingV2 && !estimationV2Error && !hasAnalysis && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-amber-300 bg-amber-500/10 py-16">
           <AlertTriangle className="h-12 w-12 text-amber-400 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Analyse IA requise</h3>
-          <p className="text-sm text-muted-foreground max-w-md text-center mb-6">
+          <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">Analyse IA requise</h3>
+          <p className="text-sm text-[#71717A] max-w-md text-center mb-6">
             L&apos;estimation V2 necessite une analyse prealable du plan. Lancez d&apos;abord l&apos;analyse IA pour identifier les quantites, puis revenez ici pour l&apos;estimation.
           </p>
           <button
@@ -47,10 +47,10 @@ export function PlanEstimationTab({
       )}
 
       {!estimationV2 && !estimatingV2 && !estimationV2Error && hasAnalysis && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-16">
           <Calculator className="h-12 w-12 text-brand/40 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Estimation multi-modele V2</h3>
-          <p className="text-sm text-muted-foreground max-w-md text-center mb-6">
+          <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">Estimation multi-modele V2</h3>
+          <p className="text-sm text-[#71717A] max-w-md text-center mb-6">
             3 IA analysent votre plan en parallele (Claude, GPT-4o, Gemini), puis les quantites sont croisees par consensus et chiffrees avec les prix de reference suisses CRB.
           </p>
           <button
@@ -64,10 +64,10 @@ export function PlanEstimationTab({
       )}
 
       {estimatingV2 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-16">
           <Loader2 className="h-10 w-10 animate-spin text-brand mb-4" />
-          <p className="text-sm font-medium text-muted-foreground">Estimation en cours...</p>
-          <p className="mt-1 text-xs text-muted-foreground">3 IA analysent votre plan en parallele. Cela peut prendre 30 a 60 secondes.</p>
+          <p className="text-sm font-medium text-[#71717A]">Estimation en cours...</p>
+          <p className="mt-1 text-xs text-[#71717A]">3 IA analysent votre plan en parallele. Cela peut prendre 30 a 60 secondes.</p>
         </div>
       )}
 

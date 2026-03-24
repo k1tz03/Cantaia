@@ -126,10 +126,10 @@ export function PlanAnalysisTab({
   return (
     <div className="space-y-4">
       {analyzing && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-16">
           <Loader2 className="h-10 w-10 animate-spin text-brand mb-4" />
-          <p className="text-sm font-medium text-muted-foreground">{t("analyzing")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">L&apos;IA analyse le plan comme un metreur professionnel...</p>
+          <p className="text-sm font-medium text-[#71717A]">{t("analyzing")}</p>
+          <p className="mt-1 text-xs text-[#71717A]">L&apos;IA analyse le plan comme un metreur professionnel...</p>
         </div>
       )}
 
@@ -141,10 +141,10 @@ export function PlanAnalysisTab({
       )}
 
       {!analysis && !analyzing && !analysisError && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-16">
-          <Sparkles className="h-12 w-12 text-muted-foreground mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">{t("noAnalysisYet")}</p>
-          <p className="mt-1 text-xs text-muted-foreground max-w-sm text-center">{t("noAnalysisDesc")}</p>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-16">
+          <Sparkles className="h-12 w-12 text-[#71717A] mb-3" />
+          <p className="text-sm font-medium text-[#71717A]">{t("noAnalysisYet")}</p>
+          <p className="mt-1 text-xs text-[#71717A] max-w-sm text-center">{t("noAnalysisDesc")}</p>
           <button
             onClick={() => onAnalyze(false)}
             className="mt-4 flex items-center gap-1.5 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
@@ -157,14 +157,14 @@ export function PlanAnalysisTab({
 
       {result && !analyzing && (
         <>
-          <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3">
             <div className="flex items-center gap-3">
               <Sparkles className="h-5 w-5 text-brand" />
               <div>
-                <p className="text-sm font-semibold text-foreground">
+                <p className="text-sm font-semibold text-[#FAFAFA]">
                   {t(PLAN_TYPE_KEYS[result.plan_type] || "planTypeOther")}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-[#71717A]">
                   {result.discipline}
                   {analysis!.analysis_duration_ms && ` · ${t("analysisTime", { seconds: (analysis!.analysis_duration_ms / 1000).toFixed(1) })}`}
                   {analysis!.analyzed_at && ` · ${t("analysisCached", { date: formatDateTime(analysis!.analyzed_at) })}`}
@@ -174,7 +174,7 @@ export function PlanAnalysisTab({
             <button
               onClick={() => onAnalyze(true)}
               disabled={analyzing}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+              className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t("reAnalyze")}
@@ -182,42 +182,42 @@ export function PlanAnalysisTab({
           </div>
 
           {result.title_block && (
-            <div className="rounded-lg border border-border bg-background p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t("titleBlock")}</h3>
+            <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-3">{t("titleBlock")}</h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
                 {result.title_block.plan_number && (
-                  <div><p className="text-[10px] text-muted-foreground">N&deg;</p><p className="font-mono font-medium text-foreground">{result.title_block.plan_number}</p></div>
+                  <div><p className="text-[10px] text-[#71717A]">N&deg;</p><p className="font-mono font-medium text-[#FAFAFA]">{result.title_block.plan_number}</p></div>
                 )}
                 {result.title_block.plan_title && (
-                  <div className="col-span-2 sm:col-span-3"><p className="text-[10px] text-muted-foreground">Titre</p><p className="text-foreground">{result.title_block.plan_title}</p></div>
+                  <div className="col-span-2 sm:col-span-3"><p className="text-[10px] text-[#71717A]">Titre</p><p className="text-[#FAFAFA]">{result.title_block.plan_title}</p></div>
                 )}
                 {result.title_block.scale && (
-                  <div><p className="text-[10px] text-muted-foreground">Echelle</p><p className="text-foreground">{result.title_block.scale}</p></div>
+                  <div><p className="text-[10px] text-[#71717A]">Echelle</p><p className="text-[#FAFAFA]">{result.title_block.scale}</p></div>
                 )}
                 {result.title_block.date && (
-                  <div><p className="text-[10px] text-muted-foreground">Date</p><p className="text-foreground">{result.title_block.date}</p></div>
+                  <div><p className="text-[10px] text-[#71717A]">Date</p><p className="text-[#FAFAFA]">{result.title_block.date}</p></div>
                 )}
                 {result.title_block.company && (
-                  <div><p className="text-[10px] text-muted-foreground">Bureau</p><p className="text-foreground">{result.title_block.company}</p></div>
+                  <div><p className="text-[10px] text-[#71717A]">Bureau</p><p className="text-[#FAFAFA]">{result.title_block.company}</p></div>
                 )}
                 {result.title_block.revision && (
-                  <div><p className="text-[10px] text-muted-foreground">Indice</p><p className="font-mono font-bold text-foreground">{result.title_block.revision}</p></div>
+                  <div><p className="text-[10px] text-[#71717A]">Indice</p><p className="font-mono font-bold text-[#FAFAFA]">{result.title_block.revision}</p></div>
                 )}
               </div>
             </div>
           )}
 
           {result.legend_items.length > 0 && (
-            <div className="rounded-lg border border-border bg-background p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t("legendLabel")}</h3>
+            <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-3">{t("legendLabel")}</h3>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {result.legend_items.map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
                     {item.color && (
-                      <span className="h-3 w-3 rounded-full shrink-0 border border-border" style={{ backgroundColor: item.color }} />
+                      <span className="h-3 w-3 rounded-full shrink-0 border border-[#27272A]" style={{ backgroundColor: item.color }} />
                     )}
-                    <span className="text-xs font-medium text-foreground">{item.symbol}</span>
-                    <span className="text-xs text-muted-foreground">&mdash; {item.description}</span>
+                    <span className="text-xs font-medium text-[#FAFAFA]">{item.symbol}</span>
+                    <span className="text-xs text-[#71717A]">&mdash; {item.description}</span>
                   </div>
                 ))}
               </div>
@@ -225,15 +225,15 @@ export function PlanAnalysisTab({
           )}
 
           {result.quantities.length > 0 && (
-            <div className="rounded-lg border border-border bg-background overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("quantitiesLabel")}</h3>
+            <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#27272A]">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{t("quantitiesLabel")}</h3>
                 <div className="flex items-center gap-2">
                   {editMode ? (
                     <>
                       <button
                         onClick={() => { setEditMode(false); setEditedQuantities({}); }}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
                       >
                         <X className="h-3.5 w-3.5" />
                         Annuler
@@ -251,14 +251,14 @@ export function PlanAnalysisTab({
                     <>
                       <button
                         onClick={() => setEditMode(true)}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Corriger
                       </button>
                       <button
                         onClick={handleCopyTable}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
                       >
                         <ClipboardCopy className="h-3.5 w-3.5" />
                         {t("copyTable")}
@@ -269,59 +269,59 @@ export function PlanAnalysisTab({
               </div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("colItem")}</th>
-                    <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("colQuantity")}</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("colUnit")}</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">{t("colSpecification")}</th>
-                    <th className="px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("colConfidence")}</th>
+                  <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">{t("colItem")}</th>
+                    <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">{t("colQuantity")}</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">{t("colUnit")}</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-[#71717A] hidden sm:table-cell">{t("colSpecification")}</th>
+                    <th className="px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">{t("colConfidence")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(quantityGroups).map(([category, items]) => (
                     <>{/* Category header row */}
-                      <tr key={`cat-${category}`} className="bg-muted">
-                        <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-foreground">{category}</td>
+                      <tr key={`cat-${category}`} className="bg-[#27272A]">
+                        <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-[#FAFAFA]">{category}</td>
                       </tr>
                       {items.map((q, i) => (
-                        <tr key={`${category}-${i}`} className={cn("border-b border-border", editMode ? "bg-primary/5" : "hover:bg-muted/30")}>
-                          <td className="px-4 py-2 text-xs text-foreground">
+                        <tr key={`${category}-${i}`} className={cn("border-b border-[#27272A]", editMode ? "bg-[#F97316]/5" : "hover:bg-[#27272A]/30")}>
+                          <td className="px-4 py-2 text-xs text-[#FAFAFA]">
                             {editMode ? (
                               <input
                                 type="text"
                                 value={getEditedValue(category, i, "item", q.item)}
                                 onChange={(e) => setEditedValue(category, i, "item", e.target.value)}
-                                className="w-full rounded border border-border px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                className="w-full rounded border border-[#27272A] px-2 py-1 text-xs focus:border-brand focus:outline-none"
                               />
                             ) : q.item}
                           </td>
-                          <td className="px-4 py-2 text-right text-xs font-semibold text-foreground tabular-nums">
+                          <td className="px-4 py-2 text-right text-xs font-semibold text-[#FAFAFA] tabular-nums">
                             {editMode ? (
                               <input
                                 type="number"
                                 value={getEditedValue(category, i, "quantity", q.quantity ?? "")}
                                 onChange={(e) => setEditedValue(category, i, "quantity", e.target.value)}
-                                className="w-20 rounded border border-border px-2 py-1 text-xs text-right focus:border-brand focus:outline-none"
+                                className="w-20 rounded border border-[#27272A] px-2 py-1 text-xs text-right focus:border-brand focus:outline-none"
                               />
                             ) : q.quantity != null ? q.quantity.toLocaleString("fr-CH") : "\u2014"}
                           </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground">
+                          <td className="px-4 py-2 text-xs text-[#71717A]">
                             {editMode ? (
                               <input
                                 type="text"
                                 value={getEditedValue(category, i, "unit", q.unit)}
                                 onChange={(e) => setEditedValue(category, i, "unit", e.target.value)}
-                                className="w-16 rounded border border-border px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                className="w-16 rounded border border-[#27272A] px-2 py-1 text-xs focus:border-brand focus:outline-none"
                               />
                             ) : q.unit}
                           </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground hidden sm:table-cell">
+                          <td className="px-4 py-2 text-xs text-[#71717A] hidden sm:table-cell">
                             {editMode ? (
                               <input
                                 type="text"
                                 value={getEditedValue(category, i, "specification", q.specification || "")}
                                 onChange={(e) => setEditedValue(category, i, "specification", e.target.value)}
-                                className="w-full rounded border border-border px-2 py-1 text-xs focus:border-brand focus:outline-none"
+                                className="w-full rounded border border-[#27272A] px-2 py-1 text-xs focus:border-brand focus:outline-none"
                               />
                             ) : q.specification || "\u2014"}
                           </td>
@@ -341,11 +341,11 @@ export function PlanAnalysisTab({
           )}
 
           {result.observations.length > 0 && (
-            <div className="rounded-lg border border-border bg-background p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t("observationsLabel")}</h3>
+            <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-3">{t("observationsLabel")}</h3>
               <ul className="space-y-2">
                 {result.observations.map((obs, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#FAFAFA]">
                     <Eye className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                     {obs}
                   </li>
@@ -355,9 +355,9 @@ export function PlanAnalysisTab({
           )}
 
           {result.summary && (
-            <div className="rounded-lg border border-border bg-primary/10 p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t("summaryLabel")}</h3>
-              <p className="text-sm text-foreground leading-relaxed">{result.summary}</p>
+            <div className="rounded-lg border border-[#27272A] bg-[#F97316]/10 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] mb-2">{t("summaryLabel")}</h3>
+              <p className="text-sm text-[#FAFAFA] leading-relaxed">{result.summary}</p>
             </div>
           )}
 
@@ -365,8 +365,8 @@ export function PlanAnalysisTab({
           {false && (result?.quantities?.length ?? 0) > 0 && (
             <div className="rounded-lg border-2 border-dashed border-brand/30 bg-brand/5 p-6 text-center">
               <span className="h-8 w-8 text-brand mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-foreground">Estimation multi-modele</h3>
-              <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-md mx-auto">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">Estimation multi-modele</h3>
+              <p className="text-xs text-[#71717A] mt-1 mb-4 max-w-md mx-auto">
                 Lancez l&apos;estimation V2 avec 3 IA (Claude + GPT-4o + Gemini) et les prix de reference suisses CRB
               </p>
               <button

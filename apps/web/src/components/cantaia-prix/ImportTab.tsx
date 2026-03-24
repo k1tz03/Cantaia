@@ -175,21 +175,21 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
             <h3 className="text-sm font-semibold text-green-800">Import terminé</h3>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-md bg-background p-2.5 text-center">
-              <p className="text-lg font-bold text-foreground">{importResult.suppliersCreated}</p>
-              <p className="text-[10px] text-muted-foreground">Fournisseurs créés</p>
+            <div className="rounded-md bg-[#0F0F11] p-2.5 text-center">
+              <p className="text-lg font-bold text-[#FAFAFA]">{importResult.suppliersCreated}</p>
+              <p className="text-[10px] text-[#71717A]">Fournisseurs créés</p>
             </div>
-            <div className="rounded-md bg-background p-2.5 text-center">
-              <p className="text-lg font-bold text-foreground">{importResult.suppliersMatched}</p>
-              <p className="text-[10px] text-muted-foreground">Fournisseurs existants</p>
+            <div className="rounded-md bg-[#0F0F11] p-2.5 text-center">
+              <p className="text-lg font-bold text-[#FAFAFA]">{importResult.suppliersMatched}</p>
+              <p className="text-[10px] text-[#71717A]">Fournisseurs existants</p>
             </div>
-            <div className="rounded-md bg-background p-2.5 text-center">
-              <p className="text-lg font-bold text-foreground">{importResult.offersCreated}</p>
-              <p className="text-[10px] text-muted-foreground">Offres importées</p>
+            <div className="rounded-md bg-[#0F0F11] p-2.5 text-center">
+              <p className="text-lg font-bold text-[#FAFAFA]">{importResult.offersCreated}</p>
+              <p className="text-[10px] text-[#71717A]">Offres importées</p>
             </div>
-            <div className="rounded-md bg-background p-2.5 text-center">
+            <div className="rounded-md bg-[#0F0F11] p-2.5 text-center">
               <p className="text-lg font-bold text-brand">{importResult.lineItemsCreated}</p>
-              <p className="text-[10px] text-muted-foreground">Postes de prix ajoutés</p>
+              <p className="text-[10px] text-[#71717A]">Postes de prix ajoutés</p>
             </div>
           </div>
           <button
@@ -210,16 +210,16 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
 
       {/* Upload zone */}
       {!extractionRunning && extractionStatus !== "preview_ready" && (
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-start gap-4 mb-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
               <Upload className="h-5 w-5 text-brand" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 Importer vos fichiers fournisseurs
               </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-[#71717A]">
                 Glissez-déposez vos fichiers (.eml, .msg, .pdf, .txt, .html) contenant des offres de prix.
                 L'IA extrait automatiquement les prix, descriptions et informations fournisseurs.
               </p>
@@ -251,14 +251,14 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
               "cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors",
               dragOver
                 ? "border-brand bg-brand/5"
-                : "border-border hover:border-border hover:bg-muted/50"
+                : "border-[#27272A] hover:border-[#27272A] hover:bg-[#27272A]/50"
             )}
           >
-            <Upload className={cn("mx-auto h-8 w-8", dragOver ? "text-brand" : "text-muted-foreground")} />
-            <p className="mt-3 text-sm font-medium text-muted-foreground">
+            <Upload className={cn("mx-auto h-8 w-8", dragOver ? "text-brand" : "text-[#71717A]")} />
+            <p className="mt-3 text-sm font-medium text-[#71717A]">
               Glissez vos fichiers ici ou <span className="text-brand">cliquez pour sélectionner</span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-[#71717A]">
               .eml, .msg, .pdf, .txt, .html — jusqu'à 25 Mo par fichier
             </p>
           </div>
@@ -267,18 +267,18 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
           {uploadedFiles.length > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-xs font-medium text-[#71717A]">
                   {uploadedFiles.length} fichier{uploadedFiles.length > 1 ? "s" : ""} sélectionné{uploadedFiles.length > 1 ? "s" : ""}
                 </p>
                 <button
                   type="button"
                   onClick={() => setUploadedFiles([])}
-                  className="text-xs text-muted-foreground hover:text-red-500"
+                  className="text-xs text-[#71717A] hover:text-red-500"
                 >
                   Tout supprimer
                 </button>
               </div>
-              <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              <div className="max-h-48 overflow-y-auto rounded-md border border-[#27272A] divide-y divide-border">
                 {uploadedFiles.map((file, idx) => {
                   const ext = file.name.split(".").pop()?.toLowerCase() || "";
                   return (
@@ -286,17 +286,17 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
                       <span className={cn(
                         "inline-flex items-center justify-center rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold",
                         ext === "pdf" ? "bg-purple-500/10 text-purple-600" :
-                        ext === "eml" || ext === "msg" ? "bg-primary/10 text-primary" :
-                        "bg-muted text-muted-foreground"
+                        ext === "eml" || ext === "msg" ? "bg-[#F97316]/10 text-[#F97316]" :
+                        "bg-[#27272A] text-[#71717A]"
                       )}>
                         .{ext}
                       </span>
-                      <span className="flex-1 truncate text-foreground">{file.name}</span>
-                      <span className="shrink-0 text-muted-foreground">{(file.size / 1024).toFixed(0)} Ko</span>
+                      <span className="flex-1 truncate text-[#FAFAFA]">{file.name}</span>
+                      <span className="shrink-0 text-[#71717A]">{(file.size / 1024).toFixed(0)} Ko</span>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
-                        className="shrink-0 text-muted-foreground hover:text-red-500"
+                        className="shrink-0 text-[#71717A] hover:text-red-500"
                       >
                         &times;
                       </button>
@@ -326,20 +326,20 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
           {/* Info cards */}
           {uploadedFiles.length === 0 && (
             <div className="mt-6 grid grid-cols-3 gap-4">
-              <div className="rounded-md border border-border p-3 text-center">
+              <div className="rounded-md border border-[#27272A] p-3 text-center">
                 <Mail className="mx-auto h-6 w-6 text-blue-500" />
-                <p className="mt-1.5 text-xs font-medium text-muted-foreground">Emails (.eml / .msg)</p>
-                <p className="text-[10px] text-muted-foreground">Corps de texte + PJ PDF</p>
+                <p className="mt-1.5 text-xs font-medium text-[#71717A]">Emails (.eml / .msg)</p>
+                <p className="text-[10px] text-[#71717A]">Corps de texte + PJ PDF</p>
               </div>
-              <div className="rounded-md border border-border p-3 text-center">
+              <div className="rounded-md border border-[#27272A] p-3 text-center">
                 <FileText className="mx-auto h-6 w-6 text-purple-500" />
-                <p className="mt-1.5 text-xs font-medium text-muted-foreground">PDF / Devis</p>
-                <p className="text-[10px] text-muted-foreground">Analyse visuelle IA</p>
+                <p className="mt-1.5 text-xs font-medium text-[#71717A]">PDF / Devis</p>
+                <p className="text-[10px] text-[#71717A]">Analyse visuelle IA</p>
               </div>
-              <div className="rounded-md border border-border p-3 text-center">
+              <div className="rounded-md border border-[#27272A] p-3 text-center">
                 <Database className="mx-auto h-6 w-6 text-green-500" />
-                <p className="mt-1.5 text-xs font-medium text-muted-foreground">Base enrichie</p>
-                <p className="text-[10px] text-muted-foreground">Prix + fournisseurs</p>
+                <p className="mt-1.5 text-xs font-medium text-[#71717A]">Base enrichie</p>
+                <p className="text-[10px] text-[#71717A]">Prix + fournisseurs</p>
               </div>
             </div>
           )}
@@ -348,17 +348,17 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
 
       {/* Progress bar */}
       {extractionRunning && (
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-center gap-3 mb-4">
             <Loader2 className="h-5 w-5 animate-spin text-brand" />
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Analyse en cours…</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">Analyse en cours…</h3>
+              <p className="text-xs text-[#71717A]">
                 {extractionProgress.processed} / {extractionProgress.total} fichier{extractionProgress.total > 1 ? "s" : ""} analysé{extractionProgress.total > 1 ? "s" : ""}
               </p>
             </div>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[#27272A]">
             <div
               className="h-full rounded-full bg-brand transition-all duration-500"
               style={{
@@ -366,7 +366,7 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
               }}
             />
           </div>
-          <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
+          <div className="mt-3 flex gap-4 text-xs text-[#71717A]">
             <span className="flex items-center gap-1">
               <FileText className="h-3.5 w-3.5" />
               {extractionProgress.withPrices} fichier{extractionProgress.withPrices > 1 ? "s" : ""} avec prix
@@ -403,10 +403,10 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
 
       {/* No results found */}
       {extractionStatus === "preview_ready" && extractionResults.length === 0 && !importResult && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-12">
-          <FileText className="h-10 w-10 text-muted-foreground" />
-          <h3 className="mt-3 text-sm font-medium text-muted-foreground">Aucune offre de prix trouvée</h3>
-          <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-12">
+          <FileText className="h-10 w-10 text-[#71717A]" />
+          <h3 className="mt-3 text-sm font-medium text-[#71717A]">Aucune offre de prix trouvée</h3>
+          <p className="mt-1 max-w-sm text-center text-xs text-[#71717A]">
             Les fichiers analysés ne contenaient pas d'informations de prix exploitables.
           </p>
           <button

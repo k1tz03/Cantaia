@@ -192,8 +192,8 @@ export default function AIRoundtablePage() {
             <Bot className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Table Ronde IA</h1>
-            <p className="text-sm text-muted-foreground">Claude x GPT-4o x Gemini discutent de Cantaia</p>
+            <h1 className="text-2xl font-bold text-[#FAFAFA]">Table Ronde IA</h1>
+            <p className="text-sm text-[#71717A]">Claude x GPT-4o x Gemini discutent de Cantaia</p>
           </div>
         </div>
       </div>
@@ -202,14 +202,14 @@ export default function AIRoundtablePage() {
       {showConfig && (
         <div className="space-y-6">
           {/* Topic selection */}
-          <div className="rounded-lg border border-border p-6 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground">Choisissez un sujet</h3>
+          <div className="rounded-lg border border-[#27272A] p-6 space-y-4">
+            <h3 className="text-sm font-semibold text-[#FAFAFA]">Choisissez un sujet</h3>
             <div className="space-y-2">
               {DEFAULT_TOPICS.map((t, i) => (
                 <label
                   key={i}
                   className={`flex items-start gap-3 rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
-                    topic === t && !customTopic.trim() ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+                    topic === t && !customTopic.trim() ? "border-[#F97316] bg-[#F97316]/5" : "border-[#27272A] hover:bg-[#27272A]/30"
                   }`}
                 >
                   <input
@@ -219,29 +219,29 @@ export default function AIRoundtablePage() {
                     onChange={() => { setTopic(t); setCustomTopic(""); }}
                     className="mt-0.5"
                   />
-                  <span className="text-sm text-foreground">{t}</span>
+                  <span className="text-sm text-[#FAFAFA]">{t}</span>
                 </label>
               ))}
             </div>
 
             <div className="pt-2">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Ou posez votre propre question</label>
+              <label className="block text-xs font-medium text-[#71717A] mb-1">Ou posez votre propre question</label>
               <textarea
                 value={customTopic}
                 onChange={(e) => setCustomTopic(e.target.value)}
                 placeholder="Ex: Comment réduire le churn après le premier mois ?"
                 rows={2}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none"
               />
             </div>
           </div>
 
           {/* Rounds */}
-          <div className="rounded-lg border border-border p-6">
+          <div className="rounded-lg border border-[#27272A] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Nombre de tours</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Plus de tours = discussion plus approfondie mais plus longue (~1 min/tour)</p>
+                <h3 className="text-sm font-semibold text-[#FAFAFA]">Nombre de tours</h3>
+                <p className="text-xs text-[#71717A] mt-0.5">Plus de tours = discussion plus approfondie mais plus longue (~1 min/tour)</p>
               </div>
               <div className="flex items-center gap-3">
                 {[3, 5, 10].map(n => (
@@ -249,7 +249,7 @@ export default function AIRoundtablePage() {
                     key={n}
                     onClick={() => setRounds(n)}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      rounds === n ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/80"
+                      rounds === n ? "bg-[#F97316] text-white" : "bg-[#27272A] text-[#FAFAFA] hover:bg-[#27272A]/80"
                     }`}
                   >
                     {n}
@@ -261,30 +261,30 @@ export default function AIRoundtablePage() {
                   max={20}
                   value={rounds}
                   onChange={(e) => setRounds(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="w-16 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground text-center"
+                  className="w-16 rounded-md border border-[#27272A] bg-[#0F0F11] px-2 py-1.5 text-sm text-[#FAFAFA] text-center"
                 />
               </div>
             </div>
           </div>
 
           {/* Participants */}
-          <div className="rounded-lg border border-border p-6">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Participants</h3>
+          <div className="rounded-lg border border-[#27272A] p-6">
+            <h3 className="text-sm font-semibold text-[#FAFAFA] mb-3">Participants</h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-center">
                 <p className="text-lg">{SPEAKER_ICONS.Claude.emoji}</p>
-                <p className="text-sm font-medium text-foreground">Claude</p>
-                <p className="text-xs text-muted-foreground">Architecte Produit</p>
+                <p className="text-sm font-medium text-[#FAFAFA]">Claude</p>
+                <p className="text-xs text-[#71717A]">Architecte Produit</p>
               </div>
               <div className="rounded-lg bg-green-500/5 border border-green-500/20 p-3 text-center">
                 <p className="text-lg">{SPEAKER_ICONS["GPT-4o"].emoji}</p>
-                <p className="text-sm font-medium text-foreground">GPT-4o</p>
-                <p className="text-xs text-muted-foreground">UX Designer & Stratège</p>
+                <p className="text-sm font-medium text-[#FAFAFA]">GPT-4o</p>
+                <p className="text-xs text-[#71717A]">UX Designer & Stratège</p>
               </div>
               <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3 text-center">
                 <p className="text-lg">{SPEAKER_ICONS.Gemini.emoji}</p>
-                <p className="text-sm font-medium text-foreground">Gemini</p>
-                <p className="text-xs text-muted-foreground">Product Manager</p>
+                <p className="text-sm font-medium text-[#FAFAFA]">Gemini</p>
+                <p className="text-xs text-[#71717A]">Product Manager</p>
               </div>
             </div>
           </div>
@@ -306,9 +306,9 @@ export default function AIRoundtablePage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Sujet</p>
-              <p className="text-base font-medium text-foreground">{customTopic.trim() || topic}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-sm text-[#71717A]">Sujet</p>
+              <p className="text-base font-medium text-[#FAFAFA]">{customTopic.trim() || topic}</p>
+              <p className="text-xs text-[#71717A] mt-0.5">
                 {conversation.length} messages &middot; {Object.keys(groupedByRound).length} tours &middot; {elapsed}s
                 {loading && " — en cours..."}
               </p>
@@ -317,14 +317,14 @@ export default function AIRoundtablePage() {
               <div className="flex gap-2">
                 <button
                   onClick={exportMarkdown}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Export .md
                 </button>
                 <button
                   onClick={() => { setConversation([]); setSynthesis(""); setThinking(null); }}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   Nouvelle session
@@ -341,8 +341,8 @@ export default function AIRoundtablePage() {
                 <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.3s" }}>{SPEAKER_ICONS["GPT-4o"].emoji}</div>
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center animate-pulse" style={{ animationDelay: "0.6s" }}>{SPEAKER_ICONS.Gemini.emoji}</div>
               </div>
-              <p className="text-foreground font-medium">Lancement de la table ronde...</p>
-              <p className="text-xs text-muted-foreground mt-1">{elapsed}s</p>
+              <p className="text-[#FAFAFA] font-medium">Lancement de la table ronde...</p>
+              <p className="text-xs text-[#71717A] mt-1">{elapsed}s</p>
             </div>
           )}
 
@@ -350,20 +350,20 @@ export default function AIRoundtablePage() {
           {Object.entries(groupedByRound).map(([round, messages]) => (
             <div key={round}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tour {round}</span>
+                <span className="text-xs font-semibold text-[#71717A] uppercase tracking-wider">Tour {round}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
               <div className="space-y-3">
                 {messages.map((m, i) => {
                   const style = SPEAKER_ICONS[m.speaker] || SPEAKER_ICONS.Claude;
                   return (
-                    <div key={`${round}-${i}`} className={`rounded-lg border border-border p-4 ${style.bg}`}>
+                    <div key={`${round}-${i}`} className={`rounded-lg border border-[#27272A] p-4 ${style.bg}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span>{style.emoji}</span>
                         <span className={`text-sm font-semibold ${style.text}`}>{m.speaker}</span>
-                        <span className="text-xs text-muted-foreground">— {m.role}</span>
+                        <span className="text-xs text-[#71717A]">— {m.role}</span>
                       </div>
-                      <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                      <div className="text-sm text-[#FAFAFA] whitespace-pre-wrap leading-relaxed">{m.content}</div>
                     </div>
                   );
                 })}
@@ -373,23 +373,23 @@ export default function AIRoundtablePage() {
 
           {/* Thinking indicator — shown while an AI is generating */}
           {thinking && (
-            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-muted/20 animate-pulse">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#27272A] bg-[#27272A]/20 animate-pulse">
               <span>{SPEAKER_ICONS[thinking.speaker]?.emoji || "🤔"}</span>
-              <span className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{thinking.speaker}</span> ({thinking.role}) réfléchit...
+              <span className="text-sm text-[#71717A]">
+                <span className="font-medium text-[#FAFAFA]">{thinking.speaker}</span> ({thinking.role}) réfléchit...
               </span>
-              <span className="text-xs text-muted-foreground ml-auto">{elapsed}s</span>
+              <span className="text-xs text-[#71717A] ml-auto">{elapsed}s</span>
             </div>
           )}
 
           {/* Synthesis */}
           {synthesis && (
-            <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-6">
+            <div className="rounded-lg border-2 border-[#F97316]/30 bg-[#F97316]/5 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-bold text-foreground">Synthèse & Recommandations</h2>
+                <Sparkles className="h-5 w-5 text-[#F97316]" />
+                <h2 className="text-base font-bold text-[#FAFAFA]">Synthèse & Recommandations</h2>
               </div>
-              <div className="prose prose-sm dark:prose-invert max-w-none text-foreground whitespace-pre-wrap">{synthesis}</div>
+              <div className="prose prose-sm dark:prose-invert max-w-none text-[#FAFAFA] whitespace-pre-wrap">{synthesis}</div>
             </div>
           )}
 

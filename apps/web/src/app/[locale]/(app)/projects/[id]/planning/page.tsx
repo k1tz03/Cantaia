@@ -688,16 +688,16 @@ export default function ProjectPlanningPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Page header */}
-      <div className="px-6 py-4 border-b border-border bg-background">
+      <div className="px-6 py-4 border-b border-[#27272A] bg-[#0F0F11]">
         <div className="flex items-center gap-3 mb-2">
           <Link
             href={`/projects/${projectId}?tab=overview`}
-            className="p-1 hover:bg-muted rounded"
+            className="p-1 hover:bg-[#27272A] rounded"
           >
-            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+            <ArrowLeft className="h-4 w-4 text-[#71717A]" />
           </Link>
           <CalendarRange className="h-5 w-5 text-brand" />
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-lg font-semibold text-[#FAFAFA]">
             {t("title")}
           </h1>
         </div>
@@ -707,11 +707,11 @@ export default function ProjectPlanningPage() {
         // Empty state
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <CalendarRange className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-medium text-foreground mb-2">
+            <CalendarRange className="h-16 w-16 text-[#71717A] mx-auto mb-4" />
+            <h2 className="text-lg font-medium text-[#FAFAFA] mb-2">
               {t("noPlanning")}
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-[#71717A] mb-6">
               {t("noPlanningDesc")}
             </p>
 
@@ -722,7 +722,7 @@ export default function ProjectPlanningPage() {
                     <select
                       value={selectedSubmissionId || ""}
                       onChange={(e) => setSelectedSubmissionId(e.target.value)}
-                      className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-[#27272A] px-3 py-2 text-sm"
                     >
                       {submissions.map((s: any) => (
                         <option key={s.id} value={s.id}>
@@ -738,12 +738,12 @@ export default function ProjectPlanningPage() {
                     <CalendarRange className="h-4 w-4" />
                     {t("generate")}
                   </button>
-                  <p className="text-xs text-muted-foreground">{t("emptyPlanning.or")}</p>
+                  <p className="text-xs text-[#71717A]">{t("emptyPlanning.or")}</p>
                 </>
               )}
               <button
                 onClick={() => setShowEmptyModal(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted"
+                className="inline-flex items-center gap-2 px-5 py-2.5 border border-[#27272A] text-[#FAFAFA] text-sm font-medium rounded-lg hover:bg-[#27272A]"
               >
                 <FilePlus className="h-4 w-4" />
                 {t("emptyPlanning.createEmpty")}
@@ -777,21 +777,21 @@ export default function ProjectPlanningPage() {
             {/* Action buttons in the Gantt header */}
             <button
               onClick={handleRegenerate}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t("regenerate")}
             </button>
             <button
               onClick={handleExportPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
             >
               <FileText className="h-3.5 w-3.5" />
               {t("export.pdf")}
             </button>
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A]"
             >
               <Share2 className="h-3.5 w-3.5" />
               {t("export.share")}
@@ -803,17 +803,17 @@ export default function ProjectPlanningPage() {
       {/* Empty planning modal */}
       {showEmptyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="bg-[#0F0F11] rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#27272A]">
               <div className="flex items-center gap-2">
-                <FilePlus className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">
+                <FilePlus className="h-5 w-5 text-[#F97316]" />
+                <h2 className="text-lg font-semibold text-[#FAFAFA]">
                   {t("emptyPlanning.createEmpty")}
                 </h2>
               </div>
               <button
                 onClick={() => { setShowEmptyModal(false); setEmptyError(null); }}
-                className="p-1 text-muted-foreground hover:text-muted-foreground transition-colors rounded-md hover:bg-muted"
+                className="p-1 text-[#71717A] hover:text-[#71717A] transition-colors rounded-md hover:bg-[#27272A]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -821,48 +821,48 @@ export default function ProjectPlanningPage() {
             <div className="p-6 space-y-4">
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
                   {t("emptyPlanning.title")}
                 </label>
                 <input
                   type="text"
                   value={emptyTitle}
                   onChange={(e) => setEmptyTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               {/* Start date */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
                   {t("emptyPlanning.startDate")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
                   <input
                     type="date"
                     value={emptyStartDate}
                     onChange={(e) => setEmptyStartDate(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
                 </div>
               </div>
               {/* End date (optional) */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-[#FAFAFA] mb-1.5">
                   {t("emptyPlanning.endDate")}
-                  <span className="ml-1 text-xs text-muted-foreground font-normal">
+                  <span className="ml-1 text-xs text-[#71717A] font-normal">
                     ({t("config.optional")})
                   </span>
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
                   <input
                     type="date"
                     value={emptyEndDate}
                     onChange={(e) => setEmptyEndDate(e.target.value)}
                     min={emptyStartDate || undefined}
-                    className="w-full pl-10 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-3 py-2 border border-[#27272A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -878,7 +878,7 @@ export default function ProjectPlanningPage() {
                 <button
                   type="button"
                   onClick={() => { setShowEmptyModal(false); setEmptyError(null); }}
-                  className="px-4 py-2 text-sm font-medium text-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:text-[#FAFAFA] hover:bg-[#27272A] rounded-lg transition-colors"
                   disabled={creatingEmpty}
                 >
                   {t("config.cancel")}
@@ -924,19 +924,19 @@ export default function ProjectPlanningPage() {
       {/* Share panel */}
       {showSharePanel && shareUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="bg-[#0F0F11] rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center gap-2 mb-4">
               <LinkIcon className="h-5 w-5 text-brand" />
               <h3 className="text-lg font-semibold">{t("share.title")}</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-[#71717A] mb-4">
               {t("share.description")}
             </p>
             <div className="flex items-center gap-2 mb-4">
               <input
                 readOnly
                 value={shareUrl}
-                className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted"
+                className="flex-1 px-3 py-2 text-sm border border-[#27272A] rounded-lg bg-[#27272A]"
               />
               <button
                 onClick={handleCopyLink}
@@ -959,7 +959,7 @@ export default function ProjectPlanningPage() {
               </button>
               <button
                 onClick={() => setShowSharePanel(false)}
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="text-sm text-[#71717A] hover:text-[#FAFAFA]"
               >
                 Fermer
               </button>

@@ -78,11 +78,11 @@ export default function SupportPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-extrabold text-[#FAFAFA]">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("myTickets")}</p>
+          <p className="text-sm text-[#71717A]">{t("myTickets")}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#F97316]/90"
         >
           <Plus className="h-4 w-4" />
           {t("newTicket")}
@@ -94,7 +94,7 @@ export default function SupportPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+          className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
         >
           <option value="">{t("allTickets")}</option>
           <option value="open">{t("statusOpen")}</option>
@@ -105,7 +105,7 @@ export default function SupportPage() {
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+          className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
         >
           <option value="">{t("category")}</option>
           <option value="bug">{t("categoryBug")}</option>
@@ -117,29 +117,29 @@ export default function SupportPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground">Chargement...</div>
+        <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>
       ) : tickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <LifeBuoy className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-muted-foreground mb-4">{t("emptyState")}</p>
+          <LifeBuoy className="h-12 w-12 text-[#71717A]/30 mb-4" />
+          <p className="text-[#71717A] mb-4">{t("emptyState")}</p>
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#F97316]/90"
           >
             <Plus className="h-4 w-4" />
             {t("newTicket")}
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-[#27272A] overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("subject")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("category")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("priority")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+              <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("subject")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("category")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("priority")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Date</th>
                 <th className="px-4 py-3 w-8"></th>
               </tr>
             </thead>
@@ -148,18 +148,18 @@ export default function SupportPage() {
                 <tr
                   key={ticket.id}
                   onClick={() => router.push(`/support/${ticket.id}`)}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                  className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-foreground">{ticket.subject}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">({ticket.message_count})</span>
+                    <span className="text-sm font-medium text-[#FAFAFA]">{ticket.subject}</span>
+                    <span className="ml-2 text-xs text-[#71717A]">({ticket.message_count})</span>
                   </td>
                   <td className="px-4 py-3"><TicketCategoryBadge category={ticket.category} /></td>
                   <td className="px-4 py-3">
                     <span className={`inline-block h-2 w-2 rounded-full ${PRIORITY_DOT[ticket.priority] || PRIORITY_DOT.medium}`} />
                   </td>
                   <td className="px-4 py-3"><TicketStatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{formatDate(ticket.created_at)}</td>
+                  <td className="px-4 py-3 text-sm text-[#71717A]">{formatDate(ticket.created_at)}</td>
                   <td className="px-4 py-3">
                     {hasUnread(ticket) && (
                       <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#F97316]" title={t("unread")} />

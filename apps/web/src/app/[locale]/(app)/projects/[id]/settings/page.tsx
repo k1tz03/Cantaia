@@ -89,7 +89,7 @@ export default function ProjectSettingsPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-muted-foreground">{t("projectNotFound")}</p>
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -190,15 +190,15 @@ export default function ProjectSettingsPage() {
       <div className="flex items-center gap-4">
         <Link
           href={`/projects/${project.id}`}
-          className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("projectSettings")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-[#71717A]">
             {project.name}
           </p>
         </div>
@@ -206,13 +206,13 @@ export default function ProjectSettingsPage() {
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-3xl space-y-6">
         {/* General Info */}
-        <fieldset className="rounded-md border border-border bg-background p-6">
-          <legend className="px-2 text-sm font-semibold text-foreground">
+        <fieldset className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
+          <legend className="px-2 text-sm font-semibold text-[#FAFAFA]">
             {t("generalInfo")}
           </legend>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("projectName")} *
               </label>
               <input
@@ -220,28 +220,28 @@ export default function ProjectSettingsPage() {
                 required
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("projectCode")}
               </label>
               <input
                 type="text"
                 value={form.code}
                 onChange={(e) => updateField("code", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("status")}
               </label>
               <select
                 value={form.status}
                 onChange={(e) => updateField("status", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               >
                 {statusOptions.map((s) => (
                   <option key={s} value={s}>{t(`status_${s}`)}</option>
@@ -249,62 +249,62 @@ export default function ProjectSettingsPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("client")}
               </label>
               <input
                 type="text"
                 value={form.client_name}
                 onChange={(e) => updateField("client_name", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("city")}
               </label>
               <input
                 type="text"
                 value={form.city}
                 onChange={(e) => updateField("city", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("address")}
               </label>
               <input
                 type="text"
                 value={form.address}
                 onChange={(e) => updateField("address", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("startDate")}
               </label>
               <input
                 type="date"
                 value={form.start_date}
                 onChange={(e) => updateField("start_date", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("endDate")}
               </label>
               <input
                 type="date"
                 value={form.end_date}
                 onChange={(e) => updateField("end_date", e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("color")}
               </label>
               <div className="flex flex-wrap gap-2">
@@ -320,26 +320,26 @@ export default function ProjectSettingsPage() {
               </div>
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
                 {t("description")}
               </label>
               <textarea
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
                 rows={3}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
             </div>
           </div>
         </fieldset>
 
         {/* Email Classification */}
-        <fieldset className="rounded-md border border-border bg-background p-6">
-          <legend className="px-2 text-sm font-semibold text-foreground">
+        <fieldset className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
+          <legend className="px-2 text-sm font-semibold text-[#FAFAFA]">
             {t("emailClassification")}
           </legend>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
               {t("emailKeywords")}
             </label>
             <div className="flex gap-2">
@@ -349,10 +349,10 @@ export default function ProjectSettingsPage() {
                 onChange={(e) => setKeywordInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
                 placeholder="mot-cle..."
-                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="flex-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
-              <button type="button" onClick={addKeyword} className="rounded-md bg-muted px-3 py-2 hover:bg-muted">
-                <Plus className="h-4 w-4 text-muted-foreground" />
+              <button type="button" onClick={addKeyword} className="rounded-md bg-[#27272A] px-3 py-2 hover:bg-[#27272A]">
+                <Plus className="h-4 w-4 text-[#71717A]" />
               </button>
             </div>
             {form.email_keywords.length > 0 && (
@@ -367,7 +367,7 @@ export default function ProjectSettingsPage() {
             )}
           </div>
           <div className="mt-5">
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
               {t("emailSenders")}
             </label>
             <div className="flex gap-2">
@@ -377,16 +377,16 @@ export default function ProjectSettingsPage() {
                 onChange={(e) => setSenderInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSender())}
                 placeholder="email@example.ch"
-                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+                className="flex-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
               />
-              <button type="button" onClick={addSender} className="rounded-md bg-muted px-3 py-2 hover:bg-muted">
-                <Plus className="h-4 w-4 text-muted-foreground" />
+              <button type="button" onClick={addSender} className="rounded-md bg-[#27272A] px-3 py-2 hover:bg-[#27272A]">
+                <Plus className="h-4 w-4 text-[#71717A]" />
               </button>
             </div>
             {form.email_senders.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {form.email_senders.map((s) => (
-                  <span key={s} className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <span key={s} className="inline-flex items-center gap-1 rounded-full bg-[#27272A] px-3 py-1 text-xs font-medium text-[#71717A]">
                     {s}
                     <button type="button" onClick={() => removeSender(s)}><X className="h-3 w-3" /></button>
                   </span>
@@ -397,9 +397,9 @@ export default function ProjectSettingsPage() {
 
           {/* Outlook folder */}
           <div className="mt-5">
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#71717A]">
               <span className="flex items-center gap-2">
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                <FolderOpen className="h-4 w-4 text-[#71717A]" />
                 {t("outlookFolder")}
               </span>
             </label>
@@ -408,24 +408,24 @@ export default function ProjectSettingsPage() {
               value={form.outlook_folder}
               onChange={(e) => updateField("outlook_folder", e.target.value)}
               placeholder={t("outlookFolderPlaceholder")}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+              className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
             />
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-[#71717A]">
               {t("outlookFolderHelp")}
             </p>
           </div>
         </fieldset>
 
         {/* Members */}
-        <fieldset className="rounded-md border border-border bg-background p-6">
-          <legend className="px-2 text-sm font-semibold text-foreground">
+        <fieldset className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
+          <legend className="px-2 text-sm font-semibold text-[#FAFAFA]">
             {t("members")}
           </legend>
-          <div className="flex items-center justify-between rounded-md border border-dashed border-border p-4">
-            <p className="text-sm text-muted-foreground">{t("membersPlaceholder")}</p>
+          <div className="flex items-center justify-between rounded-md border border-dashed border-[#27272A] p-4">
+            <p className="text-sm text-[#71717A]">{t("membersPlaceholder")}</p>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-md bg-[#27272A] px-3 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
             >
               <UserPlus className="h-4 w-4" />
               {t("addMember")}
@@ -445,7 +445,7 @@ export default function ProjectSettingsPage() {
           </button>
           <Link
             href={`/projects/${project.id}`}
-            className="rounded-md px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+            className="rounded-md px-6 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
           >
             {tc("cancel")}
           </Link>
@@ -469,7 +469,7 @@ export default function ProjectSettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowDeleteDialog(true)}
-                className="mt-4 inline-flex items-center gap-2 rounded-md border border-red-300 bg-background px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                className="mt-4 inline-flex items-center gap-2 rounded-md border border-red-300 bg-[#0F0F11] px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10"
               >
                 <Trash2 className="h-4 w-4" />
                 Supprimer ce projet
@@ -484,7 +484,7 @@ export default function ProjectSettingsPage() {
                   value={deleteConfirmName}
                   onChange={(e) => setDeleteConfirmName(e.target.value)}
                   placeholder={project.name}
-                  className="w-full rounded-md border border-red-300 bg-background px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-200"
+                  className="w-full rounded-md border border-red-300 bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-200"
                 />
                 <div className="flex items-center gap-3">
                   <button
@@ -500,7 +500,7 @@ export default function ProjectSettingsPage() {
                   <button
                     type="button"
                     onClick={() => { setShowDeleteDialog(false); setDeleteConfirmName(""); }}
-                    className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                    className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
                   >
                     Annuler
                   </button>

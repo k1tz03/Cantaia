@@ -110,20 +110,20 @@ export default function SiteReportsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-extrabold text-[#FAFAFA]">{t("siteReports")}</h1>
-          <p className="text-sm text-muted-foreground">Centralisation heures et bons de livraison</p>
+          <p className="text-sm text-[#71717A]">Centralisation heures et bons de livraison</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleExport("xlsx")}
             disabled={exporting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
           >
             <Download className="h-4 w-4" /> Excel
           </button>
           <button
             onClick={() => handleExport("pdf")}
             disabled={exporting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
           >
             <Download className="h-4 w-4" /> PDF
           </button>
@@ -131,16 +131,16 @@ export default function SiteReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-muted p-1 w-fit">
+      <div className="mb-4 flex gap-1 rounded-lg bg-[#27272A] p-1 w-fit">
         <button
           onClick={() => setActiveTab("hours")}
-          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === "hours" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === "hours" ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm" : "text-[#71717A]"}`}
         >
           <Clock className="h-4 w-4" /> Heures
         </button>
         <button
           onClick={() => setActiveTab("notes")}
-          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === "notes" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === "notes" ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm" : "text-[#71717A]"}`}
         >
           <FileText className="h-4 w-4" /> Bons de livraison
         </button>
@@ -149,14 +149,14 @@ export default function SiteReportsPage() {
       {/* Week navigation + filters */}
       <div className="mb-4 flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1">
-          <button onClick={() => setWeekStart(shiftWeek(weekStart, -1))} className="rounded-md p-1.5 hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="text-sm font-medium text-foreground min-w-[200px] text-center">{formatWeek(weekStart)}</span>
-          <button onClick={() => setWeekStart(shiftWeek(weekStart, 1))} className="rounded-md p-1.5 hover:bg-muted"><ChevronRight className="h-4 w-4" /></button>
+          <button onClick={() => setWeekStart(shiftWeek(weekStart, -1))} className="rounded-md p-1.5 hover:bg-[#27272A]"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="text-sm font-medium text-[#FAFAFA] min-w-[200px] text-center">{formatWeek(weekStart)}</span>
+          <button onClick={() => setWeekStart(shiftWeek(weekStart, 1))} className="rounded-md p-1.5 hover:bg-[#27272A]"><ChevronRight className="h-4 w-4" /></button>
         </div>
         <select
           value={projectFilter}
           onChange={e => setProjectFilter(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+          className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
         >
           <option value="">Tous les projets</option>
           {projects.map((p: any) => (
@@ -167,7 +167,7 @@ export default function SiteReportsPage() {
           <select
             value={crewFilter}
             onChange={e => setCrewFilter(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
           >
             <option value="">Tous les ouvriers</option>
             {hoursData.crew.map((c: any) => (
@@ -179,7 +179,7 @@ export default function SiteReportsPage() {
           <select
             value={supplierFilter}
             onChange={e => setSupplierFilter(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
           >
             <option value="">Tous les fournisseurs</option>
             {notesData.suppliers.map((s: any) => (
@@ -190,37 +190,37 @@ export default function SiteReportsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-[#F97316]" /></div>
       ) : activeTab === "hours" ? (
         <div className="space-y-6">
           {/* Weekly summary grid */}
           {hoursData?.summary && hoursData.summary.length > 0 && (
-            <div className="rounded-lg border border-border overflow-x-auto">
+            <div className="rounded-lg border border-[#27272A] overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Ouvrier</th>
+                  <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">Ouvrier</th>
                     {DAYS.map((day, i) => (
-                      <th key={day} className="px-3 py-2.5 text-center text-xs font-medium text-muted-foreground">
+                      <th key={day} className="px-3 py-2.5 text-center text-xs font-medium text-[#71717A]">
                         {day}<br /><span className="font-normal">{new Date(dayDates[i]).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })}</span>
                       </th>
                     ))}
-                    <th className="px-4 py-2.5 text-right text-xs font-bold text-foreground">Total</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-bold text-[#FAFAFA]">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {hoursData.summary.map((row: any, idx: number) => (
-                    <tr key={idx} className="border-b border-border last:border-0">
+                    <tr key={idx} className="border-b border-[#27272A] last:border-0">
                       <td className="px-4 py-2.5">
-                        <span className="text-sm font-medium text-foreground">{row.name}</span>
-                        {row.role && <span className="text-xs text-muted-foreground ml-1">({row.role})</span>}
+                        <span className="text-sm font-medium text-[#FAFAFA]">{row.name}</span>
+                        {row.role && <span className="text-xs text-[#71717A] ml-1">({row.role})</span>}
                       </td>
                       {dayDates.map(date => (
-                        <td key={date} className="px-3 py-2.5 text-center text-sm text-foreground">
+                        <td key={date} className="px-3 py-2.5 text-center text-sm text-[#FAFAFA]">
                           {row.days[date] ? `${row.days[date].toFixed(1)}` : "\u2014"}
                         </td>
                       ))}
-                      <td className="px-4 py-2.5 text-right text-sm font-bold text-foreground">{row.total.toFixed(1)}h</td>
+                      <td className="px-4 py-2.5 text-right text-sm font-bold text-[#FAFAFA]">{row.total.toFixed(1)}h</td>
                     </tr>
                   ))}
                 </tbody>
@@ -230,28 +230,28 @@ export default function SiteReportsPage() {
 
           {/* Detail table */}
           {hoursData?.hours && hoursData.hours.length > 0 && (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="px-4 py-3 border-b border-border bg-muted/30">
-                <h3 className="text-sm font-semibold text-foreground">Détail des heures</h3>
+            <div className="rounded-lg border border-[#27272A] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#27272A] bg-[#27272A]/30">
+                <h3 className="text-sm font-semibold text-[#FAFAFA]">Détail des heures</h3>
               </div>
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Projet</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Ouvrier</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Travail</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">Heures</th>
+                  <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Projet</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Ouvrier</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Travail</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-[#71717A]">Heures</th>
                   </tr>
                 </thead>
                 <tbody>
                   {hoursData.hours.map((h: any) => (
-                    <tr key={h.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                      <td className="px-4 py-2 text-sm text-foreground">{new Date(h.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })}</td>
-                      <td className="px-4 py-2 text-sm text-foreground">{h.project_name}</td>
-                      <td className="px-4 py-2 text-sm text-foreground">{h.crew_member_name}{h.is_driver ? " \ud83d\ude90" : ""}</td>
-                      <td className="px-4 py-2 text-sm text-muted-foreground">{h.work_description || "\u2014"}</td>
-                      <td className="px-4 py-2 text-sm text-right font-medium text-foreground">{h.duration_hours.toFixed(1)}h</td>
+                    <tr key={h.id} className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20">
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{new Date(h.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })}</td>
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{h.project_name}</td>
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{h.crew_member_name}{h.is_driver ? " \ud83d\ude90" : ""}</td>
+                      <td className="px-4 py-2 text-sm text-[#71717A]">{h.work_description || "\u2014"}</td>
+                      <td className="px-4 py-2 text-sm text-right font-medium text-[#FAFAFA]">{h.duration_hours.toFixed(1)}h</td>
                     </tr>
                   ))}
                 </tbody>
@@ -260,7 +260,7 @@ export default function SiteReportsPage() {
           )}
 
           {(!hoursData?.hours || hoursData.hours.length === 0) && (
-            <div className="flex flex-col items-center py-12 text-muted-foreground">
+            <div className="flex flex-col items-center py-12 text-[#71717A]">
               <Clock className="h-10 w-10 mb-3 opacity-30" />
               <p>Aucune heure pour cette période</p>
             </div>
@@ -272,10 +272,10 @@ export default function SiteReportsPage() {
           {notesData?.suppliers && notesData.suppliers.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {notesData.suppliers.map((s: any) => (
-                <div key={s.name} className="rounded-lg border border-border bg-background p-3">
-                  <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{s.count}</p>
-                  <p className="text-xs text-muted-foreground">bons \u2014 {s.projects.join(", ")}</p>
+                <div key={s.name} className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3">
+                  <p className="text-sm font-semibold text-[#FAFAFA]">{s.name}</p>
+                  <p className="text-2xl font-bold text-[#FAFAFA] mt-1">{s.count}</p>
+                  <p className="text-xs text-[#71717A]">bons \u2014 {s.projects.join(", ")}</p>
                 </div>
               ))}
             </div>
@@ -283,35 +283,35 @@ export default function SiteReportsPage() {
 
           {/* Notes table */}
           {notesData?.notes && notesData.notes.length > 0 && (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="rounded-lg border border-[#27272A] overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Projet</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">N° Bon</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Fournisseur</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Photo</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Soumis par</th>
+                  <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Projet</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">N° Bon</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Fournisseur</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Photo</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-[#71717A]">Soumis par</th>
                   </tr>
                 </thead>
                 <tbody>
                   {notesData.notes.map((n: any) => (
-                    <tr key={n.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                      <td className="px-4 py-2 text-sm text-foreground">{new Date(n.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })}</td>
-                      <td className="px-4 py-2 text-sm text-foreground">{n.project_name}</td>
-                      <td className="px-4 py-2 text-sm font-mono text-foreground">{n.note_number || "\u2014"}</td>
-                      <td className="px-4 py-2 text-sm text-foreground">{n.supplier_name || "\u2014"}</td>
+                    <tr key={n.id} className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/20">
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{new Date(n.report_date).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })}</td>
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{n.project_name}</td>
+                      <td className="px-4 py-2 text-sm font-mono text-[#FAFAFA]">{n.note_number || "\u2014"}</td>
+                      <td className="px-4 py-2 text-sm text-[#FAFAFA]">{n.supplier_name || "\u2014"}</td>
                       <td className="px-4 py-2">
                         {n.photo_url ? (
                           <a href={n.photo_url} target="_blank" rel="noopener noreferrer">
-                            <img src={n.photo_url} alt="Bon" className="h-10 w-10 rounded object-cover border border-border" />
+                            <img src={n.photo_url} alt="Bon" className="h-10 w-10 rounded object-cover border border-[#27272A]" />
                           </a>
                         ) : (
-                          <span className="text-xs text-muted-foreground">\u2014</span>
+                          <span className="text-xs text-[#71717A]">\u2014</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-sm text-muted-foreground">{n.submitted_by || "\u2014"}</td>
+                      <td className="px-4 py-2 text-sm text-[#71717A]">{n.submitted_by || "\u2014"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -320,7 +320,7 @@ export default function SiteReportsPage() {
           )}
 
           {(!notesData?.notes || notesData.notes.length === 0) && (
-            <div className="flex flex-col items-center py-12 text-muted-foreground">
+            <div className="flex flex-col items-center py-12 text-[#71717A]">
               <FileText className="h-10 w-10 mb-3 opacity-30" />
               <p>Aucun bon de livraison pour cette période</p>
             </div>

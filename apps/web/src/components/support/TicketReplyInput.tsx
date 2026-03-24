@@ -80,13 +80,13 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
   }
 
   return (
-    <div className="border-t border-border p-4">
+    <div className="border-t border-[#27272A] p-4">
       {files.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((f, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+            <div key={i} className="flex items-center gap-1.5 rounded-md bg-[#27272A] px-2 py-1 text-xs text-[#FAFAFA]">
               <span className="max-w-[150px] truncate">{f.name}</span>
-              <button type="button" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => removeFile(i)} className="text-[#71717A] hover:text-[#FAFAFA]">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -102,7 +102,7 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
             placeholder={t("writeReply")}
             disabled={disabled || sending}
             rows={2}
-            className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            className="w-full resize-none rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] disabled:opacity-50"
           />
         </div>
         <input
@@ -117,7 +117,7 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={disabled || sending || files.length >= MAX_FILES}
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="rounded-lg p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] disabled:opacity-50"
           title={t("attachments")}
         >
           <Paperclip className="h-4 w-4" />
@@ -126,7 +126,7 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
           type="button"
           onClick={handleSend}
           disabled={disabled || sending || (!content.trim() && files.length === 0)}
-          className="rounded-lg bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-lg bg-[#F97316] p-2 text-white hover:bg-[#F97316]/90 disabled:opacity-50"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
         </button>

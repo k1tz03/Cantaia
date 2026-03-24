@@ -227,9 +227,9 @@ function HistogramTooltip({ active, payload }: any) {
   if (!active || !payload?.[0]) return null;
   const data = payload[0].payload;
   return (
-    <div className="bg-background border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
-      <div className="font-medium text-foreground">CHF {formatFullCHF(data.bin)}</div>
-      <div className="text-muted-foreground">{data.count.toLocaleString("fr-CH")} simulations</div>
+    <div className="bg-[#0F0F11] border border-[#27272A] rounded-lg shadow-lg px-3 py-2 text-xs">
+      <div className="font-medium text-[#FAFAFA]">CHF {formatFullCHF(data.bin)}</div>
+      <div className="text-[#71717A]">{data.count.toLocaleString("fr-CH")} simulations</div>
     </div>
   );
 }
@@ -262,9 +262,9 @@ function sourceBadgeClass(source: string): string {
     case "benchmark_cantaia":
       return "bg-purple-500/10 text-purple-700 dark:text-purple-400";
     case "estimation_ia":
-      return "bg-primary/10 text-primary";
+      return "bg-[#F97316]/10 text-[#F97316]";
     default:
-      return "bg-muted text-muted-foreground";
+      return "bg-[#27272A] text-[#71717A]";
   }
 }
 
@@ -298,19 +298,19 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
   });
 
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden">
+    <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full px-4 py-3 flex items-center justify-between bg-muted hover:bg-muted transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between bg-[#27272A] hover:bg-[#27272A] transition-colors"
       >
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-brand" />
-          <span className="text-sm font-medium text-foreground">Simulation Monte Carlo</span>
-          <span className="text-xs text-muted-foreground">(10 000 scenarios)</span>
+          <span className="text-sm font-medium text-[#FAFAFA]">Simulation Monte Carlo</span>
+          <span className="text-xs text-[#71717A]">(10 000 scenarios)</span>
         </div>
         <svg
-          className={`h-4 w-4 text-muted-foreground transition-transform ${collapsed ? "" : "rotate-180"}`}
+          className={`h-4 w-4 text-[#71717A] transition-transform ${collapsed ? "" : "rotate-180"}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -394,13 +394,13 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
 
           {/* KPI cards */}
           <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">P10 (optimiste)</div>
-              <div className="text-sm font-semibold text-muted-foreground">CHF {formatFullCHF(Math.round(result.p10))}</div>
+            <div className="rounded-lg border border-[#27272A] bg-[#27272A]/50 p-3 text-center">
+              <div className="text-[10px] uppercase tracking-wider text-[#71717A] mb-1">P10 (optimiste)</div>
+              <div className="text-sm font-semibold text-[#71717A]">CHF {formatFullCHF(Math.round(result.p10))}</div>
             </div>
-            <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 text-center">
+            <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/10 p-3 text-center">
               <div className="text-[10px] uppercase tracking-wider text-blue-400 mb-1">P50 (mediane)</div>
-              <div className="text-sm font-bold text-primary">CHF {formatFullCHF(Math.round(result.p50))}</div>
+              <div className="text-sm font-bold text-[#F97316]">CHF {formatFullCHF(Math.round(result.p50))}</div>
             </div>
             <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-500/10 p-3 text-center">
               <div className="text-[10px] uppercase tracking-wider text-amber-500 mb-1">P80 (prudent)</div>
@@ -417,26 +417,26 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-xs font-medium text-foreground">Principaux facteurs d&apos;incertitude</span>
+                <span className="text-xs font-medium text-[#FAFAFA]">Principaux facteurs d&apos;incertitude</span>
               </div>
               <div className="space-y-1.5">
                 {result.topContributors.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 text-xs">
-                    <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
-                    <span className="text-foreground truncate flex-1" title={c.description}>
+                    <span className="text-[#71717A] font-mono w-4">{i + 1}.</span>
+                    <span className="text-[#FAFAFA] truncate flex-1" title={c.description}>
                       {c.description.length > 60 ? c.description.slice(0, 57) + "..." : c.description}
                     </span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${sourceBadgeClass(c.source)}`}>
                       {sourceLabel(c.source)}
                     </span>
                     <div className="w-24 flex items-center gap-1.5">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-[#27272A] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-amber-400 rounded-full"
                           style={{ width: `${Math.min(c.percentOfTotal, 100)}%` }}
                         />
                       </div>
-                      <span className="text-muted-foreground font-medium w-10 text-right">{c.percentOfTotal.toFixed(1)}%</span>
+                      <span className="text-[#71717A] font-medium w-10 text-right">{c.percentOfTotal.toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}
@@ -445,13 +445,13 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
           )}
 
           {/* Recalculate button + stats */}
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div className="text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between pt-2 border-t border-[#27272A]">
+            <div className="text-[10px] text-[#71717A]">
               Ecart-type: CHF {formatFullCHF(Math.round(result.stdDev))} | Moyenne: CHF {formatFullCHF(Math.round(result.mean))}
             </div>
             <button
               onClick={handleRecalculate}
-              className="text-xs text-muted-foreground hover:text-brand flex items-center gap-1 px-2 py-1 rounded hover:bg-muted transition-colors"
+              className="text-xs text-[#71717A] hover:text-brand flex items-center gap-1 px-2 py-1 rounded hover:bg-[#27272A] transition-colors"
             >
               <RefreshCw className="h-3 w-3" />
               Recalculer

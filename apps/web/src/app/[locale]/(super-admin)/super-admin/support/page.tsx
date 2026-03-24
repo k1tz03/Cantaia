@@ -82,57 +82,57 @@ export default function SuperAdminSupportPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{t("title")}</h1>
+      <h1 className="text-2xl font-bold text-[#FAFAFA] mb-6">{t("title")}</h1>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6">
-        <div className="rounded-lg border border-border bg-background p-4">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle className="h-4 w-4 text-blue-500" />
-            <span className="text-xs font-medium text-muted-foreground uppercase">{t("kpiOpen")}</span>
+            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiOpen")}</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{openCount}</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">{openCount}</p>
         </div>
-        <div className="rounded-lg border border-border bg-background p-4">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-medium text-muted-foreground uppercase">{t("kpiInProgress")}</span>
+            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiInProgress")}</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{inProgressCount}</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">{inProgressCount}</p>
         </div>
-        <div className="rounded-lg border border-border bg-background p-4">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <span className="text-xs font-medium text-muted-foreground uppercase">{t("kpiResolvedMonth")}</span>
+            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiResolvedMonth")}</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{thisMonth}</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">{thisMonth}</p>
         </div>
-        <div className="rounded-lg border border-border bg-background p-4">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
           <div className="flex items-center gap-2 mb-1">
             <MessageSquare className="h-4 w-4 text-purple-500" />
-            <span className="text-xs font-medium text-muted-foreground uppercase">Total</span>
+            <span className="text-xs font-medium text-[#71717A] uppercase">Total</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{tickets.length}</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">{tickets.length}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="mb-4 flex gap-3">
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
           <option value="">{t("allTickets")}</option>
           <option value="open">{t("statusOpen")}</option>
           <option value="in_progress">{t("statusInProgress")}</option>
           <option value="resolved">{t("statusResolved")}</option>
           <option value="closed">{t("statusClosed")}</option>
         </select>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
           <option value="">{t("category")}</option>
           <option value="bug">{t("categoryBug")}</option>
           <option value="question">{t("categoryQuestion")}</option>
           <option value="feature_request">{t("categoryFeature")}</option>
           <option value="billing">{t("categoryBilling")}</option>
         </select>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
           <option value="">{t("priority")}</option>
           <option value="low">{t("priorityLow")}</option>
           <option value="medium">{t("priorityMedium")}</option>
@@ -142,24 +142,24 @@ export default function SuperAdminSupportPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground">Chargement...</div>
+        <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>
       ) : tickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <LifeBuoy className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-muted-foreground">Aucun ticket</p>
+          <LifeBuoy className="h-12 w-12 text-[#71717A]/30 mb-4" />
+          <p className="text-[#71717A]">Aucun ticket</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-[#27272A] overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("subject")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Utilisateur</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Org</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("category")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{t("priority")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+              <tr className="border-b border-[#27272A] bg-[#27272A]/50">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("subject")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Utilisateur</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Org</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("category")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("priority")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Date</th>
                 <th className="px-4 py-3 w-8"></th>
               </tr>
             </thead>
@@ -168,23 +168,23 @@ export default function SuperAdminSupportPage() {
                 <tr
                   key={ticket.id}
                   onClick={() => router.push(`/super-admin/support/${ticket.id}`)}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                  className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-foreground">{ticket.subject}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">({ticket.message_count})</span>
+                    <span className="text-sm font-medium text-[#FAFAFA]">{ticket.subject}</span>
+                    <span className="ml-2 text-xs text-[#71717A]">({ticket.message_count})</span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-sm text-foreground">{ticket.user_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{ticket.user_email}</div>
+                    <div className="text-sm text-[#FAFAFA]">{ticket.user_name || "—"}</div>
+                    <div className="text-xs text-[#71717A]">{ticket.user_email}</div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{ticket.org_name || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-[#71717A]">{ticket.org_name || "—"}</td>
                   <td className="px-4 py-3"><TicketCategoryBadge category={ticket.category} /></td>
                   <td className="px-4 py-3">
                     <span className={`inline-block h-2 w-2 rounded-full ${PRIORITY_DOT[ticket.priority] || PRIORITY_DOT.medium}`} />
                   </td>
                   <td className="px-4 py-3"><TicketStatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{formatDate(ticket.created_at)}</td>
+                  <td className="px-4 py-3 text-sm text-[#71717A]">{formatDate(ticket.created_at)}</td>
                   <td className="px-4 py-3">
                     {hasUnread(ticket) && (
                       <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" title={t("unread")} />

@@ -178,15 +178,15 @@ export function ProjectPrixTab({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-border bg-background p-6">
+      <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">{t("prixTitle")}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t("prixDescription")}</p>
+            <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("prixTitle")}</h3>
+            <p className="mt-1 text-xs text-[#71717A]">{t("prixDescription")}</p>
           </div>
           <Link
             href="/cantaia-prix"
-            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
           >
             <TrendingUp className="h-3.5 w-3.5" />
             {t("viewCantaiaPrix")}
@@ -194,11 +194,11 @@ export function ProjectPrixTab({
         </div>
 
         {sections.length === 0 || benchmark.length === 0 ? (
-          <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-border bg-muted">
+          <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#27272A]">
             <div className="text-center">
-              <DollarSign className="mx-auto h-10 w-10 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-muted-foreground">{t("noPricesYet")}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t("pricesWillAppear")}</p>
+              <DollarSign className="mx-auto h-10 w-10 text-[#71717A]" />
+              <p className="mt-3 text-sm font-medium text-[#71717A]">{t("noPricesYet")}</p>
+              <p className="mt-1 text-xs text-[#71717A]">{t("pricesWillAppear")}</p>
             </div>
           </div>
         ) : (
@@ -207,24 +207,24 @@ export function ProjectPrixTab({
               const isCollapsed = collapsedSections.has(section.cfc || "zzz");
               const totalArticles = section.articles.length;
               return (
-                <div key={section.cfc || "zzz"} className="rounded-lg border border-border overflow-hidden">
+                <div key={section.cfc || "zzz"} className="rounded-lg border border-[#27272A] overflow-hidden">
                   {/* CFC Section Header */}
                   <button
                     type="button"
                     onClick={() => toggleSection(section.cfc || "zzz")}
-                    className="flex w-full items-center gap-3 bg-muted border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-muted transition-colors"
+                    className="flex w-full items-center gap-3 bg-[#27272A] border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-[#27272A] transition-colors"
                   >
                     <ChevronRight className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                      "h-4 w-4 text-[#71717A] transition-transform shrink-0",
                       !isCollapsed && "rotate-90"
                     )} />
                     {section.cfc && (
-                      <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary shrink-0">
+                      <span className="rounded bg-[#F97316]/10 px-2 py-0.5 font-mono text-[11px] font-medium text-[#F97316] shrink-0">
                         CFC {section.cfc}
                       </span>
                     )}
-                    <span className="text-sm font-medium text-foreground">{section.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                    <span className="text-sm font-medium text-[#FAFAFA]">{section.label}</span>
+                    <span className="ml-auto text-xs text-[#71717A] shrink-0">
                       {totalArticles} article{totalArticles > 1 ? "s" : ""}
                     </span>
                   </button>
@@ -239,20 +239,20 @@ export function ProjectPrixTab({
                           <div key={aIdx} className="px-4 py-3">
                             {/* Article header */}
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-sm font-medium text-foreground">{article.displayDescription}</span>
-                              <span className="text-xs text-muted-foreground shrink-0 ml-3">
+                              <span className="text-sm font-medium text-[#FAFAFA]">{article.displayDescription}</span>
+                              <span className="text-xs text-[#71717A] shrink-0 ml-3">
                                 {article.unite} — {article.suppliers.length} fournisseur{article.suppliers.length > 1 ? "s" : ""}
                               </span>
                             </div>
                             {/* Supplier lines */}
-                            <div className="space-y-1 pl-2 border-l-2 border-border ml-1">
+                            <div className="space-y-1 pl-2 border-l-2 border-[#27272A] ml-1">
                               {article.suppliers.map((sup, sIdx) => {
                                 const isBest = sup.price === minPrice && showBest;
                                 const overPct = minPrice > 0 ? Math.round(((sup.price - minPrice) / minPrice) * 100) : 0;
                                 return (
                                   <div key={sIdx} className="flex items-center gap-3 py-0.5 text-xs">
-                                    <span className="w-36 truncate text-muted-foreground">{sup.name}</span>
-                                    <span className="font-mono font-medium text-foreground">
+                                    <span className="w-36 truncate text-[#71717A]">{sup.name}</span>
+                                    <span className="font-mono font-medium text-[#FAFAFA]">
                                       {sup.price.toFixed(2)} CHF/{article.unite}
                                     </span>
                                     {isBest ? (

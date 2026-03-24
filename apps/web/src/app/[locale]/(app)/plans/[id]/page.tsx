@@ -233,13 +233,13 @@ export default function PlanDetailPage() {
     return (
       <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-          <Link href="/plans" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
+          <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-4">
             <ArrowLeft className="h-4 w-4" />
             {t("title")}
           </Link>
           <div className="flex flex-col items-center justify-center py-20">
-            <FileText className="h-12 w-12 text-muted-foreground mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">{t("planNotFound")}</p>
+            <FileText className="h-12 w-12 text-[#71717A] mb-3" />
+            <p className="text-sm font-medium text-[#71717A]">{t("planNotFound")}</p>
           </div>
         </div>
       </div>
@@ -252,7 +252,7 @@ export default function PlanDetailPage() {
   return (
     <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
+        <Link href="/plans" className="flex items-center gap-1.5 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-4">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
@@ -316,7 +316,7 @@ export default function PlanDetailPage() {
 
         {correctionPoste && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-background rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#0F0F11] rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
               <QuantityCorrectionModal
                 poste={correctionPoste}
                 onSave={handleSaveCorrection}
@@ -328,7 +328,7 @@ export default function PlanDetailPage() {
 
         {calibrationPoste && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-background rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#0F0F11] rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
               <PriceCalibrationModal
                 poste={calibrationPoste}
                 onSave={handleSaveCalibration}

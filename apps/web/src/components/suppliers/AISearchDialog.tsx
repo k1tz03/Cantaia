@@ -190,19 +190,19 @@ export function AISearchDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-3xl rounded-lg bg-background shadow-xl max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-3xl rounded-lg bg-[#0F0F11] shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-brand" />
-            <h2 className="text-sm font-semibold text-foreground">
+            <h2 className="text-sm font-semibold text-[#FAFAFA]">
               Recherche IA de fournisseurs
             </h2>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+            className="rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -213,14 +213,14 @@ export function AISearchDialog({
           <div className="space-y-4 mb-6">
             {/* CFC Codes */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">
+              <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
                 Codes CFC *
               </label>
               <input
                 type="text"
                 value={cfcCodesInput}
                 onChange={(e) => setCfcCodesInput(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                 placeholder="211, 271, 281 (separes par des virgules)"
               />
               {cfcCodesInput && (
@@ -228,7 +228,7 @@ export function AISearchDialog({
                   {parseCfcCodes(cfcCodesInput).map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center px-2 py-0.5 rounded bg-muted text-foreground text-xs font-mono"
+                      className="inline-flex items-center px-2 py-0.5 rounded bg-[#27272A] text-[#FAFAFA] text-xs font-mono"
                     >
                       {tag}
                     </span>
@@ -240,13 +240,13 @@ export function AISearchDialog({
             {/* Specialty + Geo zone */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">
+                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
                   Specialite *
                 </label>
                 <select
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">-- Selectionner --</option>
                   {SUPPLIER_SPECIALTIES.map((sp) => (
@@ -257,13 +257,13 @@ export function AISearchDialog({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">
+                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
                   Zone geographique *
                 </label>
                 <select
                   value={geoZone}
                   onChange={(e) => setGeoZone(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">-- Selectionner --</option>
                   {GEO_ZONES.map((z) => (
@@ -277,14 +277,14 @@ export function AISearchDialog({
 
             {/* Optional project description */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">
+              <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
                 Description du projet (optionnel)
               </label>
               <textarea
                 value={projectDescription}
                 onChange={(e) => setProjectDescription(e.target.value)}
                 rows={2}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                 placeholder="Ex: Construction d'un immeuble de bureaux, 5 etages, Lausanne centre"
               />
             </div>
@@ -323,7 +323,7 @@ export function AISearchDialog({
           {/* Results */}
           {hasSearched && !searching && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-3">
+              <p className="text-xs font-medium text-[#71717A] uppercase mb-3">
                 {suggestions.length > 0
                   ? `${suggestions.length} suggestion(s) trouvee(s)`
                   : "Aucune suggestion trouvee"}
@@ -340,17 +340,17 @@ export function AISearchDialog({
                       className={`rounded-lg border p-4 ${
                         isImported
                           ? "border-green-200 bg-green-500/10"
-                          : "border-border bg-background"
+                          : "border-[#27272A] bg-[#0F0F11]"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-foreground">
+                          <h3 className="text-sm font-semibold text-[#FAFAFA]">
                             {s.company_name}
                           </h3>
 
                           {/* Contact info line */}
-                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#71717A]">
                             {s.city && (
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
@@ -368,7 +368,7 @@ export function AISearchDialog({
                                 href={s.website}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-primary hover:underline"
+                                className="flex items-center gap-1 text-[#F97316] hover:underline"
                               >
                                 <Globe className="h-3 w-3" />
                                 Site web
@@ -382,7 +382,7 @@ export function AISearchDialog({
                               {s.specialties.map((sp) => (
                                 <span
                                   key={sp}
-                                  className="inline-flex items-center px-2 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium"
+                                  className="inline-flex items-center px-2 py-0.5 rounded bg-[#F97316]/10 text-[#F97316] text-[11px] font-medium"
                                 >
                                   {getSpecialtyLabel(sp)}
                                 </span>
@@ -392,7 +392,7 @@ export function AISearchDialog({
 
                           {/* Reason */}
                           {s.reason && (
-                            <p className="mt-2 text-xs text-muted-foreground italic">
+                            <p className="mt-2 text-xs text-[#71717A] italic">
                               {s.reason}
                             </p>
                           )}
@@ -433,10 +433,10 @@ export function AISearchDialog({
           {searching && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Loader2 className="h-8 w-8 animate-spin text-brand mb-3" />
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-[#71717A]">
                 L&apos;IA recherche des fournisseurs correspondants...
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-[#71717A] mt-1">
                 Cela peut prendre quelques secondes
               </p>
             </div>
@@ -444,12 +444,12 @@ export function AISearchDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border px-5 py-3.5">
+        <div className="border-t border-[#27272A] px-5 py-3.5">
           <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
             >
               Fermer
             </button>

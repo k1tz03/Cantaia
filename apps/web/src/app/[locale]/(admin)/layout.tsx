@@ -27,16 +27,16 @@ export default function AdminLayout({
         }`}
       >
         {/* Header */}
-        <div className="flex h-14 items-center gap-2 border-b border-border px-3">
-          <Building2 className="h-5 w-5 shrink-0 text-primary" />
+        <div className="flex h-14 items-center gap-2 border-b border-[#27272A] px-3">
+          <Building2 className="h-5 w-5 shrink-0 text-[#F97316]" />
           {!collapsed && (
-            <span className="text-sm font-bold text-foreground">
+            <span className="text-sm font-bold text-[#FAFAFA]">
               {t("title")}
             </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="ml-auto rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -50,10 +50,10 @@ export default function AdminLayout({
         <div className="flex-1" />
 
         {/* Back to app */}
-        <div className="border-t border-border p-2">
+        <div className="border-t border-[#27272A] p-2">
           <Link
             href="/mail"
-            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             {!collapsed && <span>{t("backToApp")}</span>}

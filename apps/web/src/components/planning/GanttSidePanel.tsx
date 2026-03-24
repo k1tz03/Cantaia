@@ -288,13 +288,13 @@ export default function GanttSidePanel({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 400, damping: 35 }}
-            className="fixed right-0 top-0 bottom-0 w-[400px] max-w-[90vw] bg-background border-l border-border shadow-2xl z-50 flex flex-col"
+            className="fixed right-0 top-0 bottom-0 w-[400px] max-w-[90vw] bg-[#0F0F11] border-l border-[#27272A] shadow-2xl z-50 flex flex-col"
           >
             {/* ─── Header ────────────────────────────────── */}
-            <div className="flex items-start gap-3 px-5 pt-5 pb-3 border-b border-border">
+            <div className="flex items-start gap-3 px-5 pt-5 pb-3 border-b border-[#27272A]">
               <div className="flex-1 min-w-0">
                 {readOnly ? (
-                  <h2 className="text-lg font-semibold text-foreground truncate">
+                  <h2 className="text-lg font-semibold text-[#FAFAFA] truncate">
                     {task.name}
                   </h2>
                 ) : (
@@ -306,18 +306,18 @@ export default function GanttSidePanel({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                     }}
-                    className="w-full text-lg font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0 p-0 truncate"
+                    className="w-full text-lg font-semibold text-[#FAFAFA] bg-transparent border-none focus:outline-none focus:ring-0 p-0 truncate"
                   />
                 )}
                 {task.cfc_code && (
-                  <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                  <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-[#27272A] text-[#71717A]">
                     CFC {task.cfc_code}
                   </span>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors shrink-0"
+                className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#71717A] hover:text-[#71717A] transition-colors shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -334,7 +334,7 @@ export default function GanttSidePanel({
                       value={startDate}
                       onChange={(e) => handleStartChange(e.target.value)}
                       disabled={readOnly}
-                      className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                     />
                   </FieldLabel>
                   <FieldLabel label={t("task.endDate")}>
@@ -343,7 +343,7 @@ export default function GanttSidePanel({
                       value={endDate}
                       onChange={(e) => handleEndChange(e.target.value)}
                       disabled={readOnly}
-                      className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                     />
                   </FieldLabel>
                 </div>
@@ -357,9 +357,9 @@ export default function GanttSidePanel({
                         handleDurationChange(parseInt(e.target.value, 10) || 1)
                       }
                       disabled={readOnly}
-                      className="w-24 rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      className="w-24 rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                     />
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-[#71717A]">
                       {t("taskList.daysShort")}
                     </span>
                   </div>
@@ -373,7 +373,7 @@ export default function GanttSidePanel({
                     value={phaseId}
                     onChange={(e) => handlePhaseChange(e.target.value)}
                     disabled={readOnly}
-                    className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                   >
                     {phases.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -391,7 +391,7 @@ export default function GanttSidePanel({
                       // The parent can look up the supplier id if needed
                     }}
                     disabled={readOnly}
-                    className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                   >
                     <option value="">{t("sidePanel.noSupplier")}</option>
                     {suppliers.map((s) => (
@@ -415,9 +415,9 @@ export default function GanttSidePanel({
                           )
                         }
                         disabled={readOnly}
-                        className="w-20 rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                        className="w-20 rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                       />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[#71717A]">
                         {t("sidePanel.teamSize")}
                       </span>
                     </div>
@@ -437,7 +437,7 @@ export default function GanttSidePanel({
                       }}
                       disabled={readOnly}
                       placeholder="211.1"
-                      className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                      className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                     />
                   </FieldLabel>
                 </div>
@@ -458,14 +458,14 @@ export default function GanttSidePanel({
                       disabled={readOnly}
                       className="flex-1 h-2 accent-blue-600"
                     />
-                    <span className="ml-3 text-sm font-medium text-foreground w-12 text-right">
+                    <span className="ml-3 text-sm font-medium text-[#FAFAFA] w-12 text-right">
                       {progress}%
                     </span>
                   </div>
                   {/* Preview bar */}
-                  <div className="h-3 rounded-full bg-muted overflow-hidden">
+                  <div className="h-3 rounded-full bg-[#27272A] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-primary/100 transition-all"
+                      className="h-full rounded-full bg-[#F97316]/100 transition-all"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -475,7 +475,7 @@ export default function GanttSidePanel({
               {/* Section: Dependencies */}
               <Section title={t("sidePanel.dependencies")}>
                 {predecessorDeps.length === 0 && !showDepForm && (
-                  <p className="text-sm text-muted-foreground italic mb-2">
+                  <p className="text-sm text-[#71717A] italic mb-2">
                     {t("sidePanel.noDependencies")}
                   </p>
                 )}
@@ -487,16 +487,16 @@ export default function GanttSidePanel({
                   return (
                     <div
                       key={dep.id}
-                      className="flex items-center gap-2 py-1.5 border-b border-border last:border-0"
+                      className="flex items-center gap-2 py-1.5 border-b border-[#27272A] last:border-0"
                     >
-                      <span className="text-sm text-foreground truncate flex-1">
+                      <span className="text-sm text-[#FAFAFA] truncate flex-1">
                         {predTask?.name ?? dep.predecessor_id}
                       </span>
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#F97316]/10 text-[#F97316]">
                         {dep.dependency_type}
                       </span>
                       {dep.lag_days !== 0 && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-[#71717A]">
                           {dep.lag_days > 0 ? "+" : ""}
                           {dep.lag_days}
                           {t("sidePanel.lagDays")}
@@ -505,7 +505,7 @@ export default function GanttSidePanel({
                       {!readOnly && (
                         <button
                           onClick={() => onRemoveDependency(dep.id)}
-                          className="p-0.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
+                          className="p-0.5 rounded hover:bg-red-50 text-[#71717A] hover:text-red-500 transition-colors"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -516,11 +516,11 @@ export default function GanttSidePanel({
 
                 {/* Add dependency form */}
                 {showDepForm && (
-                  <div className="mt-2 p-3 border border-border rounded-lg bg-muted space-y-2">
+                  <div className="mt-2 p-3 border border-[#27272A] rounded-lg bg-[#27272A] space-y-2">
                     <select
                       value={depTaskId}
                       onChange={(e) => setDepTaskId(e.target.value)}
-                      className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-[#27272A] px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="">
                         {t("sidePanel.selectTask")}
@@ -533,7 +533,7 @@ export default function GanttSidePanel({
                     </select>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground shrink-0">
+                      <span className="text-xs text-[#71717A] shrink-0">
                         {t("sidePanel.depType")}:
                       </span>
                       <div className="flex gap-1">
@@ -545,7 +545,7 @@ export default function GanttSidePanel({
                               "px-2 py-0.5 text-[10px] font-bold uppercase rounded transition-colors",
                               depType === dt
                                 ? "bg-blue-600 text-white"
-                                : "bg-muted text-muted-foreground hover:bg-muted",
+                                : "bg-[#27272A] text-[#71717A] hover:bg-[#27272A]",
                             ].join(" ")}
                           >
                             {dt}
@@ -555,7 +555,7 @@ export default function GanttSidePanel({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground shrink-0">
+                      <span className="text-xs text-[#71717A] shrink-0">
                         {t("sidePanel.lag")}:
                       </span>
                       <input
@@ -564,9 +564,9 @@ export default function GanttSidePanel({
                         onChange={(e) =>
                           setDepLag(parseInt(e.target.value, 10) || 0)
                         }
-                        className="w-16 rounded border border-border px-2 py-1 text-sm"
+                        className="w-16 rounded border border-[#27272A] px-2 py-1 text-sm"
                       />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[#71717A]">
                         {t("sidePanel.lagDays")}
                       </span>
                     </div>
@@ -581,7 +581,7 @@ export default function GanttSidePanel({
                       </button>
                       <button
                         onClick={() => setShowDepForm(false)}
-                        className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        className="px-3 py-1 text-xs text-[#71717A] hover:text-[#FAFAFA]"
                       >
                         {t("config.cancel")}
                       </button>
@@ -592,7 +592,7 @@ export default function GanttSidePanel({
                 {!readOnly && !showDepForm && (
                   <button
                     onClick={() => setShowDepForm(true)}
-                    className="flex items-center gap-1.5 mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    className="flex items-center gap-1.5 mt-2 text-xs font-medium text-[#F97316] hover:text-[#F97316]/80 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     {t("sidePanel.addPredecessor")}
@@ -608,7 +608,7 @@ export default function GanttSidePanel({
                   disabled={readOnly}
                   rows={3}
                   placeholder="..."
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                  className="w-full rounded-lg border border-[#27272A] px-3 py-2 text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                 />
               </Section>
 
@@ -618,7 +618,7 @@ export default function GanttSidePanel({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
                     >
                       <Copy className="h-3.5 w-3.5" />
                       {t("contextMenu.duplicate")}
@@ -626,7 +626,7 @@ export default function GanttSidePanel({
                     {!task.is_milestone && (
                       <button
                         type="button"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#71717A] border border-[#27272A] rounded-lg hover:bg-[#27272A] transition-colors"
                       >
                         <Diamond className="h-3.5 w-3.5" />
                         {t("sidePanel.convertToMilestone")}
@@ -649,7 +649,7 @@ export default function GanttSidePanel({
                         </button>
                         <button
                           onClick={() => setConfirmDelete(false)}
-                          className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                          className="px-3 py-1 text-xs text-[#71717A] hover:text-[#FAFAFA]"
                         >
                           {t("config.cancel")}
                         </button>
@@ -687,7 +687,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+      <h3 className="text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-2">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -704,7 +704,7 @@ function FieldLabel({
 }) {
   return (
     <div>
-      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
+      <label className="block text-xs text-[#71717A] mb-1">{label}</label>
       {children}
     </div>
   );

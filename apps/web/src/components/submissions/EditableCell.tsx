@@ -39,7 +39,7 @@ export function EditableCell({
             if (e.key === "Escape") onSave(value);
           }}
           autoFocus
-          className="w-full bg-background border border-brand rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+          className="w-full bg-[#0F0F11] border border-brand rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
         />
       </td>
     );
@@ -47,12 +47,12 @@ export function EditableCell({
 
   return (
     <td
-      className={`${className} cursor-pointer hover:bg-primary/10 group/cell`}
+      className={`${className} cursor-pointer hover:bg-[#F97316]/10 group/cell`}
       onClick={onStartEdit}
     >
       <div className="flex items-center gap-1">
         <span className="flex-1 truncate">{value || "—"}</span>
-        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/cell:opacity-100 shrink-0" />
+        <Pencil className="h-3 w-3 text-[#71717A] opacity-0 group-hover/cell:opacity-100 shrink-0" />
       </div>
     </td>
   );

@@ -140,7 +140,7 @@ export function EmailProcessingActions({
     {
       key: "replied",
       icon: Reply,
-      color: "text-primary hover:bg-primary/10",
+      color: "text-[#F97316] hover:bg-[#F97316]/10",
       onClick: () => processEmail("replied"),
     },
     {
@@ -158,7 +158,7 @@ export function EmailProcessingActions({
     {
       key: "dismissed",
       icon: X,
-      color: "text-muted-foreground hover:bg-muted",
+      color: "text-[#71717A] hover:bg-[#27272A]",
       onClick: () => processEmail("dismissed"),
     },
   ];
@@ -209,7 +209,7 @@ export function EmailProcessingActions({
             )}
           </button>
           {showSnooze && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-md border border-border bg-background py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-md border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
               {SNOOZE_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
@@ -217,7 +217,7 @@ export function EmailProcessingActions({
                     e.stopPropagation();
                     snoozeEmail(opt.key);
                   }}
-                  className="flex w-full px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                  className="flex w-full px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
                 >
                   {t(`snooze_${opt.key}`)}
                 </button>
@@ -232,7 +232,7 @@ export function EmailProcessingActions({
   // Full layout for detail panel
   return (
     <div className="space-y-2">
-      <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
         {t("actions")}
       </h4>
       <div className="grid grid-cols-2 gap-2">
@@ -245,7 +245,7 @@ export function EmailProcessingActions({
               onClick={a.onClick}
               disabled={!!processing}
               className={cn(
-                "flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50",
+                "flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50",
                 a.color
               )}
             >
@@ -264,7 +264,7 @@ export function EmailProcessingActions({
           <button
             onClick={() => setShowSnooze(!showSnooze)}
             disabled={!!processing}
-            className="flex w-full items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+            className="flex w-full items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
           >
             {processing === "snooze" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -275,12 +275,12 @@ export function EmailProcessingActions({
             <ChevronDown className="ml-auto h-3 w-3" />
           </button>
           {showSnooze && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-full rounded-md border border-border bg-background py-1 shadow-lg">
+            <div className="absolute left-0 top-full z-30 mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
               {SNOOZE_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
                   onClick={() => snoozeEmail(opt.key)}
-                  className="flex w-full px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                  className="flex w-full px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
                 >
                   {t(`snooze_${opt.key}`)}
                 </button>
@@ -294,7 +294,7 @@ export function EmailProcessingActions({
           <button
             onClick={() => setShowReclassify(!showReclassify)}
             disabled={!!processing}
-            className="flex w-full items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            className="flex w-full items-center gap-1.5 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] transition-colors hover:bg-[#27272A] disabled:opacity-50"
           >
             {processing === "reclassify" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -305,12 +305,12 @@ export function EmailProcessingActions({
             <ChevronDown className="ml-auto h-3 w-3" />
           </button>
           {showReclassify && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
+            <div className="absolute left-0 top-full z-30 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
               {projects.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => processEmail("reclassify", { project_id: p.id })}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
                 >
                   <span
                     className="h-2 w-2 rounded-full"
@@ -327,7 +327,7 @@ export function EmailProcessingActions({
         <button
           onClick={archiveEmail}
           disabled={!!processing}
-          className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+          className="col-span-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] transition-colors hover:bg-[#27272A] disabled:opacity-50"
         >
           {processing === "archive" ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

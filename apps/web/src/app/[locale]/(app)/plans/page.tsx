@@ -57,10 +57,10 @@ interface PlanFromApi {
 
 const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
   active: { labelKey: "statusActive", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
-  superseded: { labelKey: "statusSuperseded", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
-  withdrawn: { labelKey: "statusWithdrawn", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
+  superseded: { labelKey: "statusSuperseded", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
+  withdrawn: { labelKey: "statusWithdrawn", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
   for_approval: { labelKey: "statusForApproval", color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20", icon: Clock },
-  approved: { labelKey: "statusApproved", color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: CheckCircle },
+  approved: { labelKey: "statusApproved", color: "text-[#F97316]", bg: "bg-[#F97316]/10 border-[#F97316]/20", icon: CheckCircle },
   rejected: { labelKey: "statusRejected", color: "text-red-600", bg: "bg-red-500/10 border-red-500/20", icon: AlertTriangle },
 };
 
@@ -251,7 +251,7 @@ export default function PlansPage() {
   }, [plans]);
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground" />;
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-[#71717A]" />;
     return sortDir === "asc"
       ? <ArrowUp className="h-3 w-3 ml-1 text-brand" />
       : <ArrowDown className="h-3 w-3 ml-1 text-brand" />;
@@ -263,31 +263,31 @@ export default function PlansPage() {
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <div className="mb-6 flex items-start justify-between">
             <div>
-              <div className="h-6 w-40 animate-pulse rounded-lg bg-muted" />
-              <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-muted" />
+              <div className="h-6 w-40 animate-pulse rounded-lg bg-[#27272A]" />
+              <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-[#27272A]" />
             </div>
             <div className="flex gap-2">
-              <div className="h-9 w-36 animate-pulse rounded-lg bg-muted" />
-              <div className="h-9 w-32 animate-pulse rounded-lg bg-muted" />
+              <div className="h-9 w-36 animate-pulse rounded-lg bg-[#27272A]" />
+              <div className="h-9 w-32 animate-pulse rounded-lg bg-[#27272A]" />
             </div>
           </div>
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-xl border border-border bg-background p-4 shadow-sm">
+              <div key={i} className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-4 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 animate-pulse rounded-lg bg-muted" />
+                  <div className="h-9 w-9 animate-pulse rounded-lg bg-[#27272A]" />
                   <div>
-                    <div className="h-5 w-10 animate-pulse rounded bg-muted mb-1" />
-                    <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                    <div className="h-5 w-10 animate-pulse rounded bg-[#27272A] mb-1" />
+                    <div className="h-3 w-20 animate-pulse rounded bg-[#27272A]" />
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <div className="h-10 w-full animate-pulse rounded-lg bg-muted mb-4" />
+          <div className="h-10 w-full animate-pulse rounded-lg bg-[#27272A] mb-4" />
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-14 w-full animate-pulse rounded-xl bg-background border border-border shadow-sm" />
+              <div key={i} className="h-14 w-full animate-pulse rounded-xl bg-[#0F0F11] border border-[#27272A] shadow-sm" />
             ))}
           </div>
         </div>
@@ -301,21 +301,21 @@ export default function PlansPage() {
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h1 className="font-display text-xl font-bold text-foreground">{t("title")}</h1>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">{t("subtitle")}</p>
+            <h1 className="font-display text-xl font-bold text-[#FAFAFA]">{t("title")}</h1>
+            <p className="mt-0.5 text-[13px] text-[#71717A]">{t("subtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleRescan}
               disabled={rescanning}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:border-border disabled:opacity-50 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] hover:border-[#27272A] disabled:opacity-50 transition-all"
             >
               <RefreshCw className={cn("h-4 w-4", rescanning && "animate-spin")} />
               {rescanning ? t("rescanning") : t("rescanEmails")}
             </button>
             <Link
               href="/plans/upload"
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90 hover:shadow transition-all"
+              className="flex items-center gap-1.5 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#F97316]/90 hover:shadow transition-all"
             >
               <Plus className="h-4 w-4" />
               {t("uploadPlan")}
@@ -325,47 +325,47 @@ export default function PlansPage() {
 
         {/* Stats */}
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                <FileStack className="h-4 w-4 text-primary" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F97316]/10">
+                <FileStack className="h-4 w-4 text-[#F97316]" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{totalPlans}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">{t("totalPlans")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">{totalPlans}</p>
+                <p className="text-[11px] font-medium text-[#71717A]">{t("totalPlans")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
                 <FileText className="h-4 w-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{totalVersions}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">{t("totalVersions")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">{totalVersions}</p>
+                <p className="text-[11px] font-medium text-[#71717A]">{t("totalVersions")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{outdatedAlerts}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">{t("outdatedAlerts")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">{outdatedAlerts}</p>
+                <p className="text-[11px] font-medium text-[#71717A]">{t("outdatedAlerts")}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
                 <Clock className="h-4 w-4 text-purple-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{pendingApproval}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">{t("pendingApproval")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">{pendingApproval}</p>
+                <p className="text-[11px] font-medium text-[#71717A]">{t("pendingApproval")}</p>
               </div>
             </div>
           </div>
@@ -375,13 +375,13 @@ export default function PlansPage() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
             <input
               type="text"
               placeholder={t("searchPlans")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] py-2 pl-10 pr-3 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all"
             />
           </div>
 
@@ -391,17 +391,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowProjectDropdown(!showProjectDropdown); setShowDisciplineDropdown(false); setShowStatusDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:border-border transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] hover:border-[#27272A] transition-all"
               >
                 {t("filterProject")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showProjectDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-border bg-background py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
                   <button
                     onClick={() => { setProjectFilter("all"); setShowProjectDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                       projectFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -412,7 +412,7 @@ export default function PlansPage() {
                       key={p.id}
                       onClick={() => { setProjectFilter(p.id); setShowProjectDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                         projectFilter === p.id && "font-semibold text-brand"
                       )}
                     >
@@ -428,17 +428,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowDisciplineDropdown(!showDisciplineDropdown); setShowProjectDropdown(false); setShowStatusDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:border-border transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] hover:border-[#27272A] transition-all"
               >
                 {t("filterDiscipline")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showDisciplineDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-border bg-background py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
                   <button
                     onClick={() => { setDisciplineFilter("all"); setShowDisciplineDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                       disciplineFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -449,7 +449,7 @@ export default function PlansPage() {
                       key={d}
                       onClick={() => { setDisciplineFilter(d); setShowDisciplineDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                         disciplineFilter === d && "font-semibold text-brand"
                       )}
                     >
@@ -464,17 +464,17 @@ export default function PlansPage() {
             <div className="relative">
               <button
                 onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowProjectDropdown(false); setShowDisciplineDropdown(false); }}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:border-border transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] hover:border-[#27272A] transition-all"
               >
                 {t("filterStatus")}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showStatusDropdown && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-background py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-[#27272A] bg-[#0F0F11] py-1 shadow-lg">
                   <button
                     onClick={() => { setStatusFilter("all"); setShowStatusDropdown(false); }}
                     className={cn(
-                      "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                      "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                       statusFilter === "all" && "font-semibold text-brand"
                     )}
                   >
@@ -485,7 +485,7 @@ export default function PlansPage() {
                       key={s}
                       onClick={() => { setStatusFilter(s); setShowStatusDropdown(false); }}
                       className={cn(
-                        "w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors",
+                        "w-full px-3 py-1.5 text-left text-xs hover:bg-[#27272A] transition-colors",
                         statusFilter === s && "font-semibold text-brand"
                       )}
                     >
@@ -497,12 +497,12 @@ export default function PlansPage() {
             </div>
 
             {/* View toggle */}
-            <div className="ml-2 flex items-center rounded-md border border-border bg-background">
+            <div className="ml-2 flex items-center rounded-md border border-[#27272A] bg-[#0F0F11]">
               <button
                 onClick={() => toggleView("list")}
                 className={cn(
                   "flex items-center gap-1 rounded-l-md px-2.5 py-2 text-xs font-medium transition-colors",
-                  viewMode === "list" ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted transition-colors"
+                  viewMode === "list" ? "bg-brand text-white" : "text-[#71717A] hover:bg-[#27272A] transition-colors"
                 )}
                 title={t("viewList")}
               >
@@ -512,7 +512,7 @@ export default function PlansPage() {
                 onClick={() => toggleView("grid")}
                 className={cn(
                   "flex items-center gap-1 rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors",
-                  viewMode === "grid" ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted transition-colors"
+                  viewMode === "grid" ? "bg-brand text-white" : "text-[#71717A] hover:bg-[#27272A] transition-colors"
                 )}
                 title={t("viewGrid")}
               >
@@ -524,7 +524,7 @@ export default function PlansPage() {
 
         {/* Rescan result banner */}
         {rescanResult && (
-          <div className="mb-4 flex items-center gap-2 rounded-md bg-primary/10 px-4 py-2.5 text-sm text-primary ring-1 ring-inset ring-primary/20">
+          <div className="mb-4 flex items-center gap-2 rounded-md bg-[#F97316]/10 px-4 py-2.5 text-sm text-[#F97316] ring-1 ring-inset ring-[#F97316]/20">
             <CheckCircle className="h-4 w-4 shrink-0" />
             {rescanResult.plans_saved > 0
               ? `${rescanResult.scanned} emails analysés, ${rescanResult.plans_saved} plan(s) détecté(s) et sauvegardé(s)`
@@ -534,10 +534,10 @@ export default function PlansPage() {
 
         {/* Empty state */}
         {filteredPlans.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-16">
-            <FileStack className="h-12 w-12 text-muted-foreground mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">{t("noPlans")}</p>
-            <p className="mt-1 text-xs text-muted-foreground max-w-sm text-center">{t("noPlansDescription")}</p>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-16">
+            <FileStack className="h-12 w-12 text-[#71717A] mb-3" />
+            <p className="text-sm font-medium text-[#71717A]">{t("noPlans")}</p>
+            <p className="mt-1 text-xs text-[#71717A] max-w-sm text-center">{t("noPlansDescription")}</p>
             {!rescanning && !rescanResult && (
               <button
                 onClick={handleRescan}
@@ -552,12 +552,12 @@ export default function PlansPage() {
 
         {/* List view */}
         {filteredPlans.length > 0 && viewMode === "list" && (
-          <div className="overflow-x-auto rounded-lg border border-border bg-background">
+          <div className="overflow-x-auto rounded-lg border border-[#27272A] bg-[#0F0F11]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
+                <tr className="border-b border-[#27272A] bg-[#27272A]/50">
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("plan_number")}
                   >
                     <span className="flex items-center">
@@ -566,7 +566,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("plan_title")}
                   >
                     <span className="flex items-center">
@@ -574,11 +574,11 @@ export default function PlansPage() {
                       <SortIcon field="plan_title" />
                     </span>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
                     {t("colProject")}
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("discipline")}
                   >
                     <span className="flex items-center">
@@ -587,7 +587,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("version")}
                   >
                     <span className="flex items-center">
@@ -596,7 +596,7 @@ export default function PlansPage() {
                     </span>
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("version_date")}
                   >
                     <span className="flex items-center">
@@ -604,11 +604,11 @@ export default function PlansPage() {
                       <SortIcon field="version_date" />
                     </span>
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
                     {t("colAuthor")}
                   </th>
                   <th
-                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA]"
                     onClick={() => toggleSort("status")}
                   >
                     <span className="flex items-center">
@@ -625,7 +625,7 @@ export default function PlansPage() {
                   return (
                     <tr
                       key={plan.id}
-                      className="hover:bg-muted/50 transition-colors"
+                      className="hover:bg-[#27272A]/50 transition-colors"
                     >
                       <td className="px-3 py-2.5">
                         <Link
@@ -637,9 +637,9 @@ export default function PlansPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <Link href={`/plans/${plan.id}`} className="hover:text-brand transition-colors">
-                          <p className="text-sm font-medium text-foreground">{plan.plan_title}</p>
+                          <p className="text-sm font-medium text-[#FAFAFA]">{plan.plan_title}</p>
                           {plan.zone && (
-                            <p className="text-[11px] text-muted-foreground">{plan.zone}</p>
+                            <p className="text-[11px] text-[#71717A]">{plan.zone}</p>
                           )}
                         </Link>
                       </td>
@@ -647,7 +647,7 @@ export default function PlansPage() {
                         {plan.project && (
                           <div className="flex items-center gap-1.5">
                             <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
-                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{plan.project.name}</span>
+                            <span className="text-xs text-[#71717A] truncate max-w-[120px]">{plan.project.name}</span>
                           </div>
                         )}
                       </td>
@@ -663,18 +663,18 @@ export default function PlansPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-muted text-[10px] font-bold text-foreground">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#27272A] text-[10px] font-bold text-[#FAFAFA]">
                             {plan.current_version?.version_code || "—"}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[10px] text-[#71717A]">
                             ({plan.version_count})
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      <td className="px-3 py-2.5 text-xs text-[#71717A]">
                         {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground truncate max-w-[140px]">
+                      <td className="px-3 py-2.5 text-xs text-[#71717A] truncate max-w-[140px]">
                         {plan.author_company || "—"}
                       </td>
                       <td className="px-3 py-2.5">
@@ -704,7 +704,7 @@ export default function PlansPage() {
                 <Link
                   key={plan.id}
                   href={`/plans/${plan.id}`}
-                  className="group rounded-lg border border-border bg-background p-4 transition-all hover:shadow-md hover:bg-muted/50"
+                  className="group rounded-lg border border-[#27272A] bg-[#0F0F11] p-4 transition-all hover:shadow-md hover:bg-[#27272A]/50"
                 >
                   {/* Header: number + status */}
                   <div className="flex items-start justify-between mb-2">
@@ -719,7 +719,7 @@ export default function PlansPage() {
                   </div>
 
                   {/* Title */}
-                  <p className="text-sm font-medium text-foreground mb-1 line-clamp-2 group-hover:text-brand transition-colors">
+                  <p className="text-sm font-medium text-[#FAFAFA] mb-1 line-clamp-2 group-hover:text-brand transition-colors">
                     {plan.plan_title}
                   </p>
 
@@ -727,7 +727,7 @@ export default function PlansPage() {
                   {plan.project && (
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="h-2 w-2 rounded-full shrink-0 bg-brand" />
-                      <span className="text-[11px] text-muted-foreground truncate">{plan.project.name}</span>
+                      <span className="text-[11px] text-[#71717A] truncate">{plan.project.name}</span>
                     </div>
                   )}
 
@@ -742,33 +742,33 @@ export default function PlansPage() {
                       </span>
                     )}
                     {plan.zone && (
-                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] text-[#71717A]">
                         {plan.zone}
                       </span>
                     )}
                     {plan.scale && (
-                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] text-[#71717A]">
                         {plan.scale}
                       </span>
                     )}
                   </div>
 
                   {/* Footer: version + date + author */}
-                  <div className="flex items-center justify-between border-t border-border pt-2">
+                  <div className="flex items-center justify-between border-t border-[#27272A] pt-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-muted text-[10px] font-bold text-foreground">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#27272A] text-[10px] font-bold text-[#FAFAFA]">
                         {plan.current_version?.version_code || "—"}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[10px] text-[#71717A]">
                         {plan.version_count > 1 ? `${plan.version_count} versions` : "1 version"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-[#71717A]">
                       {plan.current_version?.version_date ? formatDate(plan.current_version.version_date) : "—"}
                     </span>
                   </div>
                   {plan.author_company && (
-                    <p className="mt-1 text-[10px] text-muted-foreground truncate">{plan.author_company}</p>
+                    <p className="mt-1 text-[10px] text-[#71717A] truncate">{plan.author_company}</p>
                   )}
                 </Link>
               );

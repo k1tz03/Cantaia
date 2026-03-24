@@ -92,14 +92,14 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Chargement...</div>;
+    return <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>;
   }
 
   if (error || !ticket) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
-        <p className="text-muted-foreground">{error}</p>
+        <p className="text-[#71717A]">{error}</p>
       </div>
     );
   }
@@ -109,13 +109,13 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
       {/* Main thread */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="mb-4">
-          <Link href="/super-admin/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+          <Link href="/super-admin/support" className="inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-3">
             <ArrowLeft className="h-4 w-4" />
             {t("allTickets")}
           </Link>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-lg font-semibold text-foreground">{ticket.subject}</h1>
+              <h1 className="text-lg font-semibold text-[#FAFAFA]">{ticket.subject}</h1>
               <div className="mt-1.5 flex items-center gap-2">
                 <TicketCategoryBadge category={ticket.category} />
                 <TicketStatusBadge status={ticket.status} />
@@ -124,7 +124,7 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
             <select
               value={ticket.status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+              className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm text-[#FAFAFA]"
             >
               <option value="open">{t("statusOpen")}</option>
               <option value="in_progress">{t("statusInProgress")}</option>
@@ -134,7 +134,7 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden rounded-lg border border-border flex flex-col min-h-0">
+        <div className="flex-1 overflow-hidden rounded-lg border border-[#27272A] flex flex-col min-h-0">
           <TicketThread messages={messages} currentUserId={user?.id || ""} />
           <TicketReplyInput ticketId={ticket.id} onSend={handleSend} />
         </div>
@@ -142,27 +142,27 @@ export default function SuperAdminSupportDetailPage({ params }: { params: Promis
 
       {/* User info sidebar */}
       <div className="w-72 shrink-0">
-        <div className="rounded-lg border border-border bg-background p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">{t("userInfo")}</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4 space-y-4">
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("userInfo")}</h3>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
+              <User className="h-4 w-4 text-[#71717A]" />
               <div>
-                <p className="text-sm font-medium text-foreground">{ticket.user_name || "—"}</p>
-                <p className="text-xs text-muted-foreground">{ticket.user_email}</p>
+                <p className="text-sm font-medium text-[#FAFAFA]">{ticket.user_name || "—"}</p>
+                <p className="text-xs text-[#71717A]">{ticket.user_email}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm text-foreground">{ticket.org_name || "—"}</p>
+              <Building2 className="h-4 w-4 text-[#71717A]" />
+              <p className="text-sm text-[#FAFAFA]">{ticket.org_name || "—"}</p>
             </div>
             <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm text-foreground capitalize">{ticket.org_plan || "trial"}</p>
+              <CreditCard className="h-4 w-4 text-[#71717A]" />
+              <p className="text-sm text-[#FAFAFA] capitalize">{ticket.org_plan || "trial"}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4 text-[#71717A]" />
+              <p className="text-sm text-[#71717A]">
                 {new Date(ticket.created_at).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
               </p>
             </div>

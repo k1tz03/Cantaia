@@ -64,15 +64,15 @@ export function PlanReferenceAlert({ references, compact = false }: PlanReferenc
 
       {/* Info-level: references without version */}
       {warnings.length > 0 && criticals.length === 0 && (
-        <div className="rounded-md border border-primary/20 bg-primary/10 p-3">
+        <div className="rounded-md border border-[#F97316]/20 bg-[#F97316]/10 p-3">
           <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <Info className="h-4 w-4 text-[#F97316] shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-primary">
+              <p className="text-xs font-medium text-[#F97316]">
                 {t("planRefsFound", { count: warnings.length })}
               </p>
               {warnings.map((ref, i) => (
-                <p key={`warn-${i}`} className="mt-0.5 text-[11px] text-primary">
+                <p key={`warn-${i}`} className="mt-0.5 text-[11px] text-[#F97316]">
                   {ref.plan_number}
                   {ref.version_referenced ? ` (${ref.version_referenced})` : ""}
                   {" — "}{ref.risk_description}

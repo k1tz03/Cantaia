@@ -86,16 +86,16 @@ function Checkbox({
           className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
             checked
               ? "border-brand bg-brand text-white"
-              : "border-border bg-background hover:border-border"
+              : "border-[#27272A] bg-[#0F0F11] hover:border-[#27272A]"
           }`}
         >
           {checked && <Check className="h-3.5 w-3.5" />}
         </button>
       </div>
       <div className="flex-1" onClick={() => onChange(!checked)}>
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-sm font-medium text-[#FAFAFA]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-xs text-[#71717A]">{description}</p>
         )}
       </div>
     </label>
@@ -189,10 +189,10 @@ export function ClassificationSettingsTab() {
   return (
     <div className="space-y-6">
       {/* ─── Section 1: Automatic Classification ─── */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-4 flex items-center gap-2">
-          <Settings className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">
+          <Settings className="h-4 w-4 text-[#71717A]" />
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("classificationAutoTitle")}
           </h3>
         </div>
@@ -215,7 +215,7 @@ export function ClassificationSettingsTab() {
                   onChange={(e) =>
                     update({ confidenceThreshold: Number(e.target.value) })
                   }
-                  className="appearance-none rounded-md border border-border bg-background py-1.5 pl-3 pr-8 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="appearance-none rounded-md border border-[#27272A] bg-[#0F0F11] py-1.5 pl-3 pr-8 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {CONFIDENCE_OPTIONS.map((v) => (
                     <option key={v} value={v}>
@@ -223,7 +223,7 @@ export function ClassificationSettingsTab() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
               </div>
             )}
           </div>
@@ -247,14 +247,14 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 2: Ignored Categories ─── */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-4 flex items-center gap-2">
-          <Shield className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">
+          <Shield className="h-4 w-4 text-[#71717A]" />
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("classificationIgnoredCategories")}
           </h3>
         </div>
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs text-[#71717A]">
           {t("classificationIgnoredCategoriesDesc")}
         </p>
 
@@ -279,14 +279,14 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 3: Ignored Domains ─── */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-4 flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">
+          <Globe className="h-4 w-4 text-[#71717A]" />
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("classificationIgnoredDomains")}
           </h3>
         </div>
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs text-[#71717A]">
           {t("classificationIgnoredDomainsDesc")}
         </p>
 
@@ -294,13 +294,13 @@ export function ClassificationSettingsTab() {
           {settings.ignoredDomains.map((domain) => (
             <span
               key={domain}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#27272A] bg-[#27272A] px-3 py-1.5 text-sm text-[#FAFAFA]"
             >
               {domain}
               <button
                 type="button"
                 onClick={() => removeIgnoredDomain(domain)}
-                className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground"
+                className="rounded-full p-0.5 text-[#71717A] transition-colors hover:bg-[#27272A] hover:text-[#71717A]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -321,7 +321,7 @@ export function ClassificationSettingsTab() {
                   }
                 }}
                 placeholder="exemple.com"
-                className="rounded-md border border-border px-2.5 py-1.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 autoFocus
               />
               <button
@@ -337,7 +337,7 @@ export function ClassificationSettingsTab() {
                   setShowIgnoredDomainInput(false);
                   setNewIgnoredDomain("");
                 }}
-                className="rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -346,7 +346,7 @@ export function ClassificationSettingsTab() {
             <button
               type="button"
               onClick={() => setShowIgnoredDomainInput(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#27272A] px-3 py-1.5 text-sm text-[#71717A] transition-colors hover:border-[#27272A] hover:text-[#FAFAFA]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("classificationAddDomain")}
@@ -356,14 +356,14 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 4: Mapped Domains (Site Contacts) ─── */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-4 flex items-center gap-2">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">
+          <Mail className="h-4 w-4 text-[#71717A]" />
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("classificationMappedDomains")}
           </h3>
         </div>
-        <p className="mb-4 text-xs text-muted-foreground">
+        <p className="mb-4 text-xs text-[#71717A]">
           {t("classificationMappedDomainsDesc")}
         </p>
 
@@ -371,12 +371,12 @@ export function ClassificationSettingsTab() {
           {settings.mappedDomains.map((mapping) => (
             <div
               key={mapping.domain}
-              className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2"
+              className="flex items-center gap-2 rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2"
             >
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-[#FAFAFA]">
                 {mapping.domain}
               </span>
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
               <span className="text-sm text-brand font-medium">
                 {mapping.project}
               </span>
@@ -384,7 +384,7 @@ export function ClassificationSettingsTab() {
               <button
                 type="button"
                 onClick={() => removeMappedDomain(mapping.domain)}
-                className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground"
+                className="rounded-full p-1 text-[#71717A] transition-colors hover:bg-[#27272A] hover:text-[#71717A]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -392,16 +392,16 @@ export function ClassificationSettingsTab() {
           ))}
 
           {showMappedDomainInput ? (
-            <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-md border border-[#F97316]/20 bg-[#F97316]/10 px-3 py-2">
               <input
                 type="text"
                 value={newMappedDomain}
                 onChange={(e) => setNewMappedDomain(e.target.value)}
                 placeholder="domaine.ch"
-                className="w-40 rounded-md border border-border px-2.5 py-1.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-40 rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 autoFocus
               />
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
               <input
                 type="text"
                 value={newMappedProject}
@@ -415,7 +415,7 @@ export function ClassificationSettingsTab() {
                   }
                 }}
                 placeholder={t("classificationMappedProjectPlaceholder")}
-                className="w-40 rounded-md border border-border px-2.5 py-1.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-40 rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
                 type="button"
@@ -431,7 +431,7 @@ export function ClassificationSettingsTab() {
                   setNewMappedDomain("");
                   setNewMappedProject("");
                 }}
-                className="rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -440,7 +440,7 @@ export function ClassificationSettingsTab() {
             <button
               type="button"
               onClick={() => setShowMappedDomainInput(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#27272A] px-3 py-2.5 text-sm text-[#71717A] transition-colors hover:border-[#27272A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("classificationAddMapping")}

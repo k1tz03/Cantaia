@@ -194,7 +194,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
   const severityStyles = {
     danger: "border-red-500/20 bg-red-500/10 text-red-800 dark:text-red-400",
     warning: "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-400",
-    info: "border-primary/20 bg-primary/10 text-primary",
+    info: "border-[#F97316]/20 bg-[#F97316]/10 text-[#F97316]",
   };
 
   const severityIcons = {
@@ -206,7 +206,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
   if (compact) {
     return (
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground">{t("guaranteeAlerts")}</h4>
+        <h4 className="text-xs font-semibold text-[#71717A]">{t("guaranteeAlerts")}</h4>
         {alerts.slice(0, 3).map((alert, i) => (
           <div
             key={i}
@@ -217,7 +217,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
           </div>
         ))}
         {alerts.length > 3 && (
-          <p className="text-[10px] text-muted-foreground">{t("moreAlerts", { count: alerts.length - 3 })}</p>
+          <p className="text-[10px] text-[#71717A]">{t("moreAlerts", { count: alerts.length - 3 })}</p>
         )}
       </div>
     );
@@ -225,7 +225,7 @@ export function GuaranteeAlerts({ compact = false, projectId }: GuaranteeAlertsP
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">{t("guaranteeAlerts")}</h3>
+      <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("guaranteeAlerts")}</h3>
       {alerts.map((alert, i) => (
         <div
           key={i}

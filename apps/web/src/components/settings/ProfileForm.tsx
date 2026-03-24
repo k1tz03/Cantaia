@@ -117,16 +117,16 @@ export function ProfileForm() {
 
       {/* Avatar section */}
       <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F97316] text-xl font-bold text-white">
           {initials}
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-sm font-medium text-[#FAFAFA]">
             {t("profilePhoto")}
           </p>
           <button
             type="button"
-            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-[#3F3F46] bg-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#1C1C1F]"
           >
             <Camera className="h-3.5 w-3.5" />
             {t("changePhoto")}
@@ -139,7 +139,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="first_name"
-            className="block text-sm font-medium text-foreground"
+            className="block text-sm font-medium text-[#FAFAFA]"
           >
             {tAuth("firstName")}
           </label>
@@ -147,7 +147,7 @@ export function ProfileForm() {
             {...register("first_name")}
             type="text"
             id="first_name"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+            className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2.5 text-sm text-[#D4D4D8] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
           {errors.first_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -159,7 +159,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="last_name"
-            className="block text-sm font-medium text-foreground"
+            className="block text-sm font-medium text-[#FAFAFA]"
           >
             {tAuth("lastName")}
           </label>
@@ -167,7 +167,7 @@ export function ProfileForm() {
             {...register("last_name")}
             type="text"
             id="last_name"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+            className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2.5 text-sm text-[#D4D4D8] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
           {errors.last_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -182,7 +182,7 @@ export function ProfileForm() {
         <div>
           <label
             htmlFor="phone"
-            className="block text-sm font-medium text-foreground"
+            className="block text-sm font-medium text-[#FAFAFA]"
           >
             {t("phone")}
           </label>
@@ -190,21 +190,21 @@ export function ProfileForm() {
             {...register("phone")}
             type="tel"
             id="phone"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+            className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2.5 text-sm text-[#D4D4D8] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground">
+          <label className="block text-sm font-medium text-[#FAFAFA]">
             {tAuth("email")}
           </label>
           <input
             type="email"
             value={userEmail}
             readOnly
-            className="mt-1 block w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
+            className="mt-1 block w-full cursor-not-allowed rounded-lg border border-[#27272A] bg-[#27272A] px-3 py-2.5 text-sm text-[#71717A]"
           />
-          <p className="mt-1 text-xs text-muted-foreground">{t("emailReadOnly")}</p>
+          <p className="mt-1 text-xs text-[#71717A]">{t("emailReadOnly")}</p>
         </div>
       </div>
 
@@ -212,14 +212,14 @@ export function ProfileForm() {
       <div>
         <label
           htmlFor="preferred_language"
-          className="block text-sm font-medium text-foreground"
+          className="block text-sm font-medium text-[#FAFAFA]"
         >
           {t("language")}
         </label>
         <select
           {...register("preferred_language")}
           id="preferred_language"
-          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+          className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
         >
           <option value="fr">Fran&ccedil;ais</option>
           <option value="en">English</option>
@@ -234,8 +234,8 @@ export function ProfileForm() {
           disabled={isPending || !isDirty}
           className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
             isDirty
-              ? "bg-cta hover:bg-[#EA580C]"
-              : "bg-muted cursor-not-allowed"
+              ? "bg-[#F97316] hover:bg-[#EA580C]"
+              : "bg-[#27272A] cursor-not-allowed"
           }`}
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

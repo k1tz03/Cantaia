@@ -93,21 +93,21 @@ export function CreateProjectFromEmailModal({
       />
 
       {/* Modal card */}
-      <div className="relative z-10 w-full max-w-lg rounded-lg border border-border bg-background shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-lg border border-[#27272A] bg-[#0F0F11] shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-[#27272A] px-5 py-3.5">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">
+            <h2 className="text-sm font-semibold text-[#FAFAFA]">
               {t("createProjectTitle")}
             </h2>
-            <p className="text-[11px] text-muted-foreground truncate max-w-[360px]">
+            <p className="text-[11px] text-[#71717A] truncate max-w-[360px]">
               {email.sender_name || email.sender_email} — &laquo;{email.subject}&raquo;
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -118,8 +118,8 @@ export function CreateProjectFromEmailModal({
           <div className="space-y-4">
             {/* Project name */}
             <div>
-              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
+                <Building2 className="h-3.5 w-3.5 text-[#71717A]" />
                 {t("projectName")}
               </label>
               <input
@@ -127,52 +127,52 @@ export function CreateProjectFromEmailModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 placeholder={t("projectNamePlaceholder")}
               />
             </div>
 
             {/* Code / Reference */}
             <div>
-              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
+                <FileText className="h-3.5 w-3.5 text-[#71717A]" />
                 {t("codeReference")}
               </label>
               <input
                 type="text"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 placeholder={t("codePlaceholder")}
               />
             </div>
 
             {/* Client */}
             <div>
-              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
+                <User className="h-3.5 w-3.5 text-[#71717A]" />
                 {t("client")}
               </label>
               <input
                 type="text"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 placeholder={t("clientPlaceholder")}
               />
             </div>
 
             {/* City */}
             <div>
-              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
+                <MapPin className="h-3.5 w-3.5 text-[#71717A]" />
                 {t("city")}
               </label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 placeholder={t("cityPlaceholder")}
               />
             </div>
@@ -180,11 +180,11 @@ export function CreateProjectFromEmailModal({
             {/* Extracted contacts (read-only) */}
             {contacts.length > 0 && (
               <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#FAFAFA]">
+                  <Users className="h-3.5 w-3.5 text-[#71717A]" />
                   {t("extractedContacts")}
                 </label>
-                <div className="rounded-md border border-border bg-muted divide-y divide-border">
+                <div className="rounded-md border border-[#27272A] bg-[#27272A] divide-y divide-border">
                   {contacts.map((contact, i) => (
                     <div
                       key={i}
@@ -201,15 +201,15 @@ export function CreateProjectFromEmailModal({
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">
+                        <p className="text-xs font-medium text-[#FAFAFA] truncate">
                           {contact.name}
                           {contact.role && (
-                            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                            <span className="ml-1.5 text-[10px] font-normal text-[#71717A]">
                               ({contact.role})
                             </span>
                           )}
                         </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
+                        <p className="text-[10px] text-[#71717A] truncate">
                           {contact.company && `${contact.company} · `}
                           {contact.email}
                         </p>
@@ -217,7 +217,7 @@ export function CreateProjectFromEmailModal({
                     </div>
                   ))}
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[10px] text-[#71717A]">
                   {t("contactsInfo")}
                 </p>
               </div>
@@ -232,11 +232,11 @@ export function CreateProjectFromEmailModal({
           </div>
 
           {/* Footer */}
-          <div className="mt-5 flex items-center justify-end gap-3 border-t border-border pt-4">
+          <div className="mt-5 flex items-center justify-end gap-3 border-t border-[#27272A] pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              className="rounded-md px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] transition-colors"
             >
               {t("cancel")}
             </button>

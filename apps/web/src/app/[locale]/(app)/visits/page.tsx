@@ -104,15 +104,15 @@ export default function VisitsPage() {
         return { color: "bg-red-500/10 text-red-400", icon: Mic, label: t("statusRecording") };
       case "report_ready":
       case "reviewed":
-        return { color: "bg-primary/10 text-primary", icon: FileText, label: t("statusReportReady") };
+        return { color: "bg-[#F97316]/10 text-[#F97316]", icon: FileText, label: t("statusReportReady") };
       case "quoted":
         return { color: "bg-amber-500/10 text-amber-400", icon: DollarSign, label: t("statusQuoted") };
       case "won":
         return { color: "bg-green-500/10 text-green-400", icon: CheckCircle, label: t("statusWon") };
       case "lost":
-        return { color: "bg-muted text-muted-foreground", icon: XCircle, label: t("statusLost") };
+        return { color: "bg-[#27272A] text-[#71717A]", icon: XCircle, label: t("statusLost") };
       default:
-        return { color: "bg-muted text-muted-foreground", icon: Archive, label: status };
+        return { color: "bg-[#27272A] text-[#71717A]", icon: Archive, label: status };
     }
   }
 
@@ -139,7 +139,7 @@ export default function VisitsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-display font-extrabold text-[#FAFAFA]">
-            <UserCheck className="h-6 w-6 text-primary" />
+            <UserCheck className="h-6 w-6 text-[#F97316]" />
             {t("title")}
           </h1>
         </div>
@@ -154,27 +154,27 @@ export default function VisitsPage() {
 
       {/* Stats bar */}
       {totalVisits > 0 && (
-        <div className="mb-6 flex items-center gap-6 rounded-lg border border-border bg-background px-5 py-3">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-foreground">{totalVisits}</span> {t("statsVisits")}
+        <div className="mb-6 flex items-center gap-6 rounded-lg border border-[#27272A] bg-[#0F0F11] px-5 py-3">
+          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
+            <FileText className="h-4 w-4 text-[#71717A]" />
+            <span className="font-semibold text-[#FAFAFA]">{totalVisits}</span> {t("statsVisits")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Target className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-foreground">{quotedCount}</span> {t("statsQuotesSent")}
+          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
+            <Target className="h-4 w-4 text-[#71717A]" />
+            <span className="font-semibold text-[#FAFAFA]">{quotedCount}</span> {t("statsQuotesSent")}
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            <span className="font-semibold text-foreground">{wonCount}</span> {t("statsSigned")}
+            <span className="font-semibold text-[#FAFAFA]">{wonCount}</span> {t("statsSigned")}
           </div>
           {totalRevenue > 0 && (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-foreground">{formatCHF(totalRevenue)} CHF</span>
+            <div className="flex items-center gap-1.5 text-sm text-[#71717A]">
+              <DollarSign className="h-4 w-4 text-[#71717A]" />
+              <span className="font-semibold text-[#FAFAFA]">{formatCHF(totalRevenue)} CHF</span>
             </div>
           )}
-          <div className="ml-auto text-sm text-muted-foreground">
-            {t("statsConversionRate")} : <span className="font-semibold text-foreground">{conversionRate}%</span>
+          <div className="ml-auto text-sm text-[#71717A]">
+            {t("statsConversionRate")} : <span className="font-semibold text-[#FAFAFA]">{conversionRate}%</span>
           </div>
         </div>
       )}
@@ -188,7 +188,7 @@ export default function VisitsPage() {
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === f.id
                 ? "bg-[#F97316] text-white"
-                : "bg-muted text-muted-foreground hover:bg-[#1C1C1F]"
+                : "bg-[#27272A] text-[#71717A] hover:bg-[#1C1C1F]"
             }`}
           >
             {f.label}
@@ -198,10 +198,10 @@ export default function VisitsPage() {
 
       {/* Visit list */}
       {filteredVisits.length === 0 ? (
-        <div className="rounded-lg border border-border bg-background py-16 text-center">
-          <UserCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium text-muted-foreground">{t("noVisits")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("noVisitsDesc")}</p>
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-16 text-center">
+          <UserCheck className="mx-auto mb-3 h-10 w-10 text-[#71717A]" />
+          <p className="text-sm font-medium text-[#71717A]">{t("noVisits")}</p>
+          <p className="mt-1 text-xs text-[#71717A]">{t("noVisitsDesc")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -217,26 +217,26 @@ export default function VisitsPage() {
               <Link
                 key={visit.id}
                 href={`/visits/${visit.id}`}
-                className="block rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/20 hover:bg-primary/10/30"
+                className="block rounded-lg border border-[#27272A] bg-[#0F0F11] p-4 transition-colors hover:border-[#F97316]/20 hover:bg-[#F97316]/10/30"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Mic className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-semibold text-foreground">
+                      <Mic className="h-4 w-4 text-[#71717A]" />
+                      <span className="text-sm font-semibold text-[#FAFAFA]">
                         {visit.client_name}
                       </span>
                       {visit.title && (
-                        <span className="text-sm text-muted-foreground">— {visit.title}</span>
+                        <span className="text-sm text-[#71717A]">— {visit.title}</span>
                       )}
                       {(visit.photos_count || 0) > 0 && (
-                        <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        <span className="flex items-center gap-0.5 rounded-full bg-[#F97316]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#F97316]">
                           <Camera className="h-2.5 w-2.5" />
                           {visit.photos_count}
                         </span>
                       )}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="mt-1.5 flex items-center gap-4 text-xs text-[#71717A]">
                       {(visit.client_address || visit.client_city) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -252,7 +252,7 @@ export default function VisitsPage() {
                       )}
                     </div>
                     {(budgetMin || requestsCount > 0 || probability) && (
-                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[#71717A]">
                         {budgetMin && (
                           <span className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />

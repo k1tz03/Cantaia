@@ -25,22 +25,22 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
           ? suppliers.find((s) => s.id === lot.awarded_supplier_id)
           : null;
         return (
-          <div key={lot.id} className="bg-background border border-border rounded-lg overflow-hidden">
+          <div key={lot.id} className="bg-[#0F0F11] border border-[#27272A] rounded-lg overflow-hidden">
             <button
               onClick={() => toggleLot(lot.id)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted"
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#27272A]"
             >
               <div className="flex items-center gap-3">
                 {expanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="h-4 w-4 text-[#71717A]" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-[#71717A]" />
                 )}
-                <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
+                <span className="text-xs font-mono bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 rounded">
                   CFC {lot.cfc_code}
                 </span>
-                <span className="text-sm font-medium text-foreground">{lot.name}</span>
-                <span className="text-xs text-muted-foreground">{lotItems.length} {t("items")}</span>
+                <span className="text-sm font-medium text-[#FAFAFA]">{lot.name}</span>
+                <span className="text-xs text-[#71717A]">{lotItems.length} {t("items")}</span>
               </div>
               <div className="flex items-center gap-3">
                 {awardedSupplier && (
@@ -52,10 +52,10 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
               </div>
             </button>
             {expanded && lotItems.length > 0 && (
-              <div className="border-t border-border">
+              <div className="border-t border-[#27272A]">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-muted text-[11px] font-medium text-muted-foreground uppercase">
+                    <tr className="bg-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
                       {hasAnyCodes && <th className="text-left px-4 py-2 w-16">N°</th>}
                       <th className="text-left px-4 py-2">{t("description")}</th>
                       <th className="text-center px-4 py-2 w-16">{t("unit")}</th>
@@ -73,18 +73,18 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
                           ? "text-amber-600"
                           : "text-red-500";
                       return (
-                        <tr key={item.id} className="hover:bg-muted text-sm">
-                          {hasAnyCodes && <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{item.code}</td>}
-                          <td className="px-4 py-2 text-foreground max-w-[500px]">
+                        <tr key={item.id} className="hover:bg-[#27272A] text-sm">
+                          {hasAnyCodes && <td className="px-4 py-2 text-xs font-mono text-[#71717A]">{item.code}</td>}
+                          <td className="px-4 py-2 text-[#FAFAFA] max-w-[500px]">
                             <span className="block truncate" title={item.description}>
                               {item.description}
                             </span>
                             {item.remarks && (
-                              <span className="block truncate text-xs text-muted-foreground" title={item.remarks}>({item.remarks})</span>
+                              <span className="block truncate text-xs text-[#71717A]" title={item.remarks}>({item.remarks})</span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-center text-muted-foreground text-xs">{item.unit}</td>
-                          <td className="px-4 py-2 text-right text-muted-foreground">
+                          <td className="px-4 py-2 text-center text-[#71717A] text-xs">{item.unit}</td>
+                          <td className="px-4 py-2 text-right text-[#71717A]">
                             {item.quantity?.toLocaleString("fr-CH")}
                           </td>
                           <td className="px-4 py-2 text-right">
@@ -94,10 +94,10 @@ export function ItemsTab({ lots, items, expandedLots, toggleLot, suppliers, t, t
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-right font-medium text-foreground">
+                          <td className="px-4 py-2 text-right font-medium text-[#FAFAFA]">
                             {item.awarded_unit_price?.toFixed(2) || item.best_unit_price?.toFixed(2) || "\u2014"}
                           </td>
-                          <td className="px-4 py-2 text-right font-medium text-foreground">
+                          <td className="px-4 py-2 text-right font-medium text-[#FAFAFA]">
                             {(item.awarded_unit_price || item.best_unit_price) && item.quantity
                               ? formatCHF((item.awarded_unit_price || item.best_unit_price || 0) * item.quantity)
                               : "\u2014"}

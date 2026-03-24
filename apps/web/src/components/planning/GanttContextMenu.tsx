@@ -104,14 +104,14 @@ export default function GanttContextMenu({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.1, ease: "easeOut" }}
-        className="fixed z-50 min-w-[180px] max-w-[280px] bg-background rounded-lg shadow-xl border border-border py-1 overflow-hidden"
+        className="fixed z-50 min-w-[180px] max-w-[280px] bg-[#0F0F11] rounded-lg shadow-xl border border-[#27272A] py-1 overflow-hidden"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((item, idx) => (
           <React.Fragment key={idx}>
             {/* Separator line */}
             {item.separator && idx > 0 && (
-              <div className="my-1 h-px bg-muted" />
+              <div className="my-1 h-px bg-[#27272A]" />
             )}
 
             {/* Custom render */}
@@ -125,10 +125,10 @@ export default function GanttContextMenu({
                 className={[
                   "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors",
                   item.disabled
-                    ? "text-muted-foreground cursor-not-allowed"
+                    ? "text-[#71717A] cursor-not-allowed"
                     : item.variant === "danger"
                       ? "text-red-600 hover:bg-red-50"
-                      : "text-foreground hover:bg-primary/10 hover:text-primary",
+                      : "text-[#FAFAFA] hover:bg-[#F97316]/10 hover:text-[#F97316]",
                 ].join(" ")}
               >
                 {item.icon && (

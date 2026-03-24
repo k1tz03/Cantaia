@@ -48,7 +48,7 @@ export function TicketThread({ messages, currentUserId: _currentUserId }: { mess
   }, [messages.length]);
 
   if (messages.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm py-12">Aucun message</div>;
+    return <div className="flex-1 flex items-center justify-center text-[#71717A] text-sm py-12">Aucun message</div>;
   }
 
   return (
@@ -57,14 +57,14 @@ export function TicketThread({ messages, currentUserId: _currentUserId }: { mess
         const isUser = msg.sender_role === "user";
         return (
           <div key={msg.id} className={`flex ${isUser ? "justify-start" : "justify-end"}`}>
-            <div className={`max-w-[75%] rounded-lg px-4 py-3 ${isUser ? "bg-primary/10" : "bg-muted"}`}>
+            <div className={`max-w-[75%] rounded-lg px-4 py-3 ${isUser ? "bg-[#F97316]/10" : "bg-[#27272A]"}`}>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-medium text-foreground">
+                <span className="text-xs font-medium text-[#FAFAFA]">
                   {isUser ? "Vous" : t("teamCantaia")}
                 </span>
-                <span className="text-xs text-muted-foreground">{formatRelative(msg.created_at)}</span>
+                <span className="text-xs text-[#71717A]">{formatRelative(msg.created_at)}</span>
               </div>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{msg.content}</p>
+              <p className="text-sm text-[#FAFAFA] whitespace-pre-wrap">{msg.content}</p>
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="mt-2 space-y-1">
                   {msg.attachments.map((att, i) => (
@@ -73,7 +73,7 @@ export function TicketThread({ messages, currentUserId: _currentUserId }: { mess
                       href={att.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 rounded-md bg-background/50 px-2 py-1.5 text-xs text-primary hover:underline"
+                      className="flex items-center gap-2 rounded-md bg-[#0F0F11]/50 px-2 py-1.5 text-xs text-[#F97316] hover:underline"
                     >
                       {isImage(att.file_type) ? (
                         <ImageIcon className="h-3.5 w-3.5 shrink-0" />

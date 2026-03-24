@@ -557,7 +557,7 @@ function ItemsTabContent({
     <div className="space-y-3">
       {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
       {false && !hasBudget && items.length > 0 && (
-        <div className="bg-[#F97316]/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+        <div className="bg-[#F97316]/10 border border-[#F97316]/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Calculator className="h-5 w-5 text-[#F97316] shrink-0" />
             <div>

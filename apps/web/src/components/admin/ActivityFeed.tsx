@@ -20,7 +20,7 @@ const TYPE_CONFIG: Record<
   string,
   { icon: typeof Mail; color: string; bgColor: string }
 > = {
-  email: { icon: Mail, color: "text-primary", bgColor: "bg-primary/10" },
+  email: { icon: Mail, color: "text-[#F97316]", bgColor: "bg-[#F97316]/10" },
   task: {
     icon: CheckSquare,
     color: "text-amber-600",
@@ -65,7 +65,7 @@ export default function ActivityFeed({
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+      <div className="flex flex-col items-center justify-center py-8 text-[#71717A]">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">{t("noActivity")}</p>
       </div>
@@ -90,12 +90,12 @@ export default function ActivityFeed({
                 <Icon className={`h-3.5 w-3.5 ${config.color}`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-foreground">
+                <p className="truncate text-sm text-[#FAFAFA]">
                   {activity.title}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-[#71717A]">
                   {activity.user && (
-                    <span className="font-medium text-muted-foreground">
+                    <span className="font-medium text-[#71717A]">
                       {activity.user}
                       {" — "}
                     </span>

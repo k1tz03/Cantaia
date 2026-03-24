@@ -224,18 +224,18 @@ function ProfileSection() {
   const initials = `${(form.data.first_name as string).charAt(0)}${(form.data.last_name as string).charAt(0)}`.toUpperCase() || "?";
 
   return (
-    <div className="rounded-lg border border-border bg-background p-6">
+    <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
       <div className="space-y-6">
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#F97316] text-xl font-bold text-white">
             {initials}
           </div>
           <div className="text-center sm:text-left">
-            <p className="text-sm font-medium text-foreground">{t("profilePhoto")}</p>
+            <p className="text-sm font-medium text-[#FAFAFA]">{t("profilePhoto")}</p>
             <button
               type="button"
-              className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+              className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#18181B] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
             >
               <Camera className="h-3.5 w-3.5" />
               {t("changePhoto")}
@@ -246,21 +246,21 @@ function ProfileSection() {
         {/* First name / Last name */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-foreground">{tAuth("firstName")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{tAuth("firstName")}</label>
             <input
               type="text"
               value={form.data.first_name as string}
               onChange={(e) => form.update({ first_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">{tAuth("lastName")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{tAuth("lastName")}</label>
             <input
               type="text"
               value={form.data.last_name as string}
               onChange={(e) => form.update({ last_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
         </div>
@@ -268,42 +268,42 @@ function ProfileSection() {
         {/* Phone / Email */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-foreground">{t("phone")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{t("phone")}</label>
             <input
               type="tel"
               value={form.data.phone as string}
               onChange={(e) => form.update({ phone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">{tAuth("email")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{tAuth("email")}</label>
             <input
               type="email"
               value={userEmail}
               readOnly
-              className="mt-1 block w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground"
+              className="mt-1 block w-full cursor-not-allowed rounded-lg border border-[#27272A] bg-[#27272A] px-3 py-2.5 text-sm text-[#71717A]"
             />
-            <p className="mt-1 text-xs text-muted-foreground">{t("emailReadOnly")}</p>
+            <p className="mt-1 text-xs text-[#71717A]">{t("emailReadOnly")}</p>
           </div>
         </div>
 
         {/* Job title */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-1">
           <div>
-            <label className="block text-sm font-medium text-foreground">{t("jobTitle")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{t("jobTitle")}</label>
             <input
               type="text"
               value={form.data.job_title as string}
               onChange={(e) => form.update({ job_title: e.target.value })}
               placeholder={t("jobTitlePlaceholder")}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
         </div>
 
         {/* Save */}
-        <div className="border-t border-border pt-4">
+        <div className="border-t border-[#27272A] pt-4">
           <SaveButton
             isDirty={form.isDirty}
             saving={form.saving}
@@ -383,19 +383,19 @@ function LanguageSection() {
   return (
     <div className="space-y-6">
       {/* Language */}
-      <div className="rounded-lg border border-border bg-background p-6">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Globe className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+          <Globe className="h-4 w-4 text-[#71717A]" />
           {t("languageTitle")}
         </h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground">{t("language")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{t("language")}</label>
             <select
               value={form.data.preferred_language as string}
               onChange={(e) => form.update({ preferred_language: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="fr">Fran&ccedil;ais</option>
               <option value="en">English</option>
@@ -404,11 +404,11 @@ function LanguageSection() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">{t("dateFormat")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{t("dateFormat")}</label>
             <select
               value={form.data.date_format as string}
               onChange={(e) => form.update({ date_format: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="dd.MM.yyyy">22.02.2026 (Suisse)</option>
               <option value="dd/MM/yyyy">22/02/2026 (France)</option>
@@ -418,11 +418,11 @@ function LanguageSection() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">{t("timezone")}</label>
+            <label className="block text-sm font-medium text-[#FAFAFA]">{t("timezone")}</label>
             <select
               value={form.data.timezone as string}
               onChange={(e) => form.update({ timezone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="Europe/Zurich">Europe/Zurich (CET)</option>
               <option value="Europe/Paris">Europe/Paris (CET)</option>
@@ -432,7 +432,7 @@ function LanguageSection() {
           </div>
         </div>
 
-        <div className="mt-5 border-t border-border pt-4">
+        <div className="mt-5 border-t border-[#27272A] pt-4">
           <SaveButton
             isDirty={form.isDirty}
             saving={form.saving}
@@ -547,12 +547,12 @@ function NotificationsSection() {
   return (
     <div className="space-y-6">
       {/* Briefing preferences */}
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold text-foreground">{t("briefingPrefsTitle")}</h3>
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("briefingPrefsTitle")}</h3>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{t("briefingPrefsDesc")}</p>
+        <p className="mt-1 text-sm text-[#71717A]">{t("briefingPrefsDesc")}</p>
 
         <div className="mt-4 space-y-4">
           <ToggleRow
@@ -566,14 +566,14 @@ function NotificationsSection() {
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{t("briefingTime")}</p>
-                  <p className="text-xs text-muted-foreground">{t("briefingTimeDesc")}</p>
+                  <p className="text-sm font-medium text-[#FAFAFA]">{t("briefingTime")}</p>
+                  <p className="text-xs text-[#71717A]">{t("briefingTimeDesc")}</p>
                 </div>
                 <input
                   type="time"
                   value={briefingForm.data.briefingTime as string}
                   onChange={(e) => briefingForm.update({ briefingTime: e.target.value })}
-                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+                  className="rounded-md border border-[#27272A] bg-[#18181B] px-3 py-1.5 text-sm text-[#FAFAFA]"
                 />
               </div>
 
@@ -587,11 +587,11 @@ function NotificationsSection() {
               {/* Project filter */}
               {projects.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-foreground">{t("briefingProjects")}</p>
-                  <p className="text-xs text-muted-foreground">{t("briefingProjectsDesc")}</p>
-                  <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted p-3">
+                  <p className="text-sm font-medium text-[#FAFAFA]">{t("briefingProjects")}</p>
+                  <p className="text-xs text-[#71717A]">{t("briefingProjectsDesc")}</p>
+                  <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-[#27272A] bg-[#27272A] p-3">
                     {projects.map((p) => (
-                      <label key={p.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer hover:text-foreground">
+                      <label key={p.id} className="flex items-center gap-2 text-sm text-[#FAFAFA] cursor-pointer hover:text-[#FAFAFA]">
                         <input
                           type="checkbox"
                           checked={selectedProjects.includes(p.id)}
@@ -604,14 +604,14 @@ function NotificationsSection() {
                             // Mark form dirty
                             briefingForm.update({});
                           }}
-                          className="rounded border-border text-primary"
+                          className="rounded border-[#27272A] text-[#F97316]"
                         />
                         {p.name}
                       </label>
                     ))}
                   </div>
                   {selectedProjects.length === 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">{t("briefingAllProjects")}</p>
+                    <p className="mt-1 text-xs text-[#71717A]">{t("briefingAllProjects")}</p>
                   )}
                 </div>
               )}
@@ -619,7 +619,7 @@ function NotificationsSection() {
           )}
         </div>
 
-        <div className="mt-5 border-t border-border pt-4">
+        <div className="mt-5 border-t border-[#27272A] pt-4">
           <SaveButton
             isDirty={briefingForm.isDirty || !prefsLoaded}
             saving={briefingForm.saving}
@@ -633,9 +633,9 @@ function NotificationsSection() {
       </div>
 
       {/* General notifications */}
-      <div className="rounded-lg border border-border bg-background p-6">
-        <h3 className="mb-1 text-sm font-semibold text-foreground">{t("notifications")}</h3>
-        <p className="mb-4 text-sm text-muted-foreground">{t("notificationsDesc")}</p>
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+        <h3 className="mb-1 text-sm font-semibold text-[#FAFAFA]">{t("notifications")}</h3>
+        <p className="mb-4 text-sm text-[#71717A]">{t("notificationsDesc")}</p>
 
         <div className="space-y-4">
           <ToggleRow
@@ -664,7 +664,7 @@ function NotificationsSection() {
           />
         </div>
 
-        <div className="mt-5 border-t border-border pt-4">
+        <div className="mt-5 border-t border-[#27272A] pt-4">
           <SaveButton
             isDirty={notifsForm.isDirty}
             saving={notifsForm.saving}
@@ -714,18 +714,18 @@ function SecuritySection() {
   return (
     <div className="space-y-6">
       {/* Password */}
-      <div className="rounded-lg border border-border bg-background p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Lock className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+          <Lock className="h-4 w-4 text-[#71717A]" />
           {t("securityPassword")}
         </h3>
-        <p className="mb-4 text-sm text-muted-foreground">{t("securityPasswordDesc")}</p>
+        <p className="mb-4 text-sm text-[#71717A]">{t("securityPasswordDesc")}</p>
 
         <button
           type="button"
           onClick={handlePasswordReset}
           disabled={changingPassword}
-          className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-[#27272A] px-4 py-2.5 text-sm font-medium text-[#D4D4D8] hover:bg-[#1C1C1F] disabled:opacity-50"
         >
           {changingPassword ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -743,19 +743,19 @@ function SecuritySection() {
       </div>
 
       {/* Active sessions */}
-      <div className="rounded-lg border border-border bg-background p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Shield className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+          <Shield className="h-4 w-4 text-[#71717A]" />
           {t("securitySessions")}
         </h3>
-        <p className="mb-4 text-sm text-muted-foreground">{t("securitySessionsDesc")}</p>
+        <p className="mb-4 text-sm text-[#71717A]">{t("securitySessionsDesc")}</p>
 
-        <div className="rounded-md border border-border bg-muted p-4">
+        <div className="rounded-md border border-[#27272A] bg-[#27272A] p-4">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500" />
             <div>
-              <p className="text-sm font-medium text-foreground">{t("securityCurrentSession")}</p>
-              <p className="text-xs text-muted-foreground">{t("securityBrowserSession")}</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">{t("securityCurrentSession")}</p>
+              <p className="text-xs text-[#71717A]">{t("securityBrowserSession")}</p>
             </div>
           </div>
         </div>
@@ -768,7 +768,7 @@ function SecuritySection() {
         <button
           type="button"
           disabled
-          className="rounded-lg border border-red-500/20 bg-background px-4 py-2.5 text-sm font-medium text-red-400 opacity-50"
+          className="rounded-lg border border-red-500/20 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-red-400 opacity-50"
         >
           {t("deleteAccount")}
         </button>
@@ -795,18 +795,18 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        <p className="text-sm font-medium text-[#FAFAFA]">{label}</p>
+        {description && <p className="text-xs text-[#71717A]">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? "bg-brand" : "bg-muted"
+          checked ? "bg-[#F97316]" : "bg-[#27272A]"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-background shadow transition-transform ${
+          className={`inline-block h-5 w-5 rounded-full bg-[#0F0F11] shadow transition-transform ${
             checked ? "translate-x-5" : "translate-x-0"
           }`}
         />

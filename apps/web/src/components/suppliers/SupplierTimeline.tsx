@@ -26,8 +26,8 @@ const TYPE_CONFIG: Record<string, { icon: typeof FileText; color: string; bgColo
   },
   request: {
     icon: Send,
-    color: "text-primary",
-    bgColor: "bg-primary/10 ring-blue-200",
+    color: "text-[#F97316]",
+    bgColor: "bg-[#F97316]/10 ring-blue-200",
   },
   email: {
     icon: Mail,
@@ -63,14 +63,14 @@ export function SupplierTimeline({ items, hasMore, loading, onLoadMore }: Suppli
   if (loading && items.length === 0) {
     return (
       <div className="flex justify-center py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground text-center py-4">
+      <p className="text-xs text-[#71717A] text-center py-4">
         Aucune interaction enregistrée
       </p>
     );
@@ -81,13 +81,13 @@ export function SupplierTimeline({ items, hasMore, loading, onLoadMore }: Suppli
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3 hover:text-foreground"
+        className="flex items-center gap-1.5 text-sm font-medium text-[#FAFAFA] mb-3 hover:text-[#FAFAFA]"
       >
         <ChevronDown
           className={`h-4 w-4 transition-transform ${expanded ? "" : "-rotate-90"}`}
         />
         Historique
-        <span className="text-xs text-muted-foreground font-normal ml-1">
+        <span className="text-xs text-[#71717A] font-normal ml-1">
           ({items.length}{hasMore ? "+" : ""})
         </span>
       </button>
@@ -95,7 +95,7 @@ export function SupplierTimeline({ items, hasMore, loading, onLoadMore }: Suppli
       {expanded && (
         <div className="relative">
           {/* Vertical line */}
-          <div className="absolute left-[13px] top-2 bottom-2 w-px bg-muted" />
+          <div className="absolute left-[13px] top-2 bottom-2 w-px bg-[#27272A]" />
 
           <div className="space-y-3">
             {items.map((item) => {
@@ -113,10 +113,10 @@ export function SupplierTimeline({ items, hasMore, loading, onLoadMore }: Suppli
 
                   {/* Content */}
                   <div className="flex-1 min-w-0 pt-0.5">
-                    <p className="text-xs text-foreground leading-snug break-words">
+                    <p className="text-xs text-[#FAFAFA] leading-snug break-words">
                       {item.description}
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-[10px] text-[#71717A] mt-0.5">
                       {formatTimelineDate(item.date)}
                     </p>
                   </div>
@@ -130,7 +130,7 @@ export function SupplierTimeline({ items, hasMore, loading, onLoadMore }: Suppli
               type="button"
               onClick={onLoadMore}
               disabled={loading}
-              className="mt-3 w-full text-center text-xs text-primary hover:text-primary font-medium disabled:opacity-50"
+              className="mt-3 w-full text-center text-xs text-[#F97316] hover:text-[#F97316] font-medium disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-1">

@@ -46,7 +46,7 @@ export default function ProjectClosurePage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-muted-foreground">{t("projectNotFound")}</p>
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -182,29 +182,29 @@ export default function ProjectClosurePage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}`}
-          className="mt-1 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("title")} — {project.name}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+          <p className="mt-1 text-sm text-[#71717A]">{t("subtitle")}</p>
         </div>
       </div>
 
       {/* Progress bar */}
       <div className="mt-6">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-foreground">
+          <span className="font-medium text-[#FAFAFA]">
             {t("progression")}
           </span>
-          <span className="text-muted-foreground">
+          <span className="text-[#71717A]">
             {completedSteps}/{steps.length} {t("steps")}
           </span>
         </div>
-        <div className="mt-2 h-2.5 w-full rounded-full bg-muted">
+        <div className="mt-2 h-2.5 w-full rounded-full bg-[#27272A]">
           <div
             className="h-2.5 rounded-full bg-brand transition-all duration-500"
             style={{ width: `${(completedSteps / steps.length) * 100}%` }}
@@ -227,8 +227,8 @@ export default function ProjectClosurePage() {
                 isCompleted
                   ? "border-green-200 bg-green-500/10"
                   : isActive
-                  ? "border-brand/30 bg-primary/10"
-                  : "border-border bg-muted/50 opacity-60"
+                  ? "border-brand/30 bg-[#F97316]/10"
+                  : "border-[#27272A] bg-[#27272A]/50 opacity-60"
               }`}
             >
               <div className="flex items-start gap-4">
@@ -241,15 +241,15 @@ export default function ProjectClosurePage() {
                       {index + 1}
                     </div>
                   ) : (
-                    <Circle className="h-6 w-6 text-muted-foreground" />
+                    <Circle className="h-6 w-6 text-[#71717A]" />
                   )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-brand" : "text-muted-foreground"}`} />
-                    <h3 className={`text-sm font-semibold ${isCompleted ? "text-green-800 dark:text-green-400" : isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                    <Icon className={`h-4 w-4 ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-brand" : "text-[#71717A]"}`} />
+                    <h3 className={`text-sm font-semibold ${isCompleted ? "text-green-800 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#71717A]"}`}>
                       {t(`step${index + 1}Title`)}
                     </h3>
                     {isActive && (
@@ -258,15 +258,15 @@ export default function ProjectClosurePage() {
                       </span>
                     )}
                     {isLocked && (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#71717A]">
                         {t("lockedStep")}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-[#71717A]">
                     {t(`step${index + 1}Description`)}
                   </p>
-                  <p className={`mt-2 text-xs font-medium ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                  <p className={`mt-2 text-xs font-medium ${isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-[#FAFAFA]" : "text-[#71717A]"}`}>
                     {step.detail}
                   </p>
 
@@ -292,7 +292,7 @@ export default function ProjectClosurePage() {
                   {isActive && step.key === "documents" && (
                     <Link
                       href={`/projects/${project.id}/closure/documents`}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
                     >
                       <FolderCheck className="h-3.5 w-3.5" />
                       {t("addDocuments")}
@@ -301,7 +301,7 @@ export default function ProjectClosurePage() {
                   {isActive && step.key === "tasks" && openTasks.length > 0 && (
                     <Link
                       href="/tasks"
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
                     >
                       <ClipboardList className="h-3.5 w-3.5" />
                       {t("viewOpenTasks")}
@@ -337,7 +337,7 @@ export default function ProjectClosurePage() {
               </div>
               <Link
                 href={`/projects/${project.id}/reserves`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-background px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
               >
                 <ClipboardList className="h-3.5 w-3.5" />
                 {t("viewReserves")}
@@ -348,7 +348,7 @@ export default function ProjectClosurePage() {
       })()}
 
       {/* Complete button */}
-      <div className="mt-8 border-t border-border pt-6">
+      <div className="mt-8 border-t border-[#27272A] pt-6">
         <button
           type="button"
           onClick={handleComplete}
@@ -356,7 +356,7 @@ export default function ProjectClosurePage() {
           className={`inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-semibold transition-colors ${
             canComplete && !completing
               ? "bg-green-600 text-white hover:bg-green-700"
-              : "cursor-not-allowed bg-muted text-muted-foreground"
+              : "cursor-not-allowed bg-[#27272A] text-[#71717A]"
           }`}
         >
           {completing ? (
@@ -367,7 +367,7 @@ export default function ProjectClosurePage() {
           {t("completeProject")}
         </button>
         {!canComplete && (
-          <p className="mt-2 text-xs text-muted-foreground">{t("completeProjectHint")}</p>
+          <p className="mt-2 text-xs text-[#71717A]">{t("completeProjectHint")}</p>
         )}
       </div>
     </div>

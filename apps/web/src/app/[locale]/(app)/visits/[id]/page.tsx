@@ -111,7 +111,7 @@ export default function VisitDetailPage() {
 
   if (!visit) {
     return (
-      <div className="p-6 text-center text-sm text-muted-foreground">
+      <div className="p-6 text-center text-sm text-[#71717A]">
         Visite introuvable
       </div>
     );
@@ -129,18 +129,18 @@ export default function VisitDetailPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]">
         <ArrowLeft className="h-4 w-4" />
         {t("title")}
       </Link>
 
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-xl font-bold text-[#FAFAFA]">
             {visit.client_name}
-            {visit.title && <span className="ml-2 text-muted-foreground">— {visit.title}</span>}
+            {visit.title && <span className="ml-2 text-[#71717A]">— {visit.title}</span>}
           </h1>
-          <div className="mt-1.5 flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="mt-1.5 flex items-center gap-4 text-sm text-[#71717A]">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(visit.visit_date)}
@@ -188,7 +188,7 @@ export default function VisitDetailPage() {
           <button
             onClick={handleExport}
             disabled={exporting || !report.summary}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             {t("exportPdf")}
@@ -197,7 +197,7 @@ export default function VisitDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 border-b border-border">
+      <div className="mb-6 flex gap-1 border-b border-[#27272A]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -206,14 +206,14 @@ export default function VisitDetailPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "border-blue-600 text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-blue-600 text-[#F97316]"
+                  : "border-transparent text-[#71717A] hover:text-[#FAFAFA]"
               }`}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               {tab.badge ? (
-                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <span className="ml-1 rounded-full bg-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
                   {tab.badge}
                 </span>
               ) : null}
@@ -254,7 +254,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
     <div className="space-y-5">
       {/* Summary */}
       <Section title={t("summary")}>
-        <p className="text-sm text-foreground leading-relaxed">{report.summary}</p>
+        <p className="text-sm text-[#FAFAFA] leading-relaxed">{report.summary}</p>
       </Section>
 
       {/* Client requests */}
@@ -275,9 +275,9 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("measurements")}>
           <ul className="space-y-1.5">
             {report.measurements.map((m: any, i: number) => (
-              <li key={i} className="text-sm text-foreground">
+              <li key={i} className="text-sm text-[#FAFAFA]">
                 <span className="font-medium">{m.zone}</span> : {m.dimensions}
-                {m.notes && <span className="text-muted-foreground"> — {m.notes}</span>}
+                {m.notes && <span className="text-[#71717A]"> — {m.notes}</span>}
               </li>
             ))}
           </ul>
@@ -289,7 +289,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("constraints")}>
           <ul className="space-y-1.5">
             {report.constraints.map((c: string, i: number) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+              <li key={i} className="flex items-start gap-2 text-sm text-[#FAFAFA]">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                 {c}
               </li>
@@ -303,18 +303,18 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("budget")}>
           {report.budget.client_mentioned ? (
             <div>
-              <p className="text-sm text-foreground">
-                <DollarSign className="mr-1 inline h-4 w-4 text-muted-foreground" />
+              <p className="text-sm text-[#FAFAFA]">
+                <DollarSign className="mr-1 inline h-4 w-4 text-[#71717A]" />
                 {report.budget.range_min?.toLocaleString("fr-CH")}
                 {report.budget.range_max ? ` — ${report.budget.range_max.toLocaleString("fr-CH")}` : ""}
                 {" "}{report.budget.currency || "CHF"}
               </p>
               {report.budget.notes && (
-                <p className="mt-1 text-xs text-muted-foreground italic">&ldquo;{report.budget.notes}&rdquo;</p>
+                <p className="mt-1 text-xs text-[#71717A] italic">&ldquo;{report.budget.notes}&rdquo;</p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{t("budgetNotMentioned")}</p>
+            <p className="text-sm text-[#71717A]">{t("budgetNotMentioned")}</p>
           )}
         </Section>
       )}
@@ -322,12 +322,12 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
       {/* Timeline */}
       {report.timeline && (
         <Section title={t("timeline")}>
-          <div className="space-y-1 text-sm text-foreground">
+          <div className="space-y-1 text-sm text-[#FAFAFA]">
             {report.timeline.desired_start && (
-              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" /> {t("desiredStart")} : {report.timeline.desired_start}</p>
+              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#71717A]" /> {t("desiredStart")} : {report.timeline.desired_start}</p>
             )}
             {report.timeline.desired_end && (
-              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" /> {t("desiredEnd")} : {report.timeline.desired_end}</p>
+              <p><Calendar className="mr-1 inline h-3.5 w-3.5 text-[#71717A]" /> {t("desiredEnd")} : {report.timeline.desired_end}</p>
             )}
             {report.timeline.constraints && (
               <p className="text-amber-600"><AlertTriangle className="mr-1 inline h-3.5 w-3.5" /> {report.timeline.constraints}</p>
@@ -342,8 +342,8 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("nextSteps")}>
           <ul className="space-y-1.5">
             {report.next_steps.map((step: string, i: number) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                <input type="checkbox" className="mt-1 h-4 w-4 rounded border-border" />
+              <li key={i} className="flex items-start gap-2 text-sm text-[#FAFAFA]">
+                <input type="checkbox" className="mt-1 h-4 w-4 rounded border-[#27272A]" />
                 {step}
               </li>
             ))}
@@ -356,7 +356,7 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
         <Section title={t("competitors")}>
           <ul className="space-y-1">
             {report.competitors_mentioned.map((c: string, i: number) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-foreground">
+              <li key={i} className="flex items-center gap-2 text-sm text-[#FAFAFA]">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                 {c}
               </li>
@@ -372,24 +372,24 @@ function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
             {report.closing_probability && (
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-sm font-medium text-[#FAFAFA]">
                   {t("closingProbability")} : {Math.round(report.closing_probability * 100)}%
                 </span>
-                <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
+                <div className="h-2 w-32 overflow-hidden rounded-full bg-[#27272A]">
                   <div
-                    className="h-full rounded-full bg-primary/100"
+                    className="h-full rounded-full bg-[#F97316]/100"
                     style={{ width: `${report.closing_probability * 100}%` }}
                   />
                 </div>
               </div>
             )}
             {report.sentiment && (
-              <p className="text-sm text-foreground">
+              <p className="text-sm text-[#FAFAFA]">
                 {t("sentiment")} : <span className="font-medium">{t(`sentiment${report.sentiment.charAt(0).toUpperCase() + report.sentiment.slice(1)}` as any)}</span>
               </p>
             )}
             {report.closing_notes && (
-              <p className="text-xs text-muted-foreground italic">{report.closing_notes}</p>
+              <p className="text-xs text-[#71717A] italic">{report.closing_notes}</p>
             )}
           </div>
         </Section>
@@ -404,9 +404,9 @@ function TranscriptionTab({ visit }: { visit: ClientVisit }) {
 
   if (!visit.transcription) {
     return (
-      <div className="rounded-lg border border-border bg-background p-8 text-center">
-        <Mic className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t("transcribing")}</p>
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-8 text-center">
+        <Mic className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
+        <p className="text-sm text-[#71717A]">{t("transcribing")}</p>
       </div>
     );
   }
@@ -414,10 +414,10 @@ function TranscriptionTab({ visit }: { visit: ClientVisit }) {
   const paragraphs = visit.transcription.split("\n\n").filter(Boolean);
 
   return (
-    <div className="rounded-lg border border-border bg-background p-6">
+    <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
       <div className="space-y-4">
         {paragraphs.map((p, i) => (
-          <p key={i} className="text-sm leading-relaxed text-foreground">
+          <p key={i} className="text-sm leading-relaxed text-[#FAFAFA]">
             {p}
           </p>
         ))}
@@ -453,13 +453,13 @@ function TasksTab({ visit }: { visit: ClientVisit }) {
   }
 
   if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#71717A]" /></div>;
   }
 
   return (
-    <div className="rounded-lg border border-border bg-background">
+    <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
       {tasks.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-sm text-[#71717A]">
           {t("tabTasks")} — Aucune tâche créée
         </div>
       ) : (
@@ -467,17 +467,17 @@ function TasksTab({ visit }: { visit: ClientVisit }) {
           {tasks.map((task) => (
             <div key={task.id} className="flex items-center justify-between px-5 py-3">
               <div className="flex items-center gap-3">
-                <CheckSquare className={`h-4 w-4 ${task.status === "done" ? "text-green-500" : "text-muted-foreground"}`} />
-                <span className="text-sm text-foreground">{task.title}</span>
+                <CheckSquare className={`h-4 w-4 ${task.status === "done" ? "text-green-500" : "text-[#71717A]"}`} />
+                <span className="text-sm text-[#FAFAFA]">{task.title}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  task.priority === "high" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-muted text-muted-foreground"
+                  task.priority === "high" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-[#27272A] text-[#71717A]"
                 }`}>
                   {task.priority}
                 </span>
                 {task.due_date && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-[#71717A]">
                     {new Date(task.due_date).toLocaleDateString("fr-CH")}
                   </span>
                 )}
@@ -511,12 +511,12 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
   return (
     <div className="space-y-3">
       {visit.audio_url && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-background px-5 py-3">
+        <div className="flex items-center justify-between rounded-lg border border-[#27272A] bg-[#0F0F11] px-5 py-3">
           <div className="flex items-center gap-3">
             <Mic className="h-4 w-4 text-blue-500" />
             <div>
-              <p className="text-sm font-medium text-foreground">{t("audioFile")}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm font-medium text-[#FAFAFA]">{t("audioFile")}</p>
+              <p className="text-xs text-[#71717A]">
                 {visit.audio_file_name || "recording.webm"}
                 {visit.audio_file_size ? ` · ${(visit.audio_file_size / (1024 * 1024)).toFixed(1)} MB` : ""}
               </p>
@@ -524,7 +524,7 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
           </div>
           <button
             onClick={() => downloadDocument(visit.audio_url!, visit.audio_file_name || "recording.webm")}
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary"
+            className="flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]"
           >
             <Download className="h-3.5 w-3.5" />
             {t("download")}
@@ -532,17 +532,17 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
         </div>
       )}
       {visit.report_pdf_url && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-background px-5 py-3">
+        <div className="flex items-center justify-between rounded-lg border border-[#27272A] bg-[#0F0F11] px-5 py-3">
           <div className="flex items-center gap-3">
             <FileText className="h-4 w-4 text-blue-500" />
             <div>
-              <p className="text-sm font-medium text-foreground">{t("reportDocument")}</p>
-              <p className="text-xs text-muted-foreground">.docx</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">{t("reportDocument")}</p>
+              <p className="text-xs text-[#71717A]">.docx</p>
             </div>
           </div>
           <button
             onClick={() => downloadDocument(visit.report_pdf_url!, `rapport-visite-${visit.client_name}.docx`)}
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary"
+            className="flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]"
           >
             <Download className="h-3.5 w-3.5" />
             {t("download")}
@@ -550,7 +550,7 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
         </div>
       )}
       {!visit.audio_url && !visit.report_pdf_url && (
-        <div className="rounded-lg border border-border bg-background py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] py-12 text-center text-sm text-[#71717A]">
           {t("tabDocuments")} — {t("noDocuments")}
         </div>
       )}
@@ -616,7 +616,7 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
   }
 
   if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-[#71717A]" /></div>;
   }
 
   const notesPhotos = photos.filter((p) => p.photo_type === "handwritten_notes");
@@ -629,7 +629,7 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
         <button
           type="button"
           onClick={() => setShowUpload(!showUpload)}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
         >
           <Plus className="h-4 w-4" />
           {t("photos.addPhotos")}
@@ -651,8 +651,8 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
               onPhotosUploaded={() => { loadPhotos(); onPhotosChanged(); }}
             />
           </div>
-          <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
-            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-primary">
+          <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/10 p-4">
+            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[#F97316]">
               <Camera className="h-4 w-4" />
               {t("photos.sitePhotos")}
             </h4>
@@ -669,7 +669,7 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
       {/* Handwritten notes section */}
       {notesPhotos.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
             {t("photos.handwrittenNotes")} ({notesPhotos.length})
           </h3>
           <div className="space-y-3">
@@ -687,7 +687,7 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
       {/* Site photos section */}
       {sitePhotos.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
             {t("photos.sitePhotos")} ({sitePhotos.length})
           </h3>
           <PhotoGallery
@@ -700,13 +700,13 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
 
       {/* Empty state */}
       {photos.length === 0 && !showUpload && (
-        <div className="rounded-lg border border-dashed border-border py-12 text-center">
-          <Camera className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t("photos.noPhotos")}</p>
+        <div className="rounded-lg border border-dashed border-[#27272A] py-12 text-center">
+          <Camera className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
+          <p className="text-sm text-[#71717A]">{t("photos.noPhotos")}</p>
           <button
             type="button"
             onClick={() => setShowUpload(true)}
-            className="mt-3 text-sm font-medium text-primary hover:text-primary"
+            className="mt-3 text-sm font-medium text-[#F97316] hover:text-[#F97316]"
           >
             {t("photos.addPhotos")}
           </button>
@@ -719,8 +719,8 @@ function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosCha
 /* ═══════ Helpers ═══════ */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-5">
-      <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
+    <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-5">
+      <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">{title}</h3>
       {children}
     </div>
   );
@@ -738,10 +738,10 @@ function PriorityGroup({ label, color, requests }: { label: string; color: strin
       <p className={`mb-1.5 text-xs font-semibold ${colorMap[color]}`}>{label} :</p>
       <ul className="space-y-2">
         {requests.map((r: any, i: number) => (
-          <li key={i} className="text-sm text-foreground">
+          <li key={i} className="text-sm text-[#FAFAFA]">
             <span className="font-medium capitalize">{r.category?.replace(/_/g, " ")}</span> — {r.description}
-            {r.cfc_code && <span className="ml-1 text-xs text-muted-foreground">CFC {r.cfc_code}</span>}
-            {r.details && <p className="mt-0.5 text-xs text-muted-foreground">{r.details}</p>}
+            {r.cfc_code && <span className="ml-1 text-xs text-[#71717A]">CFC {r.cfc_code}</span>}
+            {r.details && <p className="mt-0.5 text-xs text-[#71717A]">{r.details}</p>}
           </li>
         ))}
       </ul>

@@ -245,95 +245,95 @@ export default function NewVisitPage() {
   if (step === "info") {
     return (
       <div className="min-h-full bg-[#0F0F11] p-6">
-        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/visits" className="mb-4 inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]">
           <ArrowLeft className="h-4 w-4" />
           {t("title")}
         </Link>
 
-        <h1 className="mb-6 text-xl font-bold text-foreground">{t("newVisit")}</h1>
+        <h1 className="mb-6 text-xl font-bold text-[#FAFAFA]">{t("newVisit")}</h1>
 
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Client info */}
-          <div className="rounded-lg border border-border bg-background p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
               {t("prospect")} / {t("existingClient")}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientName")} *</label>
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">{t("clientName")} *</label>
                 <input
                   value={form.client_name}
                   onChange={(e) => update({ client_name: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientCompany")}</label>
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">{t("clientCompany")}</label>
                 <input
                   value={form.client_company}
                   onChange={(e) => update({ client_company: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientPhone")}</label>
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">{t("clientPhone")}</label>
                 <input
                   type="tel"
                   value={form.client_phone}
                   onChange={(e) => update({ client_phone: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                   placeholder="+41 79 ..."
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">{t("clientEmail")}</label>
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">{t("clientEmail")}</label>
                 <input
                   type="email"
                   value={form.client_email}
                   onChange={(e) => update({ client_email: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
               </div>
             </div>
           </div>
 
           {/* Address */}
-          <div className="rounded-lg border border-border bg-background p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("visitAddress")}</h3>
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">{t("visitAddress")}</h3>
             <div className="space-y-3">
               <input
                 value={form.client_address}
                 onChange={(e) => update({ client_address: e.target.value })}
                 placeholder={t("visitAddress")}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={form.client_city}
                   onChange={(e) => update({ client_city: e.target.value })}
                   placeholder={t("visitCity")}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
                 <input
                   value={form.client_postal_code}
                   onChange={(e) => update({ client_postal_code: e.target.value })}
                   placeholder={t("visitPostalCode")}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
               </div>
             </div>
           </div>
 
           {/* Linked project */}
-          <div className="rounded-lg border border-border bg-background p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <FolderKanban className="h-4 w-4 text-muted-foreground" />
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+              <FolderKanban className="h-4 w-4 text-[#71717A]" />
               {t("linkedProject")}
             </h3>
             <select
               value={form.project_id}
               onChange={(e) => update({ project_id: e.target.value })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
             >
               <option value="">{t("noProjectProspect")}</option>
               {projects.map((p) => (
@@ -343,13 +343,13 @@ export default function NewVisitPage() {
           </div>
 
           {/* Pre-visit notes */}
-          <div className="rounded-lg border border-border bg-background p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("preVisitNotes")}</h3>
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">{t("preVisitNotes")}</h3>
             <textarea
               value={form.notes}
               onChange={(e) => update({ notes: e.target.value })}
               rows={3}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
             />
           </div>
 
@@ -366,7 +366,7 @@ export default function NewVisitPage() {
               type="button"
               onClick={handleSkipToRecording}
               disabled={saving}
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="text-sm text-[#71717A] hover:text-[#FAFAFA]"
             >
               {t("skipToRecording")}
             </button>
@@ -389,7 +389,7 @@ export default function NewVisitPage() {
   if (step === "recording") {
     return (
       <div className="min-h-full bg-[#0F0F11] p-6">
-        <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
+        <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
           <Mic className="h-5 w-5 text-red-500" />
           {t("clientVisit")} — {form.client_name || "Client"}
         </h1>
@@ -398,13 +398,13 @@ export default function NewVisitPage() {
 
           {/* Photos section */}
           {visitId && orgId && (
-            <div className="rounded-lg border border-border bg-background">
-              <div className="border-b border-border px-4 py-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Camera className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
+              <div className="border-b border-[#27272A] px-4 py-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+                  <Camera className="h-4 w-4 text-[#71717A]" />
                   {t("photos.title")}
                   {photosCount > 0 && (
-                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    <span className="rounded-full bg-[#F97316]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#F97316]">
                       {photosCount}
                     </span>
                   )}
@@ -412,21 +412,21 @@ export default function NewVisitPage() {
               </div>
 
               {/* Handwritten notes */}
-              <div className="border-b border-border">
+              <div className="border-b border-[#27272A]">
                 <button
                   type="button"
                   onClick={() => setNotesExpanded(!notesExpanded)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
                 >
                   <span className="flex items-center gap-2">
                     <StickyNote className="h-4 w-4 text-purple-500" />
                     {t("photos.handwrittenNotes")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${notesExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {notesExpanded && (
                   <div className="px-4 pb-4">
-                    <p className="mb-3 text-xs text-muted-foreground">{t("photos.handwrittenNotesDesc")}</p>
+                    <p className="mb-3 text-xs text-[#71717A]">{t("photos.handwrittenNotesDesc")}</p>
                     <PhotoCapture
                       visitId={visitId}
                       orgId={orgId}
@@ -442,13 +442,13 @@ export default function NewVisitPage() {
                 <button
                   type="button"
                   onClick={() => setSitePhotosExpanded(!sitePhotosExpanded)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
                 >
                   <span className="flex items-center gap-2">
                     <Camera className="h-4 w-4 text-[#F97316]" />
                     {t("photos.sitePhotos")}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
                 </button>
                 {sitePhotosExpanded && (
                   <div className="px-4 pb-4">
@@ -471,21 +471,21 @@ export default function NewVisitPage() {
   // ──── Step 3: Post-recording ────
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-xl font-bold text-foreground">
+      <h1 className="mb-6 text-xl font-bold text-[#FAFAFA]">
         {t("recordingFinished")} — {Math.floor(audioDuration / 60)} min {audioDuration % 60} sec
         {photosCount > 0 && (
-          <span className="ml-2 text-base font-normal text-muted-foreground">
+          <span className="ml-2 text-base font-normal text-[#71717A]">
             + {photosCount} {t("photos.title").toLowerCase()}
           </span>
         )}
       </h1>
 
       <div className="mx-auto max-w-lg">
-        <div className="rounded-lg border border-border bg-background p-6 text-center">
-          <p className="mb-2 text-sm font-medium text-foreground">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6 text-center">
+          <p className="mb-2 text-sm font-medium text-[#FAFAFA]">
             {t("transcribeAndGenerate")} ?
           </p>
-          <p className="mb-6 text-xs text-muted-foreground">
+          <p className="mb-6 text-xs text-[#71717A]">
             {t("transcriptionWarning")}
           </p>
 
@@ -510,7 +510,7 @@ export default function NewVisitPage() {
             <button
               onClick={handleSaveWithoutTranscribing}
               disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-lg border border-border px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] px-5 py-3 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t("saveWithoutTranscribing")}

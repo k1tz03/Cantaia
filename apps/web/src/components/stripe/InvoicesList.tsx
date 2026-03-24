@@ -30,13 +30,13 @@ function getStatusBadge(status: string | null) {
       );
     case "void":
       return (
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#71717A]">
           Annulee
         </span>
       );
     default:
       return (
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#71717A]">
           {status || "—"}
         </span>
       );
@@ -65,7 +65,7 @@ export default function InvoicesList() {
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+      <div className="flex flex-col items-center justify-center py-8 text-[#71717A]">
         <Inbox className="mb-2 h-8 w-8" />
         <p className="text-sm">Aucune facture</p>
       </div>
@@ -73,41 +73,41 @@ export default function InvoicesList() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
+    <div className="overflow-hidden rounded-lg border border-[#27272A]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted">
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+          <tr className="border-b border-[#27272A] bg-[#27272A]">
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">
               Date
             </th>
-            <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+            <th className="px-4 py-2.5 text-left text-xs font-medium text-[#71717A]">
               Numero
             </th>
-            <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
+            <th className="px-4 py-2.5 text-right text-xs font-medium text-[#71717A]">
               Montant
             </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
+            <th className="px-4 py-2.5 text-center text-xs font-medium text-[#71717A]">
               Statut
             </th>
-            <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
+            <th className="px-4 py-2.5 text-center text-xs font-medium text-[#71717A]">
               PDF
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-muted">
-              <td className="px-4 py-2.5 text-foreground">
+            <tr key={invoice.id} className="hover:bg-[#27272A]">
+              <td className="px-4 py-2.5 text-[#FAFAFA]">
                 {new Date(invoice.date * 1000).toLocaleDateString("fr-CH", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
                 })}
               </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+              <td className="px-4 py-2.5 font-mono text-xs text-[#71717A]">
                 {invoice.number || "—"}
               </td>
-              <td className="px-4 py-2.5 text-right font-medium text-foreground">
+              <td className="px-4 py-2.5 text-right font-medium text-[#FAFAFA]">
                 {invoice.amount.toFixed(2)} {(invoice.currency || "chf").toUpperCase()}
               </td>
               <td className="px-4 py-2.5 text-center">
@@ -119,13 +119,13 @@ export default function InvoicesList() {
                     href={invoice.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+                    className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]/80"
                   >
                     <FileText className="h-3.5 w-3.5" />
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-[#71717A]">—</span>
                 )}
               </td>
             </tr>

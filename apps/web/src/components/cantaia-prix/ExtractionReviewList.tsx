@@ -41,10 +41,10 @@ export function ExtractionReviewList({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {extractionResults.length} offre{extractionResults.length > 1 ? "s" : ""} trouvée{extractionResults.length > 1 ? "s" : ""}
           </h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[#71717A]">
             Sélectionnez les offres à importer dans la base de prix
           </p>
         </div>
@@ -58,7 +58,7 @@ export function ExtractionReviewList({
                 setSelectedExtractions(new Set(extractionResults.map((r: any) => r.emailId)));
               }
             }}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-xs text-[#71717A] hover:text-[#FAFAFA]"
           >
             {selectedExtractions.size === extractionResults.length ? "Tout désélectionner" : "Tout sélectionner"}
           </button>
@@ -79,9 +79,9 @@ export function ExtractionReviewList({
       </div>
 
       {/* Results list */}
-      <div className="rounded-lg border border-border bg-background divide-y divide-border">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] divide-y divide-border">
         {extractionResults.map((result: any) => (
-          <div key={`${result.emailId}-${result.source_type}`} className="transition-colors hover:bg-muted/50">
+          <div key={`${result.emailId}-${result.source_type}`} className="transition-colors hover:bg-[#27272A]/50">
             {/* Row header */}
             <div className="flex items-center gap-3 px-4 py-3">
               <input
@@ -93,7 +93,7 @@ export function ExtractionReviewList({
                   else next.delete(result.emailId);
                   setSelectedExtractions(next);
                 }}
-                className="h-4 w-4 rounded border-border text-brand"
+                className="h-4 w-4 rounded border-[#27272A] text-brand"
               />
               <button
                 type="button"
@@ -102,14 +102,14 @@ export function ExtractionReviewList({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">
+                    <p className="text-sm font-medium text-[#FAFAFA] truncate">
                       {result.supplier_info?.company_name || "Fournisseur inconnu"}
                     </p>
                     <span className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
                       result.source_type === "pdf_attachment"
                         ? "bg-purple-500/10 text-purple-700 dark:text-purple-400"
-                        : "bg-primary/10 text-primary"
+                        : "bg-[#F97316]/10 text-[#F97316]"
                     )}>
                       {result.source_type === "pdf_attachment" ? (
                         <><FileText className="h-3 w-3" />PDF</>
@@ -118,7 +118,7 @@ export function ExtractionReviewList({
                       )}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-[#71717A] truncate">
                     {result.fileName && <span className="font-mono">{result.fileName}</span>}
                     {result.fileName && (result.supplier_info?.email || result.supplier_info?.city) ? " — " : ""}
                     {result.supplier_info?.email || ""}{result.supplier_info?.city ? ` — ${result.supplier_info.city}` : ""}
@@ -130,17 +130,17 @@ export function ExtractionReviewList({
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-mono text-sm font-semibold text-foreground">
+                  <p className="font-mono text-sm font-semibold text-[#FAFAFA]">
                     {result.line_items?.length || 0} poste{(result.line_items?.length || 0) > 1 ? "s" : ""}
                   </p>
                   {result.offer_summary?.total_amount && (
-                    <p className="font-mono text-xs text-muted-foreground">
+                    <p className="font-mono text-xs text-[#71717A]">
                       {formatCHF(result.offer_summary.total_amount)} CHF
                     </p>
                   )}
                 </div>
                 <ChevronRight className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                  "h-4 w-4 text-[#71717A] transition-transform shrink-0",
                   expandedExtraction === result.emailId && "rotate-90"
                 )} />
               </button>
@@ -148,11 +148,11 @@ export function ExtractionReviewList({
 
             {/* Expanded detail */}
             {expandedExtraction === result.emailId && result.line_items && (
-              <div className="border-t border-border bg-muted/50 px-4 py-3">
+              <div className="border-t border-[#27272A] bg-[#27272A]/50 px-4 py-3">
                 {/* Project assignment */}
                 <div className="mb-3 flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs text-muted-foreground shrink-0">Projet :</span>
+                  <MapPin className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
+                  <span className="text-xs text-[#71717A] shrink-0">Projet :</span>
                   <select
                     value={extractionProjectMap[result.emailId] || ""}
                     onChange={(e) => {
@@ -161,7 +161,7 @@ export function ExtractionReviewList({
                         [result.emailId]: e.target.value,
                       }));
                     }}
-                    className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
+                    className="rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-xs text-[#FAFAFA] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
                   >
                     <option value="">— Aucun projet —</option>
                     {projects.map((p) => (
@@ -180,7 +180,7 @@ export function ExtractionReviewList({
                   )}
                 </div>
                 {/* Supplier info */}
-                <div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <div className="mb-3 flex flex-wrap gap-3 text-xs text-[#71717A]">
                   {result.supplier_info?.phone && (
                     <span>{result.supplier_info.phone}</span>
                   )}
@@ -194,7 +194,7 @@ export function ExtractionReviewList({
                 {/* Line items table */}
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-[10px] uppercase text-muted-foreground">
+                    <tr className="text-[10px] uppercase text-[#71717A]">
                       <th className="pb-1.5 text-left font-semibold">Description</th>
                       <th className="pb-1.5 text-right font-semibold">Qté</th>
                       <th className="pb-1.5 text-center font-semibold">Unité</th>
@@ -206,16 +206,16 @@ export function ExtractionReviewList({
                   <tbody className="divide-y divide-border">
                     {result.line_items.map((li: any, idx: number) => (
                       <tr key={idx}>
-                        <td className="py-1.5 pr-2 text-foreground">{li.description}</td>
-                        <td className="py-1.5 text-right font-mono text-muted-foreground">{li.quantity ?? "—"}</td>
-                        <td className="py-1.5 text-center text-muted-foreground">{li.unit}</td>
-                        <td className="py-1.5 text-right font-mono text-foreground">{formatCHF(li.unit_price)}</td>
-                        <td className="py-1.5 text-right font-mono font-medium text-foreground">
+                        <td className="py-1.5 pr-2 text-[#FAFAFA]">{li.description}</td>
+                        <td className="py-1.5 text-right font-mono text-[#71717A]">{li.quantity ?? "—"}</td>
+                        <td className="py-1.5 text-center text-[#71717A]">{li.unit}</td>
+                        <td className="py-1.5 text-right font-mono text-[#FAFAFA]">{formatCHF(li.unit_price)}</td>
+                        <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">
                           {li.total_price ? formatCHF(li.total_price) : "—"}
                         </td>
                         <td className="py-1.5 text-center">
                           {li.cfc_code ? (
-                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{li.cfc_code}</span>
+                            <span className="rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px]">{li.cfc_code}</span>
                           ) : "—"}
                         </td>
                       </tr>
@@ -224,7 +224,7 @@ export function ExtractionReviewList({
                 </table>
                 {/* Conditions */}
                 {result.offer_summary && (
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[#71717A]">
                     {result.offer_summary.payment_terms && <span>Paiement: {result.offer_summary.payment_terms}</span>}
                     {result.offer_summary.validity_days && <span>Validité: {result.offer_summary.validity_days}j</span>}
                     {result.offer_summary.vat_rate && <span>TVA: {result.offer_summary.vat_rate}%</span>}

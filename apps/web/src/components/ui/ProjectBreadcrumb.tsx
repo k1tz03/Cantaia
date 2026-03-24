@@ -20,18 +20,18 @@ export function ProjectBreadcrumb({ section }: ProjectBreadcrumbProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2"
+      className="flex items-center gap-1.5 text-sm text-[#71717A] mb-2"
     >
       <Link
         href={`/projects/${activeProject.id}`}
-        className="hover:text-primary transition-colors text-primary"
+        className="hover:text-[#F97316] transition-colors text-[#F97316]"
       >
         {activeProject.name}
       </Link>
       {section && (
         <>
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          <span className="text-foreground font-medium">{t(section)}</span>
+          <span className="text-[#FAFAFA] font-medium">{t(section)}</span>
         </>
       )}
     </nav>

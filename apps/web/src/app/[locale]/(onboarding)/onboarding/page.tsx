@@ -152,7 +152,7 @@ export default function OnboardingPage() {
   if (loading || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
       </div>
     );
   }
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
       {/* Logo */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-[#1E3A5F]">CANTAIA</h1>
-        <p className="mt-1 text-sm text-muted-foreground">L'IA au service du chantier</p>
+        <p className="mt-1 text-sm text-[#71717A]">L'IA au service du chantier</p>
       </div>
 
       {/* Step indicator */}
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
                   ? "bg-green-100 text-green-700"
                   : step === s.id
                   ? "bg-[#1E3A5F] text-white"
-                  : "bg-muted text-muted-foreground"
+                  : "bg-[#27272A] text-[#71717A]"
               )}
             >
               {step > s.id ? <Check className="h-4 w-4" /> : s.id}
@@ -184,20 +184,20 @@ export default function OnboardingPage() {
             <span
               className={cn(
                 "hidden text-xs font-medium sm:block",
-                step === s.id ? "text-foreground" : "text-muted-foreground"
+                step === s.id ? "text-[#FAFAFA]" : "text-[#71717A]"
               )}
             >
               {s.label}
             </span>
             {idx < STEPS.length - 1 && (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-[#71717A]" />
             )}
           </div>
         ))}
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-md rounded-xl border border-border bg-background p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-xl border border-[#27272A] bg-[#0F0F11] p-8 shadow-sm">
         {/* ── STEP 1: Connect email ── */}
         {step === 1 && (
           <div className="space-y-6">
@@ -205,10 +205,10 @@ export default function OnboardingPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50">
                 <Mail className="h-6 w-6 text-[#1E3A5F]" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 Connectez votre boite email
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-[#71717A]">
                 Cantaia analyse vos emails pour classer les messages par projet
                 et extraire les actions importantes.
               </p>
@@ -219,7 +219,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleConnectOutlook}
                 disabled={!!connectingProvider}
-                className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50 transition-colors"
               >
                 {connectingProvider === "outlook" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -238,7 +238,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleConnectGmail}
                 disabled={!!connectingProvider}
-                className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50 transition-colors"
               >
                 {connectingProvider === "gmail" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -257,7 +257,7 @@ export default function OnboardingPage() {
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full text-center text-sm text-[#71717A] hover:text-[#FAFAFA] transition-colors"
             >
               Plus tard
             </button>
@@ -271,17 +271,17 @@ export default function OnboardingPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50">
                 <FolderPlus className="h-6 w-6 text-[#1E3A5F]" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 Creez votre premier projet
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-[#71717A]">
                 Les emails et documents seront automatiquement classés par projet.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                <label className="mb-1.5 block text-xs font-medium text-[#FAFAFA]">
                   Nom du projet <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -289,11 +289,11 @@ export default function OnboardingPage() {
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="Ex: Rénovation École de Morges"
-                  className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
+                  className="w-full rounded-lg border border-[#27272A] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                <label className="mb-1.5 block text-xs font-medium text-[#FAFAFA]">
                   Client
                 </label>
                 <input
@@ -301,11 +301,11 @@ export default function OnboardingPage() {
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="Ex: Commune de Morges"
-                  className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
+                  className="w-full rounded-lg border border-[#27272A] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                <label className="mb-1.5 block text-xs font-medium text-[#FAFAFA]">
                   Ville
                 </label>
                 <input
@@ -313,7 +313,7 @@ export default function OnboardingPage() {
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Ex: Morges"
-                  className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
+                  className="w-full rounded-lg border border-[#27272A] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#1E3A5F] focus:outline-none focus:ring-1 focus:ring-[#1E3A5F]"
                 />
               </div>
 
@@ -334,7 +334,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="w-full text-center text-sm text-[#71717A] hover:text-[#FAFAFA] transition-colors"
               >
                 Plus tard
               </button>
@@ -349,10 +349,10 @@ export default function OnboardingPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
                 <Rocket className="h-6 w-6 text-green-600" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 C'est parti !
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-[#71717A]">
                 Cantaia analyse vos emails et documents.
                 <br />
                 Revenez dans 5 minutes pour voir les premiers résultats.

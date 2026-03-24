@@ -294,8 +294,8 @@ export default function CantaiaPrixPage() {
               <Calculator className="h-5 w-5 text-brand" />
             </div>
             <div>
-              <h1 className="text-xl font-display font-extrabold text-foreground">Cantaia Prix</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl font-display font-extrabold text-[#FAFAFA]">Cantaia Prix</h1>
+              <p className="text-sm text-[#71717A]">
                 Estimation automatique des coûts pour vos projets de construction
               </p>
             </div>
@@ -303,7 +303,7 @@ export default function CantaiaPrixPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex flex-wrap gap-1 rounded-lg bg-muted p-0.5 w-fit">
+        <div className="mb-6 flex flex-wrap gap-1 rounded-lg bg-[#27272A] p-0.5 w-fit">
           {([
             // HIDDEN: Budget estimation temporarily disabled — prices unreliable
             // { key: "estimate" as Tab, label: "Chiffrage IA", icon: Calculator },
@@ -317,8 +317,8 @@ export default function CantaiaPrixPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors",
                 activeTab === tab.key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[#0F0F11] text-[#FAFAFA] shadow-sm"
+                  : "text-[#71717A] hover:text-[#FAFAFA]"
               )}
             >
               <tab.icon className="h-3.5 w-3.5" />

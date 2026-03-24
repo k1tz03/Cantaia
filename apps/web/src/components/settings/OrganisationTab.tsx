@@ -28,7 +28,7 @@ export function OrganisationTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
       </div>
     );
   }
@@ -36,13 +36,13 @@ export function OrganisationTab() {
   // Solo user — show simplified message
   if (memberCount !== null && memberCount <= 1) {
     return (
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="flex flex-col items-center text-center py-8">
-          <Building2 className="h-10 w-10 text-muted-foreground" />
-          <h3 className="mt-3 text-sm font-medium text-muted-foreground">
+          <Building2 className="h-10 w-10 text-[#71717A]" />
+          <h3 className="mt-3 text-sm font-medium text-[#71717A]">
             {t("orgSoloTitle")}
           </h3>
-          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+          <p className="mt-1 max-w-sm text-xs text-[#71717A]">
             {t("orgSoloDesc")}
           </p>
         </div>
@@ -53,17 +53,17 @@ export function OrganisationTab() {
   return (
     <div className="space-y-6">
       {/* Members */}
-      <div className="rounded-lg border border-border bg-background p-6">
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+          <Users className="h-4 w-4 text-[#71717A]" />
           {t("teamMembers")}
         </h3>
-        <p className="mb-1 text-sm text-muted-foreground">
+        <p className="mb-1 text-sm text-[#71717A]">
           {memberCount} {t("membersCount")}
         </p>
         <Link
           href="/admin/members"
-          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted sm:w-auto sm:justify-start"
+          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] sm:w-auto sm:justify-start"
         >
           {t("manageMembers")}
           <ArrowRight className="h-4 w-4" />

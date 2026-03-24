@@ -24,23 +24,23 @@ export function PVConfirmDialog({
   if (variant === "finalize") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-        <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
+        <div className="w-full max-w-md rounded-lg bg-[#0F0F11] p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
-            <h3 className="text-base font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-[#FAFAFA]">
               {t("finalize")}
             </h3>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-[#71717A]">
             {t("finalize_confirm")}
           </p>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-[#71717A]">
             {selectedActionsCount} {t("actions_selected")}
           </p>
           <div className="flex justify-end gap-2">
             <button
               onClick={onCancel}
-              className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
+              className="rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
             >
               {tCommon("cancel")}
             </button>
@@ -63,20 +63,20 @@ export function PVConfirmDialog({
   if (variant === "regenerate") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-        <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
+        <div className="w-full max-w-md rounded-lg bg-[#0F0F11] p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
-            <h3 className="text-base font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-[#FAFAFA]">
               {t("regenerate")}
             </h3>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-[#71717A]">
             {t("regenerate_confirm")}
           </p>
           <div className="flex justify-end gap-2">
             <button
               onClick={onCancel}
-              className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
+              className="rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
             >
               {tCommon("cancel")}
             </button>
@@ -95,20 +95,20 @@ export function PVConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
+      <div className="w-full max-w-sm rounded-lg bg-[#0F0F11] p-6 shadow-xl">
         <div className="mb-4 flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500" />
-          <h3 className="text-base font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-[#FAFAFA]">
             {t("delete_pv")}
           </h3>
         </div>
-        <p className="mb-4 text-sm text-muted-foreground">
+        <p className="mb-4 text-sm text-[#71717A]">
           {t("delete_pv_confirm")}
         </p>
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
+            className="rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#FAFAFA] hover:bg-[#27272A]"
           >
             {tCommon("cancel")}
           </button>

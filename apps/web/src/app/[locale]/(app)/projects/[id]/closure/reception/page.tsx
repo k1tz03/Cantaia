@@ -40,7 +40,7 @@ export default function ReceptionFormPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-muted-foreground">{t("projectNotFound")}</p>
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -184,22 +184,22 @@ export default function ReceptionFormPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("generateReceptionPV")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{project.name}</p>
+          <p className="mt-1 text-sm text-[#71717A]">{project.name}</p>
         </div>
       </div>
 
       <div className="mt-8 max-w-4xl space-y-8">
         {/* Reception type */}
         <div>
-          <label className="text-sm font-semibold text-foreground">{t("receptionType")}</label>
+          <label className="text-sm font-semibold text-[#FAFAFA]">{t("receptionType")}</label>
           <div className="mt-2 flex gap-3">
             {(["provisional", "partial", "final"] as const).map((type) => (
               <button
@@ -209,7 +209,7 @@ export default function ReceptionFormPage() {
                 className={`rounded-md border px-4 py-2 text-sm transition-colors ${
                   receptionType === type
                     ? "border-brand bg-brand/5 text-brand font-medium"
-                    : "border-border text-muted-foreground hover:bg-muted"
+                    : "border-[#27272A] text-[#71717A] hover:bg-[#27272A]"
                 }`}
               >
                 {t(type)}
@@ -221,21 +221,21 @@ export default function ReceptionFormPage() {
         {/* Date & Location */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-foreground">{t("receptionDate")}</label>
+            <label className="text-sm font-medium text-[#FAFAFA]">{t("receptionDate")}</label>
             <input
               type="date"
               value={receptionDate}
               onChange={(e) => setReceptionDate(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">{t("receptionLocation")}</label>
+            <label className="text-sm font-medium text-[#FAFAFA]">{t("receptionLocation")}</label>
             <input
               type="text"
               value={receptionLocation}
               onChange={(e) => setReceptionLocation(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function ReceptionFormPage() {
         {/* Participants */}
         <div>
           <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-foreground">{t("participants")}</label>
+            <label className="text-sm font-semibold text-[#FAFAFA]">{t("participants")}</label>
             <button
               type="button"
               onClick={() => setShowNewParticipant(true)}
@@ -257,7 +257,7 @@ export default function ReceptionFormPage() {
             {participants.map((p, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-md border border-border bg-background p-3"
+                className="flex items-center gap-3 rounded-md border border-[#27272A] bg-[#0F0F11] p-3"
               >
                 <input
                   type="checkbox"
@@ -267,19 +267,19 @@ export default function ReceptionFormPage() {
                     updated[i] = { ...updated[i], present: e.target.checked };
                     setParticipants(updated);
                   }}
-                  className="h-4 w-4 rounded border-border text-brand"
+                  className="h-4 w-4 rounded border-[#27272A] text-brand"
                 />
                 <div className="flex-1 text-sm">
-                  <span className="font-medium text-foreground">{p.name}</span>
-                  <span className="mx-1 text-muted-foreground">—</span>
-                  <span className="text-muted-foreground">{p.role}</span>
-                  <span className="mx-1 text-muted-foreground">—</span>
-                  <span className="text-muted-foreground">{p.company}</span>
+                  <span className="font-medium text-[#FAFAFA]">{p.name}</span>
+                  <span className="mx-1 text-[#71717A]">—</span>
+                  <span className="text-[#71717A]">{p.role}</span>
+                  <span className="mx-1 text-[#71717A]">—</span>
+                  <span className="text-[#71717A]">{p.company}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeParticipant(i)}
-                  className="p-1 text-muted-foreground hover:text-red-500"
+                  className="p-1 text-[#71717A] hover:text-red-500"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -288,28 +288,28 @@ export default function ReceptionFormPage() {
           </div>
 
           {showNewParticipant && (
-            <div className="mt-3 rounded-md border border-primary/20 bg-primary/10 p-4">
+            <div className="mt-3 rounded-md border border-[#F97316]/20 bg-[#F97316]/10 p-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <input
                   type="text"
                   placeholder={t("participantName")}
                   value={newParticipant.name}
                   onChange={(e) => setNewParticipant({ ...newParticipant, name: e.target.value })}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 />
                 <input
                   type="text"
                   placeholder={t("participantRole")}
                   value={newParticipant.role}
                   onChange={(e) => setNewParticipant({ ...newParticipant, role: e.target.value })}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 />
                 <input
                   type="text"
                   placeholder={t("participantCompany")}
                   value={newParticipant.company}
                   onChange={(e) => setNewParticipant({ ...newParticipant, company: e.target.value })}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div className="mt-3 flex gap-2">
@@ -323,7 +323,7 @@ export default function ReceptionFormPage() {
                 <button
                   type="button"
                   onClick={() => setShowNewParticipant(false)}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                  className="rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
                 >
                   Annuler
                 </button>
@@ -334,39 +334,39 @@ export default function ReceptionFormPage() {
 
         {/* Lots */}
         <div>
-          <label className="text-sm font-semibold text-foreground">{t("lots")}</label>
+          <label className="text-sm font-semibold text-[#FAFAFA]">{t("lots")}</label>
           <div className="mt-3 space-y-4">
             {lots.map((lot, lotIndex) => (
               <div
                 key={lotIndex}
-                className="rounded-md border border-border bg-background p-4"
+                className="rounded-md border border-[#27272A] bg-[#0F0F11] p-4"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground">CFC {lot.cfc_code}</span>
-                    <p className="text-sm font-medium text-foreground">{lot.lot_name} — {lot.company}</p>
+                    <span className="text-xs font-medium text-[#71717A]">CFC {lot.cfc_code}</span>
+                    <p className="text-sm font-medium text-[#FAFAFA]">{lot.lot_name} — {lot.company}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-[#71717A]">
                     {t("contractAmount")}: {lot.contract_amount.toLocaleString("fr-CH")} CHF
                   </span>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div>
-                    <label className="text-xs text-muted-foreground">{t("finalAmount")}</label>
+                    <label className="text-xs text-[#71717A]">{t("finalAmount")}</label>
                     <input
                       type="number"
                       value={lot.final_amount}
                       onChange={(e) => updateLot(lotIndex, "final_amount", Number(e.target.value))}
-                      className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">{t("lotStatus")}</label>
+                    <label className="text-xs text-[#71717A]">{t("lotStatus")}</label>
                     <select
                       value={lot.status}
                       onChange={(e) => updateLot(lotIndex, "status", e.target.value)}
-                      className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                     >
                       <option value="accepted">{t("accepted")}</option>
                       <option value="reserves">{t("withReserves")}</option>
@@ -385,7 +385,7 @@ export default function ReceptionFormPage() {
 
                 {/* Reserves for this lot */}
                 {lot.status === "reserves" && (
-                  <div className="mt-3 space-y-3 border-t border-border pt-3">
+                  <div className="mt-3 space-y-3 border-t border-[#27272A] pt-3">
                     {lot.reserves.map((reserve, rIndex) => (
                       <div key={rIndex} className="rounded-md border border-amber-200 bg-amber-500/10 p-3">
                         <div className="flex items-start justify-between">
@@ -406,7 +406,7 @@ export default function ReceptionFormPage() {
                             placeholder={t("reserveDescription")}
                             value={reserve.description}
                             onChange={(e) => updateReserve(lotIndex, rIndex, "description", e.target.value)}
-                            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                            className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                           />
                           <div className="grid gap-2 sm:grid-cols-3">
                             <input
@@ -414,12 +414,12 @@ export default function ReceptionFormPage() {
                               placeholder={t("reserveLocation")}
                               value={reserve.location}
                               onChange={(e) => updateReserve(lotIndex, rIndex, "location", e.target.value)}
-                              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                              className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                             />
                             <select
                               value={reserve.severity}
                               onChange={(e) => updateReserve(lotIndex, rIndex, "severity", e.target.value)}
-                              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                              className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                             >
                               <option value="minor">{t("minor")}</option>
                               <option value="major">{t("major")}</option>
@@ -429,7 +429,7 @@ export default function ReceptionFormPage() {
                               type="date"
                               value={reserve.deadline}
                               onChange={(e) => updateReserve(lotIndex, rIndex, "deadline", e.target.value)}
-                              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                              className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                             />
                           </div>
                         </div>
@@ -449,9 +449,9 @@ export default function ReceptionFormPage() {
             ))}
 
             {lots.length === 0 && (
-              <div className="rounded-md border border-dashed border-border bg-muted p-6 text-center">
-                <AlertTriangle className="mx-auto h-6 w-6 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
+              <div className="rounded-md border border-dashed border-[#27272A] bg-[#27272A] p-6 text-center">
+                <AlertTriangle className="mx-auto h-6 w-6 text-[#71717A]" />
+                <p className="mt-2 text-sm text-[#71717A]">
                   Aucun lot CFC enregistré pour ce projet.
                 </p>
               </div>
@@ -461,18 +461,18 @@ export default function ReceptionFormPage() {
 
         {/* General notes */}
         <div>
-          <label className="text-sm font-medium text-foreground">Notes générales</label>
+          <label className="text-sm font-medium text-[#FAFAFA]">Notes générales</label>
           <textarea
             value={generalNotes}
             onChange={(e) => setGeneralNotes(e.target.value)}
             rows={3}
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Observations générales sur la réception..."
           />
         </div>
 
         {/* Generate button */}
-        <div className="border-t border-border pt-6">
+        <div className="border-t border-[#27272A] pt-6">
           <button
             type="button"
             onClick={handleGenerate}

@@ -5,13 +5,13 @@ export default function NotFound() {
   const t = useTranslations("nav");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted">
+    <div className="min-h-screen flex items-center justify-center bg-[#27272A]">
       <div className="text-center p-8 max-w-md">
         <div className="text-6xl font-bold text-brand mb-4">404</div>
-        <h2 className="text-2xl font-bold text-foreground mb-4">
+        <h2 className="text-2xl font-bold text-[#FAFAFA] mb-4">
           {t("notFoundTitle")}
         </h2>
-        <p className="text-muted-foreground mb-6">
+        <p className="text-[#71717A] mb-6">
           {t("notFoundDescription")}
         </p>
         <Link

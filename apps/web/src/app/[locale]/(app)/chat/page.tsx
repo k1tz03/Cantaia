@@ -445,10 +445,10 @@ export default function ChatPage() {
     <div className="flex h-[calc(100vh-3.5rem)] lg:h-screen bg-[#0F0F11]">
       {/* Left panel — Conversation list */}
       <div className="hidden md:flex md:w-[240px] lg:w-[260px] flex-col border-r border-[#27272A] bg-[#111113] shrink-0">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-[#27272A]">
           <button
             onClick={startNewConversation}
-            className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+            className="flex w-full items-center gap-2 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm font-medium text-[#FAFAFA] shadow-sm transition-colors hover:bg-[#27272A]"
           >
             <Plus className="h-4 w-4" />
             {t("newConversation")}
@@ -458,16 +458,16 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto">
           {loadingConvs ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
             </div>
           ) : conversations.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            <p className="px-4 py-8 text-center text-xs text-[#71717A]">
               {t("noConversations")}
             </p>
           ) : (
             groupConversations().map((group) => (
               <div key={group.label}>
-                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
                   {group.label}
                 </p>
                 {group.items.map((conv) => (
@@ -475,18 +475,18 @@ export default function ChatPage() {
                     key={conv.id}
                     onClick={() => selectConversation(conv)}
                     className={cn(
-                      "group flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-background",
+                      "group flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-[#0F0F11]",
                       activeConvId === conv.id &&
-                        "bg-background shadow-sm border-r-2 border-primary"
+                        "bg-[#0F0F11] shadow-sm border-r-2 border-[#F97316]"
                     )}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 truncate text-foreground">
+                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[#71717A]" />
+                    <span className="flex-1 truncate text-[#FAFAFA]">
                       {conv.title}
                     </span>
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
-                      className="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:text-red-500 group-hover:block"
+                      className="hidden shrink-0 rounded p-0.5 text-[#71717A] hover:text-red-500 group-hover:block"
                       title={t("deleteConversation")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -501,7 +501,7 @@ export default function ChatPage() {
 
       {/* Right panel — Chat area */}
       <div
-        className={cn("relative flex flex-1 flex-col", dragOver && "ring-2 ring-primary ring-inset")}
+        className={cn("relative flex flex-1 flex-col", dragOver && "ring-2 ring-[#F97316] ring-inset")}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
@@ -514,20 +514,20 @@ export default function ChatPage() {
       >
         {/* Drag overlay */}
         {dragOver && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
-            <p className="text-sm font-medium text-primary">Déposez vos fichiers ici</p>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#F97316]/5 border-2 border-dashed border-[#F97316] rounded-lg">
+            <p className="text-sm font-medium text-[#F97316]">Déposez vos fichiers ici</p>
           </div>
         )}
 
         {/* Mobile header with new conversation button */}
-        <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
+        <div className="flex items-center gap-2 border-b border-[#27272A] px-4 py-2 md:hidden">
           <button
             onClick={startNewConversation}
-            className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted"
+            className="rounded-md border border-[#27272A] p-1.5 text-[#71717A] hover:bg-[#27272A]"
           >
             <Plus className="h-4 w-4" />
           </button>
-          <h1 className="flex-1 text-sm font-semibold text-foreground truncate">
+          <h1 className="flex-1 text-sm font-semibold text-[#FAFAFA] truncate">
             {t("title")}
           </h1>
         </div>
@@ -540,10 +540,10 @@ export default function ChatPage() {
               <div className="mb-4">
                 <JMAvatar size="lg" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 {t("emptyTitle")}
               </h2>
-              <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
+              <p className="mt-2 max-w-md text-center text-sm text-[#71717A]">
                 {t("emptyDesc")}
               </p>
               <div className="mt-6 flex flex-col gap-2 w-full max-w-md">
@@ -551,7 +551,7 @@ export default function ChatPage() {
                   <button
                     key={i}
                     onClick={() => sendMessage(q)}
-                    className="rounded-lg border border-border bg-background px-4 py-3 text-left text-sm text-muted-foreground shadow-sm transition-all hover:border-primary/20 hover:shadow-md"
+                    className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3 text-left text-sm text-[#71717A] shadow-sm transition-all hover:border-[#F97316]/20 hover:shadow-md"
                   >
                     {q}
                   </button>
@@ -560,7 +560,7 @@ export default function ChatPage() {
             </div>
           ) : loadingMessages ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
             </div>
           ) : (
             // Message list
@@ -581,7 +581,7 @@ export default function ChatPage() {
                       "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                       msg.role === "user"
                         ? "bg-[#F97316] text-white rounded-br-md"
-                        : "bg-muted text-foreground rounded-bl-md"
+                        : "bg-[#27272A] text-[#FAFAFA] rounded-bl-md"
                     )}
                   >
                     {msg.role === "assistant" ? (
@@ -591,7 +591,7 @@ export default function ChatPage() {
                             {msg.content}
                           </ReactMarkdown>
                         ) : isStreaming && i === messages.length - 1 ? (
-                          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5 text-[#71717A]">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             {t("sending")}
                           </span>
@@ -609,7 +609,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border bg-background px-4 py-3">
+        <div className="border-t border-[#27272A] bg-[#0F0F11] px-4 py-3">
           <div className="mx-auto max-w-3xl">
             {/* File preview chips */}
             {pendingFiles.length > 0 && (
@@ -617,7 +617,7 @@ export default function ChatPage() {
                 {pendingFiles.map((pf, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs text-foreground"
+                    className="flex items-center gap-1.5 rounded-md bg-[#27272A] px-2.5 py-1.5 text-xs text-[#FAFAFA]"
                   >
                     {pf.file.type.startsWith("image/") ? (
                       <ImageIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -628,7 +628,7 @@ export default function ChatPage() {
                     <button
                       type="button"
                       onClick={() => removePendingFile(i)}
-                      className="text-muted-foreground hover:text-foreground ml-0.5"
+                      className="text-[#71717A] hover:text-[#FAFAFA] ml-0.5"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -655,7 +655,7 @@ export default function ChatPage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isStreaming || pendingFiles.length >= MAX_FILES}
-                className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                className="shrink-0 rounded-lg p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] disabled:opacity-50"
                 title="Joindre un fichier"
               >
                 <Paperclip className="h-5 w-5" />
@@ -672,7 +672,7 @@ export default function ChatPage() {
                 placeholder={t("placeholder")}
                 rows={1}
                 disabled={isStreaming}
-                className="flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-[#27272A] bg-[#27272A] px-4 py-3 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:bg-[#0F0F11] focus:outline-none focus:ring-1 focus:ring-[#F97316]/20 disabled:opacity-50"
                 style={{ maxHeight: 160 }}
               />
               <button

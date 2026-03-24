@@ -10,10 +10,10 @@ interface DocumentsTabProps {
 export function DocumentsTab({ t }: DocumentsTabProps) {
   return (
     <div className="text-center py-16">
-      <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-        <FileText className="h-8 w-8 text-muted-foreground" />
+      <div className="h-16 w-16 rounded-full bg-[#27272A] flex items-center justify-center mx-auto mb-4">
+        <FileText className="h-8 w-8 text-[#71717A]" />
       </div>
-      <p className="text-sm text-muted-foreground">{t("tabDocuments")}</p>
+      <p className="text-sm text-[#71717A]">{t("tabDocuments")}</p>
     </div>
   );
 }

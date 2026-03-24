@@ -314,7 +314,7 @@ export default function GanttTaskList({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={saveEdit}
           onKeyDown={handleKeyDown}
-          className="w-full text-sm border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background"
+          className="w-full text-sm border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-[#0F0F11]"
         />
       );
     }
@@ -352,7 +352,7 @@ export default function GanttTaskList({
     }
     return (
       <span
-        className="text-xs text-muted-foreground cursor-text hover:text-primary hover:underline"
+        className="text-xs text-[#71717A] cursor-text hover:text-[#F97316] hover:underline"
         onDoubleClick={(e) => {
           e.stopPropagation();
           startEditing(task.id, "duration", String(task.duration_days));
@@ -384,7 +384,7 @@ export default function GanttTaskList({
     }
     return (
       <span
-        className="text-xs text-muted-foreground cursor-text hover:text-primary hover:underline"
+        className="text-xs text-[#71717A] cursor-text hover:text-[#F97316] hover:underline"
         onDoubleClick={(e) => {
           e.stopPropagation();
           startEditing(task.id, field, toDateInputValue(dateStr));
@@ -409,7 +409,7 @@ export default function GanttTaskList({
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-20 flex items-center bg-muted border-b border-border text-xs font-medium text-muted-foreground uppercase tracking-wider"
+        className="sticky top-0 z-20 flex items-center bg-[#27272A] border-b border-[#27272A] text-xs font-medium text-[#71717A] uppercase tracking-wider"
         style={{ height: ROW_HEIGHT + 8 }}
       >
         <div className="w-12 text-center shrink-0 px-1">{t("wbs.column")}</div>
@@ -427,8 +427,8 @@ export default function GanttTaskList({
           {/* Phase row */}
           <div
             className={[
-              "group flex items-center border-b border-border cursor-pointer hover:bg-muted transition-colors",
-              isTaskSelected(phase.id) ? "bg-primary/10" : "",
+              "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-[#27272A] transition-colors",
+              isTaskSelected(phase.id) ? "bg-[#F97316]/10" : "",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -438,16 +438,16 @@ export default function GanttTaskList({
           >
             {/* WBS column */}
             <div className="w-12 text-center shrink-0 px-1">
-              <span className="text-xs font-bold text-foreground font-mono">
+              <span className="text-xs font-bold text-[#FAFAFA] font-mono">
                 {wbsMap.get(phase.id) || ""}
               </span>
             </div>
             <div className="flex items-center flex-1 px-2 gap-1.5 min-w-0">
               {/* Expand/collapse */}
               {phase.isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                <ChevronDown className="h-4 w-4 text-[#71717A] shrink-0" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                <ChevronRight className="h-4 w-4 text-[#71717A] shrink-0" />
               )}
               {/* Phase color dot */}
               <div
@@ -465,11 +465,11 @@ export default function GanttTaskList({
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
-                  className="flex-1 text-sm font-semibold border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background"
+                  className="flex-1 text-sm font-semibold border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-[#0F0F11]"
                 />
               ) : (
                 <span
-                  className="text-sm font-semibold text-foreground truncate"
+                  className="text-sm font-semibold text-[#FAFAFA] truncate"
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     startEditing(phase.id, "phase_name", phase.name);
@@ -479,13 +479,13 @@ export default function GanttTaskList({
                 </span>
               )}
             </div>
-            <div className="w-16 text-center text-xs text-muted-foreground font-medium">
+            <div className="w-16 text-center text-xs text-[#71717A] font-medium">
               {phaseTotalDuration(phase)}{daysSuffix(t)}
             </div>
-            <div className="w-[68px] text-center text-xs text-muted-foreground">
+            <div className="w-[68px] text-center text-xs text-[#71717A]">
               {formatShortDate(phase.start_date)}
             </div>
-            <div className="w-[68px] text-center text-xs text-muted-foreground">
+            <div className="w-[68px] text-center text-xs text-[#71717A]">
               {formatShortDate(phase.end_date)}
             </div>
             {!readOnly && onOpenSidePanel && <div className="w-7" />}
@@ -501,8 +501,8 @@ export default function GanttTaskList({
                 <div
                   key={task.id}
                   className={[
-                    "group flex items-center border-b border-border cursor-pointer hover:bg-muted/80 transition-colors",
-                    isTaskSelected(task.id) ? "bg-primary/10/70" : "",
+                    "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-[#27272A]/80 transition-colors",
+                    isTaskSelected(task.id) ? "bg-[#F97316]/10/70" : "",
                     hasChain && isInChain ? "bg-red-50/50" : "",
                     hasChain && !isInChain ? "opacity-50" : "",
                   ]
@@ -514,7 +514,7 @@ export default function GanttTaskList({
                 >
                   {/* WBS column */}
                   <div className="w-12 text-center shrink-0 px-1">
-                    <span className="text-[11px] text-muted-foreground font-mono">
+                    <span className="text-[11px] text-[#71717A] font-mono">
                       {wbsMap.get(task.id) || ""}
                     </span>
                   </div>
@@ -527,7 +527,7 @@ export default function GanttTaskList({
                       task.id,
                       "name",
                       task.name,
-                      "text-sm text-foreground truncate cursor-text min-w-0 flex-1",
+                      "text-sm text-[#FAFAFA] truncate cursor-text min-w-0 flex-1",
                     )}
                   </div>
 
@@ -554,7 +554,7 @@ export default function GanttTaskList({
                           e.stopPropagation();
                           onOpenSidePanel(task.id);
                         }}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all"
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#71717A] hover:text-[#F97316] transition-all"
                         title={t("contextMenu.edit")}
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -571,7 +571,7 @@ export default function GanttTaskList({
       {milestones.length > 0 && (
         <>
           <div
-            className="flex items-center border-b border-border bg-amber-50/50"
+            className="flex items-center border-b border-[#27272A] bg-amber-50/50"
             style={{ height: ROW_HEIGHT }}
           >
             <div className="w-12 shrink-0" />
@@ -586,8 +586,8 @@ export default function GanttTaskList({
             <div
               key={ms.id}
               className={[
-                "group flex items-center border-b border-border cursor-pointer hover:bg-amber-50/30 transition-colors",
-                isTaskSelected(ms.id) ? "bg-primary/10/70" : "",
+                "group flex items-center border-b border-[#27272A] cursor-pointer hover:bg-amber-50/30 transition-colors",
+                isTaskSelected(ms.id) ? "bg-[#F97316]/10/70" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -608,13 +608,13 @@ export default function GanttTaskList({
                   ms.id,
                   "name",
                   ms.name,
-                  "text-sm text-foreground truncate cursor-text",
+                  "text-sm text-[#FAFAFA] truncate cursor-text",
                 )}
               </div>
               <div className="w-16 text-center text-xs text-amber-600 font-medium">
                 &mdash;
               </div>
-              <div className="w-[68px] text-center text-xs text-muted-foreground">
+              <div className="w-[68px] text-center text-xs text-[#71717A]">
                 {formatShortDate(ms.start_date)}
               </div>
               <div className="w-20" />
@@ -625,7 +625,7 @@ export default function GanttTaskList({
                       e.stopPropagation();
                       onOpenSidePanel(ms.id);
                     }}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all"
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#F97316]/10 text-[#71717A] hover:text-[#F97316] transition-all"
                     title={t("contextMenu.edit")}
                   >
                     <Pencil className="h-3.5 w-3.5" />

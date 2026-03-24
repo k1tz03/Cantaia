@@ -94,7 +94,7 @@ function ProjectDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="absolute z-30 mt-1 w-64 rounded-md border border-border bg-background shadow-lg"
+      className="absolute z-30 mt-1 w-64 rounded-md border border-[#27272A] bg-[#0F0F11] shadow-lg"
     >
       <div className="p-2">
         <input
@@ -103,26 +103,26 @@ function ProjectDropdown({
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("searchProject")}
           autoFocus
-          className="w-full rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+          className="w-full rounded-md border border-[#27272A] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none"
         />
       </div>
       <div className="max-h-48 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">{t("noProjectFound")}</p>
+          <p className="px-3 py-2 text-xs text-[#71717A]">{t("noProjectFound")}</p>
         ) : (
           filtered.map((p) => (
             <button
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-[#27272A] transition-colors"
             >
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: p.color || "#0A1F30" }}
               />
-              <span className="text-foreground truncate font-medium">{p.name}</span>
+              <span className="text-[#FAFAFA] truncate font-medium">{p.name}</span>
               {p.code && (
-                <span className="text-[10px] text-muted-foreground shrink-0">{p.code}</span>
+                <span className="text-[10px] text-[#71717A] shrink-0">{p.code}</span>
               )}
             </button>
           ))
@@ -226,29 +226,29 @@ function SuggestionRow({
     <>
       <div
         className={cn(
-          "rounded-lg border bg-background p-3.5 transition-all",
+          "rounded-lg border bg-[#0F0F11] p-3.5 transition-all",
           loading && "opacity-60 pointer-events-none",
-          isSuggested && "border-border",
+          isSuggested && "border-[#27272A]",
           isNewProject && "border-emerald-200 bg-emerald-500/10",
-          isNoProject && "border-border bg-muted/50"
+          isNoProject && "border-[#27272A] bg-[#27272A]/50"
         )}
       >
         {/* Email header line */}
         <div className="flex items-start gap-2 mb-2">
-          <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          <Mail className="h-4 w-4 text-[#71717A] shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-foreground truncate">
+              <span className="text-xs font-semibold text-[#FAFAFA] truncate">
                 {email.sender_name || email.sender_email}
               </span>
-              <span className="text-[10px] text-muted-foreground shrink-0">
+              <span className="text-[10px] text-[#71717A] shrink-0">
                 {new Date(email.received_at).toLocaleDateString("fr-CH", {
                   day: "2-digit",
                   month: "2-digit",
                 })}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-[#71717A] truncate">
               &laquo;{email.subject}&raquo;
             </p>
           </div>
@@ -261,9 +261,9 @@ function SuggestionRow({
         {isSuggested && (
           <div className="flex items-center gap-1.5 mb-2.5 ml-6">
             <Sparkles className="h-3.5 w-3.5 text-green-500 shrink-0" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-[#71717A]">
               {t("suggestion")}{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-semibold text-[#FAFAFA]">
                 {matchedProject?.name ?? t("unknownProject")}
               </span>
               {confidence !== null && (
@@ -278,13 +278,13 @@ function SuggestionRow({
         {isNewProject && email.suggested_project_data && (
           <div className="flex items-center gap-1.5 mb-2.5 ml-6">
             <PlusCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-[#71717A]">
               {t("newProject")}{" "}
               <span className="font-semibold text-emerald-700">
                 {email.suggested_project_data.name}
               </span>
               {email.suggested_project_data.location && (
-                <span className="text-[10px] text-muted-foreground ml-1">
+                <span className="text-[10px] text-[#71717A] ml-1">
                   — {email.suggested_project_data.location}
                 </span>
               )}
@@ -294,8 +294,8 @@ function SuggestionRow({
 
         {isNoProject && (
           <div className="flex items-center gap-1.5 mb-2.5 ml-6">
-            <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground">
+            <Tag className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
+            <span className="text-xs text-[#71717A]">
               {getCategoryLabel(email.email_category, t)} {t("notAProject")}
             </span>
           </div>
@@ -319,7 +319,7 @@ function SuggestionRow({
                   ref={dropdownBtnRef}
                   onClick={() => setShowDropdown(!showDropdown)}
                   disabled={loading}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:bg-[#27272A] transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className="h-3 w-3" />
                   {t("changeProject")}
@@ -338,7 +338,7 @@ function SuggestionRow({
               <button
                 onClick={rejectClassification}
                 disabled={loading}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
               >
                 <X className="h-3 w-3" />
                 {t("ignore")}
@@ -362,7 +362,7 @@ function SuggestionRow({
                   ref={dropdownBtnRef}
                   onClick={() => setShowDropdown(!showDropdown)}
                   disabled={loading}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:bg-[#27272A] transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className="h-3 w-3" />
                   {t("classifyExisting")}
@@ -381,7 +381,7 @@ function SuggestionRow({
               <button
                 onClick={rejectClassification}
                 disabled={loading}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
               >
                 <X className="h-3 w-3" />
                 {t("ignore")}
@@ -396,7 +396,7 @@ function SuggestionRow({
                   ref={dropdownBtnRef}
                   onClick={() => setShowDropdown(!showDropdown)}
                   disabled={loading}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:bg-[#27272A] transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className="h-3 w-3" />
                   {t("itsAProject")}
@@ -415,7 +415,7 @@ function SuggestionRow({
               <button
                 onClick={rejectClassification}
                 disabled={loading}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-[11px] font-medium text-[#71717A] hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
               >
                 <Trash2 className="h-3 w-3" />
                 {t("ignore")}
@@ -484,7 +484,7 @@ export function ClassificationSuggestions({
       >
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-amber-600" />
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-sm font-semibold text-[#FAFAFA]">
             {t("toProcess")}
           </span>
           <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
@@ -492,9 +492,9 @@ export function ClassificationSuggestions({
           </span>
         </div>
         {collapsed ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 text-[#71717A]" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <ChevronUp className="h-4 w-4 text-[#71717A]" />
         )}
       </button>
 

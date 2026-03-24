@@ -68,7 +68,7 @@ const PRIORITY_STYLES: Record<string, { dot: string; text: string }> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  todo: "bg-blue-100 text-primary",
+  todo: "bg-blue-100 text-[#F97316]",
   in_progress: "bg-indigo-100 text-indigo-700 dark:text-indigo-400",
   waiting: "bg-amber-100 text-amber-700 dark:text-amber-400",
   done: "bg-green-100 text-green-700 dark:text-green-400",
@@ -116,18 +116,18 @@ export function TaskDetailPanel({
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border bg-background shadow-xl">
+    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-[#27272A] bg-[#0F0F11] shadow-xl">
       {/* Header */}
-      <div className="border-b border-border px-5 py-3.5">
+      <div className="border-b border-[#27272A] px-5 py-3.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground line-clamp-1 flex-1 mr-2">
+          <h2 className="text-sm font-semibold text-[#FAFAFA] line-clamp-1 flex-1 mr-2">
             {task.title}
           </h2>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => onEdit(task)}
-              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+              className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
               title={t("editTask")}
             >
               <Edit3 className="h-4 w-4" />
@@ -135,7 +135,7 @@ export function TaskDetailPanel({
             <button
               type="button"
               onClick={() => onDelete(task.id)}
-              className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+              className="rounded p-1.5 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
               title={t("deleteTask")}
             >
               <Trash2 className="h-4 w-4" />
@@ -143,7 +143,7 @@ export function TaskDetailPanel({
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+              className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -174,7 +174,7 @@ export function TaskDetailPanel({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-[#27272A]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -187,14 +187,14 @@ export function TaskDetailPanel({
               className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2.5 text-xs font-medium transition-colors ${
                 isActive
                   ? "border-brand text-brand"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  : "border-transparent text-[#71717A] hover:text-[#FAFAFA]"
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
               {t(tabKey)}
               {tab.count !== undefined && tab.count > 0 && (
                 <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                  isActive ? "bg-brand/10 text-brand" : "bg-muted text-muted-foreground"
+                  isActive ? "bg-brand/10 text-brand" : "bg-[#27272A] text-[#71717A]"
                 }`}>
                   {tab.count}
                 </span>
@@ -225,8 +225,8 @@ export function TaskDetailPanel({
             {/* Description */}
             {task.description && (
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskDescription")}</h4>
-                <p className="text-sm leading-relaxed text-foreground">{task.description}</p>
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskDescription")}</h4>
+                <p className="text-sm leading-relaxed text-[#FAFAFA]">{task.description}</p>
               </div>
             )}
 
@@ -234,77 +234,77 @@ export function TaskDetailPanel({
             <div className="grid grid-cols-2 gap-3">
               {/* Project */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskProject")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskProject")}</h4>
                 {project ? (
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: project.color }} />
-                    <span className="text-sm text-foreground">{project.name}</span>
+                    <span className="text-sm text-[#FAFAFA]">{project.name}</span>
                   </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground">—</span>
+                  <span className="text-sm text-[#71717A]">—</span>
                 )}
               </div>
 
               {/* Deadline */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskDeadline")}</h4>
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskDeadline")}</h4>
                 {task.due_date ? (
                   <span className={`flex items-center gap-1 text-sm font-medium ${
-                    overdue ? "text-red-600" : task.status === "done" ? "text-green-600" : "text-foreground"
+                    overdue ? "text-red-600" : task.status === "done" ? "text-green-600" : "text-[#FAFAFA]"
                   }`}>
                     <Clock className="h-3.5 w-3.5" />
                     {formatDateFull(task.due_date)}
                     {overdue && " (en retard)"}
                   </span>
                 ) : (
-                  <span className="text-sm text-muted-foreground">—</span>
+                  <span className="text-sm text-[#71717A]">—</span>
                 )}
               </div>
 
               {/* Assigned */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskAssigned")}</h4>
-                <span className="text-sm text-foreground">
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskAssigned")}</h4>
+                <span className="text-sm text-[#FAFAFA]">
                   {task.assigned_to_name || "—"}
                 </span>
                 {task.assigned_to_company && (
-                  <p className="text-xs text-muted-foreground">{task.assigned_to_company}</p>
+                  <p className="text-xs text-[#71717A]">{task.assigned_to_company}</p>
                 )}
               </div>
 
               {/* Lot / CFC */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskLot")}</h4>
-                <span className="text-sm text-foreground">
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskLot")}</h4>
+                <span className="text-sm text-[#FAFAFA]">
                   {task.lot_code || task.cfc_code || "—"}
-                  {task.lot_name && <span className="text-muted-foreground"> — {task.lot_name}</span>}
+                  {task.lot_name && <span className="text-[#71717A]"> — {task.lot_name}</span>}
                 </span>
               </div>
 
               {/* Source */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("source")}</h4>
-                <span className="flex items-center gap-1 text-sm text-foreground">
-                  <SourceIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("source")}</h4>
+                <span className="flex items-center gap-1 text-sm text-[#FAFAFA]">
+                  <SourceIcon className="h-3.5 w-3.5 text-[#71717A]" />
                   {t(`source${task.source.charAt(0).toUpperCase() + task.source.slice(1)}` as "sourceEmail")}
                 </span>
                 {task.source_reference && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">{task.source_reference}</p>
+                  <p className="mt-0.5 text-xs text-[#71717A]">{task.source_reference}</p>
                 )}
               </div>
 
               {/* Reminder */}
               <div>
-                <h4 className="mb-1 text-xs font-medium text-muted-foreground">{t("taskReminder")}</h4>
-                <span className="text-sm text-foreground">
+                <h4 className="mb-1 text-xs font-medium text-[#71717A]">{t("taskReminder")}</h4>
+                <span className="text-sm text-[#FAFAFA]">
                   {t(`reminder${task.reminder === "none" ? "None" : task.reminder === "1_day" ? "1Day" : task.reminder === "3_days" ? "3Days" : "1Week"}` as "reminderNone")}
                 </span>
               </div>
             </div>
 
             {/* Dates */}
-            <div className="rounded-md bg-muted px-3 py-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="rounded-md bg-[#27272A] px-3 py-2">
+              <div className="flex items-center justify-between text-xs text-[#71717A]">
                 <span>Créé : {formatDateTime(task.created_at)}</span>
                 <span>Modifié : {formatDateTime(task.updated_at)}</span>
               </div>
@@ -323,36 +323,36 @@ export function TaskDetailPanel({
             <div className="flex-1 space-y-3 overflow-y-auto p-5">
               {comments.length > 0 ? (
                 comments.map((comment, i) => (
-                  <div key={i} className="rounded-md border border-border bg-muted p-3">
+                  <div key={i} className="rounded-md border border-[#27272A] bg-[#27272A] p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-foreground">
+                      <span className="text-xs font-semibold text-[#FAFAFA]">
                         {comment.user_name}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[10px] text-[#71717A]">
                         {formatDateTime(comment.created_at)}
                       </span>
                     </div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    <p className="mt-1.5 text-sm leading-relaxed text-[#71717A]">
                       {comment.text}
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">
+                <p className="py-8 text-center text-sm text-[#71717A]">
                   Aucun commentaire
                 </p>
               )}
             </div>
 
             {/* Comment input */}
-            <div className="border-t border-border p-4">
+            <div className="border-t border-[#27272A] p-4">
               <div className="flex items-end gap-2">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder={t("addComment")}
                   rows={2}
-                  className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="flex-1 resize-none rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                       handleAddComment();
@@ -378,23 +378,23 @@ export function TaskDetailPanel({
             {history.length > 0 ? (
               <div className="relative space-y-4 pl-4">
                 {/* Timeline line */}
-                <div className="absolute bottom-0 left-1.5 top-0 w-px bg-muted" />
+                <div className="absolute bottom-0 left-1.5 top-0 w-px bg-[#27272A]" />
 
                 {history.map((entry, i) => (
                   <div key={i} className="relative flex gap-3">
                     <div className="absolute -left-2.5 top-1 h-2 w-2 rounded-full bg-gray-400" />
                     <div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-[#71717A]">
                         {formatDateTime(entry.created_at)}
                       </p>
-                      <p className="mt-0.5 text-sm text-foreground">
+                      <p className="mt-0.5 text-sm text-[#FAFAFA]">
                         <span className="font-medium">{entry.user_name}</span>
                         {entry.action === "created" && " a créé la tâche"}
                         {entry.action === "updated" && entry.field && (
                           <>
                             {" "}a modifié <span className="font-medium">{entry.field}</span>
                             {entry.old_value && (
-                              <> de <span className="line-through text-muted-foreground">{entry.old_value}</span></>
+                              <> de <span className="line-through text-[#71717A]">{entry.old_value}</span></>
                             )}
                             {entry.new_value && (
                               <> à <span className="font-medium text-brand">{entry.new_value}</span></>
@@ -409,7 +409,7 @@ export function TaskDetailPanel({
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#71717A]">
                 Aucun historique
               </p>
             )}
@@ -424,22 +424,22 @@ export function TaskDetailPanel({
                 {attachments.map((attachment, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted"
+                    className="flex items-center gap-3 rounded-md border border-[#27272A] bg-[#0F0F11] p-3 transition-colors hover:bg-[#27272A]"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#27272A]">
+                      <Paperclip className="h-4 w-4 text-[#71717A]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
+                      <p className="truncate text-sm font-medium text-[#FAFAFA]">
                         {attachment.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-[#71717A]">
                         {formatFileSize(attachment.size)}
                       </p>
                     </div>
                     <button
                       type="button"
-                      className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                      className="rounded p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
                       title="Télécharger"
                     >
                       <Download className="h-4 w-4" />
@@ -448,7 +448,7 @@ export function TaskDetailPanel({
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#71717A]">
                 Aucune pièce jointe
               </p>
             )}

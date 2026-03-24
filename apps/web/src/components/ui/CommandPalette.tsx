@@ -134,10 +134,10 @@ export function CommandPalette() {
 
       {/* Dialog */}
       <div className="absolute left-1/2 top-[20%] w-full max-w-lg -translate-x-1/2">
-        <div className="mx-4 overflow-hidden rounded-xl border border-border bg-popover shadow-2xl">
+        <div className="mx-4 overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] shadow-2xl">
           {/* Search input */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-3 border-b border-[#27272A] px-4 py-3">
+            <Search className="h-5 w-5 shrink-0 text-[#71717A]" />
             <input
               ref={inputRef}
               type="text"
@@ -145,9 +145,9 @@ export function CommandPalette() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Rechercher..."
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              className="flex-1 bg-transparent text-sm text-[#FAFAFA] placeholder:text-[#71717A] outline-none"
             />
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
               ESC
             </kbd>
           </div>
@@ -155,7 +155,7 @@ export function CommandPalette() {
           {/* Results */}
           <div ref={listRef} className="max-h-72 overflow-y-auto px-2 py-2">
             {filtered.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-sm text-[#71717A]">
                 Aucun résultat
               </div>
             ) : (
@@ -169,14 +169,14 @@ export function CommandPalette() {
                     onMouseEnter={() => setSelectedIndex(index)}
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                       index === selectedIndex
-                        ? "bg-primary/10 text-primary"
-                        : "text-foreground hover:bg-muted"
+                        ? "bg-[#F97316]/10 text-[#F97316]"
+                        : "text-[#FAFAFA] hover:bg-[#27272A]"
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1 text-left">{cmd.label}</span>
                     {index === selectedIndex && (
-                      <kbd className="text-[10px] text-muted-foreground">↵</kbd>
+                      <kbd className="text-[10px] text-[#71717A]">↵</kbd>
                     )}
                   </button>
                 );
@@ -185,7 +185,7 @@ export function CommandPalette() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between border-t border-[#27272A] px-4 py-2 text-[10px] text-[#71717A]">
             <span>↑↓ naviguer</span>
             <span>↵ ouvrir</span>
             <span>esc fermer</span>

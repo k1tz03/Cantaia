@@ -22,11 +22,11 @@ export function ProjectClosureTab({
     <div className="space-y-4">
       <ProjectFinancialsSection projectId={project.id} />
 
-      <div className="rounded-md border border-border bg-background p-6">
+      <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">{t("closureTitle")}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t("closureDescription")}</p>
+            <h3 className="text-sm font-semibold text-[#FAFAFA]">{t("closureTitle")}</h3>
+            <p className="mt-1 text-xs text-[#71717A]">{t("closureDescription")}</p>
           </div>
           {(project.status === "active" || project.status === "on_hold") && (
             <Link
@@ -49,7 +49,7 @@ export function ProjectClosureTab({
           {project.status === "completed" && (
             <Link
               href={`/projects/${project.id}/closure`}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] transition-colors hover:bg-[#27272A]"
             >
               {t("viewClosure")}
             </Link>
@@ -58,21 +58,21 @@ export function ProjectClosureTab({
       </div>
 
       {reception && (
-        <div className="rounded-md border border-border bg-background p-6">
-          <h3 className="text-sm font-semibold text-foreground">{tc("receptionPVTitle")}</h3>
+        <div className="rounded-md border border-[#27272A] bg-[#0F0F11] p-6">
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">{tc("receptionPVTitle")}</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <div>
-              <p className="text-xs text-muted-foreground">{tc("receptionType")}</p>
-              <p className="mt-0.5 text-sm font-medium text-foreground">{tc(reception.reception_type)}</p>
+              <p className="text-xs text-[#71717A]">{tc("receptionType")}</p>
+              <p className="mt-0.5 text-sm font-medium text-[#FAFAFA]">{tc(reception.reception_type)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{tc("receptionDate")}</p>
-              <p className="mt-0.5 text-sm font-medium text-foreground">
+              <p className="text-xs text-[#71717A]">{tc("receptionDate")}</p>
+              <p className="mt-0.5 text-sm font-medium text-[#FAFAFA]">
                 {reception.reception_date ? formatDate(reception.reception_date) : "—"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{tc("reserveStatus")}</p>
+              <p className="text-xs text-[#71717A]">{tc("reserveStatus")}</p>
               <p className={`mt-0.5 text-sm font-medium ${openReservesCount > 0 ? "text-red-400" : "text-green-400"}`}>
                 {openReservesCount > 0 ? `${openReservesCount} ${tc("reserveOpen").toLowerCase()}` : tc("allReservesLifted")}
               </p>

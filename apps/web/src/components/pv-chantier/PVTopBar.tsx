@@ -41,20 +41,20 @@ export function PVTopBar({
   const t = useTranslations("pv");
 
   return (
-    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-3">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-base font-semibold text-foreground">
+          <h1 className="text-base font-semibold text-[#FAFAFA]">
             {meeting.title}
           </h1>
           {meeting.projects && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-[#71717A]">
               <span
                 className="h-2 w-2 rounded-full"
                 style={{
@@ -76,7 +76,7 @@ export function PVTopBar({
           <button
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -99,7 +99,7 @@ export function PVTopBar({
 
         <button
           onClick={onExportPDF}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
         >
           <FileDown className="h-3.5 w-3.5" />
           {t("export_pdf")}
@@ -109,7 +109,7 @@ export function PVTopBar({
           <button
             onClick={onRegenerate}
             disabled={regenerating}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
           >
             {regenerating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

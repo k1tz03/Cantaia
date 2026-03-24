@@ -74,16 +74,16 @@ function ScoreSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
       <div className="flex items-center justify-center">
-        <div className="h-16 w-16 rounded-full bg-muted" />
+        <div className="h-16 w-16 rounded-full bg-[#27272A]" />
       </div>
       {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-muted" />
+          <div className="h-8 w-8 rounded-lg bg-[#27272A]" />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-20 rounded bg-muted" />
-            <div className="h-2 w-full rounded-full bg-muted" />
+            <div className="h-3 w-20 rounded bg-[#27272A]" />
+            <div className="h-2 w-full rounded-full bg-[#27272A]" />
           </div>
-          <div className="h-3 w-8 rounded bg-muted" />
+          <div className="h-3 w-8 rounded bg-[#27272A]" />
         </div>
       ))}
     </div>
@@ -98,7 +98,7 @@ export default function IntelligenceScore({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
         <ScoreSkeleton />
       </div>
     );
@@ -117,7 +117,7 @@ export default function IntelligenceScore({
         ? "text-blue-600"
         : totalScore >= 25
           ? "text-amber-600"
-          : "text-muted-foreground";
+          : "text-[#71717A]";
 
   const ringColor =
     totalScore >= 80
@@ -126,11 +126,11 @@ export default function IntelligenceScore({
         ? "border-blue-200 dark:border-blue-800"
         : totalScore >= 25
           ? "border-amber-200 dark:border-amber-800"
-          : "border-border";
+          : "border-[#27272A]";
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-4">
+    <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+      <h3 className="text-sm font-semibold text-[#FAFAFA] mb-4">
         {t("scoreTitle")}
       </h3>
 
@@ -143,10 +143,10 @@ export default function IntelligenceScore({
             <div className={`font-display text-2xl font-bold ${scoreColor}`}>
               {totalScore}
             </div>
-            <div className="text-[9px] text-muted-foreground -mt-0.5">/100</div>
+            <div className="text-[9px] text-[#71717A] -mt-0.5">/100</div>
           </div>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-[#71717A]">
           {totalScore >= 80
             ? t("levelExpert")
             : totalScore >= 50
@@ -175,20 +175,20 @@ export default function IntelligenceScore({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-foreground">
+                  <span className="text-xs font-medium text-[#FAFAFA]">
                     {t(`dim_${cfg.key}`)}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-[#71717A]">
                     {score}/20
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
+                <div className="h-1.5 w-full rounded-full bg-[#27272A]">
                   <div
                     className={`h-1.5 rounded-full ${cfg.barColor} transition-all duration-500`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                <div className="mt-0.5 text-[10px] text-[#71717A]">
                   {dim.count}/{dim.threshold}
                 </div>
               </div>

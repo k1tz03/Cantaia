@@ -17,12 +17,12 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted">
+    <div className="min-h-screen flex items-center justify-center bg-[#27272A]">
       <div className="text-center p-8 max-w-md">
-        <h2 className="text-2xl font-bold text-foreground mb-4">
+        <h2 className="text-2xl font-bold text-[#FAFAFA] mb-4">
           {t("errorOccurred")}
         </h2>
-        <p className="text-muted-foreground mb-6">
+        <p className="text-[#71717A] mb-6">
           {error.message || t("errorDefault")}
         </p>
         <button

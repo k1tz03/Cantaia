@@ -40,7 +40,7 @@ export default function UploadSignedPVPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-muted-foreground">{t("projectNotFound")}</p>
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -107,20 +107,20 @@ export default function UploadSignedPVPage() {
       <div className="flex items-start gap-4">
         <Link
           href={`/projects/${project.id}/closure`}
-          className="mt-1 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="mt-1 rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-[#FAFAFA]">
             {t("uploadSignedPV")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{project.name}</p>
+          <p className="mt-1 text-sm text-[#71717A]">{project.name}</p>
         </div>
       </div>
 
       <div className="mt-8 max-w-2xl">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-[#71717A]">
           {t("step5Description")}
         </p>
 
@@ -145,15 +145,15 @@ export default function UploadSignedPVPage() {
                   ? "border-brand bg-brand/5"
                   : file
                   ? "border-green-300 bg-green-500/10"
-                  : "border-border bg-muted hover:border-brand/50 hover:bg-brand/5"
+                  : "border-[#27272A] bg-[#27272A] hover:border-brand/50 hover:bg-brand/5"
               }`}
             >
               {file ? (
                 <div className="flex flex-col items-center gap-3">
                   <FileText className="h-12 w-12 text-green-500" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-[#FAFAFA]">{file.name}</p>
+                    <p className="text-xs text-[#71717A]">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
@@ -172,14 +172,14 @@ export default function UploadSignedPVPage() {
                 </div>
               ) : (
                 <>
-                  <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-                  <p className="mt-3 text-sm font-medium text-muted-foreground">
+                  <Upload className="mx-auto h-10 w-10 text-[#71717A]" />
+                  <p className="mt-3 text-sm font-medium text-[#71717A]">
                     {t("dropFileHere")}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-[#71717A]">
                     {t("orBrowseFiles")}
                   </p>
-                  <p className="mt-2 text-[10px] text-muted-foreground">
+                  <p className="mt-2 text-[10px] text-[#71717A]">
                     {t("acceptedFormats")}
                   </p>
                 </>
@@ -199,7 +199,7 @@ export default function UploadSignedPVPage() {
 
             {/* Image preview */}
             {preview && (
-              <div className="mt-4 overflow-hidden rounded-md border border-border">
+              <div className="mt-4 overflow-hidden rounded-md border border-[#27272A]">
                 <img src={preview} alt="Preview" className="max-h-64 w-full object-contain" />
               </div>
             )}
@@ -219,7 +219,7 @@ export default function UploadSignedPVPage() {
                   };
                   input.click();
                 }}
-                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                className="inline-flex items-center gap-2 rounded-md border border-[#27272A] px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 <Camera className="h-4 w-4" />
                 {t("takePhoto")}

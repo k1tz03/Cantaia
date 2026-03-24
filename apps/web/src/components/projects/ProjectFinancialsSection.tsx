@@ -53,7 +53,7 @@ export function ProjectFinancialsSection({ projectId }: ProjectFinancialsSection
   }
 
   if (loading) {
-    return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+    return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#F97316]" /></div>;
   }
 
   const margin = invoiced && costs ? parseFloat(invoiced) - parseFloat(costs) : null;
@@ -62,33 +62,33 @@ export function ProjectFinancialsSection({ projectId }: ProjectFinancialsSection
     : null;
 
   return (
-    <div className="rounded-lg border border-border p-6 space-y-6">
+    <div className="rounded-lg border border-[#27272A] p-6 space-y-6">
       <div className="flex items-center gap-2">
-        <DollarSign className="h-5 w-5 text-primary" />
-        <h3 className="text-base font-semibold text-foreground">{t("closeProject")}</h3>
+        <DollarSign className="h-5 w-5 text-[#F97316]" />
+        <h3 className="text-base font-semibold text-[#FAFAFA]">{t("closeProject")}</h3>
       </div>
-      <p className="text-sm text-muted-foreground">{t("closureNote")}</p>
+      <p className="text-sm text-[#71717A]">{t("closureNote")}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t("invoicedAmount")} (CHF)</label>
+          <label className="block text-xs font-medium text-[#71717A] mb-1">{t("invoicedAmount")} (CHF)</label>
           <input
             type="number"
             value={invoiced}
             onChange={(e) => setInvoiced(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
             placeholder="0.00"
             step="0.01"
             min="0"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t("purchaseCosts")} (CHF)</label>
+          <label className="block text-xs font-medium text-[#71717A] mb-1">{t("purchaseCosts")} (CHF)</label>
           <input
             type="number"
             value={costs}
             onChange={(e) => setCosts(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]"
             placeholder="0.00"
             step="0.01"
             min="0"
@@ -99,27 +99,27 @@ export function ProjectFinancialsSection({ projectId }: ProjectFinancialsSection
       {/* Calculated margin */}
       {margin !== null && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="rounded-md bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">{t("margin")}</p>
+          <div className="rounded-md bg-[#27272A]/50 p-3">
+            <p className="text-xs text-[#71717A]">{t("margin")}</p>
             <p className={`text-lg font-bold ${margin >= 0 ? "text-green-600" : "text-red-600"}`}>
               CHF {margin.toLocaleString("fr-CH", { minimumFractionDigits: 0 })}
             </p>
           </div>
-          <div className="rounded-md bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">{t("marginPct")}</p>
+          <div className="rounded-md bg-[#27272A]/50 p-3">
+            <p className="text-xs text-[#71717A]">{t("marginPct")}</p>
             <p className={`text-lg font-bold ${(marginPct || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
               {marginPct?.toFixed(1)}%
             </p>
           </div>
           {stats?.total_labor_hours > 0 && (
             <>
-              <div className="rounded-md bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">{t("totalHours")}</p>
-                <p className="text-lg font-bold text-foreground">{stats.total_labor_hours}h</p>
+              <div className="rounded-md bg-[#27272A]/50 p-3">
+                <p className="text-xs text-[#71717A]">{t("totalHours")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">{stats.total_labor_hours}h</p>
               </div>
-              <div className="rounded-md bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">{t("hoursPerThousand")}</p>
-                <p className="text-lg font-bold text-foreground">
+              <div className="rounded-md bg-[#27272A]/50 p-3">
+                <p className="text-xs text-[#71717A]">{t("hoursPerThousand")}</p>
+                <p className="text-lg font-bold text-[#FAFAFA]">
                   {invoiced && parseFloat(invoiced) > 0
                     ? (stats.total_labor_hours / (parseFloat(invoiced) / 1000)).toFixed(1)
                     : "\u2014"}
@@ -134,7 +134,7 @@ export function ProjectFinancialsSection({ projectId }: ProjectFinancialsSection
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#F97316]/90 disabled:opacity-50"
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {t("save")}

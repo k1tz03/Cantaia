@@ -85,7 +85,7 @@ const ALERT_TYPE_CONFIG: Record<PlanAlertType, { icon: React.ElementType; labelK
 const SEVERITY_STYLES: Record<PlanAlertSeverity, { border: string; bg: string; icon: string; text: string }> = {
   critical: { border: "border-red-500/20", bg: "bg-red-500/10", icon: "text-red-600", text: "text-red-700 dark:text-red-400" },
   warning: { border: "border-amber-500/20", bg: "bg-amber-500/10", icon: "text-amber-600", text: "text-amber-700 dark:text-amber-400" },
-  info: { border: "border-primary/20", bg: "bg-primary/10", icon: "text-primary", text: "text-primary" },
+  info: { border: "border-[#F97316]/20", bg: "bg-[#F97316]/10", icon: "text-[#F97316]", text: "text-[#F97316]" },
 };
 
 export interface CrossPlanData {
@@ -173,16 +173,16 @@ export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compa
                 </span>
               </div>
               <p className={cn("text-[11px]", sevStyle.text)}>{alert.message}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{alert.project_name}</p>
+              <p className="text-[10px] text-[#71717A] mt-0.5">{alert.project_name}</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+            <ChevronRight className="h-4 w-4 text-[#71717A] shrink-0 mt-0.5" />
           </Link>
         );
       })}
       {remaining > 0 && (
         <Link
           href="/plans"
-          className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-brand transition-colors"
+          className="flex items-center justify-center gap-1 py-1.5 text-xs text-[#71717A] hover:text-brand transition-colors"
         >
           {t("moreAlertsPlan", { count: remaining })}
           <ChevronRight className="h-3.5 w-3.5" />
@@ -229,7 +229,7 @@ export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compa
           {crossPlan.plans_compares.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-1 border-t border-amber-500/20/60">
               {crossPlan.plans_compares.map((p) => (
-                <span key={p.plan_id} className="rounded px-1.5 py-0.5 text-[9px] font-medium bg-background/70 text-muted-foreground border border-border">
+                <span key={p.plan_id} className="rounded px-1.5 py-0.5 text-[9px] font-medium bg-[#0F0F11]/70 text-[#71717A] border border-[#27272A]">
                   {p.discipline} {p.numero && `· ${p.numero}`}
                 </span>
               ))}
@@ -240,9 +240,9 @@ export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compa
 
       {/* Message si pas assez de plans pour la vérification croisée */}
       {crossPlan && crossPlan.verifications.length === 0 && crossPlan.alertes.length === 1 && crossPlan.plans_compares.length === 0 && (
-        <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
-          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-[11px] text-muted-foreground">{crossPlan.alertes[0]}</span>
+        <div className="flex items-center gap-2 rounded-md border border-[#27272A] bg-[#27272A] px-3 py-2">
+          <Layers className="h-3.5 w-3.5 text-[#71717A]" />
+          <span className="text-[11px] text-[#71717A]">{crossPlan.alertes[0]}</span>
         </div>
       )}
     </div>

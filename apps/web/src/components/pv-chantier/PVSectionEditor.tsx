@@ -34,7 +34,7 @@ export function PVSectionEditor({
   const t = useTranslations("pv");
 
   return (
-    <div className="mb-4 rounded-lg border border-border bg-background p-4">
+    <div className="mb-4 rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded bg-brand/10 text-xs font-semibold text-brand">
@@ -46,7 +46,7 @@ export function PVSectionEditor({
             onChange={(e) =>
               onUpdateSection(sectionIdx, "title", e.target.value)
             }
-            className="border-0 bg-transparent text-sm font-semibold text-foreground focus:outline-none disabled:text-muted-foreground"
+            className="border-0 bg-transparent text-sm font-semibold text-[#FAFAFA] focus:outline-none disabled:text-[#71717A]"
             placeholder={t("section_title")}
             disabled={isFinalized}
           />
@@ -54,7 +54,7 @@ export function PVSectionEditor({
         {!isFinalized && (
           <button
             onClick={() => onRemoveSection(sectionIdx)}
-            className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+            className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-500"
             title={t("delete_section")}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -63,7 +63,7 @@ export function PVSectionEditor({
       </div>
 
       <div className="mb-3">
-        <label className="mb-1 block text-xs text-muted-foreground">
+        <label className="mb-1 block text-xs text-[#71717A]">
           {t("discussion")}
         </label>
         <textarea
@@ -72,13 +72,13 @@ export function PVSectionEditor({
             onUpdateSection(sectionIdx, "content", e.target.value)
           }
           rows={3}
-          className="w-full resize-none rounded border border-border px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-muted"
+          className="w-full resize-none rounded border border-[#27272A] px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-[#27272A]"
           disabled={isFinalized}
         />
       </div>
 
       <div className="mb-3">
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+        <label className="mb-1 block text-xs font-medium text-[#71717A]">
           {t("decisions")}
         </label>
         {(section.decisions || []).map(
@@ -87,7 +87,7 @@ export function PVSectionEditor({
               key={decIdx}
               className="mb-1 flex items-center gap-1"
             >
-              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-[#71717A]">•</span>
               <input
                 type="text"
                 value={decision}
@@ -98,7 +98,7 @@ export function PVSectionEditor({
                     e.target.value
                   )
                 }
-                className="flex-1 rounded border border-border px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-muted"
+                className="flex-1 rounded border border-[#27272A] px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                 disabled={isFinalized}
               />
               {!isFinalized && (
@@ -106,7 +106,7 @@ export function PVSectionEditor({
                   onClick={() =>
                     onRemoveDecision(sectionIdx, decIdx)
                   }
-                  className="rounded p-0.5 text-muted-foreground hover:text-red-500"
+                  className="rounded p-0.5 text-[#71717A] hover:text-red-500"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -117,7 +117,7 @@ export function PVSectionEditor({
         {!isFinalized && (
           <button
             onClick={() => onAddDecision(sectionIdx)}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:text-primary"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]"
           >
             <Plus className="h-3 w-3" />
             {t("add_decision")}
@@ -126,14 +126,14 @@ export function PVSectionEditor({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+        <label className="mb-1 block text-xs font-medium text-[#71717A]">
           {t("actions")}
         </label>
         {(section.actions || []).map(
           (action: PVAction, actIdx: number) => (
             <div
               key={actIdx}
-              className="mb-2 rounded border border-border bg-muted p-2"
+              className="mb-2 rounded border border-[#27272A] bg-[#27272A] p-2"
             >
               <div className="flex items-start gap-2">
                 <input
@@ -148,7 +148,7 @@ export function PVSectionEditor({
                     )
                   }
                   placeholder={t("action_description")}
-                  className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-muted"
+                  className="flex-1 rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-sm focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                   disabled={isFinalized}
                 />
                 {!isFinalized && (
@@ -156,7 +156,7 @@ export function PVSectionEditor({
                     onClick={() =>
                       onRemoveAction(sectionIdx, actIdx)
                     }
-                    className="rounded p-0.5 text-muted-foreground hover:text-red-500"
+                    className="rounded p-0.5 text-[#71717A] hover:text-red-500"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -175,7 +175,7 @@ export function PVSectionEditor({
                     )
                   }
                   placeholder={t("responsible")}
-                  className="rounded border border-border bg-background px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-muted"
+                  className="rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                   disabled={isFinalized}
                 />
                 <input
@@ -190,7 +190,7 @@ export function PVSectionEditor({
                     )
                   }
                   placeholder={t("company")}
-                  className="rounded border border-border bg-background px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-muted"
+                  className="rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                   disabled={isFinalized}
                 />
                 <input
@@ -205,7 +205,7 @@ export function PVSectionEditor({
                     )
                   }
                   placeholder={t("deadline")}
-                  className="rounded border border-border bg-background px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-muted"
+                  className="rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                   disabled={isFinalized}
                 />
                 <select
@@ -218,7 +218,7 @@ export function PVSectionEditor({
                       e.target.value
                     )
                   }
-                  className="rounded border border-border bg-background px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-muted"
+                  className="rounded border border-[#27272A] bg-[#0F0F11] px-2 py-1 text-xs focus:border-brand focus:outline-none disabled:bg-[#27272A]"
                   disabled={isFinalized}
                 >
                   <option value="normal">
@@ -235,7 +235,7 @@ export function PVSectionEditor({
         {!isFinalized && (
           <button
             onClick={() => onAddAction(sectionIdx)}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:text-primary"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#F97316]"
           >
             <Plus className="h-3 w-3" />
             {t("add_action")}

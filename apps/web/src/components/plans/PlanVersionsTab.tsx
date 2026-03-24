@@ -13,7 +13,7 @@ export function PlanVersionsTab({
   t: (key: string) => string;
 }) {
   if (versions.length === 0) {
-    return <div className="text-center py-10 text-sm text-muted-foreground">Aucune version</div>;
+    return <div className="text-center py-10 text-sm text-[#71717A]">Aucune version</div>;
   }
 
   return (
@@ -25,8 +25,8 @@ export function PlanVersionsTab({
           <div
             key={version.id}
             className={cn(
-              "rounded-lg border bg-background p-4",
-              version.is_current ? "border-brand/30 ring-1 ring-brand/10" : "border-border"
+              "rounded-lg border bg-[#0F0F11] p-4",
+              version.is_current ? "border-brand/30 ring-1 ring-brand/10" : "border-[#27272A]"
             )}
           >
             <div className="flex items-start justify-between mb-2">
@@ -39,29 +39,29 @@ export function PlanVersionsTab({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">Version {version.version_code}</span>
+                    <span className="text-sm font-semibold text-[#FAFAFA]">Version {version.version_code}</span>
                     {version.is_current && (
                       <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">{t("versionCurrent")}</span>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-[#71717A]">
                     {formatDate(version.version_date)} · {version.file_name} · {formatFileSize(version.file_size)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 {version.file_url && (
-                  <a href={version.file_url} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" title={t("download")}>
+                  <a href={version.file_url} target="_blank" rel="noopener noreferrer" className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]" title={t("download")}>
                     <Download className="h-4 w-4" />
                   </a>
                 )}
-                <button className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" title={t("copyLink")}>
+                <button className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]" title={t("copyLink")}>
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="mb-2 flex items-center gap-2 text-[11px] text-[#71717A]">
               {version.ai_detected && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-purple-600">
                   <Sparkles className="h-3 w-3" />
@@ -80,7 +80,7 @@ export function PlanVersionsTab({
 
             <div className="flex items-center gap-4 text-[11px]">
               <div className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                <Shield className="h-3.5 w-3.5 text-[#71717A]" />
                 <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", validCfg.bg, validCfg.color)}>
                   <ValidIcon className="h-3 w-3" />
                   {t(validCfg.labelKey)}

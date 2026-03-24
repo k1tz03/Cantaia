@@ -97,15 +97,15 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Chargement...</div>;
+    return <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>;
   }
 
   if (error || !ticket) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
-        <p className="text-muted-foreground">{error || "Ticket introuvable"}</p>
-        <Link href="/support" className="mt-4 text-sm text-primary hover:underline">← Retour</Link>
+        <p className="text-[#71717A]">{error || "Ticket introuvable"}</p>
+        <Link href="/support" className="mt-4 text-sm text-[#F97316] hover:underline">← Retour</Link>
       </div>
     );
   }
@@ -116,18 +116,18 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
     <div className="min-h-full bg-[#0F0F11] mx-auto max-w-4xl px-4 py-6 flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
       <div className="mb-4">
-        <Link href="/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+        <Link href="/support" className="inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-3">
           <ArrowLeft className="h-4 w-4" />
           {t("myTickets")}
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{ticket.subject}</h1>
+            <h1 className="text-lg font-semibold text-[#FAFAFA]">{ticket.subject}</h1>
             <div className="mt-1.5 flex items-center gap-2">
               <TicketCategoryBadge category={ticket.category} />
               <TicketStatusBadge status={ticket.status} />
               <span className={`inline-block h-2 w-2 rounded-full ${PRIORITY_DOT[ticket.priority] || PRIORITY_DOT.medium}`} />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-[#71717A]">
                 {new Date(ticket.created_at).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
               </span>
             </div>
@@ -144,7 +144,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
           {ticket.status === "resolved" && (
             <button
               onClick={handleReopen}
-              className="inline-flex items-center gap-1.5 rounded-md bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted border border-border"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#27272A] border border-[#27272A]"
             >
               <RotateCcw className="h-3 w-3" />
               {t("reopen")}
@@ -154,7 +154,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* Thread */}
-      <div className="flex-1 overflow-hidden rounded-lg border border-border flex flex-col min-h-0">
+      <div className="flex-1 overflow-hidden rounded-lg border border-[#27272A] flex flex-col min-h-0">
         <TicketThread messages={messages} currentUserId={user?.id || ""} />
         {!isResolved || ticket.status === "resolved" ? (
           <TicketReplyInput

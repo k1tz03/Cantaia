@@ -112,7 +112,7 @@ export function IntelligentAlerts({
       <div className="flex flex-col items-center gap-3 py-6">
         <button
           onClick={handleGenerate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F97316] text-white text-sm font-medium rounded-lg hover:bg-[#F97316]/90 transition-colors"
         >
           <Sparkles className="w-4 h-4" />
           Generer des alertes IA
@@ -130,19 +130,19 @@ export function IntelligentAlerts({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="rounded-lg border border-border p-4 animate-pulse"
+            className="rounded-lg border border-[#27272A] p-4 animate-pulse"
           >
             <div className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-muted mt-0.5 shrink-0" />
+              <div className="w-5 h-5 rounded-full bg-[#27272A] mt-0.5 shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-muted rounded w-2/3" />
-                <div className="h-3 bg-muted rounded w-full" />
-                <div className="h-3 bg-muted rounded w-4/5" />
+                <div className="h-4 bg-[#27272A] rounded w-2/3" />
+                <div className="h-3 bg-[#27272A] rounded w-full" />
+                <div className="h-3 bg-[#27272A] rounded w-4/5" />
               </div>
             </div>
           </div>
         ))}
-        <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs text-[#71717A] flex items-center justify-center gap-1.5">
           <Loader2 className="w-3 h-3 animate-spin" />
           Analyse en cours...
         </p>
@@ -159,7 +159,7 @@ export function IntelligentAlerts({
       )}
 
       {alerts.length === 0 && !error && (
-        <div className="text-center py-6 text-sm text-muted-foreground">
+        <div className="text-center py-6 text-sm text-[#71717A]">
           Aucune alerte generee pour ce projet.
         </div>
       )}
@@ -179,20 +179,20 @@ export function IntelligentAlerts({
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm text-foreground">
+                  <span className="font-medium text-sm text-[#FAFAFA]">
                     {alert.title}
                   </span>
                   <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-muted text-muted-foreground"}`}
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_COLORS[alert.category] || "bg-[#27272A] text-[#71717A]"}`}
                   >
                     {CATEGORY_LABELS[alert.category] || alert.category}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-[#71717A] mt-1">
                   {alert.description}
                 </p>
                 {alert.action && (
-                  <span className="inline-block mt-2 px-2 py-0.5 rounded bg-background/70 border border-border text-xs text-foreground">
+                  <span className="inline-block mt-2 px-2 py-0.5 rounded bg-[#0F0F11]/70 border border-[#27272A] text-xs text-[#FAFAFA]">
                     {alert.action}
                   </span>
                 )}
@@ -207,7 +207,7 @@ export function IntelligentAlerts({
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+            className="text-xs text-[#71717A] hover:text-[#FAFAFA] transition-colors inline-flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             Rafraichir

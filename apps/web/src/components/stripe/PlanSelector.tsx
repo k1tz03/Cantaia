@@ -97,14 +97,14 @@ export default function PlanSelector({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-3xl rounded-lg bg-background p-6 shadow-xl">
+      <div className="w-full max-w-3xl rounded-lg bg-[#0F0F11] p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-lg font-semibold text-[#FAFAFA]">
             {t("changePlan")}
           </h3>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-[#71717A] hover:text-[#FAFAFA]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -123,7 +123,7 @@ export default function PlanSelector({
                     ? "border-blue-500 shadow-md"
                     : isCurrent
                       ? "border-green-300 bg-green-500/10"
-                      : "border-border"
+                      : "border-[#27272A]"
                 }`}
               >
                 {/* Popular badge */}
@@ -143,14 +143,14 @@ export default function PlanSelector({
                   </span>
                 )}
 
-                <h4 className="text-lg font-bold text-foreground">
+                <h4 className="text-lg font-bold text-[#FAFAFA]">
                   {t(`plan${plan.id.charAt(0).toUpperCase() + plan.id.slice(1)}`)}
                 </h4>
 
                 <div className="mt-2">
-                  <p className="text-2xl font-bold text-foreground">
+                  <p className="text-2xl font-bold text-[#FAFAFA]">
                     {plan.price} CHF
-                    <span className="text-sm font-normal text-muted-foreground">
+                    <span className="text-sm font-normal text-[#71717A]">
                       {t("perMonth")}
                     </span>
                   </p>
@@ -160,7 +160,7 @@ export default function PlanSelector({
                   {plan.features.map((feature, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-sm text-muted-foreground"
+                      className="flex items-start gap-2 text-sm text-[#71717A]"
                     >
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                       {feature}
@@ -175,7 +175,7 @@ export default function PlanSelector({
                     isCurrent
                       ? "cursor-default border border-green-300 bg-green-500/10 text-green-700 dark:text-green-400"
                       : isEnterprise
-                        ? "border border-border bg-background text-foreground hover:bg-muted"
+                        ? "border border-[#27272A] bg-[#0F0F11] text-[#FAFAFA] hover:bg-[#27272A]"
                         : plan.popular
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : "bg-foreground text-background hover:bg-foreground/90"

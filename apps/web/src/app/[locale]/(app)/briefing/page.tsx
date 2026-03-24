@@ -121,7 +121,7 @@ export default function BriefingPage() {
   if (!briefing) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
       </div>
     );
   }
@@ -133,23 +133,23 @@ export default function BriefingPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+            className="rounded-md p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+            <h1 className="flex items-center gap-2 text-xl font-semibold text-[#FAFAFA]">
               <Sparkles className="h-5 w-5 text-amber-500" />
               {t("pageTitle")}
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{briefing.greeting}</p>
+            <p className="mt-0.5 text-sm text-[#71717A]">{briefing.greeting}</p>
           </div>
         </div>
         {isToday && (
           <button
             onClick={handleRegenerate}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -165,7 +165,7 @@ export default function BriefingPage() {
       <div className="mt-4 flex items-center gap-3">
         <button
           onClick={() => navigateDate(-1)}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+          className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A]"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -174,12 +174,12 @@ export default function BriefingPage() {
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
           max={new Date().toISOString().split("T")[0]}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm text-[#FAFAFA]"
         />
         <button
           onClick={() => navigateDate(1)}
           disabled={isToday}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground disabled:opacity-30"
+          className="rounded-md p-1.5 text-[#71717A] hover:bg-[#27272A] hover:text-[#71717A] disabled:opacity-30"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -236,7 +236,7 @@ export default function BriefingPage() {
       {/* Priority alerts */}
       {briefing.priority_alerts.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             {t("alertsTitle")}
           </h2>
@@ -266,7 +266,7 @@ export default function BriefingPage() {
       {/* Recent visits needing attention */}
       {recentVisits.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
             <UserCheck className="h-4 w-4 text-[#F97316]" />
             {tv("recentVisits")}
           </h2>
@@ -275,13 +275,13 @@ export default function BriefingPage() {
               <Link
                 key={v.id}
                 href={`/visits/${v.id}`}
-                className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/10/50 px-4 py-3 hover:border-primary/20"
+                className="flex items-center justify-between rounded-md border border-[#F97316]/20 bg-[#F97316]/10/50 px-4 py-3 hover:border-[#F97316]/20"
               >
                 <div className="flex items-center gap-3">
-                  <UserCheck className="h-4 w-4 text-primary" />
+                  <UserCheck className="h-4 w-4 text-[#F97316]" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">{v.client_name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-[#FAFAFA]">{v.client_name}</p>
+                    <p className="text-xs text-[#71717A]">
                       {new Date(v.visit_date).toLocaleDateString("fr-CH")}
                     </p>
                   </div>
@@ -300,7 +300,7 @@ export default function BriefingPage() {
       {/* Submission deadlines */}
       {briefing.submission_deadlines && briefing.submission_deadlines.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
             <FileText className="h-4 w-4 text-purple-500" />
             {t("deadlinesTitle")}
           </h2>
@@ -318,11 +318,11 @@ export default function BriefingPage() {
               >
                 <div>
                   <p className={`text-sm font-medium ${
-                    d.days_remaining <= 3 ? "text-red-900" : d.days_remaining <= 7 ? "text-amber-900" : "text-foreground"
+                    d.days_remaining <= 3 ? "text-red-900" : d.days_remaining <= 7 ? "text-amber-900" : "text-[#FAFAFA]"
                   }`}>
                     {d.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">{d.project}</p>
+                  <p className="text-xs text-[#71717A]">{d.project}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold ${
@@ -330,7 +330,7 @@ export default function BriefingPage() {
                   }`}>
                     {d.days_remaining}j
                   </p>
-                  <p className="text-xs text-muted-foreground">{d.deadline}</p>
+                  <p className="text-xs text-[#71717A]">{d.deadline}</p>
                   {d.note && (
                     <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       d.days_remaining <= 3
@@ -349,28 +349,28 @@ export default function BriefingPage() {
 
       {/* Projects */}
       <div className="mt-6">
-        <h2 className="text-sm font-semibold text-foreground">
+        <h2 className="text-sm font-semibold text-[#FAFAFA]">
           {t("projectsTitle")}
         </h2>
         <div className="mt-3 space-y-3">
           {briefing.projects.map((project) => (
             <div
               key={project.project_id}
-              className="rounded-lg border border-border bg-background p-4"
+              className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4"
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">{project.status_emoji}</span>
-                <h3 className="text-sm font-semibold text-foreground">
+                <h3 className="text-sm font-semibold text-[#FAFAFA]">
                   {project.name}
                 </h3>
               </div>
-              <p className="mt-1.5 text-sm text-muted-foreground">{project.summary}</p>
+              <p className="mt-1.5 text-sm text-[#71717A]">{project.summary}</p>
               {project.action_items.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {project.action_items.map((item, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-sm text-foreground"
+                      className="flex items-start gap-2 text-sm text-[#FAFAFA]"
                     >
                       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                       {item}
@@ -386,7 +386,7 @@ export default function BriefingPage() {
       {/* Today's meetings */}
       {briefing.meetings_today.length > 0 && (
         <div className="mt-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
             <Calendar className="h-4 w-4 text-[#F97316]" />
             {t("meetingsTitle")}
           </h2>
@@ -394,16 +394,16 @@ export default function BriefingPage() {
             {briefing.meetings_today.map((meeting, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10/50 px-4 py-3"
+                className="flex items-center gap-3 rounded-md border border-[#F97316]/20 bg-[#F97316]/10/50 px-4 py-3"
               >
                 <span className="text-sm font-semibold text-[#F97316]">
                   {meeting.time}
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-[#FAFAFA]">
                     {meeting.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">{meeting.project}</p>
+                  <p className="text-xs text-[#71717A]">{meeting.project}</p>
                 </div>
               </div>
             ))}
@@ -412,18 +412,18 @@ export default function BriefingPage() {
       )}
 
       {/* Global summary */}
-      <div className="mt-6 rounded-lg border border-border bg-muted p-4">
-        <h2 className="text-sm font-semibold text-foreground">
+      <div className="mt-6 rounded-lg border border-[#27272A] bg-[#27272A] p-4">
+        <h2 className="text-sm font-semibold text-[#FAFAFA]">
           {t("summaryTitle")}
         </h2>
-        <p className="mt-1.5 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-sm text-[#71717A]">
           {briefing.global_summary}
         </p>
       </div>
 
       {/* Mode indicator */}
       <div className="mt-4 text-center">
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-[#71717A]">
           {briefing.mode === "ai" ? t("generatedByAI") : t("generatedFallback")}
         </span>
       </div>
@@ -447,13 +447,13 @@ function StatCard({
   const colorClasses = {
     red: "border-red-500/20 bg-red-500/10 text-red-400",
     amber: "border-amber-500/20 bg-amber-500/10 text-amber-400",
-    blue: "border-primary/20 bg-primary/10 text-primary",
+    blue: "border-[#F97316]/20 bg-[#F97316]/10 text-[#F97316]",
   };
 
   return (
     <div
       className={`rounded-md border p-3 text-center ${
-        color ? colorClasses[color] : "border-border bg-background text-foreground"
+        color ? colorClasses[color] : "border-[#27272A] bg-[#0F0F11] text-[#FAFAFA]"
       }`}
     >
       <div className="mx-auto mb-1 flex justify-center opacity-60">{icon}</div>

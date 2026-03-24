@@ -331,7 +331,7 @@ export function SubmissionEditor({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-border px-4 md:px-6 py-3 bg-background sticky top-0 z-20 shrink-0">
+      <div className="flex items-center justify-between border-b border-[#27272A] px-4 md:px-6 py-3 bg-[#0F0F11] sticky top-0 z-20 shrink-0">
         {/* Left: back + title */}
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -339,9 +339,9 @@ export function SubmissionEditor({
               if (hasUnsavedChanges) await handleSave(false);
               onBack();
             }}
-            className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0"
+            className="p-1.5 hover:bg-[#27272A] rounded-lg transition-colors shrink-0"
           >
-            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+            <ArrowLeft className="h-4 w-4 text-[#71717A]" />
           </button>
 
           <input
@@ -358,7 +358,7 @@ export function SubmissionEditor({
         {/* Right: save indicator + actions */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Save indicator */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-[#71717A]">
             {saving ? (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -392,7 +392,7 @@ export function SubmissionEditor({
           <button
             onClick={() => handleSave(true)}
             disabled={saving || (!hasUnsavedChanges && !saveError)}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-40 transition-colors"
           >
             <Save className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t("save")}</span>
@@ -426,9 +426,9 @@ export function SubmissionEditor({
           )}
 
           {/* Stats bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-primary/10 border border-primary/20 rounded-lg px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 bg-[#F97316]/10 border border-[#F97316]/20 rounded-lg px-4 py-3">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-primary" />
+              <CheckCircle className="h-4 w-4 text-[#F97316]" />
               <span className="text-sm font-medium text-blue-900">
                 {t("positions_extracted", { count: positions.length })}
               </span>
@@ -449,7 +449,7 @@ export function SubmissionEditor({
           </div>
 
           {metadata?.project_suggestion && (
-            <div className="text-sm text-muted-foreground bg-muted rounded-lg px-4 py-2">
+            <div className="text-sm text-[#71717A] bg-[#27272A] rounded-lg px-4 py-2">
               {t("project_detected", { name: metadata.project_suggestion })}
             </div>
           )}
@@ -471,12 +471,12 @@ export function SubmissionEditor({
             <div className="flex items-center gap-4">
               <button
                 onClick={() => handleInsertAt(positions.length)}
-                className="flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:border-border hover:text-foreground transition-colors"
+                className="flex items-center gap-2 px-3 py-2 border border-dashed border-[#27272A] rounded-lg text-sm text-[#71717A] hover:border-[#27272A] hover:text-[#FAFAFA] transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 {t("add_line_bottom")}
               </button>
-              <p className="text-xs text-muted-foreground hidden md:block">
+              <p className="text-xs text-[#71717A] hidden md:block">
                 {t("drag_hint")}
               </p>
             </div>
@@ -493,7 +493,7 @@ export function SubmissionEditor({
               <button
                 onClick={() => handleExport("csv")}
                 disabled={exporting || positions.length === 0}
-                className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-[#27272A] rounded-lg text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50 transition-colors"
               >
                 <Download className="h-4 w-4" />
                 {t("export_csv")}
@@ -501,7 +501,7 @@ export function SubmissionEditor({
               <button
                 onClick={() => handleExport("sia451")}
                 disabled={exporting || positions.length === 0}
-                className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-[#27272A] rounded-lg text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50 transition-colors"
               >
                 <Download className="h-4 w-4" />
                 {t("export_sia451")}

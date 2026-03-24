@@ -168,13 +168,13 @@ export function AnalysisTab({
       {benchmarkLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-brand" />
-          <span className="ml-2 text-sm text-muted-foreground">Chargement des données…</span>
+          <span className="ml-2 text-sm text-[#71717A]">Chargement des données…</span>
         </div>
       ) : benchmarkData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background py-12">
-          <Database className="h-10 w-10 text-muted-foreground" />
-          <h3 className="mt-3 text-sm font-medium text-muted-foreground">Aucune donnée de prix</h3>
-          <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-12">
+          <Database className="h-10 w-10 text-[#71717A]" />
+          <h3 className="mt-3 text-sm font-medium text-[#71717A]">Aucune donnée de prix</h3>
+          <p className="mt-1 max-w-sm text-center text-xs text-[#71717A]">
             Importez des fichiers fournisseurs pour alimenter la base de benchmark.
           </p>
           <button
@@ -191,21 +191,21 @@ export function AnalysisTab({
           {/* Summary cards */}
           {benchmarkSummary && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
-                <p className="text-lg font-bold text-foreground">{totalPostes}</p>
-                <p className="text-[10px] text-muted-foreground">Postes distincts</p>
+              <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
+                <p className="text-lg font-bold text-[#FAFAFA]">{totalPostes}</p>
+                <p className="text-[10px] text-[#71717A]">Postes distincts</p>
               </div>
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
-                <p className="text-lg font-bold text-foreground">{benchmarkSummary.total_data_points}</p>
-                <p className="text-[10px] text-muted-foreground">Points de données</p>
+              <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
+                <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_data_points}</p>
+                <p className="text-[10px] text-[#71717A]">Points de données</p>
               </div>
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
-                <p className="text-lg font-bold text-foreground">{benchmarkSummary.total_suppliers}</p>
-                <p className="text-[10px] text-muted-foreground">Fournisseurs</p>
+              <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
+                <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_suppliers}</p>
+                <p className="text-[10px] text-[#71717A]">Fournisseurs</p>
               </div>
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
-                <p className="text-lg font-bold text-foreground">{benchmarkSummary.total_cfc_categories || cfcGroups.length}</p>
-                <p className="text-[10px] text-muted-foreground">Catégories CFC</p>
+              <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-3 text-center">
+                <p className="text-lg font-bold text-[#FAFAFA]">{benchmarkSummary.total_cfc_categories || cfcGroups.length}</p>
+                <p className="text-[10px] text-[#71717A]">Catégories CFC</p>
               </div>
             </div>
           )}
@@ -213,13 +213,13 @@ export function AnalysisTab({
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#71717A]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher un poste ou code CFC…"
-                className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] pl-9 pr-3 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A]"
               />
             </div>
             <select
@@ -228,7 +228,7 @@ export function AnalysisTab({
                 setProjectFilter(e.target.value);
                 loadBenchmark(e.target.value || undefined);
               }}
-              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+              className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm text-[#FAFAFA]"
             >
               <option value="">Tous les projets</option>
               {projects.map((p) => (
@@ -238,7 +238,7 @@ export function AnalysisTab({
             <select
               value={unitFilter}
               onChange={(e) => setUnitFilter(e.target.value)}
-              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+              className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-sm text-[#FAFAFA]"
             >
               <option value="">Toutes unités</option>
               {availableUnits.map((u) => (
@@ -248,7 +248,7 @@ export function AnalysisTab({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+              className="inline-flex items-center gap-1 rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#27272A]"
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV
@@ -262,24 +262,24 @@ export function AnalysisTab({
               const isOpen = effectiveExpanded.has(cfcKey);
 
               return (
-                <div key={cfcKey} className="rounded-lg border border-border bg-background overflow-hidden">
+                <div key={cfcKey} className="rounded-lg border border-[#27272A] bg-[#0F0F11] overflow-hidden">
                   {/* CFC Header */}
                   <button
                     type="button"
                     onClick={() => toggleCfc(group.cfc)}
-                    className="flex w-full items-center gap-3 bg-muted border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-muted transition-colors"
+                    className="flex w-full items-center gap-3 bg-[#27272A] border-l-4 border-blue-500 px-4 py-3 text-left hover:bg-[#27272A] transition-colors"
                   >
                     <ChevronRight className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                      "h-4 w-4 text-[#71717A] transition-transform shrink-0",
                       isOpen && "rotate-90"
                     )} />
                     {group.cfc && (
-                      <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary shrink-0">
+                      <span className="rounded bg-[#F97316]/10 px-2 py-0.5 font-mono text-[11px] font-medium text-[#F97316] shrink-0">
                         CFC {group.cfc}
                       </span>
                     )}
-                    <span className="text-sm font-medium text-foreground">{group.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                    <span className="text-sm font-medium text-[#FAFAFA]">{group.label}</span>
+                    <span className="ml-auto text-xs text-[#71717A] shrink-0">
                       {group.items.length} poste{group.items.length > 1 ? "s" : ""}
                     </span>
                   </button>
@@ -289,7 +289,7 @@ export function AnalysisTab({
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-t border-border bg-muted/50 text-[10px] uppercase text-muted-foreground">
+                          <tr className="border-t border-[#27272A] bg-[#27272A]/50 text-[10px] uppercase text-[#71717A]">
                             <th className="px-4 py-2 text-left font-semibold">Poste</th>
                             <th className="px-3 py-2 text-center font-semibold">CFC</th>
                             <th className="px-3 py-2 text-center font-semibold">Unité</th>
@@ -304,50 +304,50 @@ export function AnalysisTab({
                           {group.items.map((item: any) => (
                             <React.Fragment key={item.normalized_key}>
                               <tr
-                                className="cursor-pointer transition-colors hover:bg-muted/50"
+                                className="cursor-pointer transition-colors hover:bg-[#27272A]/50"
                                 onClick={() => setExpandedItem(
                                   expandedItem === item.normalized_key ? null : item.normalized_key
                                 )}
                               >
-                                <td className="px-4 py-2.5 text-foreground max-w-xs truncate">
+                                <td className="px-4 py-2.5 text-[#FAFAFA] max-w-xs truncate">
                                   <ChevronRight className={cn(
-                                    "inline h-3.5 w-3.5 mr-1 text-muted-foreground transition-transform",
+                                    "inline h-3.5 w-3.5 mr-1 text-[#71717A] transition-transform",
                                     expandedItem === item.normalized_key && "rotate-90"
                                   )} />
                                   {item.display_description}
                                 </td>
                                 <td className="px-3 py-2.5 text-center">
                                   {item.cfc_subcode ? (
-                                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{item.cfc_subcode}</span>
+                                    <span className="rounded bg-[#27272A] px-1.5 py-0.5 font-mono text-[10px]">{item.cfc_subcode}</span>
                                   ) : "—"}
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{item.unit_normalized || "—"}</td>
+                                <td className="px-3 py-2.5 text-center text-xs text-[#71717A]">{item.unit_normalized || "—"}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-green-700 dark:text-green-400">{formatCHF(item.min_unit_price)}</td>
-                                <td className="px-3 py-2.5 text-right font-mono font-medium text-foreground">{formatCHF(item.median_unit_price)}</td>
+                                <td className="px-3 py-2.5 text-right font-mono font-medium text-[#FAFAFA]">{formatCHF(item.median_unit_price)}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-red-600">{formatCHF(item.max_unit_price)}</td>
                                 <td className="px-3 py-2.5 text-center">
                                   <span className={cn(
                                     "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
                                     item.data_points < 3
-                                      ? "bg-muted text-muted-foreground"
+                                      ? "bg-[#27272A] text-[#71717A]"
                                       : item.price_spread_percent > 50
                                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                                       : item.price_spread_percent > 20
-                                      ? "bg-primary/10 text-primary"
+                                      ? "bg-[#F97316]/10 text-[#F97316]"
                                       : "bg-green-500/10 text-green-700 dark:text-green-400"
                                   )}>
                                     {item.price_spread_percent}%
                                   </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{item.data_points}</td>
+                                <td className="px-3 py-2.5 text-center text-xs text-[#71717A]">{item.data_points}</td>
                               </tr>
                               {/* Expanded supplier detail */}
                               {expandedItem === item.normalized_key && item.suppliers && (
                                 <tr>
-                                  <td colSpan={8} className="bg-muted pl-8 pr-4 py-3">
+                                  <td colSpan={8} className="bg-[#27272A] pl-8 pr-4 py-3">
                                     <table className="w-full text-xs">
                                       <thead>
-                                        <tr className="text-[10px] uppercase text-muted-foreground">
+                                        <tr className="text-[10px] uppercase text-[#71717A]">
                                           <th className="pb-1 text-left font-semibold">Fournisseur</th>
                                           <th className="pb-1 text-right font-semibold">PU (CHF)</th>
                                           <th className="pb-1 text-left font-semibold">Projet</th>
@@ -361,7 +361,7 @@ export function AnalysisTab({
                                             const isBest = idx === 0 && item.suppliers.length >= 2;
                                             return (
                                               <tr key={idx}>
-                                                <td className="py-1.5 text-foreground">
+                                                <td className="py-1.5 text-[#FAFAFA]">
                                                   {s.supplier_name}
                                                   {isBest && (
                                                     <span className="ml-2 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
@@ -369,9 +369,9 @@ export function AnalysisTab({
                                                     </span>
                                                   )}
                                                 </td>
-                                                <td className="py-1.5 text-right font-mono font-medium text-foreground">{formatCHF(s.unit_price)}</td>
-                                                <td className="py-1.5 text-muted-foreground">{s.project_name || "—"}</td>
-                                                <td className="py-1.5 text-muted-foreground">{s.received_at ? formatDate(s.received_at) : "—"}</td>
+                                                <td className="py-1.5 text-right font-mono font-medium text-[#FAFAFA]">{formatCHF(s.unit_price)}</td>
+                                                <td className="py-1.5 text-[#71717A]">{s.project_name || "—"}</td>
+                                                <td className="py-1.5 text-[#71717A]">{s.received_at ? formatDate(s.received_at) : "—"}</td>
                                               </tr>
                                             );
                                           })}

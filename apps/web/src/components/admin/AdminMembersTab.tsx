@@ -225,11 +225,11 @@ export default function AdminMembersTab() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <Users className="h-5 w-5 text-primary" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#FAFAFA]">
+            <Users className="h-5 w-5 text-[#F97316]" />
             {t("members")}
           </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-[#71717A]">
             {t("usersCount", {
               current: members.length,
               max: maxUsers,
@@ -247,9 +247,9 @@ export default function AdminMembersTab() {
       </div>
 
       {/* Members table */}
-      <div className="rounded-lg border border-border bg-background">
+      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
         {members.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
+          <div className="py-12 text-center text-sm text-[#71717A]">
             {t("noMembers")}
           </div>
         ) : (
@@ -257,23 +257,23 @@ export default function AdminMembersTab() {
             {members.map((member, i) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between px-5 py-3.5 hover:bg-muted"
+                className="flex items-center justify-between px-5 py-3.5 hover:bg-[#27272A]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F97316]/10 text-xs font-semibold text-[#F97316]">
                     {(member.first_name || "?")[0]}
                     {(member.last_name || "?")[0]}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#FAFAFA]">
                       {member.first_name} {member.last_name}
                       {i === 0 && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">
+                        <span className="ml-1.5 text-xs text-[#71717A]">
                           (Owner)
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                    <p className="text-xs text-[#71717A]">{member.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -284,12 +284,12 @@ export default function AdminMembersTab() {
                       handleChangeRole(member.id, e.target.value)
                     }
                     disabled={i === 0}
-                    className={`rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium ${
+                    className={`rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1 text-xs font-medium ${
                       member.role === "admin"
-                        ? "text-primary"
+                        ? "text-[#F97316]"
                         : member.role === "director"
                           ? "text-purple-700"
-                          : "text-muted-foreground"
+                          : "text-[#71717A]"
                     } disabled:cursor-not-allowed disabled:opacity-50`}
                   >
                     <option value="admin">Admin</option>
@@ -298,7 +298,7 @@ export default function AdminMembersTab() {
                     <option value="member">Membre</option>
                   </select>
 
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-[#71717A]">
                     {formatDate(member.created_at)}
                   </span>
 
@@ -306,7 +306,7 @@ export default function AdminMembersTab() {
                   {i > 0 && (
                     <button
                       onClick={() => setShowDeleteConfirm(member.id)}
-                      className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
+                      className="rounded p-1 text-[#71717A] hover:bg-red-500/10 hover:text-red-600"
                       title={t("deleteConfirm")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -322,10 +322,10 @@ export default function AdminMembersTab() {
       {/* Pending invites */}
       {invites.length > 0 && (
         <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
             Invitations en attente
           </h3>
-          <div className="rounded-lg border border-border bg-background">
+          <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
             <div className="divide-y divide-border">
               {invites.map((invite) => (
                 <div
@@ -333,10 +333,10 @@ export default function AdminMembersTab() {
                   className="flex items-center justify-between px-5 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <Mail className="h-4 w-4 text-[#71717A]" />
                     <div>
-                      <p className="text-sm text-foreground">{invite.email}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-[#FAFAFA]">{invite.email}</p>
+                      <p className="text-xs text-[#71717A]">
                         {formatDate(invite.created_at)} — expire le{" "}
                         {formatDate(invite.expires_at)}
                       </p>
@@ -345,7 +345,7 @@ export default function AdminMembersTab() {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleResendInvite(invite)}
-                      className="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                      className="rounded-md px-2.5 py-1 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/10"
                     >
                       <RotateCcw className="mr-1 inline h-3 w-3" />
                       Renvoyer
@@ -368,17 +368,17 @@ export default function AdminMembersTab() {
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-foreground">
+          <div className="w-full max-w-sm rounded-lg bg-[#0F0F11] p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-[#FAFAFA]">
               {t("deleteConfirm")}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-[#71717A]">
               Cette action retirera le membre de votre organisation.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 Annuler
               </button>
@@ -396,14 +396,14 @@ export default function AdminMembersTab() {
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-lg bg-[#0F0F11] p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-[#FAFAFA]">
                 {t("inviteMember")}
               </h3>
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="text-muted-foreground hover:text-muted-foreground"
+                className="text-[#71717A] hover:text-[#71717A]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -411,7 +411,7 @@ export default function AdminMembersTab() {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">
                     Prenom
                   </label>
                   <input
@@ -422,11 +422,11 @@ export default function AdminMembersTab() {
                         first_name: e.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">
                     Nom
                   </label>
                   <input
@@ -437,12 +437,12 @@ export default function AdminMembersTab() {
                         last_name: e.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">
                   Email *
                 </label>
                 <input
@@ -451,11 +451,11 @@ export default function AdminMembersTab() {
                   onChange={(e) =>
                     setInviteForm((p) => ({ ...p, email: e.target.value }))
                   }
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">
                   Role
                 </label>
                 <select
@@ -463,7 +463,7 @@ export default function AdminMembersTab() {
                   onChange={(e) =>
                     setInviteForm((p) => ({ ...p, role: e.target.value }))
                   }
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                 >
                   <option value="admin">Admin</option>
                   <option value="project_manager">Chef de projet</option>
@@ -471,7 +471,7 @@ export default function AdminMembersTab() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label className="mb-1 block text-sm font-medium text-[#FAFAFA]">
                   Message (optionnel)
                 </label>
                 <textarea
@@ -480,7 +480,7 @@ export default function AdminMembersTab() {
                     setInviteForm((p) => ({ ...p, message: e.target.value }))
                   }
                   rows={3}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm"
                   placeholder="Bienvenue dans l'espace Cantaia !"
                 />
               </div>
@@ -488,7 +488,7 @@ export default function AdminMembersTab() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                className="rounded-md px-4 py-2 text-sm text-[#71717A] hover:bg-[#27272A]"
               >
                 Annuler
               </button>

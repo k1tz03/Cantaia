@@ -188,7 +188,7 @@ export function IntegrationsTab() {
           </svg>
         );
       default:
-        return <Server className="h-5 w-5 text-muted-foreground" />;
+        return <Server className="h-5 w-5 text-[#71717A]" />;
     }
   }
 
@@ -337,15 +337,15 @@ export function IntegrationsTab() {
   if (view === "imap-select") {
     return (
       <div className="space-y-6">
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <button
             onClick={() => setView("main")}
-            className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("back")}
           </button>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">
+          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
             {t("emailSelectImapProvider")}
           </h3>
           <div className="space-y-2">
@@ -353,18 +353,18 @@ export function IntegrationsTab() {
               <button
                 key={p.id}
                 onClick={() => handleSelectKnownProvider(p.id)}
-                className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left text-sm hover:bg-muted"
+                className="flex w-full items-center justify-between rounded-lg border border-[#27272A] px-4 py-3 text-left text-sm hover:bg-[#27272A]"
               >
-                <span className="font-medium text-foreground">{p.name}</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-[#FAFAFA]">{p.name}</span>
+                <ChevronRight className="h-4 w-4 text-[#71717A]" />
               </button>
             ))}
             <button
               onClick={() => handleSelectKnownProvider("manual")}
-              className="flex w-full items-center justify-between rounded-lg border border-dashed border-border px-4 py-3 text-left text-sm hover:bg-muted"
+              className="flex w-full items-center justify-between rounded-lg border border-dashed border-[#27272A] px-4 py-3 text-left text-sm hover:bg-[#27272A]"
             >
-              <span className="text-muted-foreground">{t("emailManualConfig")}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[#71717A]">{t("emailManualConfig")}</span>
+              <ChevronRight className="h-4 w-4 text-[#71717A]" />
             </button>
           </div>
         </div>
@@ -380,22 +380,22 @@ export function IntegrationsTab() {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <button
             onClick={() => setView("imap-select")}
-            className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("back")}
           </button>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">
+          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
             {providerName}
           </h3>
 
           <div className="space-y-4">
             {/* Email + Password */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label className="mb-1 block text-xs font-medium text-[#71717A]">
                 {t("emailAddress")}
               </label>
               <input
@@ -404,12 +404,12 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, email_address: e.target.value }))
                 }
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 placeholder="julien@monbureau.ch"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label className="mb-1 block text-xs font-medium text-[#71717A]">
                 {t("emailPassword")}
               </label>
               <input
@@ -418,13 +418,13 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, imap_password: e.target.value }))
                 }
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
             </div>
 
             {/* IMAP Settings */}
-            <div className="border-t border-border pt-4">
-              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+            <div className="border-t border-[#27272A] pt-4">
+              <p className="mb-2 text-xs font-semibold text-[#71717A] uppercase">
                 {t("emailImapServer")}
               </p>
               <div className="grid grid-cols-3 gap-2">
@@ -435,7 +435,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, imap_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="imap.example.com"
                   />
                 </div>
@@ -449,13 +449,13 @@ export function IntegrationsTab() {
                         imap_port: parseInt(e.target.value) || 993,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
               <div className="mt-2 flex gap-4 text-xs">
                 {(["ssl", "tls", "none"] as const).map((sec) => (
-                  <label key={sec} className="flex items-center gap-1 text-muted-foreground">
+                  <label key={sec} className="flex items-center gap-1 text-[#71717A]">
                     <input
                       type="radio"
                       name="imap_security"
@@ -477,8 +477,8 @@ export function IntegrationsTab() {
             </div>
 
             {/* SMTP Settings */}
-            <div className="border-t border-border pt-4">
-              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+            <div className="border-t border-[#27272A] pt-4">
+              <p className="mb-2 text-xs font-semibold text-[#71717A] uppercase">
                 {t("emailSmtpServer")}
               </p>
               <div className="grid grid-cols-3 gap-2">
@@ -489,7 +489,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, smtp_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="smtp.example.com"
                   />
                 </div>
@@ -503,13 +503,13 @@ export function IntegrationsTab() {
                         smtp_port: parseInt(e.target.value) || 587,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
               <div className="mt-2 flex gap-4 text-xs">
                 {(["ssl", "tls", "none"] as const).map((sec) => (
-                  <label key={sec} className="flex items-center gap-1 text-muted-foreground">
+                  <label key={sec} className="flex items-center gap-1 text-[#71717A]">
                     <input
                       type="radio"
                       name="smtp_security"
@@ -526,14 +526,14 @@ export function IntegrationsTab() {
             </div>
 
             {/* Test + Save */}
-            <div className="flex items-center gap-3 border-t border-border pt-4">
+            <div className="flex items-center gap-3 border-t border-[#27272A] pt-4">
               <button
                 type="button"
                 onClick={handleTestConnection}
                 disabled={
                   testing || !imapForm.email_address || !imapForm.imap_password
                 }
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
               >
                 {testing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -592,23 +592,23 @@ export function IntegrationsTab() {
     <div className="space-y-6">
       {hasConnection && displayProvider ? (
         // ── Connected state ──
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#27272A]">
               {getProviderIcon(displayProvider)}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">
                 {getProviderLabel(displayProvider)}
               </h3>
-              <p className="text-xs text-muted-foreground">{displayEmail}</p>
+              <p className="text-xs text-[#71717A]">{displayEmail}</p>
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-foreground">
+              <span className="text-sm text-[#FAFAFA]">
                 {t("statusLabel")} :{" "}
                 <span className="font-medium text-green-400">
                   {t("connected")}
@@ -617,7 +617,7 @@ export function IntegrationsTab() {
             </div>
 
             {(connection?.last_sync_at || profile?.profile?.last_sync_at) && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-[#71717A]">
                 <Clock className="h-3.5 w-3.5" />
                 {t("lastSync")} :{" "}
                 {getRelativeSyncTime(
@@ -628,7 +628,7 @@ export function IntegrationsTab() {
 
             {connection?.total_emails_synced !== undefined &&
               connection.total_emails_synced > 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[#71717A]">
                   {t("emailsSynced")} : {connection.total_emails_synced}
                 </p>
               )}
@@ -650,7 +650,7 @@ export function IntegrationsTab() {
               <button
                 type="button"
                 onClick={handleDisconnect}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
               >
                 <Unlink className="h-4 w-4" />
                 {t("disconnect")}
@@ -664,19 +664,19 @@ export function IntegrationsTab() {
         </div>
       ) : loading ? (
         // ── Loading connection status ──
-        <div className="rounded-lg border border-border bg-background p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
-            <p className="text-sm text-muted-foreground">{t("emailConnecting")}</p>
+            <p className="text-sm text-[#71717A]">{t("emailConnecting")}</p>
           </div>
         </div>
       ) : (
         // ── Not connected — Provider selection ──
-        <div className="rounded-lg border border-border bg-background p-6">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+          <h3 className="mb-2 text-sm font-semibold text-[#FAFAFA]">
             {t("emailConnectTitle")}
           </h3>
-          <p className="mb-6 text-sm text-muted-foreground">
+          <p className="mb-6 text-sm text-[#71717A]">
             {t("emailConnectDesc")}
           </p>
 
@@ -686,16 +686,16 @@ export function IntegrationsTab() {
               type="button"
               onClick={handleConnectMicrosoft}
               disabled={connecting}
-              className="flex flex-col items-center gap-3 rounded-lg border border-border p-5 text-center hover:border-primary/30 hover:bg-primary/10"
+              className="flex flex-col items-center gap-3 rounded-lg border border-[#27272A] p-5 text-center hover:border-[#F97316]/30 hover:bg-[#F97316]/10"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F97316]/10">
                 {getProviderIcon("microsoft")}
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-medium text-[#FAFAFA]">
                   Microsoft 365
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Outlook</p>
+                <p className="mt-0.5 text-xs text-[#71717A]">Outlook</p>
               </div>
             </button>
 
@@ -704,14 +704,14 @@ export function IntegrationsTab() {
               type="button"
               onClick={handleConnectGoogle}
               disabled={connecting}
-              className="flex flex-col items-center gap-3 rounded-lg border border-border p-5 text-center hover:border-red-500/30 hover:bg-red-500/10"
+              className="flex flex-col items-center gap-3 rounded-lg border border-[#27272A] p-5 text-center hover:border-red-500/30 hover:bg-red-500/10"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10">
                 {getProviderIcon("google")}
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">Gmail</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-sm font-medium text-[#FAFAFA]">Gmail</p>
+                <p className="mt-0.5 text-xs text-[#71717A]">
                   Google Workspace
                 </p>
               </div>
@@ -721,28 +721,28 @@ export function IntegrationsTab() {
             <button
               type="button"
               onClick={() => setView("imap-select")}
-              className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-5 text-center hover:border-border hover:bg-muted"
+              className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[#27272A] p-5 text-center hover:border-[#27272A] hover:bg-[#27272A]"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <Mail className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#27272A]">
+                <Mail className="h-5 w-5 text-[#71717A]" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-medium text-[#FAFAFA]">
                   {t("emailOtherImap")}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">IMAP/SMTP</p>
+                <p className="mt-0.5 text-xs text-[#71717A]">IMAP/SMTP</p>
               </div>
             </button>
           </div>
 
           {connecting && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="mt-4 flex items-center gap-2 text-sm text-[#71717A]">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t("emailConnecting")}
             </div>
           )}
 
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="mt-4 text-xs text-[#71717A]">
             {t("emailPrivacyNote")}
           </p>
         </div>

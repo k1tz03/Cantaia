@@ -369,7 +369,7 @@ export function Sidebar() {
 
       {/* Mobile Bottom Navigation */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#27272A] bg-[#0F0F11]/95 backdrop-blur-md lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         role="navigation"
         aria-label="Mobile navigation"
@@ -384,7 +384,7 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-                  active ? "text-[#F97316]" : "text-muted-foreground hover:text-foreground"
+                  active ? "text-[#F97316]" : "text-[#71717A] hover:text-[#FAFAFA]"
                 )}
                 aria-current={active ? "page" : undefined}
               >
@@ -405,7 +405,7 @@ export function Sidebar() {
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors",
-              "text-muted-foreground hover:text-foreground"
+              "text-[#71717A] hover:text-[#FAFAFA]"
             )}
           >
             {activeProject ? (
@@ -426,7 +426,7 @@ export function Sidebar() {
             onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-              mobileMoreOpen ? "text-[#F97316]" : "text-muted-foreground hover:text-foreground"
+              mobileMoreOpen ? "text-[#F97316]" : "text-[#71717A] hover:text-[#FAFAFA]"
             )}
             aria-expanded={mobileMoreOpen}
             aria-label={t("more")}
@@ -449,7 +449,7 @@ export function Sidebar() {
               transition={{ duration: 0.15 }}
             />
             <motion.div
-              className="absolute bottom-[60px] left-0 right-0 bg-background rounded-t-2xl shadow-2xl p-4"
+              className="absolute bottom-[60px] left-0 right-0 bg-[#0F0F11] rounded-t-2xl shadow-2xl p-4"
               style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -468,7 +468,7 @@ export function Sidebar() {
                       onClick={() => setMobileMoreOpen(false)}
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[11px] font-medium transition-colors",
-                        active ? "bg-[#F97316]/10 text-[#F97316]" : "text-muted-foreground hover:bg-muted"
+                        active ? "bg-[#F97316]/10 text-[#F97316]" : "text-[#71717A] hover:bg-[#27272A]"
                       )}
                       aria-current={active ? "page" : undefined}
                     >
@@ -513,10 +513,10 @@ export function Sidebar() {
                 transition={{ delay: (fabActions.length - 1 - i) * 0.05, type: "spring", damping: 20, stiffness: 300 }}
                 onClick={() => handleFabAction(fab.action)}
               >
-                <span className="rounded-lg bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-lg whitespace-nowrap">
+                <span className="rounded-lg bg-[#0F0F11] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] shadow-lg whitespace-nowrap">
                   {t(fab.labelKey)}
                 </span>
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-background shadow-lg text-[#F97316] transition-colors group-hover:bg-[#F97316]/10">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0F0F11] shadow-lg text-[#F97316] transition-colors group-hover:bg-[#F97316]/10">
                   <FabIcon className="h-5 w-5" />
                 </span>
               </motion.button>

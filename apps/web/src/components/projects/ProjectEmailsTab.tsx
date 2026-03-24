@@ -63,10 +63,10 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
 
   if (emails.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-border bg-background">
+      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#0F0F11]">
         <div className="text-center">
-          <Mail className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">{t("noEmailsYet")}</p>
+          <Mail className="mx-auto h-8 w-8 text-[#71717A]" />
+          <p className="mt-2 text-sm text-[#71717A]">{t("noEmailsYet")}</p>
         </div>
       </div>
     );
@@ -75,29 +75,29 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
   return (
     <div className="flex gap-0 -mx-4 sm:-mx-6" style={{ height: "calc(100vh - 260px)" }}>
       <div className={cn(
-        "flex flex-col border-r border-border overflow-hidden",
+        "flex flex-col border-r border-[#27272A] overflow-hidden",
         selectedEmail ? "w-[380px] shrink-0" : "flex-1"
       )}>
-        <div className="px-3 py-2 border-b border-border">
+        <div className="px-3 py-2 border-b border-[#27272A]">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#71717A]" />
             <input
               type="text"
               placeholder={t("searchEmails")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-border bg-background py-1.5 pl-8 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] py-1.5 pl-8 pr-8 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#71717A]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 text-[11px] text-[#71717A]">
             {filteredEmails.length} email{filteredEmails.length !== 1 ? "s" : ""} classé{filteredEmails.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -108,29 +108,29 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
               key={email.id}
               onClick={() => setSelectedEmail(email)}
               className={cn(
-                "w-full text-left px-3 py-2.5 border-b border-border transition-colors hover:bg-muted",
-                selectedEmail?.id === email.id && "bg-primary/10 border-l-2 border-l-brand"
+                "w-full text-left px-3 py-2.5 border-b border-[#27272A] transition-colors hover:bg-[#27272A]",
+                selectedEmail?.id === email.id && "bg-[#F97316]/10 border-l-2 border-l-brand"
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-foreground truncate">
+                <span className="text-xs font-medium text-[#FAFAFA] truncate">
                   {email.sender_name || email.sender_email}
                 </span>
-                <span className="flex-shrink-0 text-[10px] text-muted-foreground ml-auto">
+                <span className="flex-shrink-0 text-[10px] text-[#71717A] ml-auto">
                   {new Date(email.received_at).toLocaleDateString("fr-CH", { day: "2-digit", month: "short" })}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-sm text-foreground truncate flex-1">{email.subject}</p>
+                <p className="text-sm text-[#FAFAFA] truncate flex-1">{email.subject}</p>
                 {email.has_attachments && (
-                  <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                  <Paperclip className="h-3 w-3 flex-shrink-0 text-[#71717A]" />
                 )}
                 {email.classification && (
                   <span className={cn(
                     "flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium",
                     email.classification === "urgent" ? "bg-red-500/10 text-red-400" :
                     email.classification === "action_required" ? "bg-amber-500/10 text-amber-400" :
-                    "bg-muted text-muted-foreground"
+                    "bg-[#27272A] text-[#71717A]"
                   )}>
                     {email.classification === "urgent" ? "Urgent" :
                      email.classification === "action_required" ? "Action" : "Info"}
@@ -138,9 +138,9 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
                 )}
               </div>
               {email.ai_summary ? (
-                <p className="mt-1 text-[11px] text-muted-foreground line-clamp-1">{email.ai_summary}</p>
+                <p className="mt-1 text-[11px] text-[#71717A] line-clamp-1">{email.ai_summary}</p>
               ) : email.body_preview ? (
-                <p className="mt-1 text-[11px] text-muted-foreground line-clamp-1">{email.body_preview}</p>
+                <p className="mt-1 text-[11px] text-[#71717A] line-clamp-1">{email.body_preview}</p>
               ) : null}
             </button>
           ))}
@@ -148,7 +148,7 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
       </div>
 
       {selectedEmail ? (
-        <div className="flex-1 overflow-y-auto bg-background">
+        <div className="flex-1 overflow-y-auto bg-[#0F0F11]">
           <EmailDetailPanel
             email={selectedEmail}
             projects={allProjects as Project[]}
@@ -157,10 +157,10 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
           />
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center bg-muted/50">
+        <div className="flex-1 flex items-center justify-center bg-[#27272A]/50">
           <div className="text-center">
-            <Mail className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">{t("selectEmailToRead")}</p>
+            <Mail className="mx-auto h-10 w-10 text-[#71717A]" />
+            <p className="mt-2 text-sm text-[#71717A]">{t("selectEmailToRead")}</p>
           </div>
         </div>
       )}
