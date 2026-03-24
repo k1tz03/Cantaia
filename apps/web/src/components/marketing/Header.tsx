@@ -19,7 +19,7 @@ export function MarketingHeader() {
 
   const navLinks = [
     { href: "/#features", label: t("features") },
-    { href: "/#pricing", label: t("pricing") },
+    { href: "/#trust", label: t("security") },
     { href: "/about", label: t("about") },
   ];
 

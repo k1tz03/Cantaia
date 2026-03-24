@@ -27,9 +27,9 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
 
 const stats = [
   { target: 2500, suffix: "+", label: "offres analysées" },
-  { target: 60, suffix: "+", label: "fournisseurs référencés" },
-  { display: "3 ans", label: "de données réelles" },
-  { display: "🇨🇭", label: "Made in Switzerland" },
+  { target: 12, suffix: "", label: "modules intégrés" },
+  { target: 3, suffix: "", label: "moteurs IA" },
+  { display: "2h", label: "gagnées par jour" },
 ];
 
 export function ProofSection() {

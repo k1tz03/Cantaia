@@ -7,7 +7,8 @@ import { SpotlightSection } from "@/components/landing/SpotlightSection";
 import { FeaturePrixSection } from "@/components/landing/BentoGrid";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TrustSection } from "@/components/landing/FAQSection";
-import { PricingSection } from "@/components/landing/PricingSection";
+// HIDDEN: Pricing temporarily disabled — user undecided on final prices
+// import { PricingSection } from "@/components/landing/PricingSection";
 import { VideoSection } from "@/components/landing/VideoSection";
 import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
@@ -137,7 +138,7 @@ export default function LandingPage() {
       <VideoSection />
       <HowItWorksSection />
       <TrustSection />
-      <PricingSection />
+      {/* HIDDEN: Pricing temporarily disabled */}
       <FinalCTASection />
     </>
   );

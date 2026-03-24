@@ -21,7 +21,7 @@ export function TrustSection() {
   ];
 
   return (
-    <section className="relative bg-[#0F0F11] overflow-hidden">
+    <section id="trust" className="relative bg-[#0F0F11] overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
 
       {/* Decorative gradient orbs */}

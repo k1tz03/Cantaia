@@ -142,7 +142,7 @@ export function HeroSection() {
           src="/landing/hero-bg.png"
           alt=""
           fill
-          className="object-cover object-center opacity-[0.07]"
+          className="object-cover object-center opacity-[0.18]"
           priority
           sizes="100vw"
         />
@@ -156,7 +156,6 @@ export function HeroSection() {
         <div className="text-center max-w-[800px] mx-auto">
           <motion.div {...fadeUp(0)}>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/20 bg-[#F97316]/5 px-4 py-2 text-sm font-medium text-[#F97316]">
-              <span className="text-base leading-none">🇨🇭</span>
               {t("badge")}
             </div>
           </motion.div>
@@ -195,11 +194,11 @@ export function HeroSection() {
 
           <motion.div {...fadeUp(0.55)} className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
             <span className="flex items-center gap-2 text-sm text-[#71717A]">
-              <span className="text-base leading-none">🇨🇭</span> {t("trust1")}
+              {t("trust1")}
             </span>
             <span className="hidden sm:block h-4 w-px bg-[#27272A]" />
             <span className="flex items-center gap-2 text-sm text-[#71717A]">
-              <span className="text-base leading-none">🤖</span> {t("trust2")}
+              {t("trust2")}
             </span>
             <span className="hidden sm:block h-4 w-px bg-[#27272A]" />
             <span className="flex items-center gap-2 text-sm text-[#71717A]">
