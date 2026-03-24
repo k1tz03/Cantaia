@@ -230,14 +230,14 @@ export function DataSharingTab() {
   return (
     <div className="space-y-6">
       {/* Introduction */}
-      <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/10 p-5">
+      <div className="rounded-[10px] border border-[#F9731630] bg-[#F9731610] p-5">
         <div className="flex items-start gap-3">
           <Shield className="mt-0.5 h-5 w-5 text-[#F97316]" />
           <div>
-            <h3 className="text-sm font-semibold text-[#F97316]">
+            <h3 className="font-display text-[14px] font-bold text-[#F97316]">
               Partage de données anonymisées
             </h3>
-            <p className="mt-1 text-sm text-[#F97316]">
+            <p className="mt-1 text-[12px] text-[#F97316]">
               Activez le partage par module pour accéder aux benchmarks du marché.
               Vos données sont anonymisées et agrégées — aucune donnée brute n'est partagée.
             </p>
@@ -305,9 +305,9 @@ export function DataSharingTab() {
           return (
             <div
               key={mod.module}
-              className={`rounded-lg border p-4 transition-colors ${
+              className={`rounded-[10px] border p-4 transition-colors ${
                 isActive
-                  ? "border-green-500/20 bg-green-500/10"
+                  ? "border-[#34D39930] bg-[#34D39910]"
                   : "border-[#27272A] bg-[#18181B]"
               }`}
             >
@@ -342,7 +342,7 @@ export function DataSharingTab() {
                   onClick={() => toggleModule(mod.module, !isActive)}
                   disabled={saving !== null}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    isActive ? "bg-green-500" : "bg-[#27272A]"
+                    isActive ? "bg-[#34D399]" : "bg-[#3F3F46]"
                   } ${saving !== null ? "opacity-50" : ""}`}
                 >
                   {isSaving ? (
@@ -364,7 +364,7 @@ export function DataSharingTab() {
       </div>
 
       {/* Privacy footer */}
-      <div className="rounded-lg border border-[#27272A] bg-[#27272A] p-4">
+      <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-4">
         <p className="text-xs text-[#71717A]">
           <strong>Protection des données :</strong> Conforme au RGPD et à la LPD suisse.
           Vos données sont anonymisées avant tout traitement collectif.

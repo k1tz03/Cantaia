@@ -8,9 +8,7 @@ import {
   RefreshCw,
   Loader2,
   Clock,
-  Unlink,
   AlertCircle,
-  Server,
   ChevronRight,
   ArrowLeft,
   Search,
@@ -23,7 +21,6 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-CH");
 }
 
-// Known IMAP provider presets
 const KNOWN_PROVIDERS = [
   {
     id: "infomaniak",
@@ -83,12 +80,9 @@ export function IntegrationsTab() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connection, setConnection] = useState<ConnectionInfo | null>(null);
-  const [view, setView] = useState<"main" | "imap-select" | "imap-config">(
-    "main"
-  );
+  const [view, setView] = useState<"main" | "imap-select" | "imap-config">("main");
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
-  // IMAP form state
   const [imapForm, setImapForm] = useState({
     email_address: "",
     imap_password: "",
@@ -106,18 +100,12 @@ export function IntegrationsTab() {
   } | null>(null);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [checked, setChecked] = useState(false);
 
-  // Determine if connected via legacy check or email_connections
   const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
-  // Loading only while we're actively waiting for the connection check.
-  // Once profile hook has loaded (even with no data) OR checked is true, stop loading.
-  // This prevents infinite spinner when auth takes time to resolve.
   const loading = !checked && !hasConnection && !profile?.loaded;
 
-  // Load email connection — runs when user becomes available
   useEffect(() => {
     if (!user?.id) return;
 
@@ -129,7 +117,6 @@ export function IntegrationsTab() {
       .catch(() => {})
       .finally(() => setChecked(true));
 
-    // If returning from OAuth, retry once after delay + clean URL
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "email") {
       setTimeout(() => {
@@ -145,7 +132,6 @@ export function IntegrationsTab() {
       window.history.replaceState({}, "", url.toString());
     }
 
-    // Show connect error if any
     const connectError = params.get("connect_error");
     if (connectError) {
       setSyncMessage(`Erreur de connexion : ${decodeURIComponent(connectError)}`);
@@ -158,45 +144,9 @@ export function IntegrationsTab() {
   const displayProvider = connection?.provider || (isLegacyOutlook ? "microsoft" : null);
   const displayEmail = connection?.email_address || user?.email || "";
 
-  function getProviderLabel(p: string) {
-    switch (p) {
-      case "microsoft": return "Microsoft 365";
-      case "google": return "Gmail / Google Workspace";
-      case "imap": return "IMAP/SMTP";
-      default: return p;
-    }
-  }
-
-  function getProviderIcon(p: string) {
-    switch (p) {
-      case "microsoft":
-        return (
-          <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-          </svg>
-        );
-      case "google":
-        return (
-          <svg className="h-5 w-5" viewBox="0 0 24 24">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-          </svg>
-        );
-      default:
-        return <Server className="h-5 w-5 text-[#71717A]" />;
-    }
-  }
-
   async function handleConnectMicrosoft() {
     setConnecting(true);
     try {
-      // If user already has Microsoft tokens (logged in with Microsoft),
-      // try to create the connection directly without another OAuth redirect.
       if (profile?.profile?.microsoft_access_token) {
         try {
           const res = await fetch("/api/emails/get-connection");
@@ -207,10 +157,6 @@ export function IntegrationsTab() {
           }
         } catch { /* fall through to OAuth */ }
       }
-
-      // Use direct Microsoft OAuth flow (bypasses Supabase provider_token
-      // which is unreliable in PKCE mode). This route handles the full
-      // OAuth flow and stores tokens directly.
       window.location.href = "/api/auth/microsoft-connect";
     } finally {
       setConnecting(false);
@@ -285,10 +231,7 @@ export function IntegrationsTab() {
       const res = await fetch("/api/emails/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "imap",
-          ...imapForm,
-        }),
+        body: JSON.stringify({ provider: "imap", ...imapForm }),
       });
       const data = await res.json();
       setTestResult(data);
@@ -308,10 +251,7 @@ export function IntegrationsTab() {
       const res = await fetch("/api/emails/save-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "imap",
-          ...imapForm,
-        }),
+        body: JSON.stringify({ provider: "imap", ...imapForm }),
       });
       const data = await res.json();
       if (data.success) {
@@ -336,37 +276,35 @@ export function IntegrationsTab() {
   // ── IMAP Provider Selection ─────────────────────────────────
   if (view === "imap-select") {
     return (
-      <div className="space-y-6">
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-          <button
-            onClick={() => setView("main")}
-            className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t("back")}
-          </button>
-          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
-            {t("emailSelectImapProvider")}
-          </h3>
-          <div className="space-y-2">
-            {KNOWN_PROVIDERS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleSelectKnownProvider(p.id)}
-                className="flex w-full items-center justify-between rounded-lg border border-[#27272A] px-4 py-3 text-left text-sm hover:bg-[#27272A]"
-              >
-                <span className="font-medium text-[#FAFAFA]">{p.name}</span>
-                <ChevronRight className="h-4 w-4 text-[#71717A]" />
-              </button>
-            ))}
+      <div className="space-y-4">
+        <button
+          onClick={() => setView("main")}
+          className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t("back")}
+        </button>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] pb-2 border-b border-[#27272A]">
+          {t("emailSelectImapProvider")}
+        </div>
+        <div className="space-y-2">
+          {KNOWN_PROVIDERS.map((p) => (
             <button
-              onClick={() => handleSelectKnownProvider("manual")}
-              className="flex w-full items-center justify-between rounded-lg border border-dashed border-[#27272A] px-4 py-3 text-left text-sm hover:bg-[#27272A]"
+              key={p.id}
+              onClick={() => handleSelectKnownProvider(p.id)}
+              className="flex w-full items-center justify-between rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-3 text-left text-[13px] hover:bg-[#1C1C1F]"
             >
-              <span className="text-[#71717A]">{t("emailManualConfig")}</span>
+              <span className="font-medium text-[#FAFAFA]">{p.name}</span>
               <ChevronRight className="h-4 w-4 text-[#71717A]" />
             </button>
-          </div>
+          ))}
+          <button
+            onClick={() => handleSelectKnownProvider("manual")}
+            className="flex w-full items-center justify-between rounded-[10px] border border-dashed border-[#27272A] bg-[#18181B] px-4 py-3 text-left text-[13px] hover:bg-[#1C1C1F]"
+          >
+            <span className="text-[#71717A]">{t("emailManualConfig")}</span>
+            <ChevronRight className="h-4 w-4 text-[#71717A]" />
+          </button>
         </div>
       </div>
     );
@@ -375,378 +313,208 @@ export function IntegrationsTab() {
   // ── IMAP Configuration Form ─────────────────────────────────
   if (view === "imap-config") {
     const providerName =
-      KNOWN_PROVIDERS.find((p) => p.id === selectedProvider)?.name ||
-      t("emailManualConfig");
+      KNOWN_PROVIDERS.find((p) => p.id === selectedProvider)?.name || t("emailManualConfig");
 
     return (
-      <div className="space-y-6">
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-          <button
-            onClick={() => setView("imap-select")}
-            className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t("back")}
-          </button>
-          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
-            {providerName}
-          </h3>
+      <div className="space-y-4">
+        <button
+          onClick={() => setView("imap-select")}
+          className="flex items-center gap-1 text-[11px] text-[#71717A] hover:text-[#FAFAFA]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t("back")}
+        </button>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] pb-2 border-b border-[#27272A]">
+          {providerName}
+        </div>
 
-          <div className="space-y-4">
-            {/* Email + Password */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-[#71717A]">
-                {t("emailAddress")}
-              </label>
-              <input
-                type="email"
-                value={imapForm.email_address}
-                onChange={(e) =>
-                  setImapForm((f) => ({ ...f, email_address: e.target.value }))
-                }
-                className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-                placeholder="julien@monbureau.ch"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-[#71717A]">
-                {t("emailPassword")}
-              </label>
-              <input
-                type="password"
-                value={imapForm.imap_password}
-                onChange={(e) =>
-                  setImapForm((f) => ({ ...f, imap_password: e.target.value }))
-                }
-                className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-              />
-            </div>
+        <div className="space-y-[14px]">
+          <div>
+            <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">{t("emailAddress")}</label>
+            <input
+              type="email"
+              value={imapForm.email_address}
+              onChange={(e) => setImapForm((f) => ({ ...f, email_address: e.target.value }))}
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+              placeholder="julien@monbureau.ch"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">{t("emailPassword")}</label>
+            <input
+              type="password"
+              value={imapForm.imap_password}
+              onChange={(e) => setImapForm((f) => ({ ...f, imap_password: e.target.value }))}
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316]"
+            />
+          </div>
 
-            {/* IMAP Settings */}
-            <div className="border-t border-[#27272A] pt-4">
-              <p className="mb-2 text-xs font-semibold text-[#71717A] uppercase">
-                {t("emailImapServer")}
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <input
-                    type="text"
-                    value={imapForm.imap_host}
-                    onChange={(e) =>
-                      setImapForm((f) => ({ ...f, imap_host: e.target.value }))
-                    }
-                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-                    placeholder="imap.example.com"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    value={imapForm.imap_port}
-                    onChange={(e) =>
-                      setImapForm((f) => ({
-                        ...f,
-                        imap_port: parseInt(e.target.value) || 993,
-                      }))
-                    }
-                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-                  />
-                </div>
+          <div className="border-t border-[#27272A] pt-[14px]">
+            <p className="text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">{t("emailImapServer")}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <input type="text" value={imapForm.imap_host} onChange={(e) => setImapForm((f) => ({ ...f, imap_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]" placeholder="imap.example.com" />
               </div>
-              <div className="mt-2 flex gap-4 text-xs">
-                {(["ssl", "tls", "none"] as const).map((sec) => (
-                  <label key={sec} className="flex items-center gap-1 text-[#71717A]">
-                    <input
-                      type="radio"
-                      name="imap_security"
-                      checked={imapForm.imap_security === sec}
-                      onChange={() =>
-                        setImapForm((f) => ({ ...f, imap_security: sec }))
-                      }
-                      className="accent-[#F97316]"
-                    />
-                    {sec.toUpperCase()}
-                  </label>
-                ))}
-              </div>
-              {selectedProvider && selectedProvider !== "manual" && (
-                <p className="mt-1 text-[10px] text-[#34D399]">
-                  ✅ {t("emailPreFilled")}
-                </p>
-              )}
-            </div>
-
-            {/* SMTP Settings */}
-            <div className="border-t border-[#27272A] pt-4">
-              <p className="mb-2 text-xs font-semibold text-[#71717A] uppercase">
-                {t("emailSmtpServer")}
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <input
-                    type="text"
-                    value={imapForm.smtp_host}
-                    onChange={(e) =>
-                      setImapForm((f) => ({ ...f, smtp_host: e.target.value }))
-                    }
-                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-                    placeholder="smtp.example.com"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    value={imapForm.smtp_port}
-                    onChange={(e) =>
-                      setImapForm((f) => ({
-                        ...f,
-                        smtp_port: parseInt(e.target.value) || 587,
-                      }))
-                    }
-                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-                  />
-                </div>
-              </div>
-              <div className="mt-2 flex gap-4 text-xs">
-                {(["ssl", "tls", "none"] as const).map((sec) => (
-                  <label key={sec} className="flex items-center gap-1 text-[#71717A]">
-                    <input
-                      type="radio"
-                      name="smtp_security"
-                      checked={imapForm.smtp_security === sec}
-                      onChange={() =>
-                        setImapForm((f) => ({ ...f, smtp_security: sec }))
-                      }
-                      className="accent-[#F97316]"
-                    />
-                    {sec.toUpperCase()}
-                  </label>
-                ))}
+              <div>
+                <input type="number" value={imapForm.imap_port} onChange={(e) => setImapForm((f) => ({ ...f, imap_port: parseInt(e.target.value) || 993 }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316]" />
               </div>
             </div>
-
-            {/* Test + Save */}
-            <div className="flex items-center gap-3 border-t border-[#27272A] pt-4">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={
-                  testing || !imapForm.email_address || !imapForm.imap_password
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
-              >
-                {testing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-                {t("emailTestConnection")}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveImapConnection}
-                disabled={!testResult?.success || saving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t("emailSaveConnection")}
-              </button>
+            <div className="mt-2 flex gap-4 text-[11px]">
+              {(["ssl", "tls", "none"] as const).map((sec) => (
+                <label key={sec} className="flex items-center gap-1 text-[#A1A1AA]">
+                  <input type="radio" name="imap_security" checked={imapForm.imap_security === sec} onChange={() => setImapForm((f) => ({ ...f, imap_security: sec }))} className="accent-[#F97316]" />
+                  {sec.toUpperCase()}
+                </label>
+              ))}
             </div>
-
-            {/* Test result */}
-            {testResult && (
-              <div
-                className={`rounded-md p-3 text-sm ${
-                  testResult.success
-                    ? "bg-green-500/10 text-green-400"
-                    : "bg-red-500/10 text-red-400"
-                }`}
-              >
-                {testResult.success ? (
-                  <>
-                    <CheckCircle className="mb-1 inline h-4 w-4" />{" "}
-                    {t("emailConnectionSuccess")}
-                    {testResult.emailCount !== undefined && (
-                      <span className="ml-1 text-green-500">
-                        ({testResult.emailCount} emails)
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="mb-1 inline h-4 w-4" />{" "}
-                    {testResult.error}
-                  </>
-                )}
-              </div>
+            {selectedProvider && selectedProvider !== "manual" && (
+              <p className="mt-1 text-[10px] text-[#34D399]">{t("emailPreFilled")}</p>
             )}
           </div>
+
+          <div className="border-t border-[#27272A] pt-[14px]">
+            <p className="text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-2">{t("emailSmtpServer")}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <input type="text" value={imapForm.smtp_host} onChange={(e) => setImapForm((f) => ({ ...f, smtp_host: e.target.value }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]" placeholder="smtp.example.com" />
+              </div>
+              <div>
+                <input type="number" value={imapForm.smtp_port} onChange={(e) => setImapForm((f) => ({ ...f, smtp_port: parseInt(e.target.value) || 587 }))} className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316]" />
+              </div>
+            </div>
+            <div className="mt-2 flex gap-4 text-[11px]">
+              {(["ssl", "tls", "none"] as const).map((sec) => (
+                <label key={sec} className="flex items-center gap-1 text-[#A1A1AA]">
+                  <input type="radio" name="smtp_security" checked={imapForm.smtp_security === sec} onChange={() => setImapForm((f) => ({ ...f, smtp_security: sec }))} className="accent-[#F97316]" />
+                  {sec.toUpperCase()}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 border-t border-[#27272A] pt-[14px]">
+            <button type="button" onClick={handleTestConnection} disabled={testing || !imapForm.email_address || !imapForm.imap_password} className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#3F3F46] bg-[#27272A] px-[14px] py-[6px] text-[11px] font-medium text-[#D4D4D8] hover:bg-[#3F3F46] disabled:opacity-50">
+              {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              {t("emailTestConnection")}
+            </button>
+            <button type="button" onClick={handleSaveImapConnection} disabled={!testResult?.success || saving} className="inline-flex items-center gap-1.5 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {t("emailSaveConnection")}
+            </button>
+          </div>
+
+          {testResult && (
+            <div className={`rounded-[10px] p-3 text-[11px] ${testResult.success ? "bg-[#34D39910] text-[#34D399] border border-[#34D39930]" : "bg-[#EF444410] text-[#F87171] border border-[#EF444430]"}`}>
+              {testResult.success ? (
+                <><CheckCircle className="mb-0.5 inline h-3.5 w-3.5" /> {t("emailConnectionSuccess")}{testResult.emailCount !== undefined && <span className="ml-1">({testResult.emailCount} emails)</span>}</>
+              ) : (
+                <><AlertCircle className="mb-0.5 inline h-3.5 w-3.5" /> {testResult.error}</>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── Main View ───────────────────────────────────────────────
-  return (
-    <div className="space-y-6">
-      {hasConnection && displayProvider ? (
-        // ── Connected state ──
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#27272A]">
-              {getProviderIcon(displayProvider)}
+  // ── Main View — 3 Connection Cards ───────────────────────────
+  if (hasConnection && displayProvider) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-[14px]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ background: displayProvider === "microsoft" ? "#0078D4" : displayProvider === "google" ? "#EA4335" : "#27272A" }}>
+            <span className="text-[16px] font-bold text-white">
+              {displayProvider === "microsoft" ? "M" : displayProvider === "google" ? "G" : ""}
+              {displayProvider !== "microsoft" && displayProvider !== "google" && <Mail className="h-5 w-5 text-[#A1A1AA]" />}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[#FAFAFA]">
+              {displayProvider === "microsoft" ? "Microsoft 365" : displayProvider === "google" ? "Gmail" : "IMAP/SMTP"}
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-[#FAFAFA]">
-                {getProviderLabel(displayProvider)}
-              </h3>
-              <p className="text-xs text-[#71717A]">{displayEmail}</p>
+            <div className="text-[11px] text-[#34D399] mt-[1px]">
+              &#10003; {t("connected")} &middot; {displayEmail}
             </div>
           </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-[#FAFAFA]">
-                {t("statusLabel")} :{" "}
-                <span className="font-medium text-green-400">
-                  {t("connected")}
-                </span>
-              </span>
-            </div>
-
+          <div className="flex items-center gap-2 shrink-0">
             {(connection?.last_sync_at || profile?.profile?.last_sync_at) && (
-              <div className="flex items-center gap-2 text-sm text-[#71717A]">
-                <Clock className="h-3.5 w-3.5" />
-                {t("lastSync")} :{" "}
-                {getRelativeSyncTime(
-                  connection?.last_sync_at || profile?.profile?.last_sync_at || ""
-                )}
-              </div>
+              <span className="text-[10px] text-[#71717A] hidden sm:inline-flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {getRelativeSyncTime(connection?.last_sync_at || profile?.profile?.last_sync_at || "")}
+              </span>
             )}
-
-            {connection?.total_emails_synced !== undefined &&
-              connection.total_emails_synced > 0 && (
-                <p className="text-sm text-[#71717A]">
-                  {t("emailsSynced")} : {connection.total_emails_synced}
-                </p>
-              )}
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleSyncNow}
-                disabled={syncing}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
-              >
-                {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {t("syncNow")}
-              </button>
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] hover:bg-[#27272A]"
-              >
-                <Unlink className="h-4 w-4" />
-                {t("disconnect")}
-              </button>
-            </div>
-
-            {syncMessage && (
-              <p className="text-sm text-[#34D399]">{syncMessage}</p>
-            )}
+            <button type="button" onClick={handleSyncNow} disabled={syncing} className="inline-flex items-center gap-1 rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+              {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {t("syncNow")}
+            </button>
+            <button type="button" onClick={handleDisconnect} className="rounded-[7px] border border-[#EF444430] px-3 py-[6px] text-[11px] font-medium text-[#F87171] hover:bg-[#EF444410]">
+              {t("disconnect")}
+            </button>
           </div>
         </div>
-      ) : loading ? (
-        // ── Loading connection status ──
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-          <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
-            <p className="text-sm text-[#71717A]">{t("emailConnecting")}</p>
-          </div>
+        {syncMessage && <p className="text-[11px] text-[#34D399] px-1">{syncMessage}</p>}
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] p-[14px]">
+        <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
+        <p className="text-[13px] text-[#71717A]">{t("emailConnecting")}</p>
+      </div>
+    );
+  }
+
+  // ── Not connected — 3 provider cards ──
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-[14px]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ background: "#0078D4" }}>
+          <span className="text-[16px] font-bold text-white">M</span>
         </div>
-      ) : (
-        // ── Not connected — Provider selection ──
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-          <h3 className="mb-2 text-sm font-semibold text-[#FAFAFA]">
-            {t("emailConnectTitle")}
-          </h3>
-          <p className="mb-6 text-sm text-[#71717A]">
-            {t("emailConnectDesc")}
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-[#FAFAFA]">Microsoft 365</div>
+          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
+        </div>
+        <button type="button" onClick={handleConnectMicrosoft} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (t("connect") || "Connecter")}
+        </button>
+      </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            {/* Microsoft 365 */}
-            <button
-              type="button"
-              onClick={handleConnectMicrosoft}
-              disabled={connecting}
-              className="flex flex-col items-center gap-3 rounded-lg border border-[#27272A] p-5 text-center hover:border-[#F97316]/30 hover:bg-[#F97316]/10"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F97316]/10">
-                {getProviderIcon("microsoft")}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[#FAFAFA]">
-                  Microsoft 365
-                </p>
-                <p className="mt-0.5 text-xs text-[#71717A]">Outlook</p>
-              </div>
-            </button>
+      <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-[14px]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ background: "#EA4335" }}>
+          <span className="text-[16px] font-bold text-white">G</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-[#FAFAFA]">Gmail</div>
+          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("notConnected") || "Non connect\u00e9"}</div>
+        </div>
+        <button type="button" onClick={handleConnectGoogle} disabled={connecting} className="rounded-[7px] bg-gradient-to-r from-[#F97316] to-[#EA580C] px-[14px] py-[6px] text-[11px] font-semibold text-white hover:opacity-90 disabled:opacity-50">
+          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (t("connect") || "Connecter")}
+        </button>
+      </div>
 
-            {/* Gmail */}
-            <button
-              type="button"
-              onClick={handleConnectGoogle}
-              disabled={connecting}
-              className="flex flex-col items-center gap-3 rounded-lg border border-[#27272A] p-5 text-center hover:border-red-500/30 hover:bg-red-500/10"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10">
-                {getProviderIcon("google")}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[#FAFAFA]">Gmail</p>
-                <p className="mt-0.5 text-xs text-[#71717A]">
-                  Google Workspace
-                </p>
-              </div>
-            </button>
+      <div className="flex items-center gap-3 rounded-[10px] border border-[#27272A] bg-[#18181B] px-4 py-[14px]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#27272A]">
+          <Mail className="h-5 w-5 text-[#A1A1AA]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-[#FAFAFA]">IMAP / SMTP</div>
+          <div className="text-[11px] text-[#71717A] mt-[1px]">{t("emailManualConnection") || "Connexion manuelle"}</div>
+        </div>
+        <button type="button" onClick={() => setView("imap-select")} className="rounded-[7px] border border-[#3F3F46] bg-[#27272A] px-[14px] py-[6px] text-[11px] font-medium text-[#D4D4D8] hover:bg-[#3F3F46]">
+          {t("configure") || "Configurer"}
+        </button>
+      </div>
 
-            {/* IMAP/SMTP */}
-            <button
-              type="button"
-              onClick={() => setView("imap-select")}
-              className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[#27272A] p-5 text-center hover:border-[#27272A] hover:bg-[#27272A]"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#27272A]">
-                <Mail className="h-5 w-5 text-[#71717A]" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[#FAFAFA]">
-                  {t("emailOtherImap")}
-                </p>
-                <p className="mt-0.5 text-xs text-[#71717A]">IMAP/SMTP</p>
-              </div>
-            </button>
-          </div>
-
-          {connecting && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-[#71717A]">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t("emailConnecting")}
-            </div>
-          )}
-
-          <p className="mt-4 text-xs text-[#71717A]">
-            {t("emailPrivacyNote")}
-          </p>
+      {connecting && (
+        <div className="flex items-center gap-2 text-[11px] text-[#71717A] px-1 pt-1">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {t("emailConnecting")}
         </div>
       )}
+      <p className="text-[10px] text-[#52525B] px-1 pt-2">{t("emailPrivacyNote")}</p>
     </div>
   );
 }

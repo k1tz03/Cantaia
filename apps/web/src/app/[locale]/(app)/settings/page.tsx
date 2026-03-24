@@ -134,9 +134,7 @@ export default function SettingsPage() {
           <h2 className="font-display text-[20px] font-bold text-[#FAFAFA] mb-1">
             {t(`tab_${activeTab}`)}
           </h2>
-          <p className="text-[12px] text-[#71717A] mb-6">
-            {t(`tab_${activeTab}_desc`, { fallback: "" })}
-          </p>
+          <div className="mb-6" />
 
           {activeTab === "profile" && <ProfileSection />}
           {activeTab === "language" && <LanguageSection />}

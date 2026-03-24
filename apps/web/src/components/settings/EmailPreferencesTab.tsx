@@ -54,7 +54,6 @@ export function EmailPreferencesTab() {
 
   const form = useFormSection(DEFAULTS as unknown as Record<string, unknown>, savePrefs);
 
-  // Load existing preferences
   useEffect(() => {
     async function loadPrefs() {
       try {
@@ -90,7 +89,7 @@ export function EmailPreferencesTab() {
 
   if (fetchError) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+      <div className="flex items-center gap-2 rounded-[10px] border border-[#EF444430] bg-[#EF444410] p-4 text-[11px] text-[#F87171]">
         <AlertCircle className="h-4 w-4" />
         {fetchError}
       </div>
@@ -100,85 +99,79 @@ export function EmailPreferencesTab() {
   return (
     <div className="space-y-6">
       {/* Outlook Integration */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <Mail className="h-4 w-4 text-blue-500" />
+      <div>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
+          <Mail className="h-4 w-4 text-[#3B82F6]" />
           {t("emailPrefs_outlookTitle")}
-        </h3>
-        <p className="mb-4 text-sm text-[#71717A]">{t("emailPrefs_outlookDesc")}</p>
+        </div>
+        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_outlookDesc")}</p>
 
-        <div className="space-y-4">
-          <ToggleRow
-            label={t("emailPrefs_autoMoveOutlook")}
-            description={t("emailPrefs_autoMoveOutlookDesc")}
-            checked={form.data.auto_move_outlook as boolean}
-            onChange={(v) => form.update({ auto_move_outlook: v })}
+        <ToggleRow
+          label={t("emailPrefs_autoMoveOutlook")}
+          description={t("emailPrefs_autoMoveOutlookDesc")}
+          checked={form.data.auto_move_outlook as boolean}
+          onChange={(v) => form.update({ auto_move_outlook: v })}
+        />
+
+        <div className="mt-[14px]">
+          <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
+            {t("emailPrefs_rootFolderName")}
+          </label>
+          <p className="text-[10px] text-[#52525B] mb-1">{t("emailPrefs_rootFolderNameDesc")}</p>
+          <input
+            type="text"
+            value={form.data.outlook_root_folder_name as string}
+            onChange={(e) => form.update({ outlook_root_folder_name: e.target.value })}
+            placeholder="Cantaia"
+            className="w-64 bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
           />
-
-          <div>
-            <label className="block text-sm font-medium text-[#FAFAFA]">
-              {t("emailPrefs_rootFolderName")}
-            </label>
-            <p className="mb-1 text-xs text-[#71717A]">{t("emailPrefs_rootFolderNameDesc")}</p>
-            <input
-              type="text"
-              value={form.data.outlook_root_folder_name as string}
-              onChange={(e) => form.update({ outlook_root_folder_name: e.target.value })}
-              placeholder="Cantaia"
-              className="mt-1 block w-64 rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-            />
-          </div>
         </div>
       </div>
 
       {/* Auto-dismiss */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <FolderOpen className="h-4 w-4 text-amber-500" />
+      <div>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
+          <FolderOpen className="h-4 w-4 text-[#F59E0B]" />
           {t("emailPrefs_filteringTitle")}
-        </h3>
-        <p className="mb-4 text-sm text-[#71717A]">{t("emailPrefs_filteringDesc")}</p>
-
-        <div className="space-y-4">
-          <ToggleRow
-            label={t("emailPrefs_autoDismissSpam")}
-            description={t("emailPrefs_autoDismissSpamDesc")}
-            checked={form.data.auto_dismiss_spam as boolean}
-            onChange={(v) => form.update({ auto_dismiss_spam: v })}
-          />
-
-          <ToggleRow
-            label={t("emailPrefs_autoDismissNewsletters")}
-            description={t("emailPrefs_autoDismissNewslettersDesc")}
-            checked={form.data.auto_dismiss_newsletters as boolean}
-            onChange={(v) => form.update({ auto_dismiss_newsletters: v })}
-          />
-
-          <ToggleRow
-            label={t("emailPrefs_showDismissed")}
-            description={t("emailPrefs_showDismissedDesc")}
-            checked={form.data.show_dismissed as boolean}
-            onChange={(v) => form.update({ show_dismissed: v })}
-          />
         </div>
+        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_filteringDesc")}</p>
+
+        <ToggleRow
+          label={t("emailPrefs_autoDismissSpam")}
+          description={t("emailPrefs_autoDismissSpamDesc")}
+          checked={form.data.auto_dismiss_spam as boolean}
+          onChange={(v) => form.update({ auto_dismiss_spam: v })}
+        />
+        <ToggleRow
+          label={t("emailPrefs_autoDismissNewsletters")}
+          description={t("emailPrefs_autoDismissNewslettersDesc")}
+          checked={form.data.auto_dismiss_newsletters as boolean}
+          onChange={(v) => form.update({ auto_dismiss_newsletters: v })}
+        />
+        <ToggleRow
+          label={t("emailPrefs_showDismissed")}
+          description={t("emailPrefs_showDismissedDesc")}
+          checked={form.data.show_dismissed as boolean}
+          onChange={(v) => form.update({ show_dismissed: v })}
+        />
       </div>
 
       {/* Snooze defaults */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <Clock className="h-4 w-4 text-purple-500" />
+      <div>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
+          <Clock className="h-4 w-4 text-[#A855F7]" />
           {t("emailPrefs_snoozeTitle")}
-        </h3>
-        <p className="mb-4 text-sm text-[#71717A]">{t("emailPrefs_snoozeDesc")}</p>
+        </div>
+        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_snoozeDesc")}</p>
 
         <div>
-          <label className="block text-sm font-medium text-[#FAFAFA]">
+          <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
             {t("emailPrefs_defaultSnooze")}
           </label>
           <select
             value={form.data.default_snooze_hours as number}
             onChange={(e) => form.update({ default_snooze_hours: Number(e.target.value) })}
-            className="mt-1 block w-48 rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+            className="w-48 bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] outline-none focus:border-[#F97316] appearance-none"
           >
             <option value={1}>1 {t("emailPrefs_hour")}</option>
             <option value={2}>2 {t("emailPrefs_hours")}</option>
@@ -190,41 +183,39 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Archive settings */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <Archive className="h-4 w-4 text-green-500" />
+      <div>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
+          <Archive className="h-4 w-4 text-[#34D399]" />
           {t("emailPrefs_archiveTitle")}
-        </h3>
-        <p className="mb-4 text-sm text-[#71717A]">{t("emailPrefs_archiveDesc")}</p>
-
-        <div className="space-y-4">
-          <ToggleRow
-            label={t("emailPrefs_archiveEnabled")}
-            description={t("emailPrefs_archiveEnabledDesc")}
-            checked={form.data.archive_enabled as boolean}
-            onChange={(v) => form.update({ archive_enabled: v })}
-          />
-
-          {(form.data.archive_enabled as boolean) && (
-            <div>
-              <label className="block text-sm font-medium text-[#FAFAFA]">
-                {t("emailPrefs_archivePath")}
-              </label>
-              <p className="mb-1 text-xs text-[#71717A]">{t("emailPrefs_archivePathDesc")}</p>
-              <input
-                type="text"
-                value={form.data.archive_path as string}
-                onChange={(e) => form.update({ archive_path: e.target.value })}
-                placeholder="C:\Chantiers"
-                className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
-              />
-            </div>
-          )}
         </div>
+        <p className="text-[12px] text-[#71717A] mb-4">{t("emailPrefs_archiveDesc")}</p>
+
+        <ToggleRow
+          label={t("emailPrefs_archiveEnabled")}
+          description={t("emailPrefs_archiveEnabledDesc")}
+          checked={form.data.archive_enabled as boolean}
+          onChange={(v) => form.update({ archive_enabled: v })}
+        />
+
+        {(form.data.archive_enabled as boolean) && (
+          <div className="mt-[14px]">
+            <label className="block text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1">
+              {t("emailPrefs_archivePath")}
+            </label>
+            <p className="text-[10px] text-[#52525B] mb-1">{t("emailPrefs_archivePathDesc")}</p>
+            <input
+              type="text"
+              value={form.data.archive_path as string}
+              onChange={(e) => form.update({ archive_path: e.target.value })}
+              placeholder="C:\Chantiers"
+              className="w-full bg-[#18181B] border border-[#3F3F46] rounded-lg px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] outline-none focus:border-[#F97316]"
+            />
+          </div>
+        )}
       </div>
 
       {/* Save button */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+      <div className="pt-2">
         <SaveButton
           isDirty={form.isDirty}
           saving={form.saving}
@@ -239,7 +230,6 @@ export function EmailPreferencesTab() {
   );
 }
 
-/* ToggleRow — local copy to avoid circular import */
 function ToggleRow({
   label,
   description,
@@ -252,21 +242,21 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-[#FAFAFA]">{label}</p>
-        {description && <p className="text-xs text-[#71717A]">{description}</p>}
+    <div className="flex items-center justify-between py-[10px] border-b border-[#1C1C1F] last:border-b-0">
+      <div className="flex-1">
+        <p className="text-[13px] font-medium text-[#D4D4D8]">{label}</p>
+        {description && <p className="text-[11px] text-[#71717A] mt-[1px]">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? "bg-[#F97316]" : "bg-[#27272A]"
+        className={`relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer rounded-full transition-colors ${
+          checked ? "bg-[#F97316]" : "bg-[#3F3F46]"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-[#18181B] shadow transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0"
+          className={`inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-[20px] mt-[2px]" : "translate-x-[2px] mt-[2px]"
           }`}
         />
       </button>

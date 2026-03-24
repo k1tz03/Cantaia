@@ -33,16 +33,16 @@ export function OrganisationTab() {
     );
   }
 
-  // Solo user — show simplified message
+  // Solo user
   if (memberCount !== null && memberCount <= 1) {
     return (
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+      <div className="rounded-[10px] border border-[#27272A] bg-[#18181B] p-6">
         <div className="flex flex-col items-center text-center py-8">
-          <Building2 className="h-10 w-10 text-[#71717A]" />
-          <h3 className="mt-3 text-sm font-medium text-[#71717A]">
+          <Building2 className="h-10 w-10 text-[#52525B]" />
+          <h3 className="mt-3 text-[13px] font-medium text-[#71717A]">
             {t("orgSoloTitle")}
           </h3>
-          <p className="mt-1 max-w-sm text-xs text-[#71717A]">
+          <p className="mt-1 max-w-sm text-[11px] text-[#52525B]">
             {t("orgSoloDesc")}
           </p>
         </div>
@@ -52,21 +52,20 @@ export function OrganisationTab() {
 
   return (
     <div className="space-y-6">
-      {/* Members */}
-      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+      <div>
+        <div className="font-display text-[14px] font-bold text-[#FAFAFA] mb-3 pb-2 border-b border-[#27272A] flex items-center gap-2">
           <Users className="h-4 w-4 text-[#71717A]" />
           {t("teamMembers")}
-        </h3>
-        <p className="mb-1 text-sm text-[#71717A]">
+        </div>
+        <p className="text-[13px] text-[#71717A] mb-3">
           {memberCount} {t("membersCount")}
         </p>
         <Link
           href="/admin/members"
-          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] sm:w-auto sm:justify-start"
+          className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#3F3F46] bg-[#27272A] px-[14px] py-[6px] text-[11px] font-medium text-[#D4D4D8] hover:bg-[#3F3F46]"
         >
           {t("manageMembers")}
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     </div>

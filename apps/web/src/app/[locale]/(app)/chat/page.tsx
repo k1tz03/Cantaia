@@ -8,7 +8,6 @@ import {
   Plus,
   Send,
   Trash2,
-  MessageSquare,
   Loader2,
   Paperclip,
   X,
