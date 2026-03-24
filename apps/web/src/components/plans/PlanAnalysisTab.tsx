@@ -8,7 +8,6 @@ import {
   RefreshCw,
   ClipboardCopy,
   Eye,
-  Calculator,
   Pencil,
   Save,
   X,
@@ -365,7 +364,7 @@ export function PlanAnalysisTab({
           {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
           {false && (result?.quantities?.length ?? 0) > 0 && (
             <div className="rounded-lg border-2 border-dashed border-brand/30 bg-brand/5 p-6 text-center">
-              <Calculator className="h-8 w-8 text-brand mx-auto mb-2" />
+              <span className="h-8 w-8 text-brand mx-auto mb-2" />
               <h3 className="text-sm font-semibold text-foreground">Estimation multi-modele</h3>
               <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-md mx-auto">
                 Lancez l&apos;estimation V2 avec 3 IA (Claude + GPT-4o + Gemini) et les prix de reference suisses CRB
@@ -374,7 +373,7 @@ export function PlanAnalysisTab({
                 onClick={onSwitchToEstimation}
                 className="inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
               >
-                <Calculator className="h-4 w-4" />
+                <span className="h-4 w-4" />
                 Lancer l&apos;estimation V2
               </button>
             </div>
