@@ -37,7 +37,7 @@ export function HowItWorksSection() {
           className="text-center mb-16"
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-[#27272A] bg-[#18181B] px-4 py-1.5 text-xs font-semibold text-[#A1A1AA] mb-6">
-            Comment ca marche
+            Comment ça marche
           </div>
           <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
             {t("title")}

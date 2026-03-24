@@ -6,10 +6,10 @@ import { DollarSign, BarChart2, TrendingUp } from "lucide-react";
 
 function EstimationMockup() {
   const rows = [
-    { cfc: "215.1", desc: "Beton arme C30/37", qty: "145", unit: "m3", pu: "350", total: "50'750", badge: "real", badgeText: "Donnees reelles", badgeDetail: "37 offres" },
-    { cfc: "215.3", desc: "Coffrage dalles", qty: "620", unit: "m2", pu: "55", total: "34'100", badge: "real", badgeText: "Donnees reelles", badgeDetail: "28 offres" },
-    { cfc: "215.6", desc: "Ferraillage B500", qty: "18'000", unit: "kg", pu: "2.80", total: "50'400", badge: "crb", badgeText: "Ref. CRB 2025", badgeDetail: "" },
-    { cfc: "271.0", desc: "Chape ciment 70mm", qty: "340", unit: "m2", pu: "45", total: "15'300", badge: "real", badgeText: "Donnees reelles", badgeDetail: "6 offres" },
+    { cfc: "215.1", desc: "Béton armé C30/37", qty: "145", unit: "m3", pu: "350", total: "50'750", badge: "real", badgeText: "Données réelles", badgeDetail: "37 offres" },
+    { cfc: "215.3", desc: "Coffrage dalles", qty: "620", unit: "m2", pu: "55", total: "34'100", badge: "real", badgeText: "Données réelles", badgeDetail: "28 offres" },
+    { cfc: "215.6", desc: "Ferraillage B500", qty: "18'000", unit: "kg", pu: "2.80", total: "50'400", badge: "crb", badgeText: "Réf. CRB 2025", badgeDetail: "" },
+    { cfc: "271.0", desc: "Chape ciment 70mm", qty: "340", unit: "m2", pu: "45", total: "15'300", badge: "real", badgeText: "Données réelles", badgeDetail: "6 offres" },
   ];
 
   return (

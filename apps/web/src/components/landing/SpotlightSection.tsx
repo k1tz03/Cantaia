@@ -13,7 +13,7 @@ function PVMockup() {
           <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]/80" />
           <div className="w-2.5 h-2.5 rounded-full bg-[#22C55E]/80" />
         </div>
-        <div className="flex-1 text-center text-[10px] font-medium text-[#71717A]">PV de chantier — Cedres — Seance #12</div>
+        <div className="flex-1 text-center text-[10px] font-medium text-[#71717A]">PV de chantier — Cèdres — Séance #12</div>
       </div>
 
       <div className="p-5 space-y-4">
@@ -36,19 +36,19 @@ function PVMockup() {
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#22C55E]">
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
-            <span className="text-sm text-white">Transcription terminee</span>
+            <span className="text-sm text-white">Transcription terminée</span>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#22C55E]">
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
-            <span className="text-sm text-white">PV genere — <span className="text-[#F97316] font-medium">12 decisions, 8 actions</span></span>
+            <span className="text-sm text-white">PV généré — <span className="text-[#F97316] font-medium">12 décisions, 8 actions</span></span>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#22C55E]">
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
-            <span className="text-sm text-white">Envoye a 5 participants</span>
+            <span className="text-sm text-white">Envoyé à 5 participants</span>
           </div>
         </div>
 
@@ -60,13 +60,13 @@ function PVMockup() {
 
         {/* PV preview */}
         <div className="rounded-lg border border-[#27272A] p-4 bg-[#0F0F11]">
-          <div className="text-[11px] font-semibold text-white mb-2">3. Decisions</div>
+          <div className="text-[11px] font-semibold text-white mb-2">3. Décisions</div>
           <div className="space-y-2.5 text-[10px] text-[#A1A1AA] leading-relaxed">
             <p>
-              <span className="font-medium text-white">3.1</span> Le beton du radier sera coule semaine 15. Pompage confirme par Holcim.
+              <span className="font-medium text-white">3.1</span> Le béton du radier sera coulé semaine 15. Pompage confirmé par Holcim.
             </p>
             <p>
-              <span className="font-medium text-white">3.2</span> Les plans facade rev. C sont approuves. Distribution par l&apos;architecte d&apos;ici vendredi.
+              <span className="font-medium text-white">3.2</span> Les plans façade rév. C sont approuvés. Distribution par l&apos;architecte d&apos;ici vendredi.
             </p>
           </div>
         </div>

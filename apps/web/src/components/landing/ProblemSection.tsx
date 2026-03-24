@@ -29,9 +29,9 @@ export function ProblemSection() {
   ];
 
   const solutions = [
-    "Emails classes automatiquement par projet et priorite",
-    "PV de seance generes en 5 minutes au lieu de 2 heures",
-    "Comparaison fournisseurs et prix en temps reel",
+    "Emails classés automatiquement par projet et priorité",
+    "PV de séance générés en 5 minutes au lieu de 2 heures",
+    "Comparaison fournisseurs et prix en temps réel",
   ];
 
   return (

@@ -7,32 +7,32 @@ const features = [
   {
     icon: Mail,
     title: "Mail IA",
-    description: "Classification automatique de vos emails Outlook par projet, fournisseur et priorite. Filtrage spam, extraction de taches et suggestions de reponse.",
+    description: "Classification automatique de vos emails Outlook par projet, fournisseur et priorité. Filtrage spam, extraction de tâches et suggestions de réponse.",
   },
   {
     icon: ClipboardList,
     title: "Soumissions",
-    description: "Upload Excel ou PDF, analyse IA des postes CFC, demandes de prix en 4 etapes et comparaison fournisseurs automatique.",
+    description: "Upload Excel ou PDF, analyse IA des postes CFC, demandes de prix en 4 étapes et comparaison fournisseurs automatique.",
   },
   {
     icon: CalendarRange,
     title: "Planning Gantt",
-    description: "Generation IA du planning depuis vos soumissions, edition interactive, dependances CFC, export PDF format A3 et partage public.",
+    description: "Génération IA du planning depuis vos soumissions, édition interactive, dépendances CFC, export PDF format A3 et partage public.",
   },
   {
     icon: HardHat,
     title: "Portail Terrain",
-    description: "Rapports journaliers pour chefs d'equipe. Acces par PIN, saisie heures, machines et bons de livraison depuis le mobile.",
+    description: "Rapports journaliers pour chefs d'équipe. Accès par PIN, saisie heures, machines et bons de livraison depuis le mobile.",
   },
   {
     icon: Bot,
     title: "Assistant IA",
-    description: "Chat Claude avec contexte projet, upload de documents PDF et Excel. Briefing quotidien automatique avec alertes et priorites.",
+    description: "Chat Claude avec contexte projet, upload de documents PDF et Excel. Briefing quotidien automatique avec alertes et priorités.",
   },
   {
     icon: BarChart3,
     title: "Direction",
-    description: "Rentabilite par projet, statistiques equipe, marge, KPIs direction. Vue consolidee de l'ensemble de vos chantiers actifs.",
+    description: "Rentabilité par projet, statistiques équipe, marge, KPIs direction. Vue consolidée de l'ensemble de vos chantiers actifs.",
   },
 ];
 
