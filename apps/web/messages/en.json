@@ -1311,6 +1311,7 @@
     "phone": "Phone",
     "profilePhoto": "Profile photo",
     "changePhoto": "Change photo",
+    "personalInfo": "Personal information",
     "emailReadOnly": "Email is linked to your account and cannot be changed.",
     "jobTitle": "Job title",
     "jobTitlePlaceholder": "e.g. Project manager",

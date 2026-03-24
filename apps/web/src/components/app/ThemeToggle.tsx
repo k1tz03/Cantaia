@@ -2,11 +2,11 @@
 
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@cantaia/ui";
 
-const CYCLE = ["light", "dark", "system"] as const;
+const CYCLE = ["light", "dark"] as const;
 
 interface ThemeToggleProps {
   collapsed?: boolean;
@@ -26,16 +26,15 @@ export function ThemeToggle({ collapsed }: ThemeToggleProps) {
 
   const handleClick = () => setTheme(CYCLE[nextIndex]);
 
-  const Icon = theme === "dark" ? Moon : theme === "system" ? Monitor : Sun;
-  const label =
-    theme === "dark" ? t("themeDark") : theme === "system" ? t("themeSystem") : t("themeLight");
+  const Icon = theme === "dark" ? Moon : Sun;
+  const label = theme === "dark" ? t("themeDark") : t("themeLight");
 
   return (
     <button
       onClick={handleClick}
       className={cn(
         "flex items-center gap-3 rounded-[7px] px-[10px] py-[6px] text-[13px] font-medium transition-colors",
-        "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]",
+        "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8] dark:hover:bg-[#1C1C1F]",
         collapsed && "justify-center px-0"
       )}
       title={collapsed ? label : undefined}

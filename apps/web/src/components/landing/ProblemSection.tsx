@@ -56,7 +56,7 @@ export function ProblemSection() {
           transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
         >
           <h2 className="font-display text-[42px] font-extrabold text-[#FAFAFA] tracking-[-1px] mb-7 leading-[1.1]">
-            {t("titlePre")} <span className="text-[#F87171]">{t("titleRed")}</span>
+            {t("titlePre")} <span className="text-[#F87171]">{t("titleRed")}</span>{" "}
             <br />
             {t("titlePost")}
           </h2>

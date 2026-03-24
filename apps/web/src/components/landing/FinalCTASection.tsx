@@ -39,7 +39,7 @@ export function FinalCTASection() {
         className="relative z-[2]"
       >
         <h2 className="font-display text-[52px] font-extrabold text-[#FAFAFA] tracking-[-1.5px] leading-[1.1] mb-4">
-          {t("titleLine1")}
+          {t("titleLine1")}{" "}
           <br />
           {t("titleLine2")}
         </h2>

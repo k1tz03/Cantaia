@@ -55,7 +55,7 @@
     @apply border-border;
   }
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   .dark {
     color-scheme: dark;
@@ -70,6 +70,62 @@
   input, select, textarea {
     @apply bg-background;
   }
+}
+
+/* ═══════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Converts all hardcoded dark hex classes to light
+   equivalents when .dark is NOT active.
+   This avoids modifying 1800+ .tsx files.
+   ═══════════════════════════════════════════════ */
+html:not(.dark) {
+  /* Main backgrounds */
+  .bg-\[\#0F0F11\] { background-color: #FAFAFA !important; }
+  .bg-\[\#09090B\] { background-color: #F4F4F5 !important; }
+  .bg-\[\#111113\] { background-color: #FFFFFF !important; }
+  .bg-\[\#18181B\] { background-color: #FFFFFF !important; }
+  .bg-\[\#1C1C1F\] { background-color: #FFFFFF !important; }
+  .bg-\[\#27272A\] { background-color: #F4F4F5 !important; }
+  .bg-\[\#3F3F46\] { background-color: #E4E4E7 !important; }
+
+  /* Backgrounds with opacity */
+  .bg-\[\#0F0F11\]\/95 { background-color: rgba(250,250,250,0.95) !important; }
+  .bg-\[\#09090B\]\/95 { background-color: rgba(244,244,245,0.95) !important; }
+  .bg-\[\#09090B\]\/80 { background-color: rgba(244,244,245,0.80) !important; }
+
+  /* Text colors */
+  .text-\[\#FAFAFA\] { color: #18181B !important; }
+  .text-\[\#D4D4D8\] { color: #3F3F46 !important; }
+  .text-\[\#A1A1AA\] { color: #52525B !important; }
+  .text-\[\#71717A\] { color: #71717A !important; }
+  .text-\[\#52525B\] { color: #A1A1AA !important; }
+  .text-\[\#3F3F46\] { color: #A1A1AA !important; }
+  .text-white { color: #18181B !important; }
+
+  /* Border colors */
+  .border-\[\#27272A\] { border-color: #E4E4E7 !important; }
+  .border-\[\#3F3F46\] { border-color: #D4D4D8 !important; }
+
+  /* Structural overrides */
+  .bg-header { background-color: #FFFFFF !important; }
+  .bg-sidebar { background-color: #FAFAFA !important; }
+  .bg-logo { background: linear-gradient(135deg, #F97316, #EA580C) !important; }
+
+  /* Shadows — lighter in light mode */
+  .shadow-black\/20 { --tw-shadow-color: rgba(0,0,0,0.06) !important; }
+  .shadow-black\/50 { --tw-shadow-color: rgba(0,0,0,0.1) !important; }
+
+  /* Dividers */
+  .divide-\[\#27272A\] > * + * { border-color: #E4E4E7 !important; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar-thumb { background: #D4D4D8 !important; }
+  ::-webkit-scrollbar-thumb:hover { background: #A1A1AA !important; }
+
+  /* Keep orange accent visible */
+  .text-\[\#F97316\] { color: #EA580C !important; }
+  .bg-\[\#F97316\] { background-color: #F97316 !important; }
+  .border-\[\#F97316\] { border-color: #F97316 !important; }
 }
 
 /* Scrollbar */

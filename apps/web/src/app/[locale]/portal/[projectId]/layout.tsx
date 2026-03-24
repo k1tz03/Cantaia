@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PortalLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="dark min-h-screen bg-[#0F0F11] text-[#FAFAFA]">
       {children}
     </div>
   );
