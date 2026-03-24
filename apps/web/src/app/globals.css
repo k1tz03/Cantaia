@@ -178,3 +178,9 @@
 .text-info { color: #3B82F6; }
 .bg-info { background-color: #3B82F6; }
 .border-info { border-color: #3B82F6; }
+
+/* Dashboard action banner glow */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(249, 115, 22, 0.12); }
+  50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.28); }
+}

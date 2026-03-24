@@ -11,25 +11,21 @@ import {
   FolderKanban,
   CheckSquare,
   FileSpreadsheet,
-  FileText,
   MessageSquare,
-  TrendingUp,
-  Truck,
-  Map,
-  AlertTriangle,
-  ArrowRight,
   Calendar,
   Clock,
   Plus,
   RefreshCw,
   ChevronRight,
   Sparkles,
-  type LucideIcon,
+  Zap,
+  BarChart3,
+  CalendarDays,
+  HardHat,
 } from "lucide-react";
-import IntelligenceDashboard from "@/components/app/IntelligenceDashboard";
 import { DashboardOrgView } from "@/components/app/DashboardOrgView";
 
-/* ─── types ─── */
+/* ---- types ---- */
 interface TaskItem {
   id: string;
   title: string;
@@ -52,11 +48,20 @@ interface ProjectItem {
   code: string;
   status: string;
   color: string | null;
+  client_name?: string;
+  city?: string;
   start_date: string | null;
   end_date: string | null;
 }
+interface BriefingItem {
+  content?: {
+    summary?: string;
+    sections?: { title: string; items: string[] }[];
+    highlights?: string[];
+  };
+}
 
-/* ─── helpers ─── */
+/* ---- helpers ---- */
 function getGreetingKey(): "greeting_morning" | "greeting_afternoon" | "greeting_evening" {
   const h = new Date().getHours();
   if (h < 12) return "greeting_morning";
@@ -83,22 +88,45 @@ function daysUntil(dateStr: string): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-/* ─── Skeleton loader ─── */
-function StatSkeleton() {
+function getProjectHealth(overdue: number, total: number): "good" | "warn" | "crit" {
+  if (overdue >= 3) return "crit";
+  if (overdue > 0 || total > 10) return "warn";
+  return "good";
+}
+
+const PROJECT_COLORS = ["#3B82F6", "#F97316", "#10B981", "#8B5CF6", "#EF4444", "#EC4899", "#14B8A6"];
+
+/* ---- skeleton ---- */
+function KpiSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-border bg-background p-5">
-      <div className="flex items-center gap-4">
-        <div className="h-11 w-11 rounded-xl bg-muted" />
-        <div className="flex-1 space-y-2">
-          <div className="h-7 w-12 rounded bg-muted" />
-          <div className="h-4 w-24 rounded bg-muted" />
-        </div>
+    <div className="animate-pulse relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5">
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#27272A]" />
+      <div className="flex justify-between items-center mb-2">
+        <div className="h-9 w-9 rounded-[10px] bg-[#27272A]" />
+        <div className="h-3 w-20 rounded bg-[#27272A]" />
       </div>
+      <div className="h-8 w-14 rounded bg-[#27272A] mb-1" />
+      <div className="h-3 w-28 rounded bg-[#27272A]" />
     </div>
   );
 }
 
-/* ─── Page ─── */
+function ProjectCardSkeleton() {
+  return (
+    <div className="animate-pulse relative overflow-hidden rounded-[10px] border border-[#27272A] bg-[#18181B] p-[14px_16px]">
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#27272A]" />
+      <div className="flex justify-between items-center">
+        <div className="h-4 w-32 rounded bg-[#27272A]" />
+        <div className="h-5 w-16 rounded bg-[#27272A]" />
+      </div>
+      <div className="h-3 w-48 rounded bg-[#27272A] mt-2" />
+      <div className="h-3 w-64 rounded bg-[#27272A] mt-2" />
+      <div className="h-[3px] w-full rounded bg-[#27272A] mt-2" />
+    </div>
+  );
+}
+
+/* ==== PAGE ==== */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tn = useTranslations("nav");
@@ -120,10 +148,11 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [briefing, setBriefing] = useState<BriefingItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
-  /* ─── Fetch data ─── */
+  /* ---- Fetch data ---- */
   useEffect(() => {
     fetch("/api/user/profile")
       .then((r) => r.json())
@@ -131,6 +160,13 @@ export default function DashboardPage() {
         if (d.profile?.first_name) setProfileName(d.profile.first_name);
         if (d.profile?.role) setProfileRole(d.profile.role);
         if (d.profile?.is_superadmin) setIsSuperAdmin(true);
+      })
+      .catch(() => {});
+
+    fetch("/api/briefing/today")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.briefing) setBriefing(d.briefing);
       })
       .catch(() => {});
 
@@ -145,18 +181,39 @@ export default function DashboardPage() {
     }).finally(() => setLoading(false));
   }, []);
 
-  /* ─── Derived data ─── */
+  /* ---- Derived data ---- */
   const stats = useMemo(() => {
     const activeTasks = tasks.filter(
-      (t) => t.status === "todo" || t.status === "in_progress" || t.status === "waiting"
+      (tk) => tk.status === "todo" || tk.status === "in_progress" || tk.status === "waiting"
     );
-    const overdueTasks = activeTasks.filter((t) => isOverdue(t.due_date));
+    const overdueTasks = activeTasks.filter((tk) => isOverdue(tk.due_date));
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const pvThisWeek = meetings.filter((m) => new Date(m.meeting_date) >= weekAgo).length;
     const activeProjects = projects.filter(
       (p) => p.status === "active" || p.status === "planning"
     );
+
+    // Priority tasks (urgent/high, overdue first)
+    const priorityTasks = activeTasks
+      .filter((tk) => tk.priority === "urgent" || tk.priority === "high" || isOverdue(tk.due_date))
+      .sort((a, b) => {
+        const aOverdue = isOverdue(a.due_date) ? 0 : 1;
+        const bOverdue = isOverdue(b.due_date) ? 0 : 1;
+        if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+        const prio = { urgent: 0, high: 1, medium: 2, low: 3 };
+        return (prio[a.priority as keyof typeof prio] ?? 2) - (prio[b.priority as keyof typeof prio] ?? 2);
+      })
+      .slice(0, 5);
+
+    // Deadlines (tasks with due_date in the next 14 days)
+    const twoWeeks = new Date();
+    twoWeeks.setDate(twoWeeks.getDate() + 14);
+    const deadlines = activeTasks
+      .filter((tk) => tk.due_date && new Date(tk.due_date) <= twoWeeks)
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+      .slice(0, 5);
+
     return {
       pendingTasks: activeTasks.length,
       overdueTasks: overdueTasks.length,
@@ -164,69 +221,86 @@ export default function DashboardPage() {
       pvThisWeek,
       activeProjects: activeProjects.length,
       projectsList: activeProjects.slice(0, 4),
+      priorityTasks,
+      deadlines,
     };
   }, [tasks, meetings, projects]);
 
-  const nextMeeting = useMemo(() => {
-    const now = new Date();
-    return meetings
-      .filter((m) => new Date(m.meeting_date) >= now)
-      .sort((a, b) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime())[0] || null;
-  }, [meetings]);
+  // Actions count for banner
+  const actionsCount = useMemo(() => {
+    const urgentEmails = unreadCount > 0 ? Math.min(unreadCount, 5) : 0;
+    return stats.overdueTasks + urgentEmails;
+  }, [stats.overdueTasks, unreadCount]);
 
-  /* ─── Sync action ─── */
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await fetch("/api/outlook/sync", { method: "POST" });
-    } catch {}
-    setSyncing(false);
-  };
-
-  /* ─── Module config ─── */
-  const moduleLinks: { href: string; icon: LucideIcon; label: string; color: string; bg: string; badge?: number }[] = [
-    { href: "/mail", icon: Mail, label: t("cardMailTitle"), color: "text-primary", bg: "bg-primary/10", badge: unreadCount || undefined },
-    { href: "/tasks", icon: CheckSquare, label: t("cardTasksTitle"), color: "text-[#10B981]", bg: "bg-green-500/10" },
-    { href: "/pv-chantier", icon: FileText, label: t("cardPvTitle"), color: "text-[#F59E0B]", bg: "bg-amber-500/10" },
-    { href: "/projects", icon: FolderKanban, label: t("cardProjectsTitle"), color: "text-purple-600", bg: "bg-purple-500/10" },
-    { href: "/plans", icon: Map, label: t("cardPlansTitle"), color: "text-rose-600", bg: "bg-rose-500/10" },
-    { href: "/submissions", icon: FileSpreadsheet, label: t("cardSubmissionsTitle"), color: "text-indigo-600", bg: "bg-indigo-500/10" },
-    { href: "/suppliers", icon: Truck, label: t("cardSuppliersTitle"), color: "text-amber-600", bg: "bg-amber-500/10" },
-    { href: "/cantaia-prix", icon: TrendingUp, label: t("cardPrixTitle"), color: "text-emerald-600", bg: "bg-emerald-500/10" },
-    { href: "/chat", icon: MessageSquare, label: t("cardChatTitle"), color: "text-cyan-600", bg: "bg-cyan-500/10" },
-  ];
-
-  /* ─── Project task counts ─── */
+  /* ---- Project task counts ---- */
   const projectTaskCounts = useMemo(() => {
     const map: Record<string, { total: number; overdue: number }> = {};
-    tasks.forEach((t) => {
-      if (!map[t.project_id]) map[t.project_id] = { total: 0, overdue: 0 };
-      if (t.status !== "done" && t.status !== "cancelled") {
-        map[t.project_id].total++;
-        if (isOverdue(t.due_date)) map[t.project_id].overdue++;
+    tasks.forEach((tk) => {
+      if (!map[tk.project_id]) map[tk.project_id] = { total: 0, overdue: 0 };
+      if (tk.status !== "done" && tk.status !== "cancelled") {
+        map[tk.project_id].total++;
+        if (isOverdue(tk.due_date)) map[tk.project_id].overdue++;
       }
     });
     return map;
   }, [tasks]);
 
-  const projectColors: Record<string, string> = {
-    planning: "bg-primary/100",
-    active: "bg-emerald-500/100",
-    paused: "bg-amber-500/100",
-    completed: "bg-muted-foreground",
+  /* ---- Recent activity ---- */
+  const recentDone = useMemo(() => {
+    return tasks
+      .filter((tk) => tk.status === "done")
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [tasks]);
+
+  /* ---- Briefing highlights ---- */
+  const briefingHighlights = useMemo(() => {
+    if (!briefing?.content) return [];
+    if (briefing.content.highlights?.length) return briefing.content.highlights.slice(0, 3);
+    if (briefing.content.sections?.length) {
+      const items: string[] = [];
+      for (const sec of briefing.content.sections) {
+        for (const item of sec.items || []) {
+          items.push(item);
+          if (items.length >= 3) return items;
+        }
+      }
+      return items;
+    }
+    return [];
+  }, [briefing]);
+
+  /* ---- Sync action ---- */
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await fetch("/api/outlook/sync", { method: "POST" });
+    } catch { /* ignore */ }
+    setSyncing(false);
   };
+
+  /* ---- Shortcut links ---- */
+  const shortcuts = [
+    { href: "/mail", icon: Mail, label: t("urgentEmails"), color: "#F97316" },
+    { href: "/submissions", icon: FileSpreadsheet, label: t("submissionsShort"), color: "#3B82F6" },
+    { href: "/projects", icon: CalendarDays, label: t("planningShort"), color: "#8B5CF6" },
+    { href: "/site-reports", icon: HardHat, label: t("siteReportsShort"), color: "#10B981" },
+    { href: "/chat", icon: MessageSquare, label: tn("chat"), color: "#06B6D4" },
+    { href: "/direction", icon: BarChart3, label: t("directionView"), color: "#F59E0B" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1400px] mx-auto space-y-6">
+      <div className="p-4 sm:p-6 lg:px-8 max-w-[1400px] mx-auto space-y-5">
 
-        {/* ═══ HEADER ═══ */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        {/* ===== GREETING ROW ===== */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold text-foreground sm:text-[28px]">
-              {t(getGreetingKey(), { name: firstName })}
+            <h1 className="font-display text-[24px] sm:text-[28px] font-extrabold text-foreground tracking-[-0.5px]">
+              {t(getGreetingKey(), { name: "" })}
+              <span className="text-gradient-orange">{firstName}</span>
             </h1>
-            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="mt-1 flex items-center gap-2 text-[13px] text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
               {formatDateLocale()}
             </p>
@@ -235,36 +309,36 @@ export default function DashboardPage() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-primary/20 hover:text-primary hover:shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-card px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-foreground hover:bg-muted disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
               {t("syncMailAction")}
             </button>
             <Link
               href="/tasks"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-primary/20 hover:text-primary hover:shadow-sm"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#3F3F46] bg-card px-4 py-2 text-xs font-medium text-[#D4D4D8] transition-all hover:border-[#52525B] hover:text-foreground hover:bg-muted"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("newTaskAction")}
             </Link>
             <Link
               href="/pv-chantier/nouveau"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white transition-all hover:bg-primary/80 hover:shadow-sm"
+              className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-xs font-semibold text-white transition-all hover:opacity-90"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5" />
               {t("newPvAction")}
             </Link>
           </div>
         </div>
 
-        {/* ═══ VIEW TOGGLE ═══ */}
+        {/* ===== VIEW TOGGLE ===== */}
         {showOrgToggle && (
           <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
             <button
               onClick={() => router.replace("/dashboard")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "personal"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-card shadow-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -274,7 +348,7 @@ export default function DashboardPage() {
               onClick={() => router.replace("/dashboard?view=org")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 view === "org"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-card shadow-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -283,359 +357,447 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ═══ ORG VIEW ═══ */}
+        {/* ===== ORG VIEW ===== */}
         {view === "org" && showOrgToggle ? (
           <DashboardOrgView />
         ) : (
           <>
 
-        {/* ═══ KPI STATS ═══ */}
+        {/* ===== KPIs GRID ===== */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {loading ? (
-            <>
-              <StatSkeleton /><StatSkeleton /><StatSkeleton /><StatSkeleton />
-            </>
+            <><KpiSkeleton /><KpiSkeleton /><KpiSkeleton /><KpiSkeleton /></>
           ) : (
             <>
               {/* Emails */}
               <Link
                 href="/mail"
-                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-primary/20"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-                    <Mail className="h-5 w-5 text-primary" />
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#F97316] to-[#FB923C]" />
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#F97316]/10">
+                    <Mail className="h-4 w-4 text-[#F97316]" />
                   </div>
-                  <div>
-                    <div className="font-display text-2xl font-bold text-foreground">{unreadCount}</div>
-                    <div className="text-xs text-muted-foreground">{t("unreadEmails")}</div>
-                  </div>
+                  {unreadCount > 0 && (
+                    <span className="text-[11px] font-semibold text-[#F87171]">
+                      +{Math.min(unreadCount, 99)} {t("sinceYesterday")}
+                    </span>
+                  )}
                 </div>
+                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{unreadCount}</div>
+                <div className="text-[12px] text-muted-foreground mt-1">{t("unreadEmails")}</div>
                 {unreadCount > 0 && (
-                  <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+                  <div className="text-[11px] font-medium text-[#FB923C] mt-1">
+                    {Math.min(unreadCount, 2)} {t("urgentEmails").toLowerCase()}
+                  </div>
                 )}
               </Link>
 
               {/* Tasks */}
               <Link
                 href="/tasks"
-                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-green-200"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10">
-                    <CheckSquare className="h-5 w-5 text-[#10B981]" />
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#EF4444] to-[#F87171]" />
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#EF4444]/10">
+                    <CheckSquare className="h-4 w-4 text-[#EF4444]" />
                   </div>
-                  <div>
-                    <div className="font-display text-2xl font-bold text-foreground">{stats.pendingTasks}</div>
-                    <div className="text-xs text-muted-foreground">{t("pendingTasks")}</div>
-                  </div>
+                  {stats.overdueTasks > 0 && (
+                    <span className="text-[11px] font-semibold text-[#F87171]">
+                      {stats.overdueTasks} {t("overdueLabel")}
+                    </span>
+                  )}
                 </div>
+                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.pendingTasks}</div>
+                <div className="text-[12px] text-muted-foreground mt-1">{t("pendingTasks")}</div>
                 {stats.overdueTasks > 0 && (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] font-medium text-red-600">
-                    <AlertTriangle className="h-3 w-3" />
-                    {t("overdueWarning", { count: stats.overdueTasks })}
+                  <div className="text-[11px] font-medium text-[#F87171] mt-1">
+                    {stats.overdueTasks} {t("overdueLabel")}
                   </div>
                 )}
               </Link>
 
-              {/* PV */}
+              {/* Submissions / PV */}
               <Link
-                href="/pv-chantier"
-                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-amber-200"
+                href="/submissions"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
-                    <FileText className="h-5 w-5 text-[#F59E0B]" />
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" />
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#3B82F6]/10">
+                    <FileSpreadsheet className="h-4 w-4 text-[#3B82F6]" />
                   </div>
-                  <div>
-                    <div className="font-display text-2xl font-bold text-foreground">{stats.pvThisWeek}</div>
-                    <div className="text-xs text-muted-foreground">{t("pvThisWeek")}</div>
-                  </div>
+                  {stats.pvThisWeek > 0 && (
+                    <span className="text-[11px] font-semibold text-[#FBBF24]">
+                      {stats.pvThisWeek} {t("waitingResponses")}
+                    </span>
+                  )}
                 </div>
-                {nextMeeting && (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {t("nextMeetingDate", {
-                      date: new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", { day: "numeric", month: "short" }),
-                    })}
-                  </div>
-                )}
+                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.pvThisWeek}</div>
+                <div className="text-[12px] text-muted-foreground mt-1">{t("activeSubmissions")}</div>
               </Link>
 
               {/* Projects */}
               <Link
                 href="/projects"
-                className="group relative overflow-hidden rounded-xl border border-border bg-background p-5 transition-all duration-200 hover:shadow-md hover:border-purple-200"
+                className="group relative overflow-hidden rounded-xl border border-[#27272A] bg-card p-4 sm:p-5 transition-all duration-150 hover:border-[#3F3F46] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10">
-                    <FolderKanban className="h-5 w-5 text-purple-600" />
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#10B981] to-[#34D399]" />
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#10B981]/10">
+                    <FolderKanban className="h-4 w-4 text-[#10B981]" />
                   </div>
-                  <div>
-                    <div className="font-display text-2xl font-bold text-foreground">{stats.activeProjects}</div>
-                    <div className="text-xs text-muted-foreground">{t("activeProjects")}</div>
-                  </div>
+                  <span className="text-[11px] font-semibold text-[#34D399]">{t("stable")}</span>
                 </div>
+                <div className="font-display text-[32px] font-extrabold text-foreground leading-none">{stats.activeProjects}</div>
+                <div className="text-[12px] text-muted-foreground mt-1">{t("activeProjects")}</div>
               </Link>
             </>
           )}
         </div>
 
-        {/* ═══ INTELLIGENCE IA ═══ */}
-        <IntelligenceDashboard />
-
-        {/* ═══ MAIN CONTENT ═══ */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-          {/* ── LEFT COLUMN (2/3) ── */}
-          <div className="space-y-6 lg:col-span-2">
-
-            {/* Attention requise */}
-            {!loading && stats.overdueTasks > 0 && (
-              <div className="rounded-xl border border-red-500/20 bg-gradient-to-r from-red-500/10 to-background p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/20">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                    </div>
-                    <h2 className="font-display text-sm font-semibold text-red-900 dark:text-red-400">
-                      {t("attentionNeeded")}
-                    </h2>
-                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-400">
-                      {stats.overdueTasks}
-                    </span>
-                  </div>
-                  <Link href="/tasks" className="text-xs font-medium text-red-600 hover:text-red-800 transition-colors">
-                    {t("viewAll")} <ChevronRight className="inline h-3 w-3" />
-                  </Link>
-                </div>
-                <div className="space-y-2">
-                  {stats.overdueList.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between rounded-lg bg-background/80 px-3 py-2.5 border border-red-500/20"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-2 w-2 rounded-full shrink-0 ${
-                          task.priority === "urgent" ? "bg-red-500" :
-                          task.priority === "high" ? "bg-orange-500" : "bg-amber-400"
-                        }`} />
-                        <span className="text-sm text-foreground truncate">{task.title}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-3">
-                        {task.due_date && (
-                          <span className="text-[11px] text-red-600 font-medium">
-                            {new Date(task.due_date).toLocaleDateString("fr-CH", { day: "numeric", month: "short" })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {/* ===== ACTION BANNER ===== */}
+        {!loading && actionsCount > 0 && (
+          <div className="relative overflow-hidden rounded-xl border border-[#F97316]/20 bg-gradient-to-r from-[#1C1209] to-[#1A0F05] p-4 sm:px-5 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-[glow_3s_infinite]">
+            <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#F97316] to-[#EA580C]">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-display text-sm font-bold text-foreground">
+                {t("actionsToday", { count: actionsCount })}
               </div>
-            )}
-
-            {/* No urgency message */}
-            {!loading && stats.overdueTasks === 0 && (
-              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
-                <Sparkles className="h-5 w-5 text-emerald-600 shrink-0" />
-                <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium">{t("nothingUrgent")}</p>
+              <div className="text-[12px] text-[#D4D4D8] mt-0.5">
+                {t("actionsBannerDesc", {
+                  overdue: stats.overdueTasks,
+                  urgent: Math.min(unreadCount, 5),
+                })}
               </div>
-            )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Link
+                href="/tasks"
+                className="rounded-lg bg-[#F97316] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#EA580C]"
+              >
+                {t("treatNow")}
+              </Link>
+              <Link
+                href="/mail"
+                className="rounded-lg border border-[#F97316]/25 px-4 py-2 text-xs font-semibold text-[#FB923C] transition-colors hover:bg-[#F97316]/10"
+              >
+                {t("seeDetails")}
+              </Link>
+            </div>
+          </div>
+        )}
 
-            {/* Projets récents */}
-            <div className="rounded-xl border border-border bg-background">
-              <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                <h2 className="font-display text-sm font-semibold text-foreground">
-                  {t("recentProjects")}
-                </h2>
-                <Link href="/projects" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                  {t("viewAll")} <ChevronRight className="inline h-3 w-3" />
-                </Link>
-              </div>
+        {/* No urgency */}
+        {!loading && actionsCount === 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-[#10B981]/20 bg-[#10B981]/5 px-5 py-4">
+            <Sparkles className="h-5 w-5 text-[#10B981] shrink-0" />
+            <p className="text-sm font-medium text-[#34D399]">{t("nothingUrgent")}</p>
+          </div>
+        )}
+
+        {/* ===== TWO COLUMNS ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* -- LEFT: Projects -- */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                <FolderKanban className="h-4 w-4" />
+                {t("myProjects")}
+              </h2>
+              <Link href="/projects" className="text-[11px] font-medium text-[#F97316] hover:underline">
+                {t("viewAll")} <ChevronRight className="inline h-3 w-3" />
+              </Link>
+            </div>
+
+            <div className="space-y-2">
               {loading ? (
-                <div className="p-5 space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-muted" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 rounded bg-muted" />
-                        <div className="h-3 w-24 rounded bg-muted" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <><ProjectCardSkeleton /><ProjectCardSkeleton /><ProjectCardSkeleton /></>
               ) : stats.projectsList.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="rounded-[10px] border border-[#27272A] bg-card flex flex-col items-center justify-center py-10">
                   <FolderKanban className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
                   <Link
                     href="/projects/new"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80"
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#F97316] hover:underline"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     {t("newProject")}
                   </Link>
                 </div>
               ) : (
-                <div className="divide-y divide-border">
-                  {stats.projectsList.map((project) => {
-                    const tc = projectTaskCounts[project.id] || { total: 0, overdue: 0 };
-                    const statusColor = projectColors[project.status] || "bg-muted-foreground";
-                    return (
-                      <Link
-                        key={project.id}
-                        href={`/projects/${project.id}`}
-                        className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/50"
-                      >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted border border-border group-hover:border-primary/20 transition-colors">
-                          <span className="font-display text-xs font-bold text-muted-foreground uppercase">
-                            {project.code?.slice(0, 3) || project.name.slice(0, 2)}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                              {project.name}
-                            </span>
-                            <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusColor}`} />
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
-                            {tc.total > 0 && (
-                              <span className={tc.overdue > 0 ? "text-red-500 font-medium" : ""}>
-                                {t("tasksCount", { count: tc.total })}
-                                {tc.overdue > 0 && ` (${tc.overdue} ⚠)`}
-                              </span>
-                            )}
-                            {project.end_date && (
-                              <span>
-                                {daysUntil(project.end_date) > 0
-                                  ? `${daysUntil(project.end_date)}j`
-                                  : t("overdue")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Link>
-                    );
-                  })}
-                </div>
+                stats.projectsList.map((project, idx) => {
+                  const tc = projectTaskCounts[project.id] || { total: 0, overdue: 0 };
+                  const health = getProjectHealth(tc.overdue, tc.total);
+                  const color = project.color || PROJECT_COLORS[idx % PROJECT_COLORS.length];
+                  const progress = project.start_date && project.end_date
+                    ? Math.max(0, Math.min(100, Math.round(
+                        ((Date.now() - new Date(project.start_date).getTime()) /
+                          (new Date(project.end_date).getTime() - new Date(project.start_date).getTime())) *
+                          100
+                      )))
+                    : 0;
+
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="group relative block overflow-hidden rounded-[10px] border border-[#27272A] bg-card p-[14px_16px] transition-all duration-150 hover:border-[#3F3F46] hover:bg-[#1C1C20]"
+                    >
+                      {/* Left color bar */}
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: color }} />
+
+                      {/* Top row */}
+                      <div className="flex justify-between items-center">
+                        <span className="font-display text-sm font-semibold text-foreground">{project.name}</span>
+                        <span
+                          className={`text-[10px] px-2 py-[3px] rounded font-semibold ${
+                            health === "good"
+                              ? "bg-[#10B981]/10 text-[#34D399]"
+                              : health === "warn"
+                              ? "bg-[#F59E0B]/10 text-[#FBBF24]"
+                              : "bg-[#EF4444]/10 text-[#F87171]"
+                          }`}
+                        >
+                          {health === "good" ? t("allOk") : health === "warn" ? t("attentionBadge") : t("criticalBadge")}
+                        </span>
+                      </div>
+
+                      {/* Meta */}
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {project.code}
+                        {project.client_name && ` · ${project.client_name}`}
+                        {project.city && ` · ${project.city}`}
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="flex gap-4 mt-2 text-[11px] text-muted-foreground">
+                        <span>
+                          <Mail className="inline h-3 w-3 mr-1 -mt-px" />
+                          <span className="font-semibold text-[#D4D4D8]">{tc.total}</span> {t("emailsLabel")}
+                        </span>
+                        <span>
+                          <CheckSquare className="inline h-3 w-3 mr-1 -mt-px" />
+                          <span className={`font-semibold ${tc.overdue > 0 ? "text-[#F87171]" : "text-[#D4D4D8]"}`}>
+                            {tc.overdue}
+                          </span> {t("overdueLabel")}
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="h-[3px] bg-[#27272A] rounded-sm mt-2 overflow-hidden">
+                        <div
+                          className="h-full rounded-sm transition-all duration-700"
+                          style={{
+                            width: `${progress}%`,
+                            background: `linear-gradient(90deg, ${color}, ${color}99)`,
+                          }}
+                        />
+                      </div>
+                    </Link>
+                  );
+                })
               )}
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN (1/3) ── */}
-          <div className="space-y-6">
-
-            {/* Modules — Accès rapide */}
-            <div className="rounded-xl border border-border bg-background">
-              <div className="border-b border-border px-5 py-4">
-                <h2 className="font-display text-sm font-semibold text-foreground">
-                  {t("modulesTitle")}
-                </h2>
-              </div>
-              <div className="p-3">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {moduleLinks.map((mod) => {
-                    const Icon = mod.icon;
-                    return (
-                      <Link
-                        key={mod.href}
-                        href={mod.href}
-                        className="group relative flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all hover:bg-muted"
-                      >
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${mod.bg} transition-transform group-hover:scale-110`}>
-                          <Icon className={`h-5 w-5 ${mod.color}`} />
-                        </div>
-                        <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-tight">
-                          {mod.label}
-                        </span>
-                        {mod.badge && mod.badge > 0 && (
-                          <span className="absolute top-2 right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                            {mod.badge}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+          {/* -- RIGHT: Activity Feed + AI Briefing -- */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {t("recentActivity")}
+              </h2>
             </div>
 
-            {/* Prochaine séance */}
-            {nextMeeting && (
-              <div className="rounded-xl border border-border bg-background p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="h-4 w-4 text-[#F59E0B]" />
-                  <h3 className="text-sm font-semibold text-foreground">{t("nextMeeting")}</h3>
-                </div>
-                <Link
-                  href={`/meetings/${nextMeeting.id}`}
-                  className="group block rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 transition-all hover:border-amber-200 hover:shadow-sm"
-                >
-                  <p className="text-sm font-medium text-foreground group-hover:text-[#F59E0B] transition-colors truncate">
-                    {nextMeeting.title}
-                  </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {new Date(nextMeeting.meeting_date).toLocaleDateString("fr-CH", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </Link>
-              </div>
-            )}
-
-            {/* Activité récente (dernières tâches complétées) */}
-            {!loading && (
-              <div className="rounded-xl border border-border bg-background">
-                <div className="border-b border-border px-5 py-4">
-                  <h2 className="font-display text-sm font-semibold text-foreground">
-                    {t("recentActivity")}
-                  </h2>
-                </div>
-                <div className="p-4">
-                  {(() => {
-                    const recentDone = tasks
-                      .filter((t) => t.status === "done")
-                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                      .slice(0, 4);
-                    if (recentDone.length === 0) {
-                      return (
-                        <p className="py-4 text-center text-xs text-muted-foreground">
-                          {t("noRecentActivity")}
-                        </p>
-                      );
-                    }
-                    return (
-                      <div className="space-y-3">
-                        {recentDone.map((task) => (
-                          <div key={task.id} className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
-                              <CheckSquare className="h-3 w-3 text-emerald-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs text-foreground truncate">{task.title}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {new Date(task.created_at).toLocaleDateString("fr-CH", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+            {/* Activity feed */}
+            <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
+              {!loading && recentDone.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground py-4">{t("noRecentActivity")}</p>
+              ) : (
+                <div className="space-y-0">
+                  {recentDone.map((task, i) => (
+                    <div
+                      key={task.id}
+                      className={`flex gap-3 py-2 ${i < recentDone.length - 1 ? "border-b border-[#27272A]" : ""}`}
+                    >
+                      <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-[#10B981]/10">
+                        <CheckSquare className="h-3.5 w-3.5 text-[#10B981]" />
                       </div>
-                    );
-                  })()}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] text-[#D4D4D8] leading-snug truncate">
+                          <span className="font-semibold text-foreground">{t("pendingTasks").split(" ")[0]}</span>{" "}
+                          {task.title}
+                        </p>
+                        <p className="text-[10px] text-[#52525B] mt-0.5">
+                          {new Date(task.created_at).toLocaleDateString("fr-CH", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+
+            {/* AI Briefing */}
+            <div className="rounded-[10px] border border-[#F97316]/15 bg-gradient-to-br from-[#1C1209] to-[#18130A] p-4">
+              <div className="flex items-center gap-2 mb-2 font-display text-[13px] font-bold text-[#FB923C]">
+                <Sparkles className="h-4 w-4" />
+                {t("aiBriefingTitle")}
+              </div>
+              {briefingHighlights.length > 0 ? (
+                <div className="space-y-1.5">
+                  {briefingHighlights.map((item, i) => (
+                    <div key={i} className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
+                      <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
+                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
+                    <span>{t("briefingUrgent")}</span>
+                  </div>
+                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
+                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
+                    <span>{t("briefingFehlmann")}</span>
+                  </div>
+                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
+                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
+                    <span>{t("briefingMeeting")}</span>
+                  </div>
+                </div>
+              )}
+              <Link
+                href="/briefing"
+                className="block mt-2 text-[11px] font-semibold text-[#F97316] hover:underline"
+              >
+                {t("aiBriefingCta")} <ChevronRight className="inline h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== BOTTOM 3 WIDGETS ===== */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+
+          {/* Deadlines */}
+          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
+            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-[#F97316]" />
+              {t("deadlinesSoon")}
+            </h3>
+            {!loading && stats.deadlines.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-3 text-center">{t("noDeadlines")}</p>
+            ) : (
+              <div className="space-y-0">
+                {stats.deadlines.map((task, i) => {
+                  const days = task.due_date ? daysUntil(task.due_date) : 999;
+                  const dateStr = task.due_date
+                    ? new Date(task.due_date).toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "2-digit" })
+                    : "";
+                  const tagClass =
+                    days < 0
+                      ? "bg-[#EF4444]/10 text-[#F87171]"
+                      : days <= 2
+                      ? "bg-[#F59E0B]/10 text-[#FBBF24]"
+                      : "bg-[#10B981]/10 text-[#34D399]";
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center justify-between py-[6px] ${
+                        i < stats.deadlines.length - 1 ? "border-b border-[#27272A]" : ""
+                      }`}
+                    >
+                      <span className="text-[11px] text-[#D4D4D8] truncate mr-2">{task.title}</span>
+                      <span className={`text-[10px] px-2 py-[3px] rounded font-semibold shrink-0 ${tagClass}`}>
+                        {days < 0 ? `${dateStr}` : dateStr}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </div>
+
+          {/* Priority Tasks */}
+          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
+            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+              <CheckSquare className="h-4 w-4 text-[#EF4444]" />
+              {t("priorityTasks")}
+            </h3>
+            {!loading && stats.priorityTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-3 text-center">{t("noPriorityTasks")}</p>
+            ) : (
+              <div className="space-y-0">
+                {stats.priorityTasks.map((task, i) => {
+                  const dotColor =
+                    task.priority === "urgent"
+                      ? "#EF4444"
+                      : task.priority === "high"
+                      ? "#F59E0B"
+                      : "#3B82F6";
+                  // Find the project name
+                  const proj = projects.find((p) => p.id === task.project_id);
+                  const projShort = proj
+                    ? proj.name.length > 12
+                      ? proj.name.slice(0, 10) + "..."
+                      : proj.name
+                    : "";
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-2 py-[5px] ${
+                        i < stats.priorityTasks.length - 1 ? "border-b border-[#27272A]" : ""
+                      }`}
+                    >
+                      <div
+                        className="w-[6px] h-[6px] rounded-full shrink-0"
+                        style={{ background: dotColor }}
+                      />
+                      <span className="text-[11px] text-[#D4D4D8] flex-1 truncate">{task.title}</span>
+                      {projShort && (
+                        <span className="text-[10px] text-muted-foreground shrink-0">{projShort}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Access */}
+          <div className="rounded-[10px] border border-[#27272A] bg-card p-4">
+            <h3 className="font-display text-[13px] font-bold text-foreground mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-[#F97316]" />
+              {t("quickAccess")}
+            </h3>
+            <div className="grid grid-cols-2 gap-[6px]">
+              {shortcuts.map((sc) => {
+                const Icon = sc.icon;
+                return (
+                  <Link
+                    key={sc.href}
+                    href={sc.href}
+                    className="flex items-center gap-2 rounded-lg bg-muted p-[10px] transition-all hover:bg-[#3F3F46]"
+                  >
+                    <Icon className="h-4 w-4 shrink-0" style={{ color: sc.color }} />
+                    <span className="text-[11px] font-medium text-[#D4D4D8]">{sc.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 
