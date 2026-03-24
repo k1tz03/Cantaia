@@ -9,7 +9,7 @@ export function PlanDetailTabs({
   activeTab,
   setActiveTab,
   versionsCount,
-  estimationScore,
+  estimationScore: _estimationScore,
   t,
 }: {
   activeTab: PlanTab;
