@@ -35,37 +35,37 @@ import { SupplierTimeline, type TimelineItem } from "@/components/suppliers/Supp
 import { SupplierPriceChart, type PriceTrendPoint } from "@/components/suppliers/SupplierPriceChart";
 
 const STATUS_CONFIG: Record<SupplierStatus, { color: string; dotColor: string }> = {
-  active: { color: "text-green-700 dark:text-green-400 bg-green-500/10", dotColor: "bg-green-500" },
+  active: { color: "text-green-700 text-green-400 bg-green-500/10", dotColor: "bg-green-500" },
   preferred: { color: "text-[#F97316] bg-[#F97316]/10", dotColor: "bg-[#F97316]/100" },
-  blacklisted: { color: "text-red-700 dark:text-red-400 bg-red-500/10", dotColor: "bg-red-500" },
+  blacklisted: { color: "text-red-700 text-red-400 bg-red-500/10", dotColor: "bg-red-500" },
   inactive: { color: "text-[#71717A] bg-[#27272A]", dotColor: "bg-[#27272A]-foreground" },
-  new: { color: "text-amber-700 dark:text-amber-400 bg-amber-500/10", dotColor: "bg-amber-500" },
+  new: { color: "text-amber-700 text-amber-400 bg-amber-500/10", dotColor: "bg-amber-500" },
 };
 
 const SUPPLIER_TYPE_CONFIG: Record<SupplierType, { label: string; color: string }> = {
-  fournisseur: { label: "Fournisseur", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  fournisseur: { label: "Fournisseur", color: "bg-emerald-500/10 text-emerald-700 text-emerald-400" },
   prestataire: { label: "Prestataire", color: "bg-violet-500/10 text-violet-400" },
 };
 
 const SPECIALTY_COLORS: Record<string, string> = {
-  gros_oeuvre: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
-  electricite: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+  gros_oeuvre: "bg-orange-500/10 text-orange-700 text-orange-400",
+  electricite: "bg-yellow-500/10 text-yellow-700 text-yellow-400",
   cvc: "bg-cyan-500/10 text-cyan-400",
   sanitaire: "bg-[#F97316]/10 text-[#F97316]",
   peinture: "bg-pink-500/10 text-pink-400",
-  menuiserie: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  etancheite: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
-  facades: "bg-indigo-100 text-indigo-700",
+  menuiserie: "bg-amber-500/10 text-amber-700 text-amber-400",
+  etancheite: "bg-purple-500/10 text-purple-700 text-purple-400",
+  facades: "bg-indigo-500/10 text-indigo-400",
   serrurerie: "bg-[#27272A] text-[#FAFAFA]",
-  carrelage: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
-  platrerie: "bg-rose-100 text-rose-700",
-  charpente: "bg-lime-100 text-lime-700",
-  couverture: "bg-red-500/10 text-red-700 dark:text-red-400",
-  ascenseur: "bg-violet-100 text-violet-700",
-  amenagement_exterieur: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  carrelage: "bg-teal-500/10 text-teal-700 text-teal-400",
+  platrerie: "bg-rose-500/10 text-rose-400",
+  charpente: "bg-lime-500/10 text-lime-400",
+  couverture: "bg-red-500/10 text-red-700 text-red-400",
+  ascenseur: "bg-violet-500/10 text-violet-400",
+  amenagement_exterieur: "bg-emerald-500/10 text-emerald-700 text-emerald-400",
   demolition: "bg-[#27272A] text-[#FAFAFA]",
-  terrassement: "bg-stone-100 text-stone-700",
-  echafaudage: "bg-zinc-100 text-zinc-700",
+  terrassement: "bg-stone-500/10 text-stone-400",
+  echafaudage: "bg-zinc-500/10 text-zinc-400",
 };
 
 export default function SuppliersPage() {
@@ -229,10 +229,10 @@ export default function SuppliersPage() {
   }
 
   function getScoreColor(score: number): string {
-    if (score >= 85) return "text-green-600";
+    if (score >= 85) return "text-green-400";
     if (score >= 70) return "text-[#F97316]";
-    if (score >= 50) return "text-amber-600";
-    return "text-red-600";
+    if (score >= 50) return "text-amber-400";
+    return "text-red-400";
   }
 
   function renderStars(rating: number) {
@@ -341,7 +341,7 @@ export default function SuppliersPage() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-[#FAFAFA]">{t("title")}</h1>
+                <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA]">{t("title")}</h1>
                 <p className="text-sm text-[#71717A] mt-1">
                   {t("subtitle", { count: filtered.length })}
                 </p>
@@ -373,7 +373,7 @@ export default function SuppliersPage() {
 
             {/* Error banner */}
             {fetchError && (
-              <div className="mb-4 rounded-md bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-200">
+              <div className="mb-4 rounded-md bg-red-500/10 px-4 py-3 text-sm text-red-700 text-red-400 ring-1 ring-inset ring-red-500/20">
                 {fetchError}
               </div>
             )}
@@ -408,7 +408,7 @@ export default function SuppliersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("search")}
-                  className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B] focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-md text-sm bg-[#18181B] focus:border-[#F97316] focus:ring-1 focus:ring-[#F97316]"
                 />
               </div>
               <select
@@ -600,11 +600,11 @@ export default function SuppliersPage() {
 
               {/* Enrichment result banner */}
               {enrichResult && (
-                <div className="mb-4 flex items-center justify-between rounded-md bg-[#F97316]/10 px-3 py-2 text-sm text-[#F97316] ring-1 ring-inset ring-blue-200">
+                <div className="mb-4 flex items-center justify-between rounded-md bg-[#F97316]/10 px-3 py-2 text-sm text-[#F97316] ring-1 ring-inset ring-[#F97316]/20">
                   <span>{enrichResult}</span>
                   <button
                     onClick={() => setEnrichResult(null)}
-                    className="ml-2 rounded p-0.5 hover:bg-[#F97316]/10 text-blue-400 hover:text-[#F97316]"
+                    className="ml-2 rounded p-0.5 hover:bg-[#F97316]/10 text-[#F97316]/60 hover:text-[#F97316]"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -656,8 +656,8 @@ export default function SuppliersPage() {
                       key={idx}
                       className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs ring-1 ring-inset ${
                         alert.severity === "warning"
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-200"
-                          : "bg-[#F97316]/10 text-[#F97316] ring-blue-200"
+                          ? "bg-amber-500/10 text-amber-700 text-amber-400 ring-amber-500/20"
+                          : "bg-[#F97316]/10 text-[#F97316] ring-[#F97316]/20"
                       }`}
                     >
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -729,7 +729,7 @@ export default function SuppliersPage() {
                   <h3 className="text-sm font-medium text-[#FAFAFA] mb-2">{t("certifications")}</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {selected.certifications.map((cert) => (
-                      <span key={cert} className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs font-medium">
+                      <span key={cert} className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-green-500/10 text-green-700 text-green-400 text-xs font-medium">
                         <Award className="h-3 w-3" />
                         {cert}
                       </span>

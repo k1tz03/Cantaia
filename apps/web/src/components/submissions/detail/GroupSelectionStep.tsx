@@ -52,19 +52,19 @@ export function GroupSelectionStep({
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-lg font-semibold text-[#FAFAFA]">
             Selectionnez les groupes
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-[#71717A]">
             Choisissez les groupes de postes pour lesquels demander des prix
           </p>
         </div>
         <button
           onClick={toggleAll}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-sm text-[#FAFAFA] hover:bg-[#1C1C1F]"
         >
           {allSelected ? (
-            <CheckSquare className="h-4 w-4 text-primary" />
+            <CheckSquare className="h-4 w-4 text-[#F97316]" />
           ) : (
             <Square className="h-4 w-4" />
           )}
@@ -82,32 +82,32 @@ export function GroupSelectionStep({
               onClick={() => toggle(lot.name)}
               className={`w-full flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
                 isSelected
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-muted/50"
+                  ? "border-[#F97316] bg-[#F97316]/5"
+                  : "border-[#27272A] hover:bg-[#1C1C1F]"
               }`}
             >
               <div
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
                   isSelected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border"
+                    ? "border-[#F97316] bg-[#F97316] text-white"
+                    : "border-[#27272A]"
                 }`}
               >
                 {isSelected && <Check className="h-3 w-3" />}
               </div>
-              <Package className="h-5 w-5 text-muted-foreground shrink-0" />
+              <Package className="h-5 w-5 text-[#71717A] shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-medium text-[#FAFAFA]">
                   {lot.name}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-[#71717A]">
                   {lot.cfc_code && (
                     <span className="mr-2">CFC {lot.cfc_code}</span>
                   )}
                 </p>
               </div>
               {budget != null && budget > 0 && (
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className="text-sm font-medium text-[#71717A]">
                   {formatCHF(budget)}
                 </span>
               )}
@@ -117,9 +117,9 @@ export function GroupSelectionStep({
       </div>
 
       {lots.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-[#27272A] p-8 text-center">
+          <Package className="h-8 w-8 text-[#71717A] mx-auto mb-2" />
+          <p className="text-sm text-[#71717A]">
             Aucun groupe de postes disponible
           </p>
         </div>
@@ -129,7 +129,7 @@ export function GroupSelectionStep({
         <button
           onClick={() => onNext(Array.from(selected))}
           disabled={selected.size === 0}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-[#F97316]-foreground hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Suivant
           <ArrowRight className="h-4 w-4" />

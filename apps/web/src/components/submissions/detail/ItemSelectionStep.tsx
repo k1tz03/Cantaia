@@ -70,10 +70,10 @@ export function ItemSelectionStep({
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-base font-semibold text-foreground">Selectionnez les postes</h3>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h3 className="text-base font-semibold text-[#FAFAFA]">Selectionnez les postes</h3>
+        <p className="text-sm text-[#71717A] mt-1">
           Affinez votre selection — decochez les postes que vous ne souhaitez pas inclure dans la demande de prix.
-          <span className="ml-2 font-medium text-foreground">{totalSelected}/{totalAvailable} postes selectionnes</span>
+          <span className="ml-2 font-medium text-[#FAFAFA]">{totalSelected}/{totalAvailable} postes selectionnes</span>
         </p>
       </div>
 
@@ -86,29 +86,29 @@ export function ItemSelectionStep({
           const partiallySelected = isGroupPartiallySelected(group);
 
           return (
-            <div key={group} className="rounded-lg border border-border overflow-hidden">
+            <div key={group} className="rounded-lg border border-[#27272A] overflow-hidden">
               {/* Group header */}
               <div
-                className="flex items-center gap-3 px-4 py-3 bg-muted/30 cursor-pointer hover:bg-muted/50"
+                className="flex items-center gap-3 px-4 py-3 bg-[#27272A]/30 cursor-pointer hover:bg-[#1C1C1F]"
                 onClick={() => setOpenGroup(isOpen ? "" : group)}
               >
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); toggleGroupSelect(group); }}
                   className={`flex h-5 w-5 items-center justify-center rounded border transition-colors ${
-                    fullySelected ? "bg-primary border-primary text-primary-foreground" :
-                    partiallySelected ? "bg-primary/20 border-primary" : "border-border"
+                    fullySelected ? "bg-[#F97316] border-[#F97316] text-white" :
+                    partiallySelected ? "bg-[#F97316]/20 border-[#F97316]" : "border-[#27272A]"
                   }`}
                 >
                   {(fullySelected || partiallySelected) && <Check className="h-3 w-3" />}
                 </button>
                 <div className="flex-1">
-                  <span className="text-sm font-medium text-foreground">{group}</span>
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
+                  <span className="text-xs text-[#71717A] ml-2">
                     {selectedCount}/{groupItems.length} postes
                   </span>
                 </div>
-                {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                {isOpen ? <ChevronUp className="h-4 w-4 text-[#71717A]" /> : <ChevronDown className="h-4 w-4 text-[#71717A]" />}
               </div>
 
               {/* Items list */}
@@ -117,28 +117,28 @@ export function ItemSelectionStep({
                   {groupItems.map(item => (
                     <label
                       key={item.id}
-                      className="flex items-start gap-3 px-4 py-2.5 hover:bg-muted/20 cursor-pointer"
+                      className="flex items-start gap-3 px-4 py-2.5 hover:bg-[#1C1C1F] cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         checked={selectedItemIds.has(item.id)}
                         onChange={() => onToggleItem(item.id)}
-                        className="mt-0.5 h-4 w-4 rounded border-border text-primary"
+                        className="mt-0.5 h-4 w-4 rounded border-[#27272A] text-[#F97316]"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           {item.item_number && (
-                            <span className="text-xs font-mono text-muted-foreground">{item.item_number}</span>
+                            <span className="text-xs font-mono text-[#71717A]">{item.item_number}</span>
                           )}
                           {item.cfc_code && (
-                            <span className="text-xs text-primary/70">CFC {item.cfc_code}</span>
+                            <span className="text-xs text-[#F97316]/70">CFC {item.cfc_code}</span>
                           )}
                         </div>
-                        <p className="text-sm text-foreground line-clamp-2">{item.description}</p>
+                        <p className="text-sm text-[#FAFAFA] line-clamp-2">{item.description}</p>
                       </div>
                       <div className="text-right shrink-0">
                         {item.quantity != null && (
-                          <span className="text-xs text-muted-foreground">{item.quantity} {item.unit || ""}</span>
+                          <span className="text-xs text-[#71717A]">{item.quantity} {item.unit || ""}</span>
                         )}
                       </div>
                     </label>
@@ -154,7 +154,7 @@ export function ItemSelectionStep({
         <button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="rounded-lg border border-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#1C1C1F]"
         >
           &larr; Retour
         </button>
@@ -162,7 +162,7 @@ export function ItemSelectionStep({
           type="button"
           onClick={onNext}
           disabled={totalSelected === 0}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-[#F97316]-foreground hover:bg-[#EA580C] disabled:opacity-50"
         >
           Suivant &rarr;
         </button>

@@ -155,10 +155,10 @@ export function PriceRequestWizard({
               disabled={i > currentStep}
               className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 i === currentStep
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-[#F97316] text-white"
                   : i < currentStep
-                    ? "bg-primary/10 text-primary cursor-pointer hover:bg-primary/20"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-[#F97316]/10 text-[#F97316] cursor-pointer hover:bg-[#F97316]/20"
+                    : "bg-[#27272A] text-[#71717A]"
               }`}
             >
               {i < currentStep ? (
@@ -170,7 +170,7 @@ export function PriceRequestWizard({
               )}
               {step.label}
             </button>
-            {i < STEPS.length - 1 && <div className="h-px w-8 bg-border" />}
+            {i < STEPS.length - 1 && <div className="h-px w-8 bg-[#27272A]" />}
           </div>
         ))}
       </div>

@@ -71,10 +71,10 @@ export function SupplierAssignmentStep({
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-lg font-semibold text-[#FAFAFA]">
           Attribuer les fournisseurs
         </h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-[#71717A]">
           {configuredCount}/{lots.length} groupes configures — L&apos;IA a
           pre-selectionne les fournisseurs les plus pertinents
         </p>
@@ -91,24 +91,24 @@ export function SupplierAssignmentStep({
           return (
             <div
               key={lot.id}
-              className="rounded-lg border border-border overflow-hidden"
+              className="rounded-lg border border-[#27272A] overflow-hidden"
             >
               {/* Group header */}
               <button
                 onClick={() =>
                   setExpandedGroup(isExpanded ? "" : lot.name)
                 }
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50"
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#1C1C1F]"
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="h-4 w-4 text-[#71717A]" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-[#71717A]" />
                 )}
-                <span className="flex-1 text-sm font-medium text-foreground">
+                <span className="flex-1 text-sm font-medium text-[#FAFAFA]">
                   {lot.name}
                   {lot.cfc_code && (
-                    <span className="ml-2 text-xs text-muted-foreground font-normal">
+                    <span className="ml-2 text-xs text-[#71717A] font-normal">
                       CFC {lot.cfc_code}
                     </span>
                   )}
@@ -116,8 +116,8 @@ export function SupplierAssignmentStep({
                 <span
                   className={`text-xs font-medium ${
                     isConfigured(lot.name)
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-muted-foreground"
+                      ? "text-green-400"
+                      : "text-[#71717A]"
                   }`}
                 >
                   {assigned.length} fournisseur
@@ -130,11 +130,11 @@ export function SupplierAssignmentStep({
 
               {/* Expanded content */}
               {isExpanded && (
-                <div className="border-t border-border px-4 py-3 space-y-3">
+                <div className="border-t border-[#27272A] px-4 py-3 space-y-3">
                   {/* Recommended suppliers */}
                   {recommended.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      <p className="text-xs font-medium text-[#71717A] uppercase tracking-wide mb-2">
                         Recommandes par l&apos;IA
                       </p>
                       <div className="space-y-1.5">
@@ -163,7 +163,7 @@ export function SupplierAssignmentStep({
                             [lot.name]: !showOthers,
                           }))
                         }
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:underline"
                       >
                         <Users className="h-3 w-3" />
                         {showOthers
@@ -190,7 +190,7 @@ export function SupplierAssignmentStep({
 
                   {/* Empty state */}
                   {recommended.length === 0 && others.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
+                    <p className="text-sm text-[#71717A] text-center py-4">
                       Aucun fournisseur disponible
                     </p>
                   )}
@@ -204,7 +204,7 @@ export function SupplierAssignmentStep({
       <div className="mt-6 flex justify-between">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+          className="inline-flex items-center gap-2 rounded-lg border border-[#27272A] px-5 py-2.5 text-sm font-medium text-[#FAFAFA] hover:bg-[#1C1C1F]"
         >
           <ArrowLeft className="h-4 w-4" />
           Retour
@@ -212,7 +212,7 @@ export function SupplierAssignmentStep({
         <button
           onClick={() => onNext(assignments)}
           disabled={configuredCount === 0}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-[#F97316]-foreground hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Suivant
           <ArrowRight className="h-4 w-4" />
@@ -238,37 +238,37 @@ function SupplierRow({
       onClick={onToggle}
       className={`w-full flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
         isSelected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:bg-muted/50"
+          ? "border-[#F97316] bg-[#F97316]/5"
+          : "border-[#27272A] hover:bg-[#1C1C1F]"
       }`}
     >
       <div
         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
           isSelected
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border"
+            ? "border-[#F97316] bg-[#F97316] text-white"
+            : "border-[#27272A]"
         }`}
       >
         {isSelected && <Check className="h-2.5 w-2.5" />}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-[#FAFAFA] truncate">
             {supplier.company_name}
           </span>
           {isRecommended && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-400">
               <Zap className="h-2.5 w-2.5" /> Recommande
             </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-xs text-[#71717A] truncate">
           {supplier.contact_name ? `${supplier.contact_name} · ` : ""}
           {supplier.email || ""}
         </p>
       </div>
       {supplier.overall_score != null && supplier.overall_score > 0 && (
-        <span className="text-xs font-medium text-muted-foreground shrink-0">
+        <span className="text-xs font-medium text-[#71717A] shrink-0">
           {supplier.overall_score}/100
         </span>
       )}
