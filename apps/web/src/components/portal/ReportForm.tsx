@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Plus, Trash2, Camera, Loader2, CheckCircle2, ChevronDown, ChevronUp,
-  Truck, Save, Send, AlertCircle, Lock
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface CrewMember {
   id: string;
@@ -63,7 +60,7 @@ export function ReportForm({ projectId }: ReportFormProps) {
   const [weather, setWeather] = useState("");
 
   // Sections
-  const [openSection, setOpenSection] = useState<string>("personnel");
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["personnel"]));
 
   // New crew member
   const [newCrewName, setNewCrewName] = useState("");
@@ -77,7 +74,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
       fetch(`/api/portal/${projectId}/reports`).then(r => r.json()),
     ]).then(([crewData, reportsData]) => {
       setCrew(crewData.crew || []);
-      // Find report for selected date
       const existing = (reportsData.reports || []).find(
         (r: any) => r.report_date === reportDate
       );
@@ -85,7 +81,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
         setReport(existing);
         setRemarks(existing.remarks || "");
         setWeather(existing.weather || "");
-        // Load entries
         fetch(`/api/portal/${projectId}/reports/${existing.id}`)
           .then(r => r.json())
           .then(d => {
@@ -123,6 +118,15 @@ export function ReportForm({ projectId }: ReportFormProps) {
       }
     }).finally(() => setLoading(false));
   }, [projectId, reportDate]);
+
+  function toggleSection(id: string) {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function toggleCrewMember(id: string) {
     const next = new Set(selectedCrew);
@@ -173,7 +177,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
   }
 
   async function handlePhotoCapture(index: number, file: File) {
-    // Upload photo
     const formData = new FormData();
     formData.append("file", file);
     try {
@@ -232,7 +235,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
       let reportId = report?.id;
 
       if (!reportId) {
-        // Create report
         const res = await fetch(`/api/portal/${projectId}/reports`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -250,7 +252,6 @@ export function ReportForm({ projectId }: ReportFormProps) {
         }
       }
 
-      // Save entries
       const entries = await buildEntries();
       const res = await fetch(`/api/portal/${projectId}/reports/${reportId}`, {
         method: "PATCH",
@@ -281,30 +282,40 @@ export function ReportForm({ projectId }: ReportFormProps) {
 
   const isLocked = report?.status === "submitted" || report?.status === "locked";
 
-  if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>;
+  // Format date for display
+  function formatDateDisplay(dateStr: string) {
+    try {
+      const d = new Date(dateStr + "T12:00:00");
+      const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+      const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+      return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
   }
 
-  function SectionHeader({ id, title, count }: { id: string; title: string; count?: number }) {
-    const isOpen = openSection === id;
+  if (loading) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpenSection(isOpen ? "" : id)}
-        className="w-full flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100"
-      >
-        <span className="text-sm font-semibold text-gray-900">
-          {title} {count !== undefined && <span className="text-gray-400">({count})</span>}
-        </span>
-        {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
-      </button>
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
+      </div>
     );
   }
 
+  // ── Inline styles ──
+  const inputStyle: React.CSSProperties = {
+    background: "#27272A", border: "1px solid #3F3F46", borderRadius: 6,
+    padding: "7px 10px", fontSize: 12, color: "#D4D4D8", outline: "none",
+  };
+
+  const hoursInputStyle: React.CSSProperties = {
+    ...inputStyle, width: 60, textAlign: "center", color: "#FAFAFA", fontWeight: 600,
+  };
+
   return (
-    <div className="p-4 space-y-3">
-      {/* Date picker with prev/next buttons */}
-      <div className="flex items-center gap-2">
+    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Date navigation */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <button
           type="button"
           onClick={() => {
@@ -312,16 +323,31 @@ export function ReportForm({ projectId }: ReportFormProps) {
             d.setDate(d.getDate() - 1);
             setReportDate(d.toISOString().split("T")[0]);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white hover:bg-gray-50 active:bg-gray-100"
+          style={{
+            width: 36, height: 36, borderRadius: 8, background: "#18181B",
+            border: "1px solid #3F3F46", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16, color: "#A1A1AA", cursor: "pointer",
+          }}
         >
-          ←
+          ‹
         </button>
-        <input
-          type="date"
-          value={reportDate}
-          onChange={e => setReportDate(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white text-center"
-        />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 700, color: "#FAFAFA" }}>
+            {formatDateDisplay(reportDate)}
+          </div>
+          {report?.status && (
+            <span style={{
+              fontSize: 10, padding: "3px 8px", borderRadius: 5, fontWeight: 600,
+              ...(report.status === "draft"
+                ? { background: "#27272A", color: "#A1A1AA" }
+                : report.status === "submitted"
+                ? { background: "rgba(16, 185, 129, 0.09)", color: "#34D399" }
+                : { background: "rgba(59, 130, 246, 0.1)", color: "#60A5FA" }),
+            }}>
+              {t(report.status as any)}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -331,283 +357,454 @@ export function ReportForm({ projectId }: ReportFormProps) {
             const today = new Date().toISOString().split("T")[0];
             if (tomorrow <= today) setReportDate(tomorrow);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white hover:bg-gray-50 active:bg-gray-100"
+          style={{
+            width: 36, height: 36, borderRadius: 8, background: "#18181B",
+            border: "1px solid #3F3F46", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16, color: "#A1A1AA", cursor: "pointer",
+          }}
         >
-          →
+          ›
         </button>
-        {report?.status && (
-          <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
-            report.status === "draft" ? "bg-gray-100 text-gray-600" :
-            report.status === "submitted" ? "bg-green-100 text-green-700" :
-            "bg-blue-100 text-blue-700"
-          }`}>
-            {t(report.status as any)}
-          </span>
-        )}
       </div>
 
+      {/* Locked banner */}
       {isLocked && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-700 border border-amber-200">
-          <Lock className="h-4 w-4 shrink-0" />
-          Ce rapport a été envoyé et ne peut plus être modifié. Changez la date pour créer un nouveau rapport.
-        </div>
-      )}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-          <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, borderRadius: 10,
+          background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.2)",
+          padding: "10px 14px", fontSize: 12, color: "#FBBF24",
+        }}>
+          🔒 Ce rapport a été envoyé et ne peut plus être modifié.
         </div>
       )}
 
-      {/* Personnel section */}
-      <SectionHeader id="personnel" title={t("personnel")} count={selectedCrew.size} />
-      {openSection === "personnel" && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3">
-          {crew.map(member => (
-            <div key={member.id}>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedCrew.has(member.id)}
-                  onChange={() => toggleCrewMember(member.id)}
-                  disabled={isLocked}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-gray-900">{member.name}</span>
-                  {member.role && <span className="text-xs text-gray-500 ml-2">{member.role}</span>}
-                </div>
-                <button type="button" onClick={() => removeCrew(member.id)} className="text-gray-300 hover:text-red-500" disabled={isLocked}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {selectedCrew.has(member.id) && (
-                <div className="ml-7 mt-2 space-y-2">
-                  {laborEntries.filter(e => e.crew_member_id === member.id).map((entry) => {
-                    const globalIdx = laborEntries.indexOf(entry);
-                    return (
-                      <div key={globalIdx} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={entry.work_description}
-                          onChange={e => updateLabor(globalIdx, "work_description", e.target.value)}
-                          placeholder={t("workDescription")}
-                          disabled={isLocked}
-                          className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-gray-50"
-                        />
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          max="24"
-                          value={entry.duration_hours || ""}
-                          onChange={e => updateLabor(globalIdx, "duration_hours", parseFloat(e.target.value) || 0)}
-                          disabled={isLocked}
-                          className="w-14 rounded border border-gray-200 px-2 py-1.5 text-xs text-center bg-gray-50"
-                        />
-                        <span className="text-xs text-gray-400">{t("hours")}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateLabor(globalIdx, "is_driver", !entry.is_driver)}
-                          disabled={isLocked}
-                          className={`p-1 rounded ${entry.is_driver ? "text-blue-600 bg-blue-50" : "text-gray-300"}`}
-                          title={t("driver")}
-                        >
-                          <Truck className="h-3.5 w-3.5" />
-                        </button>
-                        <button type="button" onClick={() => removeLabor(globalIdx)} disabled={isLocked} className="text-gray-300 hover:text-red-500">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
+      {/* Error banner */}
+      {error && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, borderRadius: 10,
+          background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)",
+          padding: "10px 14px", fontSize: 12, color: "#F87171",
+        }}>
+          ❌ {error}
+        </div>
+      )}
+
+      {/* Success banner */}
+      {success && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, borderRadius: 10,
+          background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.2)",
+          padding: "10px 14px", fontSize: 12, color: "#34D399",
+        }}>
+          ✅ {success}
+        </div>
+      )}
+
+      {/* ── Personnel section ── */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => toggleSection("personnel")}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", cursor: "pointer", background: "none", border: "none", color: "inherit",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", display: "flex", alignItems: "center", gap: 6 }}>
+            👷 {t("personnel")}
+            <span style={{ fontSize: 10, color: "#71717A", background: "#27272A", padding: "2px 6px", borderRadius: 4 }}>
+              {selectedCrew.size}/{crew.length}
+            </span>
+          </div>
+          <span style={{ color: "#52525B", fontSize: 12 }}>{openSections.has("personnel") ? "▲" : "▼"}</span>
+        </button>
+
+        {openSections.has("personnel") && (
+          <>
+            {/* Crew checkboxes */}
+            <div style={{ padding: "0 14px 10px" }}>
+              {crew.map(member => {
+                const isChecked = selectedCrew.has(member.id);
+                return (
+                  <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #27272A" }}>
+                    <div
+                      onClick={() => !isLocked && toggleCrewMember(member.id)}
+                      style={{
+                        width: 22, height: 22, border: isChecked ? "none" : "2px solid #3F3F46",
+                        borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, cursor: isLocked ? "default" : "pointer",
+                        background: isChecked ? "#F97316" : "transparent",
+                        color: "white", fontSize: 12,
+                      }}
+                    >
+                      {isChecked && "✓"}
+                    </div>
+                    <span style={{ fontSize: 13, color: isChecked ? "#D4D4D8" : "#52525B", flex: 1 }}>
+                      {member.name}
+                    </span>
+                    <span style={{ fontSize: 10, color: "#52525B" }}>
+                      {!isChecked ? "Absent" : (member.role || "")}
+                    </span>
+                    {!isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => removeCrew(member.id)}
+                        style={{ background: "none", border: "none", color: "#3F3F46", cursor: "pointer", fontSize: 14, padding: 2 }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Add crew member inline */}
+              {!isLocked && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 8 }}>
+                  <input
+                    type="text"
+                    value={newCrewName}
+                    onChange={e => setNewCrewName(e.target.value)}
+                    placeholder={t("crewName")}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <input
+                    type="text"
+                    value={newCrewRole}
+                    onChange={e => setNewCrewRole(e.target.value)}
+                    placeholder={t("crewRole")}
+                    style={{ ...inputStyle, width: 80 }}
+                  />
                   <button
                     type="button"
-                    onClick={() => addLaborLine(member.id)}
-                    disabled={isLocked}
-                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    onClick={addCrewMember}
+                    disabled={!newCrewName.trim()}
+                    style={{
+                      background: "none", border: "none", color: newCrewName.trim() ? "#F97316" : "#3F3F46",
+                      cursor: newCrewName.trim() ? "pointer" : "default", fontSize: 18, padding: 2,
+                    }}
                   >
-                    <Plus className="h-3 w-3" /> {t("addWork")}
+                    +
                   </button>
                 </div>
               )}
             </div>
-          ))}
-          {/* Add crew member */}
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-            <input
-              type="text"
-              value={newCrewName}
-              onChange={e => setNewCrewName(e.target.value)}
-              placeholder={t("crewName")}
-              disabled={isLocked}
-              className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
-            />
-            <input
-              type="text"
-              value={newCrewRole}
-              onChange={e => setNewCrewRole(e.target.value)}
-              placeholder={t("crewRole")}
-              disabled={isLocked}
-              className="w-24 rounded border border-gray-200 px-2 py-1.5 text-xs"
-            />
-            <button type="button" onClick={addCrewMember} disabled={isLocked || !newCrewName.trim()} className="text-blue-600 disabled:text-gray-300">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Machines section */}
-      <SectionHeader id="machines" title={t("machines")} count={machineEntries.length} />
-      {openSection === "machines" && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-2">
-          {machineEntries.map((machine, i) => (
-            <div key={i} className="flex items-center gap-2">
+            {/* Work entries per selected crew */}
+            {crew.filter(m => selectedCrew.has(m.id)).map(member => {
+              const memberEntries = laborEntries
+                .map((e, i) => ({ ...e, _idx: i }))
+                .filter(e => e.crew_member_id === member.id);
+
+              return (
+                <div key={member.id} style={{ padding: "0 14px 10px", marginLeft: 32 }}>
+                  <div style={{ fontSize: 10, color: "#71717A", marginBottom: 4, fontWeight: 600 }}>
+                    {member.name}
+                  </div>
+                  {memberEntries.map(entry => (
+                    <div key={entry._idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                      <input
+                        type="text"
+                        value={entry.work_description}
+                        onChange={e => updateLabor(entry._idx, "work_description", e.target.value)}
+                        placeholder={t("workDescription")}
+                        disabled={isLocked}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <input
+                        type="text"
+                        value={entry.duration_hours ? `${entry.duration_hours}h` : ""}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9.]/g, "");
+                          updateLabor(entry._idx, "duration_hours", parseFloat(v) || 0);
+                        }}
+                        placeholder="0h"
+                        disabled={isLocked}
+                        style={hoursInputStyle}
+                      />
+                      <div
+                        onClick={() => !isLocked && updateLabor(entry._idx, "is_driver", !entry.is_driver)}
+                        style={{
+                          width: 28, height: 28, borderRadius: 6,
+                          background: entry.is_driver ? "rgba(249, 115, 22, 0.13)" : "#27272A",
+                          border: entry.is_driver ? "1px solid #F97316" : "1px solid #3F3F46",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 12, cursor: isLocked ? "default" : "pointer",
+                        }}
+                      >
+                        🚛
+                      </div>
+                      {!isLocked && (
+                        <button
+                          type="button"
+                          onClick={() => removeLabor(entry._idx)}
+                          style={{ background: "none", border: "none", color: "#3F3F46", cursor: "pointer", fontSize: 14, padding: 2 }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {!isLocked && (
+                    <div
+                      onClick={() => addLaborLine(member.id)}
+                      style={{ fontSize: 11, color: "#F97316", cursor: "pointer", padding: "4px 0", fontWeight: 500 }}
+                    >
+                      + {t("addWork")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+
+      {/* ── Machines section ── */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => toggleSection("machines")}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", cursor: "pointer", background: "none", border: "none", color: "inherit",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", display: "flex", alignItems: "center", gap: 6 }}>
+            🚜 {t("machines")}
+            <span style={{ fontSize: 10, color: "#71717A", background: "#27272A", padding: "2px 6px", borderRadius: 4 }}>
+              {machineEntries.length}
+            </span>
+          </div>
+          <span style={{ color: "#52525B", fontSize: 12 }}>{openSections.has("machines") ? "▲" : "▼"}</span>
+        </button>
+
+        {openSections.has("machines") && (
+          <div style={{ padding: "0 14px 10px" }}>
+            {machineEntries.map((machine, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={machine.machine_description}
+                  onChange={e => updateMachine(i, "machine_description", e.target.value)}
+                  placeholder={t("machineDescription")}
+                  disabled={isLocked}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <input
+                  type="text"
+                  value={machine.duration_hours ? `${machine.duration_hours}h` : ""}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9.]/g, "");
+                    updateMachine(i, "duration_hours", parseFloat(v) || 0);
+                  }}
+                  placeholder="0h"
+                  disabled={isLocked}
+                  style={hoursInputStyle}
+                />
+                <div
+                  onClick={() => !isLocked && updateMachine(i, "is_rented", !machine.is_rented)}
+                  style={{
+                    width: 28, height: 28, borderRadius: 6,
+                    background: machine.is_rented ? "rgba(249, 115, 22, 0.13)" : "#27272A",
+                    border: machine.is_rented ? "1px solid #F97316" : "1px solid #3F3F46",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, color: machine.is_rented ? "#F97316" : "#71717A",
+                    cursor: isLocked ? "default" : "pointer",
+                  }}
+                >
+                  L
+                </div>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => removeMachine(i)}
+                    style={{ background: "none", border: "none", color: "#3F3F46", cursor: "pointer", fontSize: 14, padding: 2 }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            {!isLocked && (
+              <div
+                onClick={addMachine}
+                style={{ fontSize: 11, color: "#F97316", cursor: "pointer", padding: "4px 0", fontWeight: 500 }}
+              >
+                + {t("addMachine")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Delivery notes section ── */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => toggleSection("delivery")}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", cursor: "pointer", background: "none", border: "none", color: "inherit",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", display: "flex", alignItems: "center", gap: 6 }}>
+            📦 {t("deliveryNotes")}
+            <span style={{ fontSize: 10, color: "#71717A", background: "#27272A", padding: "2px 6px", borderRadius: 4 }}>
+              {deliveryNotes.length}
+            </span>
+          </div>
+          <span style={{ color: "#52525B", fontSize: 12 }}>{openSections.has("delivery") ? "▲" : "▼"}</span>
+        </button>
+
+        {openSections.has("delivery") && (
+          <div style={{ padding: "0 14px 10px" }}>
+            {deliveryNotes.map((note, i) => (
+              <div key={i} style={{ background: "#27272A", borderRadius: 8, padding: 10, marginBottom: 6 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input
+                    type="text"
+                    value={note.note_number}
+                    onChange={e => updateNote(i, "note_number", e.target.value)}
+                    placeholder={t("noteNumber")}
+                    disabled={isLocked}
+                    style={{ ...inputStyle, flex: 0.4, background: "#18181B" }}
+                  />
+                  <input
+                    type="text"
+                    value={note.supplier_name}
+                    onChange={e => updateNote(i, "supplier_name", e.target.value)}
+                    placeholder={t("supplier")}
+                    disabled={isLocked}
+                    style={{ ...inputStyle, flex: 0.6, background: "#18181B" }}
+                  />
+                  {!isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => removeNote(i)}
+                      style={{ background: "none", border: "none", color: "#3F3F46", cursor: "pointer", fontSize: 14, padding: 2 }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {note.photo_url ? (
+                    <img src={note.photo_url} alt="Bon" style={{ height: 48, width: 48, borderRadius: 6, objectFit: "cover" }} />
+                  ) : (
+                    <label style={{
+                      width: 48, height: 48, borderRadius: 6, background: "#3F3F46",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 18, cursor: isLocked ? "default" : "pointer",
+                    }}>
+                      📷
+                      {!isLocked && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          style={{ display: "none" }}
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) handlePhotoCapture(i, f);
+                          }}
+                        />
+                      )}
+                    </label>
+                  )}
+                  <div style={{ fontSize: 10, color: "#71717A" }}>
+                    {note.photo_url ? "Photo enregistrée" : (
+                      <>Photo du bon de livraison<br /><span style={{ color: "#52525B" }}>Appuyer pour prendre en photo</span></>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!isLocked && (
+              <div
+                onClick={addDeliveryNote}
+                style={{ fontSize: 11, color: "#F97316", cursor: "pointer", padding: "4px 0", fontWeight: 500 }}
+              >
+                + {t("addNote")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Remarks section ── */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => toggleSection("remarks")}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", cursor: "pointer", background: "none", border: "none", color: "inherit",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", display: "flex", alignItems: "center", gap: 6 }}>
+            💬 {t("remarks")}
+          </div>
+          <span style={{ color: "#52525B", fontSize: 12 }}>{openSections.has("remarks") ? "▲" : "▼"}</span>
+        </button>
+
+        {openSections.has("remarks") && (
+          <div style={{ padding: "0 14px 10px" }}>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: "#71717A", marginBottom: 3, fontWeight: 600 }}>
+                {t("weather") || "Météo"}
+              </div>
               <input
                 type="text"
-                value={machine.machine_description}
-                onChange={e => updateMachine(i, "machine_description", e.target.value)}
-                placeholder={t("machineDescription")}
+                value={weather}
+                onChange={e => setWeather(e.target.value)}
+                placeholder="Ex: Ensoleillé, 18°C"
                 disabled={isLocked}
-                className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-gray-50"
+                style={{ ...inputStyle, width: "100%" }}
               />
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={machine.duration_hours || ""}
-                onChange={e => updateMachine(i, "duration_hours", parseFloat(e.target.value) || 0)}
-                disabled={isLocked}
-                className="w-14 rounded border border-gray-200 px-2 py-1.5 text-xs text-center bg-gray-50"
-              />
-              <span className="text-xs text-gray-400">{t("hours")}</span>
-              <button
-                type="button"
-                onClick={() => updateMachine(i, "is_rented", !machine.is_rented)}
-                disabled={isLocked}
-                className={`text-xs px-1.5 py-0.5 rounded ${machine.is_rented ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-400"}`}
-              >
-                {t("rented")}
-              </button>
-              <button type="button" onClick={() => removeMachine(i)} disabled={isLocked} className="text-gray-300 hover:text-red-500">
-                <Trash2 className="h-3 w-3" />
-              </button>
             </div>
-          ))}
-          <button type="button" onClick={addMachine} disabled={isLocked} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            <Plus className="h-3 w-3" /> {t("addMachine")}
-          </button>
-        </div>
-      )}
-
-      {/* Delivery notes section */}
-      <SectionHeader id="delivery" title={t("deliveryNotes")} count={deliveryNotes.length} />
-      {openSection === "delivery" && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3">
-          {deliveryNotes.map((note, i) => (
-            <div key={i} className="space-y-2 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={note.note_number}
-                  onChange={e => updateNote(i, "note_number", e.target.value)}
-                  placeholder={t("noteNumber")}
-                  disabled={isLocked}
-                  className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-gray-50"
-                />
-                <input
-                  type="text"
-                  value={note.supplier_name}
-                  onChange={e => updateNote(i, "supplier_name", e.target.value)}
-                  placeholder={t("supplier")}
-                  disabled={isLocked}
-                  className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-gray-50"
-                />
-                <button type="button" onClick={() => removeNote(i)} disabled={isLocked} className="text-gray-300 hover:text-red-500">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                {note.photo_url ? (
-                  <img src={note.photo_url} alt="Bon" className="h-16 w-16 rounded object-cover" />
-                ) : null}
-                <label className={`flex items-center gap-1.5 text-xs text-blue-600 cursor-pointer ${isLocked ? "opacity-50 pointer-events-none" : ""}`}>
-                  <Camera className="h-3.5 w-3.5" />
-                  {note.photo_url ? t("retakePhoto") : t("takePhoto")}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0];
-                      if (f) handlePhotoCapture(i, f);
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={addDeliveryNote} disabled={isLocked} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            <Plus className="h-3 w-3" /> {t("addNote")}
-          </button>
-        </div>
-      )}
-
-      {/* Weather + Remarks section */}
-      <SectionHeader id="remarks" title={t("remarks")} />
-      {openSection === "remarks" && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">{t("weather") || "Météo"}</label>
-            <input
-              type="text"
-              value={weather}
-              onChange={e => setWeather(e.target.value)}
-              placeholder="Ex: Ensoleillé, 18°C"
-              disabled={isLocked}
-              className="w-full rounded border border-gray-200 px-3 py-2 text-sm bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">{t("remarks")}</label>
             <textarea
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              placeholder={t("remarksPlaceholder")}
+              placeholder={t("remarksPlaceholder") || "Notes, incidents, retards..."}
               disabled={isLocked}
-              rows={3}
-              className="w-full rounded border border-gray-200 px-3 py-2 text-sm bg-gray-50 resize-none"
+              style={{
+                ...inputStyle, width: "100%", minHeight: 60, resize: "vertical",
+                fontFamily: "'Inter', sans-serif",
+              }}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Actions */}
+      {/* ── Actions ── */}
       {!isLocked && (
-        <div className="flex gap-3 pt-2">
+        <div style={{ display: "flex", gap: 8, padding: "6px 0" }}>
           <button
             type="button"
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            style={{
+              flex: 1, padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600,
+              textAlign: "center", cursor: saving ? "not-allowed" : "pointer",
+              background: "#27272A", color: "#D4D4D8", border: "1px solid #3F3F46",
+              opacity: saving ? 0.6 : 1,
+            }}
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {t("saveDraft")}
+            {saving ? "..." : `💾 ${t("saveDraft")}`}
           </button>
           <button
             type="button"
             onClick={() => handleSave(true)}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            style={{
+              flex: 1, padding: 12, borderRadius: 10, fontSize: 13, fontWeight: 600,
+              textAlign: "center", cursor: saving ? "not-allowed" : "pointer",
+              background: "linear-gradient(135deg, #F97316, #EA580C)", color: "white", border: "none",
+              opacity: saving ? 0.6 : 1,
+            }}
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {t("submit")}
+            {saving ? "..." : `📤 ${t("submit")}`}
           </button>
         </div>
       )}

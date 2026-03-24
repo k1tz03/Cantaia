@@ -2,11 +2,10 @@
 
 import { useState, useEffect, use } from "react";
 import { useTranslations } from "next-intl";
-import { Building2, FileText, Map, ClipboardList, Lock, Loader2, AlertCircle, Phone, ShieldAlert, HardHat } from "lucide-react";
+import { FileText, Loader2, AlertCircle } from "lucide-react";
 import { ReportForm } from "@/components/portal/ReportForm";
 
-// Inline tab components to keep it simple
-// Tab 1: Chantier (site info)
+// ─── Tab 1: Chantier ────────────────────────────────────────────────
 function SiteTab({ projectId }: { projectId: string }) {
   const t = useTranslations("portal");
   const [info, setInfo] = useState<any>(null);
@@ -20,113 +19,159 @@ function SiteTab({ projectId }: { projectId: string }) {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>;
-  if (!info || info.error) return <div className="p-4 text-center text-gray-500">Erreur de chargement</div>;
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
+    </div>
+  );
+  if (!info || info.error) return (
+    <div className="p-4 text-center" style={{ color: "#71717A" }}>Erreur de chargement</div>
+  );
 
-  const mapsUrl = info.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${info.address}, ${info.city || ""}`)}` : null;
+  const mapsUrl = info.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${info.address}, ${info.city || ""}`)}`
+    : null;
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-bold text-gray-900">{info.name}</h2>
-        {info.code && <p className="text-sm text-gray-500 mt-0.5">{info.code}</p>}
-        <div className="mt-3 space-y-2">
-          {info.address && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase">{t("address")}</p>
-              {mapsUrl ? (
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
-                  {info.address}{info.city ? `, ${info.city}` : ""}
-                </a>
-              ) : (
-                <p className="text-sm text-gray-700">{info.address}{info.city ? `, ${info.city}` : ""}</p>
-              )}
-            </div>
-          )}
+    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Project card */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 6 }}>
+          Projet
         </div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: "#FAFAFA" }}>
+          {info.name}
+        </div>
+        {info.code && (
+          <div style={{ fontSize: 12, color: "#71717A", marginTop: 2 }}>
+            {info.code}{info.client_name ? ` · ${info.client_name}` : ""}
+          </div>
+        )}
+        {info.address && (
+          mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", gap: 6, marginTop: 8,
+                padding: "8px 12px", background: "#27272A", borderRadius: 8,
+                textDecoration: "none",
+              }}
+            >
+              <span style={{ fontSize: 16 }}>📍</span>
+              <span style={{ fontSize: 13, color: "#60A5FA", flex: 1 }}>
+                {info.address}{info.city ? `, ${info.city}` : ""}
+              </span>
+              <span style={{ color: "#52525B", fontSize: 12 }}>›</span>
+            </a>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "8px 12px", background: "#27272A", borderRadius: 8 }}>
+              <span style={{ fontSize: 16 }}>📍</span>
+              <span style={{ fontSize: 13, color: "#A1A1AA", flex: 1 }}>
+                {info.address}{info.city ? `, ${info.city}` : ""}
+              </span>
+            </div>
+          )
+        )}
       </div>
+
+      {/* Instructions card */}
       {info.description && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("instructions")}</h3>
-          <p className="text-sm text-gray-600 whitespace-pre-wrap">{info.description}</p>
+        <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 6 }}>
+            {t("instructions")}
+          </div>
+          <div style={{ fontSize: 13, color: "#D4D4D8", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            {info.description}
+          </div>
         </div>
       )}
-      {/* Numéros d'urgence */}
-      <div className="bg-red-50 rounded-xl p-4 shadow-sm border border-red-100">
-        <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
-          <Phone className="h-4 w-4" />
-          Numéros d'urgence
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: "Urgences", number: "112" },
-            { label: "Ambulance", number: "144" },
-            { label: "Police", number: "117" },
-            { label: "Pompiers", number: "118" },
-            { label: "REGA", number: "1414" },
-            { label: "Tox Info", number: "145" },
-          ].map(({ label, number }) => (
-            <a
-              key={number}
-              href={`tel:${number}`}
-              className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 border border-red-100 active:bg-red-100 transition-colors"
-            >
-              <span className="text-sm text-gray-700">{label}</span>
-              <span className="text-sm font-bold text-red-600">{number}</span>
-            </a>
-          ))}
+
+      {/* Emergency numbers */}
+      <div style={{
+        background: "linear-gradient(135deg, #1C0909, #1A0505)",
+        border: "1px solid rgba(239, 68, 68, 0.19)",
+        borderRadius: 10, padding: "14px 16px",
+      }}>
+        <div style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
+          color: "#F87171", display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
+        }}>
+          🚨 Num&eacute;ros d&apos;urgence
+        </div>
+        {[
+          { icon: "🚑", label: "Ambulance / Urgences", number: "144", tel: "144" },
+          { icon: "🚒", label: "Pompiers", number: "118", tel: "118" },
+          { icon: "👮", label: "Police", number: "117", tel: "117" },
+          { icon: "🛩️", label: "REGA", number: "1414", tel: "1414" },
+          { icon: "☠️", label: "Tox Info", number: "145", tel: "145" },
+        ].map(({ icon, label, number, tel }) => (
+          <div key={tel} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "6px 0",
+            borderBottom: "1px solid rgba(239, 68, 68, 0.08)",
+          }}>
+            <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{icon}</span>
+            <span style={{ fontSize: 11, color: "#A1A1AA", flex: 1 }}>{label}</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              <a href={`tel:${tel}`} style={{ color: "#60A5FA", textDecoration: "none" }}>{number}</a>
+            </span>
+          </div>
+        ))}
+        {/* Conductor phone if available */}
+        {info.conductor_phone && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "6px 0",
+          }}>
+            <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>📞</span>
+            <span style={{ fontSize: 11, color: "#A1A1AA", flex: 1 }}>
+              Conducteur{info.conductor_name ? ` (${info.conductor_name})` : ""}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              <a href={`tel:${info.conductor_phone}`} style={{ color: "#60A5FA", textDecoration: "none" }}>
+                {info.conductor_phone}
+              </a>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* SUVA safety rules */}
+      <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 10, padding: "14px 16px" }}>
+        <div style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
+          color: "#FBBF24", display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
+        }}>
+          ⚠️ R&egrave;gles SUVA — S&eacute;curit&eacute; chantier
+        </div>
+        {[
+          "Port du casque obligatoire en toutes circonstances",
+          "Chaussures de sécurité S3 obligatoires",
+          "Gilet haute visibilité obligatoire",
+          "Protection auditive en zone de bruit > 85 dB",
+          "Lunettes de protection pour travaux de meulage/découpe",
+          "Harnais obligatoire au-dessus de 2 mètres",
+          "Interdiction de travailler sous l'emprise d'alcool ou drogues",
+          "Signaler tout accident/incident immédiatement",
+        ].map((rule, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0", fontSize: 12, color: "#D4D4D8", lineHeight: 1.4 }}>
+            <span style={{ color: "#FBBF24", fontSize: 12, marginTop: 1, flexShrink: 0 }}>☑</span>
+            <span>{rule}</span>
+          </div>
+        ))}
+        <div style={{ fontSize: 11, color: "#D97706", textAlign: "center", marginTop: 10 }}>
+          Chaque collaborateur a le droit de dire STOP en cas de danger
         </div>
       </div>
 
-      {/* Règles de sécurité SUVA */}
-      <div className="bg-amber-50 rounded-xl p-4 shadow-sm border border-amber-100">
-        <h3 className="text-sm font-semibold text-amber-700 mb-3 flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4" />
-          Règles de sécurité — SUVA
-        </h3>
-        <div className="space-y-2">
-          {[
-            { icon: "🪖", text: "Port du casque obligatoire sur le chantier" },
-            { icon: "👟", text: "Chaussures de sécurité S3 obligatoires" },
-            { icon: "🦺", text: "Gilet haute visibilité obligatoire" },
-            { icon: "🧤", text: "Gants de protection selon les travaux" },
-            { icon: "👓", text: "Lunettes de protection lors de travaux à risque" },
-            { icon: "🔊", text: "Protection auditive en zone bruyante (>85 dB)" },
-            { icon: "⛔", text: "Interdiction de travailler sous l'influence d'alcool ou de drogues" },
-            { icon: "🚧", text: "Sécuriser les zones de travail et les fouilles" },
-            { icon: "⚡", text: "Respecter les distances de sécurité avec les lignes électriques" },
-            { icon: "🪜", text: "Ne jamais travailler en hauteur sans protection contre les chutes" },
-          ].map(({ icon, text }, i) => (
-            <div key={i} className="flex items-start gap-2.5 rounded-lg bg-white px-3 py-2 border border-amber-100">
-              <span className="text-base shrink-0">{icon}</span>
-              <span className="text-sm text-gray-700">{text}</span>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-amber-600 mt-3 text-center">
-          Chaque collaborateur a le droit de dire STOP en cas de danger — Règle vitale SUVA
-        </p>
-      </div>
-
-      <div className="bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-100">
-        <h3 className="text-sm font-semibold text-blue-700 mb-2 flex items-center gap-2">
-          <HardHat className="h-4 w-4" />
-          En cas d'accident
-        </h3>
-        <ol className="space-y-1.5 text-sm text-gray-700 list-decimal list-inside">
-          <li><strong>Protéger</strong> — Sécuriser la zone (baliser, couper les machines)</li>
-          <li><strong>Alerter</strong> — Appeler le 144 (ambulance) ou le 112 (urgences)</li>
-          <li><strong>Secourir</strong> — Premiers soins sans se mettre en danger</li>
-          <li><strong>Informer</strong> — Prévenir le conducteur de travaux immédiatement</li>
-        </ol>
-      </div>
-
-      <p className="text-center text-xs text-gray-400 mt-4">{t("welcome")}</p>
+      <p style={{ textAlign: "center", fontSize: 11, color: "#3F3F46", marginTop: 8 }}>
+        {t("welcome")}
+      </p>
     </div>
   );
 }
 
-// Tab 2: Soumission (no prices)
+// ─── Tab 2: Soumission ──────────────────────────────────────────────
 function SubmissionTab({ projectId }: { projectId: string }) {
   const t = useTranslations("portal");
   const [data, setData] = useState<any>(null);
@@ -142,9 +187,13 @@ function SubmissionTab({ projectId }: { projectId: string }) {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>;
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
+    </div>
+  );
   if (!data || !data.groups || data.groups.length === 0) {
-    return <div className="p-4 text-center text-gray-500">{t("noSubmission")}</div>;
+    return <div style={{ padding: 16, textAlign: "center", color: "#71717A" }}>{t("noSubmission")}</div>;
   }
 
   const filtered = search.trim()
@@ -158,49 +207,51 @@ function SubmissionTab({ projectId }: { projectId: string }) {
     : data.groups;
 
   return (
-    <div className="p-4 space-y-3">
-      <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700 text-center">{t("noPrice")}</div>
+    <div style={{ padding: 16 }}>
       <input
         type="text"
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder={t("searchPosts")}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+        placeholder={"🔍 " + t("searchPosts")}
+        style={{
+          width: "100%", background: "#18181B", border: "1px solid #3F3F46",
+          borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#D4D4D8",
+          outline: "none", marginBottom: 12,
+        }}
       />
-      {filtered.map((group: any) => (
-        <div key={group.name} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <button
-            onClick={() => setOpenGroup(openGroup === group.name ? null : group.name)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left"
-          >
-            <span className="text-sm font-semibold text-gray-900">{group.name}</span>
-            <span className="text-xs text-gray-500">{group.count} {t("posts")}</span>
-          </button>
-          {openGroup === group.name && (
-            <div className="border-t border-gray-100">
-              {group.items.map((item: any) => (
-                <div key={item.id} className="px-4 py-2.5 border-b border-gray-50 last:border-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-400">{item.number}</p>
-                      <p className="text-sm text-gray-700 mt-0.5">{item.description}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-medium text-gray-900">{item.quantity || "—"}</p>
-                      <p className="text-xs text-gray-500">{item.unit || ""}</p>
-                    </div>
-                  </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map((group: any) => (
+          <div key={group.name} style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 8, overflow: "hidden" }}>
+            <button
+              onClick={() => setOpenGroup(openGroup === group.name ? null : group.name)}
+              type="button"
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 12px", cursor: "pointer", background: "none", border: "none", color: "inherit",
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA" }}>{group.name}</span>
+              <span style={{ fontSize: 10, color: "#71717A", background: "#27272A", padding: "2px 6px", borderRadius: 4 }}>
+                {group.count} {t("posts")}
+              </span>
+            </button>
+            {openGroup === group.name && group.items.map((item: any) => (
+              <div key={item.id} style={{ padding: "8px 12px", borderTop: "1px solid #27272A" }}>
+                <div style={{ fontSize: 10, color: "#71717A", fontFamily: "monospace" }}>{item.number}</div>
+                <div style={{ fontSize: 12, color: "#D4D4D8", marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>
+                <div style={{ fontSize: 11, color: "#A1A1AA", marginTop: 3 }}>
+                  {item.quantity || "—"} {item.unit || ""}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// Tab 3: Plans
+// ─── Tab 3: Plans ───────────────────────────────────────────────────
 function PlansTab({ projectId }: { projectId: string }) {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,35 +264,52 @@ function PlansTab({ projectId }: { projectId: string }) {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>;
-  if (plans.length === 0) return <div className="p-4 text-center text-gray-500">Aucun plan disponible</div>;
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#F97316" }} />
+    </div>
+  );
+  if (plans.length === 0) return (
+    <div style={{ padding: 16, textAlign: "center", color: "#71717A" }}>Aucun plan disponible</div>
+  );
 
   return (
-    <div className="p-4 space-y-3">
+    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
       {plans.map(plan => (
         <a
           key={plan.id}
           href={plan.file_url || "#"}
           target="_blank"
           rel="noopener noreferrer"
-          className="block bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-blue-200 transition-colors"
+          style={{
+            display: "flex", alignItems: "center", gap: 12,
+            background: "#18181B", border: "1px solid #27272A", borderRadius: 10,
+            padding: "12px 16px", textDecoration: "none",
+          }}
         >
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-blue-600" />
+          <div style={{
+            height: 40, width: 40, borderRadius: 8,
+            background: "rgba(59, 130, 246, 0.1)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <FileText style={{ height: 20, width: 20, color: "#60A5FA" }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#FAFAFA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {plan.plan_title || plan.plan_number}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{plan.plan_title || plan.plan_number}</p>
-              <p className="text-xs text-gray-500">{plan.discipline || plan.plan_type || ""}</p>
+            <div style={{ fontSize: 11, color: "#71717A" }}>
+              {plan.discipline || plan.plan_type || ""}
             </div>
           </div>
+          <span style={{ color: "#52525B", fontSize: 14 }}>›</span>
         </a>
       ))}
     </div>
   );
 }
 
-// Main portal page
+// ─── Main Portal Page ───────────────────────────────────────────────
 export default function PortalPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = use(params);
   const t = useTranslations("portal");
@@ -249,6 +317,8 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
   const [checking, setChecking] = useState(true);
   const [pin, setPin] = useState("");
   const [userName, setUserName] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [projectCode, setProjectCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("site");
@@ -259,7 +329,17 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
       .then(r => {
         if (r.ok) {
           setAuthenticated(true);
-          r.json().then(d => { if (d.userName) setUserName(d.userName); });
+          r.json().then(d => {
+            if (d.userName) setUserName(d.userName);
+            if (d.name) setProjectName(d.name);
+            if (d.code) setProjectCode(d.code);
+          });
+        } else {
+          // Try to get basic project info even when not authenticated
+          r.json().then(d => {
+            if (d.projectName) setProjectName(d.projectName);
+            if (d.projectCode) setProjectCode(d.projectCode);
+          }).catch(() => {});
         }
       })
       .catch(() => {})
@@ -280,6 +360,7 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
       const data = await res.json();
       if (res.ok) {
         setAuthenticated(true);
+        if (data.projectName) setProjectName(data.projectName);
       } else {
         setError(data.code === "RATE_LIMITED" ? t("tooManyAttempts") : t("invalidPin"));
       }
@@ -290,76 +371,174 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
     }
   }
 
+  // ── Loading state ──
   if (checking) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      <div style={{
+        minHeight: "100vh", background: "linear-gradient(180deg, #0F0F11, #18181B)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#F97316" }} />
       </div>
     );
   }
 
-  // PIN entry screen
+  // ── PIN screen ──
   if (!authenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-lg">
-          <div className="text-center mb-6">
-            <div className="h-14 w-14 mx-auto rounded-xl bg-blue-50 flex items-center justify-center mb-3">
-              <Lock className="h-7 w-7 text-blue-600" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
-            <p className="text-sm text-gray-500 mt-1">{t("enterPin")}</p>
+      <div style={{
+        minHeight: "100vh", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", padding: 24,
+        background: "linear-gradient(180deg, #0F0F11, #18181B)",
+        maxWidth: 430, margin: "0 auto",
+      }}>
+        {/* Logo */}
+        <div style={{
+          width: 48, height: 48,
+          background: "linear-gradient(135deg, #F97316, #EF4444)",
+          borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, color: "white", fontWeight: 800,
+          fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 16,
+        }}>
+          C
+        </div>
+        <div style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800,
+          color: "#FAFAFA", textAlign: "center",
+        }}>
+          Portail Chantier
+        </div>
+        {(projectName || projectCode) && (
+          <div style={{ fontSize: 13, color: "#71717A", textAlign: "center", marginTop: 4, marginBottom: 24 }}>
+            {projectName}{projectCode ? ` · ${projectCode}` : ""}
           </div>
+        )}
+        {!projectName && !projectCode && <div style={{ marginBottom: 24 }} />}
 
-          {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
+        {error && (
+          <div style={{
+            width: "100%", marginBottom: 12, display: "flex", alignItems: "center", gap: 8,
+            borderRadius: 10, background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)",
+            padding: "10px 14px", fontSize: 13, color: "#F87171",
+          }}>
+            <AlertCircle style={{ height: 16, width: 16, flexShrink: 0 }} />
+            {error}
+          </div>
+        )}
 
-          <div className="space-y-3">
+        <form onSubmit={handleLogin} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Name field */}
+          <div style={{ width: "100%", marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", marginBottom: 4, display: "block" }}>
+              {t("yourNamePlaceholder") || "Votre nom"}
+            </label>
             <input
               type="text"
               value={userName}
               onChange={e => setUserName(e.target.value)}
-              placeholder={t("yourNamePlaceholder")}
-              className="w-full rounded-lg border border-gray-200 px-4 py-3 text-center text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Ex: Edgar Cardoso"
+              style={{
+                width: "100%", background: "#27272A", border: "1px solid #3F3F46",
+                borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#FAFAFA",
+                outline: "none", fontFamily: "'Inter', sans-serif",
+              }}
             />
+          </div>
+
+          {/* PIN field */}
+          <div style={{ width: "100%", marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", marginBottom: 4, display: "block" }}>
+              Code PIN
+            </label>
             <input
               type="tel"
               inputMode="numeric"
               maxLength={6}
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder={t("pinPlaceholder")}
-              className="w-full rounded-lg border border-gray-200 px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="• • • • • •"
+              style={{
+                width: "100%", background: "#27272A", border: "1px solid #3F3F46",
+                borderRadius: 10, padding: "12px 16px", fontSize: 15, color: "#FAFAFA",
+                textAlign: "center", letterSpacing: 8, fontWeight: 700,
+                fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none",
+              }}
             />
-            <button
-              type="submit"
-              disabled={pin.length !== 6 || !userName.trim() || loading}
-              className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : t("access")}
-            </button>
           </div>
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={pin.length !== 6 || !userName.trim() || loading}
+            style={{
+              width: "100%", padding: 14, borderRadius: 10,
+              background: pin.length === 6 && userName.trim() && !loading
+                ? "linear-gradient(135deg, #F97316, #EA580C)"
+                : "#3F3F46",
+              color: "white", fontSize: 15, fontWeight: 600, border: "none",
+              cursor: pin.length === 6 && userName.trim() && !loading ? "pointer" : "not-allowed",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 8,
+              opacity: pin.length === 6 && userName.trim() && !loading ? 1 : 0.5,
+            }}
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" style={{ margin: "0 auto", display: "block" }} />
+            ) : (
+              t("access") || "Accéder au chantier"
+            )}
+          </button>
         </form>
+
+        <div style={{ fontSize: 11, color: "#52525B", textAlign: "center", marginTop: 12 }}>
+          Code fourni par votre conducteur de travaux
+        </div>
       </div>
     );
   }
 
-  // Authenticated — 4-tab layout
+  // ── Authenticated app shell ──
   const tabs = [
-    { id: "site", icon: Building2, label: t("tabSite") },
-    { id: "submission", icon: ClipboardList, label: t("tabSubmission") },
-    { id: "plans", icon: Map, label: t("tabPlans") },
-    { id: "report", icon: FileText, label: t("tabReport") },
+    { id: "site", icon: "🏗️", label: t("tabSite") || "Chantier" },
+    { id: "submission", icon: "📋", label: t("tabSubmission") || "Soumission" },
+    { id: "plans", icon: "📐", label: t("tabPlans") || "Plans" },
+    { id: "report", icon: "📝", label: t("tabReport") || "Rapport" },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div style={{
+      minHeight: "100vh", display: "flex", flexDirection: "column",
+      background: "#0C0C0E", color: "#E4E4E7", maxWidth: 430, margin: "0 auto",
+      position: "relative",
+    }}>
+      {/* App header */}
+      <div style={{
+        background: "#09090B", padding: "12px 16px", display: "flex",
+        alignItems: "center", gap: 10, borderBottom: "1px solid #27272A",
+      }}>
+        <div style={{
+          width: 28, height: 28,
+          background: "linear-gradient(135deg, #F97316, #EF4444)",
+          borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 14, color: "white", fontWeight: 800,
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}>
+          C
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14,
+            fontWeight: 700, color: "#FAFAFA",
+          }}>
+            {projectName || "Chantier"}
+          </div>
+          <div style={{ fontSize: 11, color: "#71717A" }}>
+            {userName || ""}
+          </div>
+        </div>
+      </div>
+
       {/* Content area */}
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 68 }}>
         {activeTab === "site" && <SiteTab projectId={projectId} />}
         {activeTab === "submission" && <SubmissionTab projectId={projectId} />}
         {activeTab === "plans" && <PlansTab projectId={projectId} />}
@@ -367,23 +546,41 @@ export default function PortalPage({ params }: { params: Promise<{ projectId: st
       </div>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-pb">
-        <div className="flex items-center justify-around h-16">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1 ${isActive ? "text-blue-600" : "text-gray-400"}`}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      <nav style={{
+        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+        width: "100%", maxWidth: 430,
+        background: "#09090B", borderTop: "1px solid #27272A",
+        display: "flex", padding: "6px 0", zIndex: 50,
+      }}>
+        {tabs.map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1, display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 2, padding: "6px 0",
+                cursor: "pointer", background: "none", border: "none",
+                transition: "all 0.12s",
+              }}
+            >
+              <span style={{
+                fontSize: 18,
+                filter: isActive ? "drop-shadow(0 0 4px rgba(249,115,22,0.4))" : "none",
+              }}>
+                {tab.icon}
+              </span>
+              <span style={{
+                fontSize: 9, fontWeight: 500,
+                color: isActive ? "#F97316" : "#52525B",
+              }}>
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
