@@ -59,7 +59,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
-  const { branding } = useBranding();
+  useBranding(); // keep hook active for context
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
 
@@ -122,7 +122,6 @@ export function Sidebar() {
     localStorage.setItem("cantaia_sidebar_collapsed", String(collapsed));
   }, [collapsed]);
 
-  // Logo removed — now in AppHeader
 
   function isActive(href: string): boolean {
     const pathWithoutLocale = pathname.replace(/^\/(fr|en|de)/, "");
