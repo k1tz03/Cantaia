@@ -525,7 +525,7 @@ export default function NouveauPVPage() {
                   <button
                     type="button"
                     onClick={() => removeParticipant(i)}
-                    className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500"
+                    className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -561,7 +561,7 @@ export default function NouveauPVPage() {
                     setAudioMode("record");
                     recorder.startRecording();
                   }}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-red-200 bg-red-50/50 py-8 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-red-500/20 bg-red-500/5 py-8 text-red-400 transition-colors hover:border-red-500/30 hover:bg-red-500/10"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500 text-white shadow-lg">
                     <Mic className="h-6 w-6" />
@@ -574,7 +574,7 @@ export default function NouveauPVPage() {
 
               {/* Recording in progress */}
               {recorder.isRecording && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6">
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
@@ -587,7 +587,7 @@ export default function NouveauPVPage() {
                         <button
                           type="button"
                           onClick={recorder.resumeRecording}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                          className="inline-flex items-center gap-1.5 rounded-md bg-cta px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
                         >
                           <Play className="h-4 w-4" />
                           {t("resume")}
@@ -596,7 +596,7 @@ export default function NouveauPVPage() {
                         <button
                           type="button"
                           onClick={recorder.pauseRecording}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+                          className="inline-flex items-center gap-1.5 rounded-md bg-[#52525B] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F3F46]"
                         >
                           <Pause className="h-4 w-4" />
                           {t("pause")}
@@ -617,7 +617,7 @@ export default function NouveauPVPage() {
 
               {/* Recording complete */}
               {recorder.audioBlob && !recorder.isRecording && (
-                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <FileAudio className="h-5 w-5 text-green-600" />
@@ -653,7 +653,7 @@ export default function NouveauPVPage() {
               )}
 
               {recorder.error && (
-                <div className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+                <div className="mt-2 rounded-md bg-red-500/10 p-3 text-sm text-red-400">
                   {t(recorder.error)}
                 </div>
               )}
@@ -683,7 +683,7 @@ export default function NouveauPVPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 py-8 text-muted-foreground transition-colors hover:border-blue-300 hover:bg-primary/10/30"
+                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 py-8 text-muted-foreground transition-colors hover:border-[#F97316]/30 hover:bg-[#F97316]/5"
                   >
                     <Upload className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm">{t("upload_audio")}</p>
@@ -692,7 +692,7 @@ export default function NouveauPVPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <FileAudio className="h-5 w-5 text-green-600" />
@@ -740,7 +740,7 @@ export default function NouveauPVPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-md border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
             {error}
           </div>
         )}

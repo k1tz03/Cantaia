@@ -89,7 +89,7 @@ export function TicketCreateModal({ open, onClose, onCreated }: TicketCreateModa
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {error && (
-              <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-500/20">
+              <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400 ring-1 ring-inset ring-red-500/20">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>

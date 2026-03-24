@@ -73,7 +73,7 @@ export function ProjectClosureTab({
             </div>
             <div>
               <p className="text-xs text-muted-foreground">{tc("reserveStatus")}</p>
-              <p className={`mt-0.5 text-sm font-medium ${openReservesCount > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+              <p className={`mt-0.5 text-sm font-medium ${openReservesCount > 0 ? "text-red-400" : "text-green-400"}`}>
                 {openReservesCount > 0 ? `${openReservesCount} ${tc("reserveOpen").toLowerCase()}` : tc("allReservesLifted")}
               </p>
             </div>
@@ -81,7 +81,7 @@ export function ProjectClosureTab({
           {openReservesCount > 0 && (
             <Link
               href={`/projects/${project.id}/reserves`}
-              className="mt-4 inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-500/20"
+              className="mt-4 inline-flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-400 hover:bg-red-500/20"
             >
               <CheckSquare className="h-3.5 w-3.5" />
               {tc("viewReserves")} ({openReservesCount})

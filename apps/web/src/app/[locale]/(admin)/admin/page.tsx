@@ -26,14 +26,14 @@ export default function AdminPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#18181B]">
       {/* Header with tabs */}
-      <div className="border-b bg-white">
+      <div className="border-b border-[#27272A] bg-[#18181B]">
         <div className="mx-auto max-w-7xl px-6">
-          <h1 className="pt-6 text-2xl font-bold text-gray-900">
+          <h1 className="pt-6 text-2xl font-display font-extrabold text-[#FAFAFA]">
             {t("title")}
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-[#71717A]">
             {t("overviewSubtitle")}
           </p>
           <div className="mt-4 flex gap-1">
@@ -43,8 +43,8 @@ export default function AdminPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-[#F97316] text-[#F97316]"
+                    : "border-transparent text-[#71717A] hover:text-[#D4D4D8]"
                 }`}
               >
                 <tab.icon className="h-4 w-4" />

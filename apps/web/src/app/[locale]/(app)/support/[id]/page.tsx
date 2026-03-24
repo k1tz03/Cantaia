@@ -37,7 +37,7 @@ interface Ticket {
 }
 
 const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-gray-400",
+  low: "bg-[#52525B]",
   medium: "bg-amber-400",
   high: "bg-red-500",
 };
@@ -138,7 +138,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
       {/* Resolved banner */}
       {isResolved && (
         <div className="mb-4 flex items-center justify-between rounded-lg bg-green-500/10 px-4 py-3">
-          <p className="text-sm text-green-700 dark:text-green-400">
+          <p className="text-sm text-green-400">
             {ticket.status === "resolved" ? t("resolvedBanner") : t("closedBanner")}
           </p>
           {ticket.status === "resolved" && (

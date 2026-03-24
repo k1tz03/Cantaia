@@ -404,7 +404,7 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, email_address: e.target.value }))
                 }
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 placeholder="julien@monbureau.ch"
               />
             </div>
@@ -418,7 +418,7 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, imap_password: e.target.value }))
                 }
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
             </div>
 
@@ -435,7 +435,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, imap_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="imap.example.com"
                   />
                 </div>
@@ -449,7 +449,7 @@ export function IntegrationsTab() {
                         imap_port: parseInt(e.target.value) || 993,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
@@ -463,7 +463,7 @@ export function IntegrationsTab() {
                       onChange={() =>
                         setImapForm((f) => ({ ...f, imap_security: sec }))
                       }
-                      className="accent-blue-600"
+                      className="accent-[#F97316]"
                     />
                     {sec.toUpperCase()}
                   </label>
@@ -489,7 +489,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, smtp_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="smtp.example.com"
                   />
                 </div>
@@ -503,7 +503,7 @@ export function IntegrationsTab() {
                         smtp_port: parseInt(e.target.value) || 587,
                       }))
                     }
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
@@ -517,7 +517,7 @@ export function IntegrationsTab() {
                       onChange={() =>
                         setImapForm((f) => ({ ...f, smtp_security: sec }))
                       }
-                      className="accent-blue-600"
+                      className="accent-[#F97316]"
                     />
                     {sec.toUpperCase()}
                   </label>
@@ -559,8 +559,8 @@ export function IntegrationsTab() {
               <div
                 className={`rounded-md p-3 text-sm ${
                   testResult.success
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400"
+                    ? "bg-green-500/10 text-green-400"
+                    : "bg-red-500/10 text-red-400"
                 }`}
               >
                 {testResult.success ? (
@@ -610,7 +610,7 @@ export function IntegrationsTab() {
               <CheckCircle className="h-4 w-4 text-green-500" />
               <span className="text-sm text-foreground">
                 {t("statusLabel")} :{" "}
-                <span className="font-medium text-green-700 dark:text-green-400">
+                <span className="font-medium text-green-400">
                   {t("connected")}
                 </span>
               </span>
@@ -666,7 +666,7 @@ export function IntegrationsTab() {
         // ── Loading connection status ──
         <div className="rounded-lg border border-border bg-background p-6">
           <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
             <p className="text-sm text-muted-foreground">{t("emailConnecting")}</p>
           </div>
         </div>

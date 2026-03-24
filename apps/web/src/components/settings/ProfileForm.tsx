@@ -106,8 +106,8 @@ export function ProfileForm() {
         <div
           className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
             toast.type === "success"
-              ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
-              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+              ? "bg-green-500/10 text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-400 border border-red-500/20"
           }`}
         >
           {toast.type === "success" && <Check className="h-4 w-4" />}
@@ -147,7 +147,7 @@ export function ProfileForm() {
             {...register("first_name")}
             type="text"
             id="first_name"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
           {errors.first_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -167,7 +167,7 @@ export function ProfileForm() {
             {...register("last_name")}
             type="text"
             id="last_name"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
           {errors.last_name && (
             <p className="mt-1 text-xs text-red-500">
@@ -190,7 +190,7 @@ export function ProfileForm() {
             {...register("phone")}
             type="tel"
             id="phone"
-            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
         </div>
 
@@ -219,7 +219,7 @@ export function ProfileForm() {
         <select
           {...register("preferred_language")}
           id="preferred_language"
-          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
         >
           <option value="fr">Fran&ccedil;ais</option>
           <option value="en">English</option>
@@ -234,7 +234,7 @@ export function ProfileForm() {
           disabled={isPending || !isDirty}
           className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
             isDirty
-              ? "bg-blue-600 hover:bg-blue-700"
+              ? "bg-cta hover:bg-[#EA580C]"
               : "bg-muted cursor-not-allowed"
           }`}
         >

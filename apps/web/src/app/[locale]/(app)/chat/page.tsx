@@ -23,7 +23,7 @@ function JMAvatar({ size = "sm" }: { size?: "sm" | "lg" }) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-[#2563EB]",
+        "flex shrink-0 items-center justify-center rounded-full bg-[#F97316]",
         size === "lg" ? "h-16 w-16" : "h-8 w-8"
       )}
     >
@@ -580,7 +580,7 @@ export default function ChatPage() {
                     className={cn(
                       "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                       msg.role === "user"
-                        ? "bg-[#2563EB] text-white rounded-br-md"
+                        ? "bg-[#F97316] text-white rounded-br-md"
                         : "bg-muted text-foreground rounded-bl-md"
                     )}
                   >
@@ -678,7 +678,7 @@ export default function ChatPage() {
               <button
                 onClick={() => sendMessage()}
                 disabled={(!input.trim() && pendingFiles.length === 0) || isStreaming || uploading}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cta text-white transition-colors hover:bg-[#EA580C] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isStreaming || uploading ? (
                   <Loader2 className="h-4.5 w-4.5 animate-spin" />

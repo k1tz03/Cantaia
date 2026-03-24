@@ -267,7 +267,7 @@ export default function BriefingPage() {
       {recentVisits.length > 0 && (
         <div className="mt-6">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <UserCheck className="h-4 w-4 text-blue-500" />
+            <UserCheck className="h-4 w-4 text-[#F97316]" />
             {tv("recentVisits")}
           </h2>
           <div className="mt-2 space-y-2">
@@ -287,7 +287,7 @@ export default function BriefingPage() {
                   </div>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  v.status === "report_ready" ? "bg-blue-100 text-primary" : "bg-red-100 text-red-700 dark:text-red-400"
+                  v.status === "report_ready" ? "bg-[#F97316]/10 text-[#F97316]" : "bg-red-500/10 text-red-400"
                 }`}>
                   {v.status === "report_ready" ? tv("statusReportReady") : tv("statusRecording")}
                 </span>
@@ -326,7 +326,7 @@ export default function BriefingPage() {
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold ${
-                    d.days_remaining <= 3 ? "text-red-700 dark:text-red-400" : d.days_remaining <= 7 ? "text-amber-700 dark:text-amber-400" : "text-purple-700 dark:text-purple-400"
+                    d.days_remaining <= 3 ? "text-red-400" : d.days_remaining <= 7 ? "text-amber-400" : "text-purple-400"
                   }`}>
                     {d.days_remaining}j
                   </p>
@@ -334,8 +334,8 @@ export default function BriefingPage() {
                   {d.note && (
                     <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       d.days_remaining <= 3
-                        ? "bg-red-100 text-red-700 dark:text-red-400"
-                        : "bg-amber-100 text-amber-700 dark:text-amber-400"
+                        ? "bg-red-500/10 text-red-400"
+                        : "bg-amber-500/10 text-amber-400"
                     }`}>
                       {d.note}
                     </span>
@@ -387,7 +387,7 @@ export default function BriefingPage() {
       {briefing.meetings_today.length > 0 && (
         <div className="mt-6">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Calendar className="h-4 w-4 text-blue-500" />
+            <Calendar className="h-4 w-4 text-[#F97316]" />
             {t("meetingsTitle")}
           </h2>
           <div className="mt-2 space-y-2">
@@ -396,7 +396,7 @@ export default function BriefingPage() {
                 key={i}
                 className="flex items-center gap-3 rounded-md border border-primary/20 bg-primary/10/50 px-4 py-3"
               >
-                <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                <span className="text-sm font-semibold text-[#F97316]">
                   {meeting.time}
                 </span>
                 <div>
@@ -445,8 +445,8 @@ function StatCard({
   color?: "red" | "amber" | "blue";
 }) {
   const colorClasses = {
-    red: "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400",
-    amber: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    red: "border-red-500/20 bg-red-500/10 text-red-400",
+    amber: "border-amber-500/20 bg-amber-500/10 text-amber-400",
     blue: "border-primary/20 bg-primary/10 text-primary",
   };
 

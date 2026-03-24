@@ -48,7 +48,7 @@ export function ProjectOverviewTab({
           </div>
           <div className="rounded-md border border-border bg-background p-4">
             <p className="text-xs font-medium text-muted-foreground">{t("overdueTasks")}</p>
-            <p className="mt-1 text-2xl font-bold text-red-600 dark:text-red-400">
+            <p className="mt-1 text-2xl font-bold text-red-400">
               {overdueTasks.length}
             </p>
           </div>

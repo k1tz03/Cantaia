@@ -25,12 +25,12 @@ const STATUS_CONFIG: Record<
   { labelKey: string; icon: React.ElementType; color: string; bg: string; animate?: boolean }
 > = {
   scheduled: { labelKey: "status_draft", icon: FileText, color: "text-muted-foreground", bg: "bg-muted" },
-  recording: { labelKey: "status_recording", icon: Mic, color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" },
+  recording: { labelKey: "status_recording", icon: Mic, color: "text-red-400", bg: "bg-red-500/10" },
   transcribing: { labelKey: "status_transcribing", icon: Loader2, color: "text-primary", bg: "bg-primary/10" },
-  generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10" },
-  review: { labelKey: "status_review", icon: Pencil, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-500/10" },
-  finalized: { labelKey: "status_finalized", icon: CheckCircle, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10" },
-  sent: { labelKey: "status_sent", icon: Send, color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10" },
+  generating_pv: { labelKey: "status_generating", icon: Sparkles, color: "text-violet-400", bg: "bg-violet-500/10" },
+  review: { labelKey: "status_review", icon: Pencil, color: "text-orange-400", bg: "bg-orange-500/10" },
+  finalized: { labelKey: "status_finalized", icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10" },
+  sent: { labelKey: "status_sent", icon: Send, color: "text-green-400", bg: "bg-green-500/10" },
 };
 
 function formatDate(dateStr: string): string {

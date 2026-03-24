@@ -56,7 +56,7 @@ interface PlanFromApi {
 // ── Status config ──
 
 const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
-  active: { labelKey: "statusActive", color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
+  active: { labelKey: "statusActive", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
   superseded: { labelKey: "statusSuperseded", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
   withdrawn: { labelKey: "statusWithdrawn", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
   for_approval: { labelKey: "statusForApproval", color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20", icon: Clock },
@@ -75,13 +75,13 @@ const DISCIPLINE_KEYS: Record<string, string> = {
 };
 
 const DISCIPLINE_COLORS: Record<string, string> = {
-  architecture: "bg-blue-100 text-primary",
-  structure: "bg-orange-100 text-orange-700 dark:text-orange-400",
-  cvcs: "bg-cyan-100 text-cyan-700 dark:text-cyan-400",
-  electricite: "bg-yellow-100 text-yellow-700 dark:text-yellow-400",
-  sanitaire: "bg-teal-100 text-teal-700 dark:text-teal-400",
-  facades: "bg-purple-100 text-purple-700 dark:text-purple-400",
-  amenagement: "bg-green-100 text-green-700 dark:text-green-400",
+  architecture: "bg-[#F97316]/10 text-[#F97316]",
+  structure: "bg-orange-500/10 text-orange-400",
+  cvcs: "bg-cyan-500/10 text-cyan-400",
+  electricite: "bg-yellow-500/10 text-yellow-400",
+  sanitaire: "bg-teal-500/10 text-teal-400",
+  facades: "bg-purple-500/10 text-purple-400",
+  amenagement: "bg-green-500/10 text-green-400",
 };
 
 // ── Helpers ──

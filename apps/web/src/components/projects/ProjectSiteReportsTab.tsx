@@ -325,9 +325,9 @@ export function ProjectSiteReportsTab({ projectId }: SiteReportsTabProps) {
                     <td className="px-4 py-2.5 text-sm text-foreground">{report.submitted_by_name || "—"}</td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        report.status === "draft" ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" :
-                        report.status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
+                        report.status === "submitted" ? "bg-green-500/10 text-green-400" :
+                        "bg-[#F97316]/10 text-[#F97316]"
                       }`}>
                         {t(report.status as any)}
                       </span>
@@ -413,9 +413,9 @@ function ReportDetailContent({
           <p className="text-sm text-muted-foreground mt-0.5">
             {report.submitted_by_name || "—"}
             <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-              report.status === "draft" ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" :
-              report.status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+              report.status === "draft" ? "bg-[#27272A] text-[#71717A]" :
+              report.status === "submitted" ? "bg-green-500/10 text-green-400" :
+              "bg-[#F97316]/10 text-[#F97316]"
             }`}>
               {t(report.status as any)}
             </span>
@@ -467,7 +467,7 @@ function ReportDetailContent({
                       <span className="text-sm font-medium text-foreground">{group.name}</span>
                       {group.role && <span className="text-xs text-muted-foreground">{group.role}</span>}
                       {group.is_driver && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 text-xs">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F97316]/10 text-[#F97316] px-2 py-0.5 text-xs">
                           <Truck className="h-3 w-3" />
                           {t("driver")}
                         </span>
@@ -506,7 +506,7 @@ function ReportDetailContent({
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-foreground">{entry.machine_description || "—"}</span>
                     {entry.is_rented && (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs">
+                      <span className="inline-flex items-center rounded-full bg-amber-500/10 text-amber-400 px-2 py-0.5 text-xs">
                         {t("rented")}
                       </span>
                     )}

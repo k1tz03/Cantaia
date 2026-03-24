@@ -56,7 +56,7 @@ export function ProjectTasksTab({
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     {task.assigned_to_name && <span>{task.assigned_to_name}</span>}
                     {task.due_date && (
-                      <span className={`flex items-center gap-1 ${overdue ? "font-medium text-red-600 dark:text-red-400" : ""}`}>
+                      <span className={`flex items-center gap-1 ${overdue ? "font-medium text-red-400" : ""}`}>
                         <Clock className="h-3 w-3" />
                         {formatDate(task.due_date)}
                       </span>

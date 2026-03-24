@@ -128,8 +128,8 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
                 {email.classification && (
                   <span className={cn(
                     "flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium",
-                    email.classification === "urgent" ? "bg-red-500/10 text-red-700 dark:text-red-400" :
-                    email.classification === "action_required" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" :
+                    email.classification === "urgent" ? "bg-red-500/10 text-red-400" :
+                    email.classification === "action_required" ? "bg-amber-500/10 text-amber-400" :
                     "bg-muted text-muted-foreground"
                   )}>
                     {email.classification === "urgent" ? "Urgent" :

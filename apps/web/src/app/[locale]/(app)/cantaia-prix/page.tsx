@@ -294,7 +294,7 @@ export default function CantaiaPrixPage() {
               <Calculator className="h-5 w-5 text-brand" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Cantaia Prix</h1>
+              <h1 className="text-xl font-display font-extrabold text-foreground">Cantaia Prix</h1>
               <p className="text-sm text-muted-foreground">
                 Estimation automatique des coûts pour vos projets de construction
               </p>

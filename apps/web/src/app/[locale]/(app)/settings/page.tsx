@@ -251,7 +251,7 @@ function ProfileSection() {
               type="text"
               value={form.data.first_name as string}
               onChange={(e) => form.update({ first_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
           <div>
@@ -260,7 +260,7 @@ function ProfileSection() {
               type="text"
               value={form.data.last_name as string}
               onChange={(e) => form.update({ last_name: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
         </div>
@@ -273,7 +273,7 @@ function ProfileSection() {
               type="tel"
               value={form.data.phone as string}
               onChange={(e) => form.update({ phone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
           <div>
@@ -297,7 +297,7 @@ function ProfileSection() {
               value={form.data.job_title as string}
               onChange={(e) => form.update({ job_title: e.target.value })}
               placeholder={t("jobTitlePlaceholder")}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
         </div>
@@ -395,7 +395,7 @@ function LanguageSection() {
             <select
               value={form.data.preferred_language as string}
               onChange={(e) => form.update({ preferred_language: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="fr">Fran&ccedil;ais</option>
               <option value="en">English</option>
@@ -408,7 +408,7 @@ function LanguageSection() {
             <select
               value={form.data.date_format as string}
               onChange={(e) => form.update({ date_format: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="dd.MM.yyyy">22.02.2026 (Suisse)</option>
               <option value="dd/MM/yyyy">22/02/2026 (France)</option>
@@ -422,7 +422,7 @@ function LanguageSection() {
             <select
               value={form.data.timezone as string}
               onChange={(e) => form.update({ timezone: e.target.value })}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             >
               <option value="Europe/Zurich">Europe/Zurich (CET)</option>
               <option value="Europe/Paris">Europe/Paris (CET)</option>
@@ -763,12 +763,12 @@ function SecuritySection() {
 
       {/* Danger zone */}
       <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6">
-        <h3 className="mb-1 text-sm font-semibold text-red-800 dark:text-red-400">{t("dangerZone")}</h3>
-        <p className="mb-4 text-sm text-red-600">{t("dangerZoneDesc")}</p>
+        <h3 className="mb-1 text-sm font-semibold text-red-400">{t("dangerZone")}</h3>
+        <p className="mb-4 text-sm text-red-500">{t("dangerZoneDesc")}</p>
         <button
           type="button"
           disabled
-          className="rounded-lg border border-red-500/20 bg-background px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 opacity-50"
+          className="rounded-lg border border-red-500/20 bg-background px-4 py-2.5 text-sm font-medium text-red-400 opacity-50"
         >
           {t("deleteAccount")}
         </button>

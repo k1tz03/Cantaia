@@ -81,7 +81,7 @@ export function SubscriptionTab() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Starter */}
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div className="rounded-xl border border-border bg-background p-5">
             <h4 className="text-sm font-semibold text-foreground">Starter</h4>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-foreground">149</span>
@@ -106,8 +106,8 @@ export function SubscriptionTab() {
           </div>
 
           {/* Pro */}
-          <div className="relative rounded-lg border-2 border-blue-500 bg-background p-5">
-            <div className="absolute -top-2.5 left-4 rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-medium text-white">
+          <div className="relative rounded-xl border-2 border-[#F97316] bg-background p-5">
+            <div className="absolute -top-2.5 left-4 rounded-full bg-[#F97316] px-2.5 py-0.5 text-xs font-medium text-white">
               {t("popular")}
             </div>
             <h4 className="text-sm font-semibold text-foreground">Pro</h4>
@@ -119,7 +119,7 @@ export function SubscriptionTab() {
             <ul className="mt-4 space-y-2">
               {proFeatures.map((f, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#F97316]" />
                   {f.text}
                 </li>
               ))}
@@ -127,14 +127,14 @@ export function SubscriptionTab() {
             <button
               type="button"
               onClick={() => setShowUpgradeModal(true)}
-              className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="mt-4 w-full rounded-md bg-cta py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
             >
               {t("choosePlan")}
             </button>
           </div>
 
           {/* Enterprise */}
-          <div className="rounded-lg border border-border bg-background p-5">
+          <div className="rounded-xl border border-border bg-background p-5">
             <h4 className="text-sm font-semibold text-foreground">Enterprise</h4>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-foreground">790</span>

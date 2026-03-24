@@ -183,7 +183,7 @@ export function ProjectPlanningTab({ projectId }: ProjectPlanningTabProps) {
             isGenerating={generating}
           />
           {generateError && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg shadow-lg max-w-md text-sm">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <p>{generateError}</p>

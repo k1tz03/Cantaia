@@ -390,7 +390,7 @@ export default function NewProjectPage() {
                       key={kw}
                       className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                         isAuto
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200"
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                           : "bg-brand/10 text-brand"
                       }`}
                     >
@@ -465,7 +465,7 @@ export default function NewProjectPage() {
 
         {/* Error message */}
         {errorMsg && (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-400">
+          <div className="mt-6 rounded-md border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
             {errorMsg}
           </div>
         )}

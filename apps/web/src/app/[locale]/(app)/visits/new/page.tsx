@@ -374,7 +374,7 @@ export default function NewVisitPage() {
               type="button"
               onClick={handleStartRecording}
               disabled={!form.client_name || saving}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-cta px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#EA580C] disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
               {t("saveAndRecord")}
@@ -445,7 +445,7 @@ export default function NewVisitPage() {
                   className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-muted"
                 >
                   <span className="flex items-center gap-2">
-                    <Camera className="h-4 w-4 text-blue-500" />
+                    <Camera className="h-4 w-4 text-[#F97316]" />
                     {t("photos.sitePhotos")}
                   </span>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sitePhotosExpanded ? "rotate-180" : ""}`} />
@@ -493,7 +493,7 @@ export default function NewVisitPage() {
             <button
               onClick={handleUploadAndTranscribe}
               disabled={transcribing}
-              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-semibold text-white hover:bg-[#EA580C] disabled:opacity-50"
             >
               {transcribing ? (
                 <>

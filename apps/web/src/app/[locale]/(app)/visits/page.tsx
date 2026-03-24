@@ -101,14 +101,14 @@ export default function VisitsPage() {
     switch (status) {
       case "recording":
       case "transcribing":
-        return { color: "bg-red-500/10 text-red-700 dark:text-red-400", icon: Mic, label: t("statusRecording") };
+        return { color: "bg-red-500/10 text-red-400", icon: Mic, label: t("statusRecording") };
       case "report_ready":
       case "reviewed":
         return { color: "bg-primary/10 text-primary", icon: FileText, label: t("statusReportReady") };
       case "quoted":
-        return { color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: DollarSign, label: t("statusQuoted") };
+        return { color: "bg-amber-500/10 text-amber-400", icon: DollarSign, label: t("statusQuoted") };
       case "won":
-        return { color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle, label: t("statusWon") };
+        return { color: "bg-green-500/10 text-green-400", icon: CheckCircle, label: t("statusWon") };
       case "lost":
         return { color: "bg-muted text-muted-foreground", icon: XCircle, label: t("statusLost") };
       default:
@@ -119,7 +119,7 @@ export default function VisitsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-20">
-        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
       </div>
     );
   }
@@ -138,14 +138,14 @@ export default function VisitsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
+          <h1 className="flex items-center gap-2 text-2xl font-display font-extrabold text-foreground">
             <UserCheck className="h-6 w-6 text-primary" />
             {t("title")}
           </h1>
         </div>
         <Link
           href="/visits/new"
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-1.5 rounded-lg bg-cta px-4 py-2.5 text-sm font-medium text-white hover:bg-[#EA580C]"
         >
           <Plus className="h-4 w-4" />
           {t("newVisit")}
@@ -187,8 +187,8 @@ export default function VisitsPage() {
             onClick={() => setFilter(f.id)}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === f.id
-                ? "bg-blue-600 text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted"
+                ? "bg-[#F97316] text-white"
+                : "bg-muted text-muted-foreground hover:bg-[#1C1C1F]"
             }`}
           >
             {f.label}

@@ -22,7 +22,7 @@ interface Ticket {
 }
 
 const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-gray-400",
+  low: "bg-[#52525B]",
   medium: "bg-amber-400",
   high: "bg-red-500",
 };
@@ -77,7 +77,7 @@ export default function SupportPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+          <h1 className="text-2xl font-display font-extrabold text-foreground">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("myTickets")}</p>
         </div>
         <button
@@ -162,7 +162,7 @@ export default function SupportPage() {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{formatDate(ticket.created_at)}</td>
                   <td className="px-4 py-3">
                     {hasUnread(ticket) && (
-                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" title={t("unread")} />
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#F97316]" title={t("unread")} />
                     )}
                   </td>
                 </tr>

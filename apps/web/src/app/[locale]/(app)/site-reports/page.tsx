@@ -109,7 +109,7 @@ export default function SiteReportsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("siteReports")}</h1>
+          <h1 className="text-2xl font-display font-extrabold text-foreground">{t("siteReports")}</h1>
           <p className="text-sm text-muted-foreground">Centralisation heures et bons de livraison</p>
         </div>
         <div className="flex items-center gap-2">

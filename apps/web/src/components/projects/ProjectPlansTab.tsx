@@ -68,8 +68,8 @@ export function ProjectPlansTab({
                       <td className="px-4 py-2.5">
                         <span className={cn(
                           "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          plan.status === "active" ? "bg-green-500/10 text-green-700 dark:text-green-400" :
-                          plan.status === "superseded" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" :
+                          plan.status === "active" ? "bg-green-500/10 text-green-400" :
+                          plan.status === "superseded" ? "bg-amber-500/10 text-amber-400" :
                           "bg-muted text-muted-foreground"
                         )}>
                           {plan.status || "active"}
