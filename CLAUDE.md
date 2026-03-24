@@ -2203,3 +2203,250 @@ CREATE INDEX idx_email_classification_rules_org ON email_classification_rules (o
 | `prompts.ts` | Prompt L3 enrichi (prix, deadlines, supplier) |
 | `briefing-generator.ts` | Accepte `marketTrends` C2 |
 | `planning-generator.ts` | Dépendances CFC + recalcul CPM |
+
+---
+
+## 24. Refonte Design System — Dark Theme Zinc/Orange (2026-03-24)
+
+### Vue d'ensemble
+
+Refonte complète du design system de Cantaia, passant d'un thème clair/bleu à un thème dark/zinc/orange inspiré de Procore. Toutes les pages app + landing ont été réécrites structurellement (pas juste les couleurs).
+
+### Palette de couleurs (HARDCODÉE — pas de classes sémantiques)
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `bg-deep` | `#09090B` | Header marketing, footer |
+| `bg-base` | `#0F0F11` | Fond principal pages |
+| `bg-sidebar` | `#111113` | Sidebar navigation |
+| `bg-card` | `#18181B` | Cards, panneaux, modales |
+| `bg-elevated` | `#1C1C1F` | Éléments surélevés |
+| `border` | `#27272A` | Bordures par défaut |
+| `border-hover` | `#3F3F46` | Bordures au survol |
+| `text-white` | `#FAFAFA` | Titres, texte principal |
+| `text-secondary` | `#A1A1AA` | Texte secondaire |
+| `text-muted` | `#71717A` | Texte discret |
+| `text-faint` | `#52525B` | Texte très discret |
+| `orange` | `#F97316` | Accent principal (CTA, active, badges) |
+| `orange-dark` | `#EA580C` | Orange foncé (gradient, hover) |
+| `blue` | `#3B82F6` | Info, liens, status |
+| `green` | `#10B981` / `#22C55E` | Succès, validations |
+| `red` | `#EF4444` | Erreurs, urgences |
+| `amber` | `#F59E0B` | Warnings |
+
+### Règles critiques du design system
+
+1. **`forcedTheme="dark"`** sur ThemeProvider dans `[locale]/layout.tsx` + `enableSystem={false}` — empêche le mode clair
+2. **NE JAMAIS utiliser** les classes sémantiques Tailwind/shadcn :
+   - ❌ `bg-background`, `bg-card`, `text-foreground`, `border-border`, `bg-muted`, `bg-primary`, `text-primary`
+   - ✅ `bg-[#0F0F11]`, `bg-[#18181B]`, `text-[#FAFAFA]`, `border-[#27272A]`, `bg-[#F97316]`
+3. **Emails HTML** : toujours wrapper le contenu dans `<div className="bg-white text-black">` (sinon texte invisible sur fond noir)
+4. **Font headings** : Plus Jakarta Sans (`font-display`), **PAS** Playfair Display
+5. **Font body** : Inter (`font-sans`)
+
+### Nouveaux composants structurels
+
+#### AppHeader (`components/app/AppHeader.tsx`)
+- Barre fixe 48px en haut de l'app
+- `bg-[#0F0F11]/95 backdrop-blur-xl border-b border-[#27272A]`
+- Logo gradient orange "C" + "Cantaia" à gauche
+- Breadcrumb contextuel au centre
+- Recherche `⌘K`, notifications, avatar à droite
+
+#### Sidebar modifiée (`components/app/Sidebar.tsx`)
+- Largeur 220px, `bg-sidebar` (#111113)
+- **Logo supprimé** (déplacé dans AppHeader)
+- Active states en orange : `bg-[#F97316]/10 text-[#F97316]`
+- Hover : `hover:bg-[#27272A]/50`
+- Badge support avec polling 60s
+- `useBranding()` sans destructuration (champs optionnels)
+
+### Pages réécrites structurellement (11 pages)
+
+Chaque page a été réécrite pour correspondre aux maquettes HTML validées dans `.superpowers/design-preview/{page}-v3.html`.
+
+| Page | Fichier | Changements structurels |
+|------|---------|------------------------|
+| **Dashboard** | `dashboard/page.tsx` | Greeting gradient, 4 KPIs colorés, action banner orange, 2-col projets+feed, briefing IA |
+| **Mail** | `mail/page.tsx` | 2-panel Outlook (420px liste + preview), KPI strip, bucket headers, AI summary, action bar |
+| **Chat** | `chat/page.tsx` | 280px sidebar conversations, messages dark (user=orange, AI=gauche), suggestion chips, typing dots |
+| **Projects** | `projects/page.tsx` | 2-col cards grid, 4 mini-stats par card, progress bars, team avatars, health badges |
+| **Settings** | `settings/page.tsx` + 8 sous-composants | 220px nav dark, form inputs dark, connection cards, plan cards 3-col |
+| **Suppliers** | `suppliers/page.tsx` | 4 KPIs, table avec score bars, 420px slide-in detail panel |
+| **Support** | `support/page.tsx` + `[id]/page.tsx` | Table avec emoji badges, 2-panel thread conversationnel |
+| **Portal** | `portal/[projectId]/page.tsx` + `ReportForm.tsx` | Dark PIN screen, numéros urgence, règles SUVA, formulaire rapport dark |
+| **Planning** | En cours | Gantt colors updated, toolbar dark |
+| **Submissions** | En cours | Couleurs dark appliquées |
+| **Tasks** | En cours | Couleurs dark appliquées |
+
+### Remplacement bulk des couleurs
+
+Commande `sed` exécutée sur TOUS les fichiers .tsx (1879 occurrences) :
+- `bg-background` → `bg-[#0F0F11]`
+- `bg-card` → `bg-[#18181B]`
+- `bg-muted` → `bg-[#27272A]`
+- `text-foreground` → `text-[#FAFAFA]`
+- `border-border` → `border-[#27272A]`
+- `bg-primary` → `bg-[#F97316]`
+- `text-primary` → `text-[#F97316]`
+
+### Layout App après refonte
+
+```
+┌─────────────────────────────────────────────────┐
+│  AppHeader (48px) — logo, breadcrumb, search    │
+├──────────┬──────────────────────────────────────┤
+│ Sidebar  │                                      │
+│ (220px)  │         Page Content                 │
+│ #111113  │         #0F0F11                      │
+│          │                                      │
+│ Orange   │                                      │
+│ active   │                                      │
+│ states   │                                      │
+└──────────┴──────────────────────────────────────┘
+```
+
+---
+
+## 25. Landing Page — État Actuel (2026-03-24)
+
+### Structure des sections (ordre d'affichage)
+
+```
+1. Header (sticky, dark, blur)
+2. HeroSection — titre + badge + CTA + mockup dashboard animé
+3. ProofSection — stats bar (modules, IA, heures économisées)
+4. ProblemSection — pain points cards + solution
+5. FeaturesSection — 6 feature cards (Mail, Soumissions, Planning, Portail, Chat IA, Direction)
+6. SpotlightSection — mockup PV de chantier
+7. FeaturePrixSection (BentoGrid) — mockup estimation prix
+8. VideoSection — vidéo cinématique autoplay
+9. HowItWorksSection — 3 étapes (Connecter, Automatiser, Piloter)
+10. TrustSection (FAQSection) — 3 cards confiance + 4 stats
+11. PricingSection — 3 plans (Starter/Pro/Enterprise) — TEMPORAIREMENT MASQUÉ
+12. FinalCTASection — CTA final avec image fond
+13. Footer
+```
+
+### Assets landing (`apps/web/public/landing/`)
+
+| Fichier | Taille | Usage |
+|---------|--------|-------|
+| `hero-bg.png` | 8.3 MB | Fond hero (chantier suisse, golden hour) — opacity 7% |
+| `problem-bg.png` | 8.7 MB | Section problème (bureau stressant) |
+| `trust-datacenter.png` | 7.5 MB | Section confiance (datacenter) |
+| `cta-manager.png` | 8.1 MB | Section CTA finale (chef de projet) |
+| `demo.mp4` | 2.4 MB | Vidéo cinématique (8s) |
+
+⚠️ **Total ~35 MB** — À optimiser en WebP/AVIF ou servir depuis CDN
+
+### Composants landing (`apps/web/src/components/landing/`, 14 fichiers)
+
+| Composant | Export | Description |
+|-----------|--------|-------------|
+| `HeroSection.tsx` | `HeroSection` | Titre gradient, badge CH, 2 CTA, trust badges, mockup dashboard animé |
+| `ProofSection.tsx` | `ProofSection` | Stats bar (12 modules, 3 IA, 2h/jour, 100% Suisse) |
+| `ProblemSection.tsx` | `ProblemSection` | 3 pain points rouge/ambre + solution verte |
+| `FeaturesSection.tsx` | `FeaturesSection` | 6 cards features (3x2 grid) avec icônes Lucide |
+| `SpotlightSection.tsx` | `SpotlightSection` | Mockup PV dark avec barre de progression orange |
+| `BentoGrid.tsx` | `FeaturePrixSection` | Mockup tableau estimation avec badges source |
+| `VideoSection.tsx` | `VideoSection` | Vidéo autoplay muted avec overlay play button |
+| `HowItWorksSection.tsx` | `HowItWorksSection` | 3 étapes numérotées avec ligne gradient |
+| `FAQSection.tsx` | `TrustSection` | 3 cards confiance + image datacenter + 4 stats |
+| `PricingSection.tsx` | `PricingSection` | 3 plans (Pro = highlighted orange) |
+| `FinalCTASection.tsx` | `FinalCTASection` | CTA final avec fond image manager |
+| `AnimatedSection.tsx` | `AnimatedSection` | Wrapper animation scroll |
+| `index.ts` | re-exports | Barrel exports |
+
+### Informations factuelles à respecter
+
+- **Hébergement** : Allemagne (PAS Suisse) — ne pas promettre d'hébergement suisse
+- **Uptime** : pas de SLA garanti — ne pas promettre de pourcentage uptime
+- **Pricing** : temporairement masqué — user pas encore décidé sur les prix finaux
+- **Clients** : pas encore de clients payants — pas de faux témoignages
+- **Note/Rating** : le JSON-LD contient un `aggregateRating 4.8/5 (12 reviews)` — **FAUX, à retirer**
+
+### Landing — i18n
+
+Toutes les chaînes visibles passent par `useTranslations("landing.{section}")` :
+- `landing.hero` : badge, titleLine1, titleLine3, subtitle, cta, ctaSecondary, trust1-3
+- `landing.proof` : stat1-4Value/Label
+- `landing.problem` : title, subtitle, pain1-3Title/Desc, solutionTitle, solutionDesc
+- `landing.features` : title, feature1-6Title/Desc
+- `landing.spotlight` : titre, sous-titre, bullets PV
+- `landing.pricing` : titre, plans, features
+- `landing.howItWorks` : titre, 3 étapes
+- `landing.finalCta` : titre, sous-titre, CTA
+- `landing.nav` : liens navigation
+- `landing.footer` : sections, liens, copyright
+
+### Design previews (non commités)
+
+Dossier `.superpowers/design-preview/` contient les maquettes HTML de référence :
+- 11 maquettes app : `{page}-v3.html` (dashboard, mail, projects, submissions, tasks, planning, suppliers, chat, settings, portal, support)
+- 3 versions landing : `landing-v1.html`, `landing-v2.html`, `landing-v3.html`
+- 4 images sources + 1 vidéo (fichiers originaux avant copie dans `public/landing/`)
+- Plusieurs explorations palette/sidebar antérieures
+
+---
+
+## 26. Pièges & Conventions Techniques (2026-03-24)
+
+### Bash
+- Paths avec `[locale]` et `(marketing)` : **toujours** utiliser des guillemets doubles dans les commandes bash
+- Exemple : `git add "apps/web/src/app/[locale]/(marketing)/page.tsx"`
+
+### TypeScript
+- `[...new Set(...)]` retourne `unknown[]` en mode strict → utiliser `Array.from(new Set<string>(...))`
+- Colonnes absentes des types Database (ex: `portal_enabled`) → cast `(admin as any).from("table")`
+- `useBranding()` : ne pas destructurer si les champs sont optionnels (crash runtime)
+- Imports inutilisés = **erreur de build** sur Vercel (pas juste warning)
+
+### Supabase
+- `@supabase/ssr` v0.5.2 bug de types : cast `(x as any)` pour les nouvelles colonnes
+- `createAdminClient()` pour backend (bypass RLS), `createClient()` pour frontend
+
+### Images
+- Images landing ~8 MB chacune → **à optimiser** en WebP/AVIF
+- Next.js `<Image>` avec `fill` + `sizes` pour optimisation automatique
+- Pas de SVG en upload (XSS prevention)
+
+### Dark mode
+- **JAMAIS** de `bg-white` ou `text-black` sauf dans les wrappers de contenu email HTML
+- `prose-invert` ne fonctionne PAS avec le thème hardcodé → ne pas utiliser
+- Toujours vérifier le rendu dark mode avant de commit
+
+### Landing
+- Framer Motion : `whileInView={{ once: true }}` pour éviter les re-animations au scroll
+- JSON-LD : prix `99 CHF` et `aggregateRating 4.8` sont **FAUX** — à corriger quand les vrais prix sont décidés
+- Le `PricingSection` est importé mais les prix sont ceux de CLAUDE.md (149/349/790 CHF) — le user veut les masquer
+
+### Git
+- Ne jamais `git push --force` sur main
+- Toujours vérifier `pnpm type-check` avant de commit
+- Les agents background peuvent pousser même si on dit "non" — **attention**
+
+---
+
+## 27. TODO Techniques (Mars 2026 — mis à jour)
+
+### Priorité haute
+1. ~~Appliquer migrations 059-062~~ → script `apply_all_missing.sql`
+2. Optimiser images landing (WebP/AVIF, ~35 MB → ~5 MB)
+3. Retirer le faux `aggregateRating` du JSON-LD homepage
+4. Implémenter rate limiting routes IA (`@upstash/ratelimit`) — SEC2.NC1
+5. Migrer bucket "plans" public → privé + signed URLs — SEC2.NC3
+6. Définir `MICROSOFT_TOKEN_ENCRYPTION_KEY` en production — SEC2.NC4
+
+### Priorité moyenne
+7. Pricing landing : décider prix finaux et démasquer `PricingSection`
+8. Finir les rewrites structurels : Planning (Gantt), Submissions, Tasks
+9. Landing : remplacer le mockup Dashboard HTML par une vraie capture d'écran
+10. Ajouter vidéo Gemini haute qualité (15s+, prompt amélioré)
+11. Générer images Banana Pro et intégrer
+
+### Priorité basse
+12. PWA : icônes 192x192 et 512x512 pour manifest
+13. Landing : ajouter section témoignages quand premiers clients
+14. Landing : animer les chiffres (CountUp) dans ProofSection
+15. DNS : configurer cantaia.com, cantaia.app, cantaia.ch → redirect cantaia.io
