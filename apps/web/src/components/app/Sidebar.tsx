@@ -242,25 +242,8 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className={cn(
-          "flex items-center border-b border-[#27272A] h-14 px-4",
-          collapsed ? "justify-center" : "gap-2.5"
+          "border-b border-[#27272A] h-3"
         )}>
-          {isBranded && branding.logoUrl ? (
-            <img src={branding.logoUrl} alt={displayName} className="h-8 max-w-[140px] object-contain" />
-          ) : (
-            <>
-              <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" fill="none">
-                <rect x="2" y="8" width="28" height="18" rx="3" stroke="#F97316" strokeWidth="2" />
-                <path d="M8 14h6M8 18h10M8 22h8" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M22 14l4 4-4 4" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {!collapsed && (
-                <span className="font-display text-lg font-bold tracking-tight text-[#FAFAFA]">
-                  Cantaia
-                </span>
-              )}
-            </>
-          )}
         </div>
 
         {/* Navigation */}
