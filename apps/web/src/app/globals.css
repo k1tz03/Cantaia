@@ -141,7 +141,6 @@
 /* Structural backgrounds */
 .bg-header { background-color: #09090B; }
 .bg-sidebar { background-color: #111113; }
-.light .bg-sidebar { background-color: #1C1C1F; }
 .bg-surface { background-color: hsl(var(--card)); }
 .bg-elevated { background-color: hsl(var(--muted)); }
 

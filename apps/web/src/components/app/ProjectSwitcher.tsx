@@ -74,10 +74,10 @@ export function ProjectSwitcher() {
 
   if (!activeProject) {
     return (
-      <div data-project-switcher className="px-3 py-2 relative">
+      <div data-project-switcher className="px-[6px] py-2 relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+          className="flex w-full items-center gap-2 rounded-[7px] px-[10px] py-[6px] text-[13px] text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
         >
           <FolderKanban className="h-4 w-4" />
           <span>{t("selectProject")}</span>
@@ -98,18 +98,18 @@ export function ProjectSwitcher() {
   }
 
   return (
-    <div data-project-switcher className="px-3 py-2 relative">
+    <div data-project-switcher className="px-[6px] py-2 relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-accent"
+        className="flex w-full items-center gap-2 rounded-[7px] px-[10px] py-[6px] text-[13px] font-medium text-[#D4D4D8] hover:bg-[#1C1C1F]"
       >
         <span
           className="h-3 w-3 rounded-full shrink-0"
-          style={{ backgroundColor: activeProject.color || "#2563EB" }}
+          style={{ backgroundColor: activeProject.color || "#F97316" }}
         />
         <span className="truncate">{activeProject.name}</span>
         <ChevronDown
-          className={`ml-auto h-3 w-3 shrink-0 transition-transform ${
+          className={`ml-auto h-3 w-3 shrink-0 text-[#71717A] transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -147,25 +147,25 @@ function ProjectDropdown({
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="absolute left-3 right-3 top-full z-50 mt-1 rounded-md border bg-popover shadow-md">
+    <div className="absolute left-[6px] right-[6px] top-full z-50 mt-1 rounded-md border border-[#27272A] bg-[#18181B] shadow-md">
       <div className="p-2">
-        <div className="flex items-center gap-2 rounded-md border px-2">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex items-center gap-2 rounded-md border border-[#27272A] px-2">
+          <Search className="h-3.5 w-3.5 text-[#71717A]" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={t("projectSearch")}
-            className="flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent py-1.5 text-sm text-[#D4D4D8] outline-none placeholder:text-[#52525B]"
             autoFocus
           />
         </div>
       </div>
       <div className="max-h-[200px] overflow-y-auto px-1 pb-2">
         {loading ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">...</p>
+          <p className="px-3 py-2 text-xs text-[#71717A]">...</p>
         ) : projects.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">
+          <p className="px-3 py-2 text-xs text-[#71717A]">
             {t("selectProject")}
           </p>
         ) : (
@@ -173,23 +173,23 @@ function ProjectDropdown({
             <button
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className={`flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent ${
-                p.id === activeId ? "bg-accent font-medium" : ""
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8] ${
+                p.id === activeId ? "bg-[#1C1C1F] text-[#D4D4D8] font-medium" : ""
               }`}
             >
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: p.color || "#2563EB" }}
+                style={{ backgroundColor: p.color || "#F97316" }}
               />
               <span className="truncate">{p.name}</span>
             </button>
           ))
         )}
       </div>
-      <div className="border-t px-1 py-1">
+      <div className="border-t border-[#27272A] px-1 py-1">
         <Link
           href="/projects"
-          className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+          className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-xs text-[#71717A] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
         >
           <FolderKanban className="h-3 w-3" />
           {t("seeAll")}

@@ -34,14 +34,14 @@ export function ThemeToggle({ collapsed }: ThemeToggleProps) {
     <button
       onClick={handleClick}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        "text-muted-foreground hover:bg-muted hover:text-foreground",
+        "flex items-center gap-3 rounded-[7px] px-[10px] py-[6px] text-[13px] font-medium transition-colors",
+        "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]",
         collapsed && "justify-center px-0"
       )}
       title={collapsed ? label : undefined}
       aria-label={label}
     >
-      <Icon className="h-[18px] w-[18px] shrink-0" />
+      <Icon className="h-[14px] w-[18px] shrink-0" />
       {!collapsed && <span className="flex-1">{label}</span>}
     </button>
   );

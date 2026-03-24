@@ -87,23 +87,23 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
           {activeProject ? (
             <div
               className="h-8 w-8 rounded-md flex items-center justify-center text-xs font-bold text-white cursor-pointer"
-              style={{ backgroundColor: activeProject.color || "#2563EB" }}
+              style={{ backgroundColor: activeProject.color || "#F97316" }}
               title={activeProject.name}
             >
               {activeProject.name.charAt(0).toUpperCase()}
             </div>
           ) : (
-            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground text-xs">
+            <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[#27272A] text-[#71717A] text-xs">
               ?
             </div>
           )}
-          <div className="invisible group-hover:visible absolute left-full ml-2 top-0 z-50 min-w-[200px] rounded-md border bg-popover p-2 shadow-md">
-            <p className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">
+          <div className="invisible group-hover:visible absolute left-full ml-2 top-0 z-50 min-w-[200px] rounded-md border border-[#27272A] bg-[#18181B] p-2 shadow-md">
+            <p className="px-2 py-1 text-[10px] font-semibold text-[#52525B] uppercase tracking-wider">
               {t("sections.activeProject")}
             </p>
             {activeProject ? (
               <>
-                <p className="px-2 py-1 text-sm font-medium">{activeProject.name}</p>
+                <p className="px-2 py-1 text-sm font-medium text-[#D4D4D8]">{activeProject.name}</p>
                 {visibleTools.map((tool) => {
                   const Icon = tool.icon;
                   const count = getCount(tool);
@@ -111,19 +111,19 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
                     <Link
                       key={tool.key}
                       href={getToolHref(tool)}
-                      className="flex items-center gap-2 rounded-sm px-2 py-1 text-sm hover:bg-accent"
+                      className="flex items-center gap-2 rounded-sm px-2 py-1 text-sm text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       <span>{t(tool.labelKey)}</span>
                       {count !== null && (
-                        <span className="ml-auto text-xs text-muted-foreground">{count}</span>
+                        <span className="ml-auto text-xs text-[#71717A]">{count}</span>
                       )}
                     </Link>
                   );
                 })}
               </>
             ) : (
-              <p className="px-2 py-1 text-sm text-muted-foreground">{t("selectProject")}</p>
+              <p className="px-2 py-1 text-sm text-[#71717A]">{t("selectProject")}</p>
             )}
           </div>
         </div>
@@ -133,14 +133,14 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="py-1">
-      <p className="px-5 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-[10px] pt-[8px] pb-[2px]">
         {t("sections.activeProject")}
       </p>
 
       <ProjectSwitcher />
 
       {activeProject && (
-        <div className="mt-1 space-y-0.5 px-3">
+        <div className="mt-1 space-y-0.5 px-[6px]">
           {visibleTools.map((tool) => {
             const Icon = tool.icon;
             const active = isToolActive(tool);
@@ -149,18 +149,18 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
               <Link
                 key={tool.key}
                 href={getToolHref(tool)}
-                className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                className={`flex items-center gap-2.5 rounded-[7px] px-[10px] py-[6px] text-[13px] transition-colors ${
                   active
-                    ? "bg-blue-50 text-blue-700 font-medium"
-                    : "text-foreground/80 hover:bg-accent"
+                    ? "bg-gradient-to-r from-[rgba(249,115,22,0.09)] to-transparent text-[#F97316] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
                 }`}
               >
-                <Icon className={`h-[18px] w-[18px] ${active ? "text-blue-600" : ""}`} />
+                <Icon className={`h-[14px] w-[18px] ${active ? "text-[#F97316]" : "text-[#A1A1AA]"}`} />
                 <span className="truncate">{t(tool.labelKey)}</span>
                 {count !== null && (
                   <span
                     className={`ml-auto text-xs ${
-                      active ? "text-blue-600" : "text-muted-foreground"
+                      active ? "text-[#F97316]" : "text-[#71717A]"
                     }`}
                   >
                     {count}
@@ -172,17 +172,17 @@ export function ActiveProjectSection({ collapsed }: { collapsed: boolean }) {
 
           <Link
             href={`/projects/${activeProject.id}`}
-            className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+            className="flex items-center gap-2.5 rounded-[7px] px-[10px] py-[6px] text-[13px] text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
           >
-            <MoreHorizontal className="h-[18px] w-[18px]" />
+            <MoreHorizontal className="h-[14px] w-[18px]" />
             <span>{t("seeAll")}</span>
           </Link>
         </div>
       )}
 
       {isLoading && !activeProject && (
-        <div className="px-5 py-2">
-          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+        <div className="px-[10px] py-2">
+          <div className="h-4 w-24 animate-pulse rounded bg-[#27272A]" />
         </div>
       )}
     </div>
