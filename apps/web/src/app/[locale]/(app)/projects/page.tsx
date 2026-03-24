@@ -3,22 +3,18 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
-import { StatusBadge, cn } from "@cantaia/ui";
+import { cn } from "@cantaia/ui";
 import {
   Plus,
-  CheckSquare,
-  Calendar,
-  Mail,
-  AlertTriangle,
   Search,
-  LayoutGrid,
-  List,
-  ChevronDown,
-  ChevronUp,
-  ArrowUpDown,
-  FolderOpen,
   MapPin,
-  Clock,
+  CalendarDays,
+  FolderOpen,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
+  AlertTriangle,
+  Download,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -26,8 +22,7 @@ import { useProjects, useUserProfile } from "@/lib/hooks/use-supabase-data";
 
 type ViewMode = "cards" | "list";
 type SortOption = "urgency" | "name" | "created" | "activity";
-type StatusFilter = "all" | "active" | "planning" | "paused" | "completed" | "archived";
-type HealthFilter = "all" | "attention";
+type StatusFilter = "all" | "active" | "attention";
 type SortDirection = "asc" | "desc";
 type HealthStatus = "good" | "warning" | "critical";
 
@@ -37,20 +32,68 @@ function getProjectHealth(overdueTasks: number, openTasks: number): HealthStatus
   return "good";
 }
 
-function formatMeetingDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${dd}.${mm} ${hh}h${min !== "00" ? min : ""}`;
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
 }
 
-const healthConfig = {
-  good: { dot: "bg-emerald-500", text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-l-emerald-500", ring: "" },
-  warning: { dot: "bg-amber-500", text: "text-amber-400", bg: "bg-amber-500/10", border: "border-l-amber-500", ring: "ring-1 ring-amber-500/30" },
-  critical: { dot: "bg-red-500", text: "text-red-400", bg: "bg-red-500/10", border: "border-l-red-500", ring: "ring-1 ring-red-500/30" },
-};
+function formatCHF(amount: number | null | undefined): string {
+  if (!amount) return "—";
+  if (amount >= 1_000_000) return `CHF ${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `CHF ${(amount / 1_000).toFixed(0)}K`;
+  return `CHF ${amount.toFixed(0)}`;
+}
+
+function getRelativeTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffD = Math.floor(diffMs / 86400000);
+  if (diffMin < 1) return "maintenant";
+  if (diffMin < 60) return `il y a ${diffMin}min`;
+  if (diffH < 24) return `il y a ${diffH}h`;
+  if (diffD === 1) return "hier";
+  if (diffD < 7) return `il y a ${diffD}j`;
+  return formatDate(dateStr);
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+const AVATAR_COLORS = ["#3B82F6", "#10B981", "#F97316", "#8B5CF6", "#EF4444", "#F59E0B", "#EC4899", "#06B6D4"];
+
+function getProgressPercent(startDate: string | null | undefined, endDate: string | null | undefined): number {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  const now = Date.now();
+  if (now <= start) return 0;
+  if (now >= end) return 100;
+  return Math.round(((now - start) / (end - start)) * 100);
+}
+
+function getGradientForColor(color: string | null | undefined): string {
+  const c = (color || "#F97316").toLowerCase();
+  if (c.includes("3b82f6") || c === "blue") return "linear-gradient(90deg, #3B82F6, #60A5FA)";
+  if (c.includes("10b981") || c === "green") return "linear-gradient(90deg, #10B981, #34D399)";
+  if (c.includes("8b5cf6") || c === "purple") return "linear-gradient(90deg, #8B5CF6, #A78BFA)";
+  if (c.includes("ef4444") || c === "red") return "linear-gradient(90deg, #EF4444, #F87171)";
+  if (c.includes("f59e0b") || c === "yellow") return "linear-gradient(90deg, #F59E0B, #FBBF24)";
+  return "linear-gradient(90deg, #F97316, #FB923C)";
+}
 
 export default function ProjectsPage() {
   const t = useTranslations("projects");
@@ -61,11 +104,8 @@ export default function ProjectsPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
-  const [sortOption, setSortOption] = useState<SortOption>("urgency");
+  const [sortOption] = useState<SortOption>("urgency");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [tableSortCol, setTableSortCol] = useState<string | null>(null);
   const [tableSortDir, setTableSortDir] = useState<SortDirection>("desc");
 
@@ -89,6 +129,9 @@ export default function ProjectsPage() {
         openTasks: (pa.openTasks as number) ?? 0,
         overdueTasks: (pa.overdueTasks as number) ?? 0,
         emailCount: (pa.emailCount as number) ?? 0,
+        submissionCount: (pa.submissionCount as number) ?? 0,
+        workerCount: (pa.workerCount as number) ?? 0,
+        members: (pa.members as { name: string }[]) ?? [],
         nextMeeting: (pa.nextMeeting as { title: string; meeting_date: string } | null) ?? null,
         health: getProjectHealth(pa.overdueTasks ?? 0, pa.openTasks ?? 0),
       };
@@ -98,8 +141,8 @@ export default function ProjectsPage() {
   // Filter
   const filteredProjects = useMemo(() => {
     return enrichedProjects.filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      if (healthFilter === "attention" && p.health === "good") return false;
+      if (statusFilter === "active" && p.status !== "active") return false;
+      if (statusFilter === "attention" && p.health === "good") return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return (
@@ -111,7 +154,7 @@ export default function ProjectsPage() {
       }
       return true;
     });
-  }, [enrichedProjects, statusFilter, healthFilter, searchQuery]);
+  }, [enrichedProjects, statusFilter, searchQuery]);
 
   // Sort
   const sortedProjects = useMemo(() => {
@@ -122,12 +165,12 @@ export default function ProjectsPage() {
         let valA: string | number, valB: string | number;
         switch (tableSortCol) {
           case "name": valA = a.name; valB = b.name; break;
-          case "code": valA = a.code || ""; valB = b.code || ""; break;
           case "client": valA = a.client_name || ""; valB = b.client_name || ""; break;
           case "city": valA = a.city || ""; valB = b.city || ""; break;
           case "emails": valA = a.emailCount; valB = b.emailCount; break;
           case "tasks": valA = a.openTasks; valB = b.openTasks; break;
           case "overdue": valA = a.overdueTasks; valB = b.overdueTasks; break;
+          case "budget": valA = (a as any).budget_total || 0; valB = (b as any).budget_total || 0; break;
           default: return 0;
         }
         if (typeof valA === "string") {
@@ -168,52 +211,34 @@ export default function ProjectsPage() {
     }
   }
 
+  const activeCount = enrichedProjects.filter((p) => p.status === "active" || p.status === "planning").length;
   const attentionCount = enrichedProjects.filter((p) => p.health !== "good").length;
+  const totalBudget = enrichedProjects.reduce((sum, p) => sum + ((p as any).budget_total || 0), 0);
 
-  const statusFilterLabel: Record<StatusFilter, string> = {
-    all: t("filter_all"),
-    active: t("filter_active"),
-    planning: t("filter_planning"),
-    paused: t("filter_paused"),
-    completed: t("filter_completed"),
-    archived: t("filter_archived"),
-  };
-
-  const sortLabels: Record<SortOption, string> = {
-    urgency: t("sortUrgency"),
-    name: t("sortName"),
-    created: t("sortCreated"),
-    activity: t("sortActivity"),
-  };
-
-  // Loading state — wait for profile to load, then projects
+  // Loading state
   const isLoading = !profileLoaded || projectsLoading;
   if (isLoading) {
     return (
-      <div className="min-h-full bg-[#0F0F11] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="min-h-full px-4 py-5 sm:px-6 lg:px-8" style={{ background: "#0F0F11" }}>
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-6 w-32 animate-pulse rounded-lg bg-[#27272A]" />
-            <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-[#27272A]" />
+            <div className="h-7 w-32 animate-pulse rounded-lg" style={{ background: "#27272A" }} />
+            <div className="mt-2 h-4 w-56 animate-pulse rounded-lg" style={{ background: "#27272A" }} />
           </div>
           <div className="flex gap-2">
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-[#27272A]" />
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-[#27272A]" />
+            <div className="h-9 w-24 animate-pulse rounded-lg" style={{ background: "#27272A" }} />
+            <div className="h-9 w-36 animate-pulse rounded-lg" style={{ background: "#27272A" }} />
           </div>
         </div>
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="rounded-xl border border-[#27272A] bg-[#18181B] p-4 shadow-sm">
-              <div className="flex items-start gap-2.5">
-                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#27272A]" />
-                <div className="flex-1">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-[#27272A]" />
-                  <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-[#27272A]" />
-                </div>
-              </div>
-              <div className="mt-4 flex gap-2 border-t border-[#27272A] pt-3">
-                <div className="h-6 w-14 animate-pulse rounded-md bg-[#27272A]" />
-                <div className="h-6 w-14 animate-pulse rounded-md bg-[#27272A]" />
+        <div className="mt-6 grid grid-cols-1 gap-3.5 md:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl p-5" style={{ background: "#18181B", border: "1px solid #27272A" }}>
+              <div className="h-5 w-3/4 animate-pulse rounded" style={{ background: "#27272A" }} />
+              <div className="mt-2 h-3 w-1/2 animate-pulse rounded" style={{ background: "#27272A" }} />
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j} className="h-14 animate-pulse rounded-md" style={{ background: "#27272A" }} />
+                ))}
               </div>
             </div>
           ))}
@@ -237,345 +262,547 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#0F0F11] px-4 py-5 sm:px-6 lg:px-8">
-      {/* Header */}
+    <div className="min-h-full px-4 py-5 sm:px-6 lg:px-8" style={{ background: "#0F0F11" }}>
+      {/* ===== PAGE HEADER ===== */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA]">{t("title")}</h1>
-          <p className="mt-0.5 text-[13px] text-[#71717A]">
-            {t("subtitle")}
-            {enrichedProjects.length > 0 && (
-              <span className="ml-2 text-[#71717A]">
-                ({enrichedProjects.length})
-              </span>
-            )}
+          <h1 style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#FAFAFA" }}>
+            {t("title")}
+          </h1>
+          <p style={{ fontSize: "13px", color: "#71717A", marginTop: "2px" }}>
+            {activeCount} {activeCount === 1 ? "projet actif" : "projets actifs"}
+            {totalBudget > 0 && <> · {formatCHF(totalBudget)} budget total</>}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sort dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => { setShowSortDropdown(!showSortDropdown); setShowStatusDropdown(false); }}
-              className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-xs text-[#71717A] hover:bg-[#1C1C1F] transition-colors"
-            >
-              <ArrowUpDown className="h-3.5 w-3.5 text-[#71717A]" />
-              {sortLabels[sortOption]}
-              <ChevronDown className="h-3 w-3 text-[#71717A]" />
-            </button>
-            {showSortDropdown && (
-              <div className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-[#27272A] bg-[#18181B] py-1 shadow-lg">
-                {(Object.keys(sortLabels) as SortOption[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => { setSortOption(key); setShowSortDropdown(false); setTableSortCol(null); }}
-                    className={cn(
-                      "flex w-full px-3 py-2 text-xs transition-colors hover:bg-[#1C1C1F]",
-                      sortOption === key ? "font-semibold text-[#F97316] bg-[#F97316]/10" : "text-[#71717A]"
-                    )}
-                  >
-                    {sortLabels[key]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* View toggle */}
-          <div className="flex rounded-lg border border-[#27272A] bg-[#18181B] p-0.5">
-            <button
-              onClick={() => changeViewMode("cards")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
-                viewMode === "cards"
-                  ? "bg-[#F97316] text-white shadow-sm"
-                  : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#1C1C1F]"
-              )}
-              title={t("viewCards")}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => changeViewMode("list")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
-                viewMode === "list"
-                  ? "bg-[#F97316] text-white shadow-sm"
-                  : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#1C1C1F]"
-              )}
-              title={t("viewList")}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* New project */}
+          <button
+            style={{
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "1px solid #3F3F46",
+              background: "#18181B",
+              color: "#D4D4D8",
+              cursor: "pointer",
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            className="transition-colors hover:border-[#52525B] hover:bg-[#27272A] hover:text-[#FAFAFA]"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Importer
+          </button>
           <Link
             href="/projects/new"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#EA580C] hover:shadow"
+            style={{
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              background: "linear-gradient(135deg, #F97316, #EA580C)",
+              color: "white",
+              fontWeight: 500,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              border: "1px solid transparent",
+            }}
+            className="transition-opacity hover:opacity-90"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             {t("newProject")}
           </Link>
         </div>
       </div>
 
-      {/* Search + Filters */}
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+      {/* ===== TOOLBAR ===== */}
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          {/* View toggle */}
+          <div className="flex p-[3px]" style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: "8px" }}>
+            <button
+              onClick={() => changeViewMode("cards")}
+              className="transition-all"
+              style={{
+                fontSize: "12px",
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: viewMode === "cards" ? "#27272A" : "transparent",
+                color: viewMode === "cards" ? "#FAFAFA" : "#71717A",
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+            >
+              Cards
+            </button>
+            <button
+              onClick={() => changeViewMode("list")}
+              className="transition-all"
+              style={{
+                fontSize: "12px",
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: viewMode === "list" ? "#27272A" : "transparent",
+                color: viewMode === "list" ? "#FAFAFA" : "#71717A",
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+            >
+              Table
+            </button>
+          </div>
+
+          {/* Filter chips */}
+          <button
+            onClick={() => setStatusFilter("all")}
+            className="transition-all"
+            style={{
+              fontSize: "12px",
+              padding: "6px 12px",
+              borderRadius: "7px",
+              border: statusFilter === "all" ? "1px solid #F97316" : "1px solid #3F3F46",
+              background: statusFilter === "all" ? "rgba(249,115,22,0.06)" : "#18181B",
+              color: statusFilter === "all" ? "#F97316" : "#A1A1AA",
+              cursor: "pointer",
+            }}
+          >
+            Tous · {enrichedProjects.length}
+          </button>
+          <button
+            onClick={() => setStatusFilter("active")}
+            className="transition-all"
+            style={{
+              fontSize: "12px",
+              padding: "6px 12px",
+              borderRadius: "7px",
+              border: statusFilter === "active" ? "1px solid #F97316" : "1px solid #3F3F46",
+              background: statusFilter === "active" ? "rgba(249,115,22,0.06)" : "#18181B",
+              color: statusFilter === "active" ? "#F97316" : "#A1A1AA",
+              cursor: "pointer",
+            }}
+          >
+            Actifs · {activeCount}
+          </button>
+          {attentionCount > 0 && (
+            <button
+              onClick={() => setStatusFilter("attention")}
+              className="transition-all"
+              style={{
+                fontSize: "12px",
+                padding: "6px 12px",
+                borderRadius: "7px",
+                border: statusFilter === "attention" ? "1px solid #F97316" : "1px solid #3F3F46",
+                background: statusFilter === "attention" ? "rgba(249,115,22,0.06)" : "#18181B",
+                color: statusFilter === "attention" ? "#F97316" : "#A1A1AA",
+                cursor: "pointer",
+              }}
+            >
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Attention · {attentionCount}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "#52525B" }} />
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2 pl-10 pr-3 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all"
+            className="transition-all"
+            style={{
+              background: "#18181B",
+              border: "1px solid #3F3F46",
+              borderRadius: "8px",
+              padding: "7px 14px 7px 34px",
+              fontSize: "12px",
+              color: "#D4D4D8",
+              width: "220px",
+              outline: "none",
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "#F97316"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "#3F3F46"; }}
           />
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Status dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowSortDropdown(false); }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                statusFilter !== "all"
-                  ? "border-[#F97316]/30 bg-[#F97316]/10 text-[#F97316]"
-                  : "border-[#27272A] bg-[#18181B] text-[#71717A] hover:bg-[#1C1C1F]"
-              )}
-            >
-              {t("status")}: {statusFilterLabel[statusFilter]}
-              <ChevronDown className="h-3 w-3" />
-            </button>
-            {showStatusDropdown && (
-              <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-lg border border-[#27272A] bg-[#18181B] py-1 shadow-lg">
-                {(Object.keys(statusFilterLabel) as StatusFilter[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => { setStatusFilter(key); setShowStatusDropdown(false); }}
-                    className={cn(
-                      "flex w-full px-3 py-2 text-xs transition-colors hover:bg-[#1C1C1F]",
-                      statusFilter === key ? "font-semibold text-[#F97316] bg-[#F97316]/10" : "text-[#71717A]"
-                    )}
-                  >
-                    {statusFilterLabel[key]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Health filter pill */}
-          <button
-            onClick={() => setHealthFilter(healthFilter === "all" ? "attention" : "all")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-              healthFilter === "attention"
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                : "border-[#27272A] bg-[#18181B] text-[#71717A] hover:bg-[#1C1C1F]"
-            )}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {t("filterAttention")}
-            {attentionCount > 0 && (
-              <span className={cn(
-                "ml-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
-                healthFilter === "attention" ? "bg-amber-500/20 text-amber-400" : "bg-[#27272A] text-[#71717A]"
-              )}>
-                {attentionCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
-      {/* Content */}
+      {/* ===== CONTENT ===== */}
       {sortedProjects.length === 0 ? (
         <div className="mt-16 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#27272A]">
-            <Search className="h-5 w-5 text-[#71717A]" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "#27272A" }}>
+            <Search className="h-5 w-5" style={{ color: "#71717A" }} />
           </div>
-          <p className="mt-3 text-sm font-medium text-[#71717A]">{t("noProjects")}</p>
+          <p className="mt-3 text-sm font-medium" style={{ color: "#71717A" }}>{t("noProjects")}</p>
         </div>
       ) : viewMode === "cards" ? (
         /* ==================== CARD VIEW ==================== */
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-3.5 md:grid-cols-2">
           {sortedProjects.map((project) => {
-            const hcfg = healthConfig[project.health];
+            const progress = getProgressPercent(project.start_date, project.end_date);
+            const gradient = getGradientForColor(project.color);
+            const pa = project as any;
+            const members: { name: string }[] = project.members || [];
+            const healthLabel = project.health === "good" ? "En ordre" : project.health === "warning" ? "Attention" : "Critique";
+            const healthBadgeStyle: React.CSSProperties =
+              project.health === "good"
+                ? { background: "rgba(16,185,129,0.09)", color: "#34D399" }
+                : project.health === "warning"
+                  ? { background: "rgba(245,158,11,0.09)", color: "#FBBF24" }
+                  : { background: "rgba(239,68,68,0.09)", color: "#F87171" };
+            const healthIcon = project.health === "good" ? "\u2713" : project.health === "warning" ? "\u26A0" : "\u{1F534}";
+
             return (
               <Link
                 key={project.id}
                 href={`/projects/${project.id}`}
-                className={cn(
-                  "group relative overflow-hidden rounded-xl border border-[#27272A] bg-[#18181B] shadow-sm transition-all duration-200 hover:shadow-md hover:border-[#3F3F46] border-l-[3px]",
-                  hcfg.border,
-                  hcfg.ring
-                )}
+                className="group relative block overflow-hidden transition-all"
+                style={{
+                  background: "#18181B",
+                  border: "1px solid #27272A",
+                  borderRadius: "12px",
+                  padding: "18px 20px",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#3F3F46";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#27272A";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
-                {/* Card content */}
-                <div className="p-4">
-                  {/* Header: color dot + name + code + status */}
-                  <div className="flex items-start gap-2.5">
-                    <span
-                      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-[#18181B] shadow-sm"
-                      style={{ backgroundColor: project.color || "#F97316" }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="truncate text-[13px] font-semibold text-[#FAFAFA] group-hover:text-[#F97316] transition-colors">
-                          {project.name}
-                        </h3>
-                        <StatusBadge
-                          status={project.status}
-                          label={t(`status_${project.status}`)}
-                          className="!px-2 !py-0.5 !text-[10px] shrink-0"
-                        />
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#71717A]">
-                        {project.code && <span className="font-medium text-[#71717A]">{project.code}</span>}
-                        {project.code && project.client_name && <span>·</span>}
-                        {project.client_name && <span className="truncate">{project.client_name}</span>}
-                      </div>
+                {/* Left colored border */}
+                <div
+                  className="absolute left-0 top-0 bottom-0"
+                  style={{ width: "4px", background: project.color || "#F97316" }}
+                />
+
+                {/* Header: name + health badge */}
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                        fontSize: "16px",
+                        fontWeight: 700,
+                        color: "#FAFAFA",
+                      }}
+                      className="truncate group-hover:text-[#F97316] transition-colors"
+                    >
+                      {project.name}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#71717A", marginTop: "2px" }}>
+                      {[project.code, project.client_name, project.city].filter(Boolean).join(" · ")}
                     </div>
                   </div>
+                  <span
+                    className="ml-3 shrink-0"
+                    style={{
+                      ...healthBadgeStyle,
+                      fontSize: "10px",
+                      padding: "3px 10px",
+                      borderRadius: "6px",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {healthIcon} {healthLabel}
+                  </span>
+                </div>
 
-                  {/* Location */}
-                  {project.city && (
-                    <div className="mt-2 flex items-center gap-1 text-[11px] text-[#71717A]">
+                {/* Info row: address + dates */}
+                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: "12px", color: "#71717A" }}>
+                  {(pa.address || project.city) && (
+                    <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{project.city}</span>
-                    </div>
+                      <span className="truncate">{pa.address || project.city}</span>
+                    </span>
                   )}
-
-                  {/* Stats row */}
-                  <div className="mt-3 flex items-center gap-2 border-t border-[#27272A] pt-3">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-[#27272A] px-2 py-1 text-[11px] text-[#D4D4D8]">
-                      <Mail className="h-3 w-3 text-[#71717A]" />
-                      <span className="font-medium">{project.emailCount}</span>
+                  {(project.start_date || project.end_date) && (
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays className="h-3 w-3 shrink-0" />
+                      {formatDate(project.start_date)}
+                      {project.start_date && project.end_date && " — "}
+                      {formatDate(project.end_date)}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-md bg-[#27272A] px-2 py-1 text-[11px] text-[#D4D4D8]">
-                      <CheckSquare className="h-3 w-3 text-[#71717A]" />
-                      <span className="font-medium">{project.openTasks}</span>
-                    </span>
-                    {project.overdueTasks > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-1 text-[11px] font-semibold text-red-400">
-                        <AlertTriangle className="h-3 w-3" />
-                        {project.overdueTasks} {t("overdueTasks")}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Next meeting */}
-                  {project.nextMeeting && (
-                    <div className="mt-2.5 flex items-center gap-1.5 rounded-md bg-[#F97316]/10 px-2 py-1.5 text-[11px] text-[#F97316]">
-                      <Clock className="h-3 w-3 shrink-0 text-[#F97316]" />
-                      <span className="truncate font-medium">{project.nextMeeting.title}</span>
-                      <span className="ml-auto shrink-0 text-[#F97316]">{formatMeetingDate(project.nextMeeting.meeting_date)}</span>
-                    </div>
                   )}
                 </div>
 
-                {/* Quick actions overlay on hover */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 rounded-b-xl border-t border-[#27272A] bg-[#18181B]/95 px-3 py-2.5 opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push("/dashboard"); }}
-                    className="flex items-center gap-1 rounded-lg border border-[#27272A] bg-[#18181B] px-2.5 py-1 text-[10px] font-medium text-[#71717A] hover:bg-[#1C1C1F] hover:border-[#3F3F46] transition-colors"
-                  >
-                    <Mail className="h-3 w-3" />
-                    {t("viewEmails")}
-                  </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
-                    className="flex items-center gap-1 rounded-lg border border-[#27272A] bg-[#18181B] px-2.5 py-1 text-[10px] font-medium text-[#71717A] hover:bg-[#1C1C1F] hover:border-[#3F3F46] transition-colors"
-                  >
-                    <CheckSquare className="h-3 w-3" />
-                    {t("createTask")}
-                  </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/projects/${project.id}`); }}
-                    className="flex items-center gap-1 rounded-lg border border-[#27272A] bg-[#18181B] px-2.5 py-1 text-[10px] font-medium text-[#71717A] hover:bg-[#1C1C1F] hover:border-[#3F3F46] transition-colors"
-                  >
-                    <Calendar className="h-3 w-3" />
-                    {t("createMeeting")}
-                  </button>
+                {/* 4 stats grid */}
+                <div className="mt-3.5 grid grid-cols-4 gap-2">
+                  <div className="rounded-md text-center" style={{ background: "#27272A", padding: "8px 10px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "#FAFAFA",
+                      }}
+                    >
+                      {project.emailCount}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#71717A", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                      Emails
+                    </div>
+                  </div>
+                  <div className="rounded-md text-center" style={{ background: "#27272A", padding: "8px 10px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: project.overdueTasks > 0 ? "#F87171" : "#34D399",
+                      }}
+                    >
+                      {project.overdueTasks}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#71717A", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                      En retard
+                    </div>
+                  </div>
+                  <div className="rounded-md text-center" style={{ background: "#27272A", padding: "8px 10px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "#FAFAFA",
+                      }}
+                    >
+                      {project.submissionCount}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#71717A", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                      Soumissions
+                    </div>
+                  </div>
+                  <div className="rounded-md text-center" style={{ background: "#27272A", padding: "8px 10px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "#FAFAFA",
+                      }}
+                    >
+                      {project.workerCount}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#71717A", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                      Ouvriers
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-3 overflow-hidden rounded-sm" style={{ height: "3px", background: "#27272A" }}>
+                  <div
+                    className="h-full rounded-sm"
+                    style={{
+                      width: `${progress}%`,
+                      background: gradient,
+                      transition: "width 0.8s ease-out",
+                    }}
+                  />
+                </div>
+
+                {/* Footer: activity + team avatars */}
+                <div className="mt-2.5 flex items-center justify-between">
+                  <span style={{ fontSize: "10px", color: "#52525B" }}>
+                    {project.updated_at ? `Dernière activité ${getRelativeTime(project.updated_at)}` : ""}
+                  </span>
+                  <div className="flex">
+                    {members.length > 0 ? (
+                      members.slice(0, 4).map((m, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-center"
+                          style={{
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "6px",
+                            fontSize: "8px",
+                            color: "white",
+                            fontWeight: 600,
+                            marginLeft: idx === 0 ? 0 : "-4px",
+                            border: "2px solid #18181B",
+                            background: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+                          }}
+                        >
+                          {getInitials(m.name)}
+                        </div>
+                      ))
+                    ) : (
+                      /* Fallback: show a single avatar with org user initials */
+                      <div
+                        className="flex items-center justify-center"
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "6px",
+                          fontSize: "8px",
+                          color: "white",
+                          fontWeight: 600,
+                          background: AVATAR_COLORS[0],
+                        }}
+                      >
+                        {profile?.first_name && profile?.last_name
+                          ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+                          : "??"}
+                      </div>
+                    )}
+                    {members.length > 4 && (
+                      <div
+                        className="flex items-center justify-center"
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "6px",
+                          fontSize: "8px",
+                          color: "#A1A1AA",
+                          fontWeight: 600,
+                          marginLeft: "-4px",
+                          border: "2px solid #18181B",
+                          background: "#3F3F46",
+                        }}
+                      >
+                        +{members.length - 4}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Link>
             );
           })}
         </div>
       ) : (
-        /* ==================== LIST/TABLE VIEW ==================== */
-        <div className="mt-5 -mx-4 sm:mx-0 overflow-x-auto rounded-xl sm:border border-[#27272A] bg-[#18181B] shadow-sm">
-          <table className="min-w-[700px] w-full text-left text-xs">
+        /* ==================== TABLE VIEW ==================== */
+        <div className="mt-4 -mx-4 overflow-x-auto sm:mx-0" style={{ borderRadius: "12px" }}>
+          <table className="w-full" style={{ borderCollapse: "separate", borderSpacing: 0, minWidth: "800px" }}>
             <thead>
-              <tr className="border-b border-[#27272A] bg-[#27272A]/80">
-                <th className="w-10 px-3 py-2.5" />
-                <TableHeader col="name" label={t("colProject")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <TableHeader col="code" label={t("colCode")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden sm:table-cell" />
-                <TableHeader col="client" label={t("colClient")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
-                <TableHeader col="city" label={t("colCity")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="hidden md:table-cell" />
-                <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">{t("colStatus")}</th>
-                <TableHeader col="emails" label={t("colEmails")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
-                <TableHeader col="tasks" label={t("colTasks")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
-                <TableHeader col="overdue" label={t("colOverdue")} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} className="text-center" />
+              <tr>
+                <TableHeader col="name" label={t("colProject") || "Projet"} active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="client" label="Client" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="city" label="Ville" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                  Santé
+                </th>
+                <TableHeader col="emails" label="Emails" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="tasks" label="Tâches" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <TableHeader col="overdue" label="En retard" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                  Soumissions
+                </th>
+                <TableHeader col="budget" label="Budget" active={tableSortCol} dir={tableSortDir} onClick={handleTableSort} />
+                <th style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, padding: "8px 14px", textAlign: "left", borderBottom: "1px solid #27272A", whiteSpace: "nowrap" }}>
+                  Activité
+                </th>
               </tr>
             </thead>
             <tbody>
-              {sortedProjects.map((project) => (
-                <tr
-                  key={project.id}
-                  onClick={() => router.push(`/projects/${project.id}`)}
-                  className="cursor-pointer border-b border-[#27272A]/50 transition-colors duration-100 hover:bg-[#1C1C1F] last:border-b-0"
-                >
-                  {/* Color + health */}
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-[#18181B] shadow-sm" style={{ backgroundColor: project.color || "#F97316" }} />
-                      <span className={cn("h-1.5 w-1.5 rounded-full", healthConfig[project.health].dot)} />
-                    </div>
-                  </td>
-                  {/* Project name */}
-                  <td className="px-3 py-2.5 font-medium text-[#FAFAFA] max-w-[200px] truncate">{project.name}</td>
-                  {/* Code */}
-                  <td className="hidden sm:table-cell px-3 py-2.5 text-[#71717A] font-mono text-[11px]">{project.code || "\u2014"}</td>
-                  {/* Client */}
-                  <td className="max-w-[150px] truncate px-3 py-2.5 text-[#71717A]">{project.client_name || "\u2014"}</td>
-                  {/* City */}
-                  <td className="hidden md:table-cell px-3 py-2.5 text-[#71717A]">{project.city || "\u2014"}</td>
-                  {/* Status */}
-                  <td className="px-3 py-2.5">
-                    <StatusBadge
-                      status={project.status}
-                      label={t(`status_${project.status}`)}
-                      className="!px-2 !py-0.5 !text-[10px]"
-                    />
-                  </td>
-                  {/* Emails */}
-                  <td className="px-3 py-2.5 text-center">
-                    <span className="inline-flex items-center gap-1 text-[#71717A]">
-                      <Mail className="h-3 w-3 text-[#52525B]" />
-                      {project.emailCount}
-                    </span>
-                  </td>
-                  {/* Tasks */}
-                  <td className="px-3 py-2.5 text-center">
-                    <span className="inline-flex items-center gap-1 text-[#71717A]">
-                      <CheckSquare className="h-3 w-3 text-[#52525B]" />
-                      {project.openTasks}
-                    </span>
-                  </td>
-                  {/* Overdue */}
-                  <td className="px-3 py-2.5 text-center">
-                    {project.overdueTasks > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-400">
-                        <AlertTriangle className="h-3 w-3" />
+              {sortedProjects.map((project) => {
+                const healthLabel = project.health === "good" ? "En ordre" : project.health === "warning" ? "Attention" : "Critique";
+                const healthBadgeStyle: React.CSSProperties =
+                  project.health === "good"
+                    ? { background: "rgba(16,185,129,0.09)", color: "#34D399" }
+                    : project.health === "warning"
+                      ? { background: "rgba(245,158,11,0.09)", color: "#FBBF24" }
+                      : { background: "rgba(239,68,68,0.09)", color: "#F87171" };
+                const healthIcon = project.health === "good" ? "\u2713" : project.health === "warning" ? "\u26A0" : "\u{1F534}";
+                const pa = project as any;
+
+                return (
+                  <tr
+                    key={project.id}
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    className="cursor-pointer transition-colors"
+                    style={{ borderBottom: "1px solid #1C1C1F" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#18181B"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    {/* Projet (dot + name + code) */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#D4D4D8", verticalAlign: "middle" }}>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="shrink-0 rounded-full"
+                          style={{ width: "8px", height: "8px", background: project.color || "#F97316" }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 600, color: "#FAFAFA" }}>{project.name}</div>
+                          <div style={{ fontSize: "11px", color: "#71717A" }}>{project.code || ""}</div>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Client */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#D4D4D8", verticalAlign: "middle" }}>
+                      {project.client_name || "\u2014"}
+                    </td>
+                    {/* Ville */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#D4D4D8", verticalAlign: "middle" }}>
+                      {project.city || "\u2014"}
+                    </td>
+                    {/* Santé */}
+                    <td style={{ padding: "12px 14px", verticalAlign: "middle" }}>
+                      <span
+                        style={{
+                          ...healthBadgeStyle,
+                          fontSize: "9px",
+                          padding: "2px 7px",
+                          borderRadius: "4px",
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {healthIcon} {healthLabel}
+                      </span>
+                    </td>
+                    {/* Emails */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", verticalAlign: "middle" }}>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontWeight: 700, color: "#D4D4D8" }}>
+                        {project.emailCount}
+                      </span>
+                    </td>
+                    {/* Tâches */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", verticalAlign: "middle" }}>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontWeight: 700, color: "#D4D4D8" }}>
+                        {project.openTasks}
+                      </span>
+                    </td>
+                    {/* En retard */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", verticalAlign: "middle" }}>
+                      <span
+                        style={{
+                          fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+                          fontWeight: 700,
+                          color: project.overdueTasks > 0 ? "#F87171" : "#34D399",
+                        }}
+                      >
                         {project.overdueTasks}
                       </span>
-                    ) : (
-                      <span className="text-[#52525B]">0</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    {/* Soumissions */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#D4D4D8", verticalAlign: "middle" }}>
+                      {project.submissionCount}
+                    </td>
+                    {/* Budget */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#FAFAFA", fontWeight: 600, verticalAlign: "middle" }}>
+                      {formatCHF(pa.budget_total)}
+                    </td>
+                    {/* Activité */}
+                    <td style={{ padding: "12px 14px", fontSize: "13px", color: "#71717A", verticalAlign: "middle" }}>
+                      {getRelativeTime(project.updated_at)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -591,27 +818,38 @@ function TableHeader({
   active,
   dir,
   onClick,
-  className,
 }: {
   col: string;
   label: string;
   active: string | null;
   dir: SortDirection;
   onClick: (col: string) => void;
-  className?: string;
 }) {
   const isActive = active === col;
   return (
     <th
-      className={cn("cursor-pointer select-none px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA] transition-colors", className)}
+      className="cursor-pointer select-none transition-colors"
+      style={{
+        fontSize: "10px",
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        color: isActive ? "#FAFAFA" : "#52525B",
+        fontWeight: 600,
+        padding: "8px 14px",
+        textAlign: "left",
+        borderBottom: "1px solid #27272A",
+        whiteSpace: "nowrap",
+      }}
       onClick={() => onClick(col)}
+      onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "#A1A1AA"; }}
+      onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "#52525B"; }}
     >
       <span className="inline-flex items-center gap-1">
         {label}
         {isActive ? (
-          dir === "asc" ? <ChevronUp className="h-3 w-3 text-[#F97316]" /> : <ChevronDown className="h-3 w-3 text-[#F97316]" />
+          dir === "asc" ? <ChevronUp className="h-3 w-3" style={{ color: "#F97316" }} /> : <ChevronDown className="h-3 w-3" style={{ color: "#F97316" }} />
         ) : (
-          <ArrowUpDown className="h-2.5 w-2.5 text-[#52525B]" />
+          <ArrowUpDown className="h-2.5 w-2.5" style={{ color: "#52525B" }} />
         )}
       </span>
     </th>
