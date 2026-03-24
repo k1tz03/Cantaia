@@ -7,7 +7,6 @@ import {
   Clock,
   Mail,
   CheckCircle2,
-  TrendingDown,
   RefreshCw,
   ChevronDown,
   ChevronRight,
