@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, History, Info, Sparkles, Calculator } from "lucide-react";
+import { Eye, History, Info, Sparkles } from "lucide-react";
 import { cn } from "@cantaia/ui";
 
 export type PlanTab = "viewer" | "versions" | "info" | "analysis" | "estimation";
