@@ -11,8 +11,6 @@ import {
   Loader2,
   Paperclip,
   X,
-  FileText,
-  Image as ImageIcon,
   Search,
   ClipboardList,
 } from "lucide-react";
