@@ -1,98 +1,79 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, ClipboardList, CalendarRange, HardHat, Bot, BarChart3 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const features = [
-  {
-    icon: Mail,
-    title: "Mail IA",
-    description: "Classification automatique de vos emails Outlook par projet, fournisseur et priorité. Filtrage spam, extraction de tâches et suggestions de réponse.",
-  },
-  {
-    icon: ClipboardList,
-    title: "Soumissions",
-    description: "Upload Excel ou PDF, analyse IA des postes CFC, envoi des demandes aux fournisseurs et suivi des réponses.",
-  },
-  {
-    icon: CalendarRange,
-    title: "Planning Gantt",
-    description: "Génération IA du planning depuis vos soumissions, édition interactive, dépendances CFC, export PDF format A3 et partage public.",
-  },
-  {
-    icon: HardHat,
-    title: "Portail Terrain",
-    description: "Rapports journaliers pour chefs d'équipe. Accès par PIN, saisie heures, machines et bons de livraison depuis le mobile.",
-  },
-  {
-    icon: Bot,
-    title: "Assistant IA",
-    description: "Chat Claude avec contexte projet, upload de documents PDF et Excel. Briefing quotidien automatique avec alertes et priorités.",
-  },
-  {
-    icon: BarChart3,
-    title: "Direction",
-    description: "Rentabilité par projet, statistiques équipe, marge, KPIs direction. Vue consolidée de l'ensemble de vos chantiers actifs.",
-  },
+  { emoji: "\uD83D\uDCE7", bg: "rgba(249,115,22,0.1)", titleKey: "f1Title" as const, descKey: "f1Desc" as const },
+  { emoji: "\uD83D\uDCCB", bg: "rgba(59,130,246,0.1)", titleKey: "f2Title" as const, descKey: "f2Desc" as const },
+  { emoji: "\uD83D\uDCC5", bg: "rgba(16,185,129,0.1)", titleKey: "f3Title" as const, descKey: "f3Desc" as const },
+  { emoji: "\uD83D\uDC77", bg: "rgba(245,158,11,0.1)", titleKey: "f4Title" as const, descKey: "f4Desc" as const },
+  { emoji: "\uD83E\uDD16", bg: "rgba(139,92,246,0.1)", titleKey: "f5Title" as const, descKey: "f5Desc" as const },
+  { emoji: "\uD83D\uDCCA", bg: "rgba(236,72,153,0.1)", titleKey: "f6Title" as const, descKey: "f6Desc" as const },
 ];
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, delay: i * 0.1, ease: "easeOut" as const },
-  }),
-};
-
 export function FeaturesSection() {
+  const t = useTranslations("landing.features");
+
   return (
-    <section id="features" className="relative bg-[#0F0F11]">
-      {/* Subtle top gradient */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+    <section id="features" className="mx-auto max-w-[1200px]" style={{ padding: "120px 48px" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 36 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+        className="text-[12px] uppercase tracking-[0.2em] text-[#F97316] font-semibold text-center mb-3"
+      >
+        {t("label")}
+      </motion.div>
 
-      <div className="mx-auto max-w-[1200px] px-6 py-24 lg:py-32">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#27272A] bg-[#18181B] px-4 py-1.5 text-xs font-semibold text-[#A1A1AA] mb-6">
-            Plateforme
-          </div>
-          <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            Tout ce dont vous avez besoin
-          </h2>
-          <p className="mt-4 text-lg text-[#71717A] max-w-[560px] mx-auto">
-            Une seule plateforme pour gerer vos chantiers, de l&apos;email au rapport financier.
-          </p>
-        </motion.div>
+      <motion.h2
+        initial={{ opacity: 0, y: 36 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.85, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+        className="font-display text-[46px] font-extrabold text-[#FAFAFA] text-center tracking-[-1.5px] leading-[1.1] mb-4"
+      >
+        {t("title")}
+      </motion.h2>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature, i) => (
-            <motion.div
-              key={feature.title}
-              custom={i}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-60px" }}
-              variants={cardVariants}
-              className="group rounded-2xl border border-[#27272A] bg-[#18181B] p-8 transition-all duration-300 hover:border-[#F97316]/30 hover:bg-[#1C1C1F]"
+      <motion.p
+        initial={{ opacity: 0, y: 36 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.85, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="text-[18px] text-[#52525B] text-center max-w-[560px] mx-auto leading-[1.6] mb-16"
+      >
+        {t("desc")}
+      </motion.p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {features.map((feature, i) => (
+          <motion.div
+            key={feature.titleKey}
+            initial={{ opacity: 0, y: 36 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.85, delay: 0.05 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+            className="group bg-[#18181B] border border-[#27272A] rounded-[20px] p-9 relative overflow-hidden cursor-default transition-all duration-[400ms] hover:border-[rgba(249,115,22,0.25)] hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3),0_0_40px_rgba(249,115,22,0.05)]"
+          >
+            {/* Top orange line on hover */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#F97316] to-transparent opacity-0 transition-opacity duration-[400ms] group-hover:opacity-100" />
+
+            <div
+              className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center text-[24px] mb-5"
+              style={{ background: feature.bg }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#F97316]/10 text-[#F97316] transition-colors duration-300 group-hover:bg-[#F97316]/15">
-                <feature.icon className="h-6 w-6" />
-              </div>
-              <h3 className="mt-5 font-display text-lg font-bold text-white">
-                {feature.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
-                {feature.description}
-              </p>
-            </motion.div>
-          ))}
-        </div>
+              {feature.emoji}
+            </div>
+            <div className="font-display text-[19px] font-bold text-[#FAFAFA] mb-[10px]">
+              {t(feature.titleKey)}
+            </div>
+            <div className="text-[14px] text-[#71717A] leading-[1.65]">
+              {t(feature.descKey)}
+            </div>
+          </motion.div>
+        ))}
       </div>
     </section>
   );

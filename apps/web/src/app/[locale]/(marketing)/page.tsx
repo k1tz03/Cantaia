@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { HeroSection } from "@/components/landing";
 import { ProofSection } from "@/components/landing/ProofSection";
+import { VideoSection } from "@/components/landing/VideoSection";
 import { ProblemSection } from "@/components/landing/ProblemSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { SpotlightSection } from "@/components/landing/SpotlightSection";
-// HIDDEN: FeaturePrixSection disabled — price analysis paused
-// import { FeaturePrixSection } from "@/components/landing/BentoGrid";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TrustSection } from "@/components/landing/FAQSection";
-// HIDDEN: Pricing temporarily disabled — user undecided on final prices
-// import { PricingSection } from "@/components/landing/PricingSection";
-import { VideoSection } from "@/components/landing/VideoSection";
 import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
 const homeSeo: Record<string, { title: string; description: string; keywords: string[] }> = {
@@ -126,14 +121,11 @@ export default function LandingPage() {
       />
       <HeroSection />
       <ProofSection />
+      <VideoSection />
       <ProblemSection />
       <FeaturesSection />
-      <SpotlightSection />
-      {/* HIDDEN: FeaturePrixSection — price analysis paused */}
-      <VideoSection />
       <HowItWorksSection />
       <TrustSection />
-      {/* HIDDEN: Pricing temporarily disabled */}
       <FinalCTASection />
     </>
   );

@@ -21,6 +21,7 @@ export function MarketingHeader() {
     { href: "/#features", label: t("features") },
     { href: "/#trust", label: t("security") },
     { href: "/about", label: t("about") },
+    { href: "/pricing", label: t("pricing") },
   ];
 
   return (
@@ -67,7 +68,7 @@ export function MarketingHeader() {
             href="/register"
             className="rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#F97316]/25 transition-all hover:shadow-xl hover:shadow-[#F97316]/30 hover:scale-[1.02] active:scale-[0.98]"
           >
-            {t("freeTrial")}
+            {t("freeTrial")} →
           </Link>
         </div>
 

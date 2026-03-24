@@ -3,80 +3,73 @@
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 
-const steps = [
-  {
-    number: "01",
-    titleKey: "step1Title" as const,
-    descKey: "step1Desc" as const,
-  },
-  {
-    number: "02",
-    titleKey: "step2Title" as const,
-    descKey: "step2Desc" as const,
-  },
-  {
-    number: "03",
-    titleKey: "step3Title" as const,
-    descKey: "step3Desc" as const,
-  },
-];
-
 export function HowItWorksSection() {
   const t = useTranslations("landing.howItWorks");
 
-  return (
-    <section id="how-it-works" className="relative bg-[#0F0F11]">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+  const steps = [
+    { num: "1", titleKey: "step1Title" as const, descKey: "step1Desc" as const },
+    { num: "2", titleKey: "step2Title" as const, descKey: "step2Desc" as const },
+    { num: "3", titleKey: "step3Title" as const, descKey: "step3Desc" as const },
+  ];
 
-      <div className="mx-auto max-w-[1200px] px-6 py-24 lg:py-32">
+  return (
+    <section style={{ padding: "120px 48px", background: "linear-gradient(180deg, #18181B, #0F0F11)" }}>
+      <div className="mx-auto max-w-[1000px]">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 36 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+          className="text-[12px] uppercase tracking-[0.2em] text-[#F97316] font-semibold text-center mb-3"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#27272A] bg-[#18181B] px-4 py-1.5 text-xs font-semibold text-[#A1A1AA] mb-6">
-            Comment ça marche
-          </div>
-          <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            {t("title")}
-          </h2>
+          {t("label")}
         </motion.div>
 
-        <div className="relative">
-          {/* Connecting line (desktop) */}
-          <div className="hidden md:block absolute top-[60px] left-[16.67%] right-[16.67%] h-px">
-            <div className="h-full bg-gradient-to-r from-[#F97316]/0 via-[#F97316]/40 to-[#F97316]/0" />
-          </div>
+        <motion.h2
+          initial={{ opacity: 0, y: 36 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+          className="font-display text-[46px] font-extrabold text-[#FAFAFA] text-center tracking-[-1.5px] leading-[1.1] mb-4"
+        >
+          {t("title")}
+        </motion.h2>
 
-          <div className="grid grid-cols-1 gap-12 md:grid-cols-3 md:gap-8">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.number}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.5, delay: i * 0.15 }}
-                className="flex flex-col items-center text-center"
-              >
-                {/* Numbered circle */}
-                <div className="relative z-10">
-                  <div className="absolute -inset-3 rounded-full bg-[#F97316]/10 blur-md" />
-                  <div className="relative flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-[#F97316] to-[#EA580C] shadow-xl shadow-[#F97316]/20">
-                    <span className="font-display text-4xl font-extrabold text-white">{step.number}</span>
-                  </div>
-                </div>
+        <motion.p
+          initial={{ opacity: 0, y: 36 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="text-[18px] text-[#52525B] text-center max-w-[560px] mx-auto leading-[1.6] mb-16"
+        >
+          {t("desc")}
+        </motion.p>
 
-                <h3 className="mt-8 font-display text-xl font-bold text-white">
-                  {t(step.titleKey)}
-                </h3>
-                <p className="mt-3 text-sm text-[#71717A] max-w-[280px] leading-relaxed">
-                  {t(step.descKey)}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+        {/* Steps */}
+        <div className="relative flex flex-col md:flex-row gap-10 md:gap-0 items-start mt-16">
+          {/* Connecting gradient line (desktop only) */}
+          <div className="hidden md:block absolute top-8 left-[15%] right-[15%] h-[2px] bg-gradient-to-r from-[#F97316] via-[#27272A] to-[#F97316]" />
+
+          {steps.map((step, i) => (
+            <motion.div
+              key={step.num}
+              initial={{ opacity: 0, y: 36 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.85, delay: 0.1 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1 text-center relative z-[1]"
+            >
+              <div className="group w-16 h-16 rounded-full bg-gradient-to-br from-[#F97316] to-[#EA580C] flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(249,115,22,0.3)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_60px_rgba(249,115,22,0.4)]">
+                <span className="font-display text-[24px] font-extrabold text-white">{step.num}</span>
+              </div>
+              <div className="font-display text-[22px] font-bold text-[#FAFAFA] mb-[10px]">
+                {t(step.titleKey)}
+              </div>
+              <div className="text-[14px] text-[#71717A] leading-[1.6] max-w-[260px] mx-auto">
+                {t(step.descKey)}
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

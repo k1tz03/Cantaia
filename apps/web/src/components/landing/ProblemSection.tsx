@@ -3,135 +3,97 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Clock, TrendingDown, Check } from "lucide-react";
 
 export function ProblemSection() {
   const t = useTranslations("landing.problem");
 
-  const painPoints = [
-    {
-      icon: AlertTriangle,
-      color: "#EF4444",
-      titleKey: "painPoint1Title" as const,
-      descKey: "painPoint1Desc" as const,
-    },
-    {
-      icon: Clock,
-      color: "#F59E0B",
-      titleKey: "painPoint2Title" as const,
-      descKey: "painPoint2Desc" as const,
-    },
-    {
-      icon: TrendingDown,
-      color: "#F59E0B",
-      titleKey: "painPoint3Title" as const,
-      descKey: "painPoint3Desc" as const,
-    },
-  ];
-
-  const solutions = [
-    "Emails classés automatiquement par projet et priorité",
-    "PV de séance générés en 5 minutes au lieu de 2 heures",
-    "Planning Gantt généré depuis vos soumissions CFC",
-  ];
-
   return (
-    <section className="relative bg-[#0F0F11]">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
-
-      <div className="mx-auto max-w-[1200px] px-6 py-24 lg:py-32">
+    <section className="mx-auto max-w-[1200px]" style={{ padding: "120px 48px" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+        {/* Left — Image */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-2xl mx-auto mb-16"
-        >
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#EF4444]/20 bg-[#EF4444]/5 px-4 py-1.5 text-xs font-semibold text-[#EF4444] mb-6">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#EF4444] animate-pulse" />
-            Le probleme
-          </div>
-          <h2 className="font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-            {t("title")}
-          </h2>
-          <p className="mt-4 text-lg text-[#71717A]">
-            {t("subtitle")}
-          </p>
-        </motion.div>
-
-        {/* Messy desk visual */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, x: -50 }}
+          whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.7 }}
-          className="relative rounded-2xl overflow-hidden border border-[#EF4444]/20 mb-16"
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+          className="relative"
         >
-          <Image
-            src="/landing/problem-bg.png"
-            alt="Bureau de chef de projet construction surchargé"
-            width={1200}
-            height={600}
-            className="w-full h-auto object-cover"
-            sizes="(max-width: 1200px) 100vw, 1200px"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F11] via-[#0F0F11]/40 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 border border-[#EF4444]/20 px-4 py-2 backdrop-blur-sm">
-              <span className="h-2 w-2 rounded-full bg-[#EF4444] animate-pulse" />
-              <span className="text-sm font-semibold text-[#EF4444]">Sans Cantaia — La réalité de 90% des chefs de projet</span>
-            </div>
+          <div className="rounded-[20px] overflow-hidden border border-[#27272A] shadow-[0_30px_80px_rgba(0,0,0,0.5)] -rotate-2 transition-transform duration-500 hover:rotate-0 hover:scale-[1.02] relative">
+            <Image
+              src="/landing/problem-bg.png"
+              alt={t("imageAlt")}
+              width={600}
+              height={400}
+              className="w-full block"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
+            {/* Gradient border overlay */}
+            <div className="absolute -inset-[2px] rounded-[22px] pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.2), transparent, rgba(245,158,11,0.15))" }} />
           </div>
+
+          {/* Floating stat */}
+          <div
+            className="absolute -bottom-5 -right-5 z-[2] bg-[rgba(24,24,27,0.95)] border border-[#27272A] rounded-[14px] px-5 py-[14px] backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+            style={{ animation: "float 4s ease-in-out infinite" }}
+          >
+            <div className="font-display text-[28px] font-extrabold text-[#EF4444]">{t("floatValue")}</div>
+            <div className="text-[11px] text-[#52525B]">{t("floatLabel")}</div>
+          </div>
+
+          <style jsx>{`
+            @keyframes float {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-12px); }
+            }
+          `}</style>
         </motion.div>
 
-        {/* Pain points */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 mb-16">
-          {painPoints.map((point, i) => (
-            <motion.div
+        {/* Right — Pain points */}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <h2 className="font-display text-[42px] font-extrabold text-[#FAFAFA] tracking-[-1px] mb-7 leading-[1.1]">
+            {t("titlePre")} <span className="text-[#F87171]">{t("titleRed")}</span>
+            <br />
+            {t("titlePost")}
+          </h2>
+
+          {/* Pain cards */}
+          {[
+            { emoji: "\uD83D\uDCE7", bg: "rgba(239,68,68,0.1)", titleKey: "pain1Title" as const, descKey: "pain1Desc" as const },
+            { emoji: "\uD83D\uDCCB", bg: "rgba(245,158,11,0.1)", titleKey: "pain2Title" as const, descKey: "pain2Desc" as const },
+            { emoji: "\u23F0", bg: "rgba(239,68,68,0.1)", titleKey: "pain3Title" as const, descKey: "pain3Desc" as const },
+          ].map((pain, i) => (
+            <div
               key={i}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-[#27272A] bg-[#18181B] p-7 transition-all duration-300 hover:border-[#3F3F46]"
+              className="flex gap-[14px] items-start mb-3 p-[16px_18px] bg-[#18181B] border border-[#27272A] rounded-[14px] transition-all duration-300 hover:border-[#3F3F46] hover:translate-x-1"
             >
               <div
-                className="flex h-11 w-11 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${point.color}15` }}
+                className="w-10 h-10 rounded-[10px] flex items-center justify-center text-[18px] flex-shrink-0"
+                style={{ background: pain.bg }}
               >
-                <point.icon className="w-5 h-5" style={{ color: point.color }} />
+                {pain.emoji}
               </div>
-              <h3 className="mt-5 font-display text-lg font-bold text-white">
-                {t(point.titleKey)}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
-                {t(point.descKey)}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Solution */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.6 }}
-          className="rounded-2xl border border-[#22C55E]/20 bg-[#22C55E]/5 p-8 lg:p-10"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#22C55E]/10">
-              <Check className="w-5 h-5 text-[#22C55E]" />
+              <div className="text-[14px] text-[#A1A1AA] leading-[1.55]">
+                <b className="text-[#FAFAFA] font-semibold">{t(pain.titleKey)}</b> — {t(pain.descKey)}
+              </div>
             </div>
-            <h3 className="font-display text-xl font-bold text-white">Avec Cantaia</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {solutions.map((solution, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#22C55E]/10 flex-shrink-0 mt-0.5">
-                  <Check className="h-3 w-3 text-[#22C55E]" />
+          ))}
+
+          {/* Solution strip */}
+          <div className="mt-7 p-[20px_24px] border border-[rgba(16,185,129,0.15)] rounded-[14px]" style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02))" }}>
+            <h3 className="font-display text-[18px] font-bold text-[#10B981] mb-[14px]">
+              {t("solutionTitle")}
+            </h3>
+            {["sol1", "sol2", "sol3", "sol4"].map((key) => (
+              <div key={key} className="flex gap-[10px] items-start mb-2">
+                <div className="w-[22px] h-[22px] rounded-full bg-[rgba(16,185,129,0.12)] flex items-center justify-center text-[#34D399] text-[12px] font-bold flex-shrink-0 mt-[1px]">
+                  {"\u2713"}
                 </div>
-                <span className="text-sm text-[#A1A1AA] leading-relaxed">{solution}</span>
+                <div className="text-[14px] text-[#D4D4D8] leading-[1.5]">{t(key)}</div>
               </div>
             ))}
           </div>

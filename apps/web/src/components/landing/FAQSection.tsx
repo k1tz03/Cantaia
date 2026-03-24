@@ -5,92 +5,85 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 
 export function TrustSection() {
-  const t = useTranslations("landing.proof");
+  const t = useTranslations("landing.trust");
 
   const cards = [
-    { emoji: t("card1Emoji"), title: t("card1Title"), description: t("card1Desc"), image: null },
-    { emoji: t("card2Emoji"), title: t("card2Title"), description: t("card2Desc"), image: null },
-    { emoji: t("card3Emoji"), title: t("card3Title"), description: t("card3Desc"), image: "/landing/trust-datacenter.png" },
-  ];
-
-  const bottomStats = [
-    { value: t("stat1Value"), label: t("stat1Label") },
-    { value: t("stat2Value"), label: t("stat2Label") },
-    { value: t("stat3Value"), label: t("stat3Label") },
-    { value: t("stat4Value"), label: t("stat4Label") },
+    { emoji: "\uD83C\uDDEA\uD83C\uDDFA", valKey: "card1Val" as const, labelKey: "card1Label" as const },
+    { emoji: "\uD83D\uDD12", valKey: "card2Val" as const, labelKey: "card2Label" as const },
+    { emoji: "\uD83D\uDCDC", valKey: "card3Val" as const, labelKey: "card3Label" as const },
+    { emoji: "\uD83D\uDD10", valKey: "card4Val" as const, labelKey: "card4Label" as const },
   ];
 
   return (
-    <section id="trust" className="relative bg-[#0F0F11] overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#27272A] to-transparent" />
+    <section id="trust" className="relative overflow-hidden" style={{ padding: "120px 48px" }}>
+      {/* Datacenter background image */}
+      <div className="absolute inset-0">
+        <Image
+          src="/landing/trust-datacenter.png"
+          alt=""
+          fill
+          className="object-cover object-center opacity-[0.08]"
+          style={{ filter: "saturate(0.4)" }}
+          sizes="100vw"
+        />
+      </div>
 
-      {/* Decorative gradient orbs */}
-      <div className="absolute top-0 left-1/4 h-[400px] w-[400px] rounded-full bg-[#F97316]/5 blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 h-[300px] w-[300px] rounded-full bg-[#22C55E]/5 blur-3xl" />
+      {/* Overlay gradient */}
+      <div
+        className="absolute inset-0"
+        style={{ background: "linear-gradient(180deg, #0F0F11, rgba(15,15,17,0.92), #0F0F11)" }}
+      />
 
-      <div className="relative mx-auto max-w-[1200px] px-6 py-24 lg:py-32">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+      <div className="relative z-[2] mx-auto max-w-[1000px] text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 36 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl"
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+          className="text-[12px] uppercase tracking-[0.2em] text-[#F97316] font-semibold text-center mb-3"
+        >
+          {t("label")}
+        </motion.div>
+
+        <motion.h2
+          initial={{ opacity: 0, y: 36 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+          className="font-display text-[46px] font-extrabold text-[#FAFAFA] text-center tracking-[-1.5px] leading-[1.1] mb-4"
         >
           {t("title")}
         </motion.h2>
 
-        <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <motion.p
+          initial={{ opacity: 0, y: 36 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.85, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="text-[18px] text-[#52525B] text-center max-w-[560px] mx-auto leading-[1.6] mb-14"
+        >
+          {t("desc")}
+        </motion.p>
+
+        {/* 4 trust cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           {cards.map((card, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: 36 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="group relative rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm overflow-hidden h-full transition-all duration-300 hover:border-[#3F3F46]"
+              transition={{ duration: 0.85, delay: 0.05 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-[rgba(24,24,27,0.6)] border border-[#27272A] rounded-[20px] py-8 px-6 text-center backdrop-blur-lg transition-all duration-300 hover:border-[rgba(249,115,22,0.2)] hover:-translate-y-1"
             >
-              {/* Background image for datacenter card */}
-              {card.image && (
-                <div className="relative h-40 w-full overflow-hidden">
-                  <Image
-                    src={card.image}
-                    alt={card.title}
-                    fill
-                    className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#18181B] via-[#18181B]/60 to-transparent" />
-                </div>
-              )}
-              <div className="p-7">
-                {!card.image && (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#27272A] text-2xl mb-5">
-                    {card.emoji}
-                  </div>
-                )}
-                <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#71717A]">{card.description}</p>
+              <div className="text-[32px] mb-[14px]">{card.emoji}</div>
+              <div className="font-display text-[28px] font-extrabold text-[#FAFAFA]">
+                {t(card.valKey)}
               </div>
+              <div className="text-[13px] text-[#52525B] mt-1">{t(card.labelKey)}</div>
             </motion.div>
           ))}
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-16 rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm py-8 px-4"
-        >
-          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-0 md:divide-x md:divide-[#27272A]">
-            {bottomStats.map((stat, i) => (
-              <div key={i} className="flex flex-col items-center px-8 md:px-12">
-                <div className="font-display text-2xl font-bold bg-gradient-to-r from-[#F97316] to-[#FB923C] bg-clip-text text-transparent">{stat.value}</div>
-                <div className="mt-1.5 text-sm font-medium text-[#71717A]">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </section>
   );
