@@ -29,7 +29,7 @@ export function SaveButton({
         disabled={!isDirty || saving}
         className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 sm:w-auto ${
           isDirty
-            ? "bg-blue-600 hover:bg-blue-700"
+            ? "bg-[#F97316] hover:bg-[#EA580C]"
             : "cursor-not-allowed bg-[#27272A]"
         }`}
       >
@@ -37,13 +37,13 @@ export function SaveButton({
         {label}
       </button>
       {showSaved && (
-        <span className="flex items-center gap-1 text-sm text-green-600 animate-in fade-in">
+        <span className="flex items-center gap-1 text-sm text-[#34D399] animate-in fade-in">
           <Check className="h-4 w-4" />
           {savedLabel}
         </span>
       )}
       {error && (
-        <span className="text-sm text-red-600">{error}</span>
+        <span className="text-sm text-red-400">{error}</span>
       )}
     </div>
   );

@@ -42,7 +42,7 @@ export function SubscriptionTab() {
   return (
     <div className="space-y-6">
       {/* Current plan */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="h-4 w-4 text-amber-500" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
@@ -63,7 +63,7 @@ export function SubscriptionTab() {
         <div className="mb-2">
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#27272A]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-brand transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-[#F97316] transition-all"
               style={{ width: `${100 - progress}%` }}
             />
           </div>
@@ -81,7 +81,7 @@ export function SubscriptionTab() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Starter */}
-          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-5">
+          <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h4 className="text-sm font-semibold text-[#FAFAFA]">Starter</h4>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-[#FAFAFA]">149</span>
@@ -106,7 +106,7 @@ export function SubscriptionTab() {
           </div>
 
           {/* Pro */}
-          <div className="relative rounded-xl border-2 border-[#F97316] bg-[#0F0F11] p-5">
+          <div className="relative rounded-xl border-2 border-[#F97316] bg-[#18181B] p-5">
             <div className="absolute -top-2.5 left-4 rounded-full bg-[#F97316] px-2.5 py-0.5 text-xs font-medium text-white">
               {t("popular")}
             </div>
@@ -127,14 +127,14 @@ export function SubscriptionTab() {
             <button
               type="button"
               onClick={() => setShowUpgradeModal(true)}
-              className="mt-4 w-full rounded-md bg-cta py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
+              className="mt-4 w-full rounded-md bg-[#F97316] py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
             >
               {t("choosePlan")}
             </button>
           </div>
 
           {/* Enterprise */}
-          <div className="rounded-xl border border-[#27272A] bg-[#0F0F11] p-5">
+          <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h4 className="text-sm font-semibold text-[#FAFAFA]">Enterprise</h4>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-[#FAFAFA]">790</span>
@@ -165,14 +165,14 @@ export function SubscriptionTab() {
         <Mail className="h-4 w-4 text-[#71717A]" />
         <p className="text-sm text-[#71717A]">
           {t("needHelp")} —{" "}
-          <span className="font-medium text-brand">support@cantaia.io</span>
+          <span className="font-medium text-[#F97316]">support@cantaia.io</span>
         </p>
       </div>
 
       {/* Upgrade modal placeholder */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-lg bg-[#0F0F11] p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg bg-[#18181B] p-6 shadow-xl">
             <h3 className="mb-2 text-sm font-semibold text-[#FAFAFA]">
               {t("upgradeTitle")}
             </h3>
@@ -182,7 +182,7 @@ export function SubscriptionTab() {
             <button
               type="button"
               onClick={() => setShowUpgradeModal(false)}
-              className="w-full rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A]"
+              className="w-full rounded-md bg-[#27272A] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#3F3F46]"
             >
               {t("understood")}
             </button>

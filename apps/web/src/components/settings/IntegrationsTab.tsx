@@ -337,7 +337,7 @@ export function IntegrationsTab() {
   if (view === "imap-select") {
     return (
       <div className="space-y-6">
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
           <button
             onClick={() => setView("main")}
             className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
@@ -380,7 +380,7 @@ export function IntegrationsTab() {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
           <button
             onClick={() => setView("imap-select")}
             className="mb-4 flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA]"
@@ -404,7 +404,7 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, email_address: e.target.value }))
                 }
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 placeholder="julien@monbureau.ch"
               />
             </div>
@@ -418,7 +418,7 @@ export function IntegrationsTab() {
                 onChange={(e) =>
                   setImapForm((f) => ({ ...f, imap_password: e.target.value }))
                 }
-                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
             </div>
 
@@ -435,7 +435,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, imap_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="imap.example.com"
                   />
                 </div>
@@ -449,7 +449,7 @@ export function IntegrationsTab() {
                         imap_port: parseInt(e.target.value) || 993,
                       }))
                     }
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
@@ -470,7 +470,7 @@ export function IntegrationsTab() {
                 ))}
               </div>
               {selectedProvider && selectedProvider !== "manual" && (
-                <p className="mt-1 text-[10px] text-green-600">
+                <p className="mt-1 text-[10px] text-[#34D399]">
                   ✅ {t("emailPreFilled")}
                 </p>
               )}
@@ -489,7 +489,7 @@ export function IntegrationsTab() {
                     onChange={(e) =>
                       setImapForm((f) => ({ ...f, smtp_host: e.target.value }))
                     }
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                     placeholder="smtp.example.com"
                   />
                 </div>
@@ -503,7 +503,7 @@ export function IntegrationsTab() {
                         smtp_port: parseInt(e.target.value) || 587,
                       }))
                     }
-                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                    className="w-full rounded-md border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                   />
                 </div>
               </div>
@@ -547,7 +547,7 @@ export function IntegrationsTab() {
                 type="button"
                 onClick={handleSaveImapConnection}
                 disabled={!testResult?.success || saving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("emailSaveConnection")}
@@ -592,7 +592,7 @@ export function IntegrationsTab() {
     <div className="space-y-6">
       {hasConnection && displayProvider ? (
         // ── Connected state ──
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#27272A]">
               {getProviderIcon(displayProvider)}
@@ -638,7 +638,7 @@ export function IntegrationsTab() {
                 type="button"
                 onClick={handleSyncNow}
                 disabled={syncing}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
               >
                 {syncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -658,13 +658,13 @@ export function IntegrationsTab() {
             </div>
 
             {syncMessage && (
-              <p className="text-sm text-green-600">{syncMessage}</p>
+              <p className="text-sm text-[#34D399]">{syncMessage}</p>
             )}
           </div>
         </div>
       ) : loading ? (
         // ── Loading connection status ──
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
             <p className="text-sm text-[#71717A]">{t("emailConnecting")}</p>
@@ -672,7 +672,7 @@ export function IntegrationsTab() {
         </div>
       ) : (
         // ── Not connected — Provider selection ──
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
           <h3 className="mb-2 text-sm font-semibold text-[#FAFAFA]">
             {t("emailConnectTitle")}
           </h3>

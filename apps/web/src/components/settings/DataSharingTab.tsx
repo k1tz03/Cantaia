@@ -268,7 +268,7 @@ export function DataSharingTab() {
         <div className="flex items-center gap-2">
           {message && (
             <span
-              className={`text-xs ${message.type === "success" ? "text-green-600" : "text-red-600"}`}
+              className={`text-xs ${message.type === "success" ? "text-[#34D399]" : "text-red-400"}`}
             >
               {message.type === "success" ? (
                 <CheckCircle className="mr-1 inline h-3.5 w-3.5" />
@@ -282,7 +282,7 @@ export function DataSharingTab() {
             type="button"
             onClick={() => toggleAll(activeCount < CONSENT_MODULES.length)}
             disabled={saving !== null}
-            className="rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#27272A] disabled:opacity-50"
+            className="rounded-md border border-[#3F3F46] bg-[#27272A] px-3 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#1C1C1F] disabled:opacity-50"
           >
             {saving === "all" ? (
               <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
@@ -308,13 +308,13 @@ export function DataSharingTab() {
               className={`rounded-lg border p-4 transition-colors ${
                 isActive
                   ? "border-green-500/20 bg-green-500/10"
-                  : "border-[#27272A] bg-[#0F0F11]"
+                  : "border-[#27272A] bg-[#18181B]"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <Icon
-                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-green-600" : "text-[#71717A]"}`}
+                    className={`mt-0.5 h-5 w-5 ${isActive ? "text-[#34D399]" : "text-[#71717A]"}`}
                   />
                   <div>
                     <h4 className="text-sm font-medium text-[#FAFAFA]">
@@ -325,7 +325,7 @@ export function DataSharingTab() {
                     </p>
                     <div className="mt-2 text-xs">
                       {isActive ? (
-                        <span className="text-green-700 dark:text-green-400">
+                        <span className="text-[#34D399]">
                           <CheckCircle className="mr-1 inline h-3 w-3" />
                           {mod.benefitOptIn}
                         </span>

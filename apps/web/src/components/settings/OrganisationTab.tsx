@@ -36,7 +36,7 @@ export function OrganisationTab() {
   // Solo user — show simplified message
   if (memberCount !== null && memberCount <= 1) {
     return (
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="flex flex-col items-center text-center py-8">
           <Building2 className="h-10 w-10 text-[#71717A]" />
           <h3 className="mt-3 text-sm font-medium text-[#71717A]">
@@ -53,7 +53,7 @@ export function OrganisationTab() {
   return (
     <div className="space-y-6">
       {/* Members */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
           <Users className="h-4 w-4 text-[#71717A]" />
           {t("teamMembers")}

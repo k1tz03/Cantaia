@@ -90,7 +90,7 @@ export function EmailPreferencesTab() {
 
   if (fetchError) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
+      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
         <AlertCircle className="h-4 w-4" />
         {fetchError}
       </div>
@@ -100,7 +100,7 @@ export function EmailPreferencesTab() {
   return (
     <div className="space-y-6">
       {/* Outlook Integration */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
           <Mail className="h-4 w-4 text-blue-500" />
           {t("emailPrefs_outlookTitle")}
@@ -125,14 +125,14 @@ export function EmailPreferencesTab() {
               value={form.data.outlook_root_folder_name as string}
               onChange={(e) => form.update({ outlook_root_folder_name: e.target.value })}
               placeholder="Cantaia"
-              className="mt-1 block w-64 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-64 rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
             />
           </div>
         </div>
       </div>
 
       {/* Auto-dismiss */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
           <FolderOpen className="h-4 w-4 text-amber-500" />
           {t("emailPrefs_filteringTitle")}
@@ -164,7 +164,7 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Snooze defaults */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
           <Clock className="h-4 w-4 text-purple-500" />
           {t("emailPrefs_snoozeTitle")}
@@ -178,7 +178,7 @@ export function EmailPreferencesTab() {
           <select
             value={form.data.default_snooze_hours as number}
             onChange={(e) => form.update({ default_snooze_hours: Number(e.target.value) })}
-            className="mt-1 block w-48 rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-48 rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           >
             <option value={1}>1 {t("emailPrefs_hour")}</option>
             <option value={2}>2 {t("emailPrefs_hours")}</option>
@@ -190,7 +190,7 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Archive settings */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
           <Archive className="h-4 w-4 text-green-500" />
           {t("emailPrefs_archiveTitle")}
@@ -216,7 +216,7 @@ export function EmailPreferencesTab() {
                 value={form.data.archive_path as string}
                 onChange={(e) => form.update({ archive_path: e.target.value })}
                 placeholder="C:\Chantiers"
-                className="mt-1 block w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-3 py-2 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
             </div>
           )}
@@ -224,7 +224,7 @@ export function EmailPreferencesTab() {
       </div>
 
       {/* Save button */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
         <SaveButton
           isDirty={form.isDirty}
           saving={form.saving}
@@ -261,11 +261,11 @@ function ToggleRow({
         type="button"
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? "bg-brand" : "bg-[#27272A]"
+          checked ? "bg-[#F97316]" : "bg-[#27272A]"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-[#0F0F11] shadow transition-transform ${
+          className={`inline-block h-5 w-5 rounded-full bg-[#18181B] shadow transition-transform ${
             checked ? "translate-x-5" : "translate-x-0"
           }`}
         />

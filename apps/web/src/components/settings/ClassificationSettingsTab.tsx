@@ -85,8 +85,8 @@ function Checkbox({
           onClick={() => onChange(!checked)}
           className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
             checked
-              ? "border-brand bg-brand text-white"
-              : "border-[#27272A] bg-[#0F0F11] hover:border-[#27272A]"
+              ? "border-[#F97316] bg-[#F97316] text-white"
+              : "border-[#27272A] bg-[#18181B] hover:border-[#27272A]"
           }`}
         >
           {checked && <Check className="h-3.5 w-3.5" />}
@@ -189,7 +189,7 @@ export function ClassificationSettingsTab() {
   return (
     <div className="space-y-6">
       {/* ─── Section 1: Automatic Classification ─── */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="mb-4 flex items-center gap-2">
           <Settings className="h-4 w-4 text-[#71717A]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
@@ -215,7 +215,7 @@ export function ClassificationSettingsTab() {
                   onChange={(e) =>
                     update({ confidenceThreshold: Number(e.target.value) })
                   }
-                  className="appearance-none rounded-md border border-[#27272A] bg-[#0F0F11] py-1.5 pl-3 pr-8 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="appearance-none rounded-md border border-[#3F3F46] bg-[#18181B] py-1.5 pl-3 pr-8 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 >
                   {CONFIDENCE_OPTIONS.map((v) => (
                     <option key={v} value={v}>
@@ -247,7 +247,7 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 2: Ignored Categories ─── */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="mb-4 flex items-center gap-2">
           <Shield className="h-4 w-4 text-[#71717A]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
@@ -279,7 +279,7 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 3: Ignored Domains ─── */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="mb-4 flex items-center gap-2">
           <Globe className="h-4 w-4 text-[#71717A]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
@@ -321,13 +321,13 @@ export function ClassificationSettingsTab() {
                   }
                 }}
                 placeholder="exemple.com"
-                className="rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={addIgnoredDomain}
-                className="rounded-md bg-gold px-2.5 py-1.5 text-sm font-medium text-white hover:bg-gold/90"
+                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-white hover:bg-[#EA580C]"
               >
                 <Check className="h-4 w-4" />
               </button>
@@ -356,7 +356,7 @@ export function ClassificationSettingsTab() {
       </div>
 
       {/* ─── Section 4: Mapped Domains (Site Contacts) ─── */}
-      <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
         <div className="mb-4 flex items-center gap-2">
           <Mail className="h-4 w-4 text-[#71717A]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
@@ -377,7 +377,7 @@ export function ClassificationSettingsTab() {
                 {mapping.domain}
               </span>
               <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
-              <span className="text-sm text-brand font-medium">
+              <span className="text-sm text-[#F97316] font-medium">
                 {mapping.project}
               </span>
               <div className="flex-1" />
@@ -398,7 +398,7 @@ export function ClassificationSettingsTab() {
                 value={newMappedDomain}
                 onChange={(e) => setNewMappedDomain(e.target.value)}
                 placeholder="domaine.ch"
-                className="w-40 rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-40 rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                 autoFocus
               />
               <ArrowRight className="h-3.5 w-3.5 text-[#71717A]" />
@@ -415,12 +415,12 @@ export function ClassificationSettingsTab() {
                   }
                 }}
                 placeholder={t("classificationMappedProjectPlaceholder")}
-                className="w-40 rounded-md border border-[#27272A] px-2.5 py-1.5 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-40 rounded-md border border-[#3F3F46] bg-[#18181B] px-2.5 py-1.5 text-sm text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
               />
               <button
                 type="button"
                 onClick={addMappedDomain}
-                className="rounded-md bg-gold px-2.5 py-1.5 text-sm font-medium text-white hover:bg-gold/90"
+                className="rounded-md bg-[#F97316] px-2.5 py-1.5 text-sm font-medium text-white hover:bg-[#EA580C]"
               >
                 <Check className="h-4 w-4" />
               </button>
