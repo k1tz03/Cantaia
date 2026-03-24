@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, AlertCircle, RotateCcw } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { TicketStatusBadge } from "@/components/support/TicketStatusBadge";
 import { TicketCategoryBadge } from "@/components/support/TicketCategoryBadge";
@@ -25,6 +25,7 @@ interface Message {
   content: string;
   attachments: Attachment[];
   created_at: string;
+  sender_name?: string;
 }
 
 interface Ticket {
@@ -34,12 +35,13 @@ interface Ticket {
   priority: string;
   status: string;
   created_at: string;
+  user_name?: string;
 }
 
-const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-[#52525B]",
-  medium: "bg-amber-400",
-  high: "bg-red-500",
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "#71717A",
+  medium: "#F59E0B",
+  high: "#EF4444",
 };
 
 export default function SupportDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -69,7 +71,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
         setTicket(data.ticket);
         setMessages(data.messages || []);
       }
-    } catch (e) {
+    } catch {
       setError("Erreur de chargement");
     } finally {
       setLoading(false);
@@ -92,20 +94,33 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function handleReopen() {
-    // Sending a message to a resolved ticket auto-reopens it
     await handleSend("Ticket rouvert par l'utilisateur.", []);
   }
 
+  function formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString("fr-CH", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>;
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 20px", color: "#71717A", fontSize: 13 }}>
+        Chargement...
+      </div>
+    );
   }
 
   if (error || !ticket) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
-        <p className="text-[#71717A]">{error || "Ticket introuvable"}</p>
-        <Link href="/support" className="mt-4 text-sm text-[#F97316] hover:underline">← Retour</Link>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 20px" }}>
+        <AlertCircle style={{ width: 32, height: 32, color: "#EF4444", marginBottom: 8 }} />
+        <p style={{ color: "#71717A", fontSize: 14 }}>{error || "Ticket introuvable"}</p>
+        <Link href="/support" style={{ marginTop: 16, fontSize: 13, color: "#F97316", textDecoration: "none" }}>
+          {"\u2190"} Retour
+        </Link>
       </div>
     );
   }
@@ -113,56 +128,105 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
 
   return (
-    <div className="min-h-full bg-[#0F0F11] mx-auto max-w-4xl px-4 py-6 flex flex-col h-[calc(100vh-64px)]">
-      {/* Header */}
-      <div className="mb-4">
-        <Link href="/support" className="inline-flex items-center gap-1 text-sm text-[#71717A] hover:text-[#FAFAFA] mb-3">
-          <ArrowLeft className="h-4 w-4" />
-          {t("myTickets")}
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-[#FAFAFA]">{ticket.subject}</h1>
-            <div className="mt-1.5 flex items-center gap-2">
-              <TicketCategoryBadge category={ticket.category} />
-              <TicketStatusBadge status={ticket.status} />
-              <span className={`inline-block h-2 w-2 rounded-full ${PRIORITY_DOT[ticket.priority] || PRIORITY_DOT.medium}`} />
-              <span className="text-xs text-[#71717A]">
-                {new Date(ticket.created_at).toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
-              </span>
-            </div>
+    <div style={{ display: "flex", height: "calc(100vh - 48px)", background: "#0F0F11" }}>
+      {/* Thread panel (full width for user view) */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Detail header */}
+        <div style={{ padding: "14px 24px", borderBottom: "1px solid #27272A" }}>
+          <Link
+            href="/support"
+            style={{
+              fontSize: 12,
+              color: "#71717A",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              marginBottom: 8,
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#D4D4D8"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#71717A"; }}
+          >
+            {"\u2190"} {t("myTickets")}
+          </Link>
+          <div
+            style={{
+              fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+              fontSize: 16,
+              fontWeight: 700,
+              color: "#FAFAFA",
+            }}
+          >
+            {ticket.subject}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <TicketCategoryBadge category={ticket.category} />
+            <TicketStatusBadge status={ticket.status} />
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                display: "inline-block",
+                background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
+              }}
+            />
+            <span style={{ fontSize: 11, color: "#71717A" }}>
+              {formatDate(ticket.created_at)}
+            </span>
           </div>
         </div>
-      </div>
 
-      {/* Resolved banner */}
-      {isResolved && (
-        <div className="mb-4 flex items-center justify-between rounded-lg bg-green-500/10 px-4 py-3">
-          <p className="text-sm text-green-400">
-            {ticket.status === "resolved" ? t("resolvedBanner") : t("closedBanner")}
-          </p>
-          {ticket.status === "resolved" && (
-            <button
-              onClick={handleReopen}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#0F0F11] px-3 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#27272A] border border-[#27272A]"
-            >
-              <RotateCcw className="h-3 w-3" />
-              {t("reopen")}
-            </button>
-          )}
-        </div>
-      )}
+        {/* Resolved banner */}
+        {isResolved && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 24px",
+              background: "rgba(16, 185, 129, 0.06)",
+              borderBottom: "1px solid rgba(16, 185, 129, 0.15)",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#34D399", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+              {"\u2705"} {ticket.status === "resolved" ? t("resolvedBanner") : t("closedBanner")}
+            </div>
+            {ticket.status === "resolved" && (
+              <button
+                onClick={handleReopen}
+                style={{
+                  fontSize: 11,
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #3F3F46",
+                  background: "#18181B",
+                  color: "#D4D4D8",
+                  cursor: "pointer",
+                }}
+              >
+                {t("reopen")}
+              </button>
+            )}
+          </div>
+        )}
 
-      {/* Thread */}
-      <div className="flex-1 overflow-hidden rounded-lg border border-[#27272A] flex flex-col min-h-0">
-        <TicketThread messages={messages} currentUserId={user?.id || ""} />
-        {!isResolved || ticket.status === "resolved" ? (
+        {/* Messages */}
+        <TicketThread
+          messages={messages}
+          currentUserId={user?.id || ""}
+          userName={ticket.user_name}
+        />
+
+        {/* Reply input */}
+        {(!isResolved || ticket.status === "resolved") && (
           <TicketReplyInput
             ticketId={ticket.id}
             onSend={handleSend}
             disabled={ticket.status === "closed"}
           />
-        ) : null}
+        )}
       </div>
     </div>
   );

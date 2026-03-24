@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LifeBuoy, MessageSquare, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { TicketStatusBadge } from "@/components/support/TicketStatusBadge";
 import { TicketCategoryBadge } from "@/components/support/TicketCategoryBadge";
 
@@ -23,10 +22,10 @@ interface Ticket {
   updated_at: string;
 }
 
-const PRIORITY_DOT: Record<string, string> = {
-  low: "bg-gray-400",
-  medium: "bg-amber-400",
-  high: "bg-red-500",
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "#71717A",
+  medium: "#F59E0B",
+  high: "#EF4444",
 };
 
 export default function SuperAdminSupportPage() {
@@ -75,65 +74,88 @@ export default function SuperAdminSupportPage() {
   const openCount = tickets.filter((t) => t.status === "open").length;
   const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
   const now = new Date();
-  const thisMonth = tickets.filter((t) => {
+  const resolvedThisMonth = tickets.filter((t) => {
     const d = new Date(t.updated_at);
     return t.status === "resolved" && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
+  const kpis = [
+    { label: t("kpiOpen"), value: openCount, color: "#3B82F6" },
+    { label: t("kpiInProgress"), value: inProgressCount, color: "#F59E0B" },
+    { label: t("kpiResolvedMonth"), value: resolvedThisMonth, color: "#10B981" },
+    { label: "Total", value: tickets.length, color: "#8B5CF6" },
+  ];
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-[#FAFAFA] mb-6">{t("title")}</h1>
+    <div style={{ padding: "24px 28px", background: "#0F0F11", minHeight: "100%" }}>
+      {/* Page header */}
+      <div style={{ marginBottom: 18 }}>
+        <h1
+          style={{
+            fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
+            fontSize: 24,
+            fontWeight: 800,
+            color: "#FAFAFA",
+            margin: 0,
+          }}
+        >
+          {t("title")}
+        </h1>
+        <p style={{ fontSize: 13, color: "#71717A", marginTop: 2 }}>
+          Tous les tickets de support
+        </p>
+      </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6">
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertCircle className="h-4 w-4 text-blue-500" />
-            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiOpen")}</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
+        {kpis.map((kpi, i) => (
+          <div
+            key={i}
+            style={{
+              background: "#18181B",
+              border: "1px solid #27272A",
+              borderRadius: 8,
+              padding: "12px 16px",
+            }}
+          >
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", fontWeight: 600, marginBottom: 4 }}>
+              {kpi.label}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#FAFAFA" }}>{kpi.value}</div>
           </div>
-          <p className="text-2xl font-bold text-[#FAFAFA]">{openCount}</p>
-        </div>
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiInProgress")}</span>
-          </div>
-          <p className="text-2xl font-bold text-[#FAFAFA]">{inProgressCount}</p>
-        </div>
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <span className="text-xs font-medium text-[#71717A] uppercase">{t("kpiResolvedMonth")}</span>
-          </div>
-          <p className="text-2xl font-bold text-[#FAFAFA]">{thisMonth}</p>
-        </div>
-        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <MessageSquare className="h-4 w-4 text-purple-500" />
-            <span className="text-xs font-medium text-[#71717A] uppercase">Total</span>
-          </div>
-          <p className="text-2xl font-bold text-[#FAFAFA]">{tickets.length}</p>
-        </div>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-3">
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
-          <option value="">{t("allTickets")}</option>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: 8, padding: "7px 12px", fontSize: 12, color: "#D4D4D8", outline: "none" }}
+        >
+          <option value="">Tous les statuts</option>
           <option value="open">{t("statusOpen")}</option>
           <option value="in_progress">{t("statusInProgress")}</option>
           <option value="resolved">{t("statusResolved")}</option>
           <option value="closed">{t("statusClosed")}</option>
         </select>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
-          <option value="">{t("category")}</option>
+        <select
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+          style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: 8, padding: "7px 12px", fontSize: 12, color: "#D4D4D8", outline: "none" }}
+        >
+          <option value="">Toutes cat{"\u00E9"}gories</option>
           <option value="bug">{t("categoryBug")}</option>
           <option value="question">{t("categoryQuestion")}</option>
           <option value="feature_request">{t("categoryFeature")}</option>
           <option value="billing">{t("categoryBilling")}</option>
         </select>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA]">
-          <option value="">{t("priority")}</option>
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value)}
+          style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: 8, padding: "7px 12px", fontSize: 12, color: "#D4D4D8", outline: "none" }}
+        >
+          <option value="">Toutes priorit{"\u00E9"}s</option>
           <option value="low">{t("priorityLow")}</option>
           <option value="medium">{t("priorityMedium")}</option>
           <option value="high">{t("priorityHigh")}</option>
@@ -142,59 +164,81 @@ export default function SuperAdminSupportPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-[#71717A]">Chargement...</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 20px", color: "#71717A", fontSize: 13 }}>
+          Chargement...
+        </div>
       ) : tickets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <LifeBuoy className="h-12 w-12 text-[#71717A]/30 mb-4" />
-          <p className="text-[#71717A]">Aucun ticket</p>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>🎫</div>
+          <div style={{ fontSize: 14, color: "#71717A" }}>Aucun ticket</div>
         </div>
       ) : (
-        <div className="rounded-lg border border-[#27272A] overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("subject")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Utilisateur</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Org</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("category")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">{t("priority")}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Date</th>
-                <th className="px-4 py-3 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((ticket) => (
-                <tr
-                  key={ticket.id}
-                  onClick={() => router.push(`/super-admin/support/${ticket.id}`)}
-                  className="border-b border-[#27272A] last:border-0 hover:bg-[#27272A]/30 cursor-pointer transition-colors"
+        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+          <thead>
+            <tr>
+              {["Sujet", "Utilisateur", "Org", "Cat\u00E9gorie", "Priorit\u00E9", "Statut", "Date", ""].map((h, i) => (
+                <th
+                  key={i}
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "#52525B",
+                    fontWeight: 600,
+                    padding: "8px 14px",
+                    textAlign: "left",
+                    borderBottom: "1px solid #27272A",
+                  }}
                 >
-                  <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-[#FAFAFA]">{ticket.subject}</span>
-                    <span className="ml-2 text-xs text-[#71717A]">({ticket.message_count})</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-[#FAFAFA]">{ticket.user_name || "—"}</div>
-                    <div className="text-xs text-[#71717A]">{ticket.user_email}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-[#71717A]">{ticket.org_name || "—"}</td>
-                  <td className="px-4 py-3"><TicketCategoryBadge category={ticket.category} /></td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block h-2 w-2 rounded-full ${PRIORITY_DOT[ticket.priority] || PRIORITY_DOT.medium}`} />
-                  </td>
-                  <td className="px-4 py-3"><TicketStatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3 text-sm text-[#71717A]">{formatDate(ticket.created_at)}</td>
-                  <td className="px-4 py-3">
-                    {hasUnread(ticket) && (
-                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" title={t("unread")} />
-                    )}
-                  </td>
-                </tr>
+                  {h}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            {tickets.map((ticket) => (
+              <tr
+                key={ticket.id}
+                onClick={() => router.push(`/super-admin/support/${ticket.id}`)}
+                style={{ cursor: "pointer", transition: "background 0.1s" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#18181B"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#D4D4D8", verticalAlign: "middle" }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "#FAFAFA" }}>{ticket.subject}</span>
+                  <span style={{ fontSize: 10, color: "#71717A", marginLeft: 6 }}>({ticket.message_count})</span>
+                  {hasUnread(ticket) && (
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block", marginLeft: 6 }} />
+                  )}
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                  <div style={{ fontSize: 12, color: "#FAFAFA" }}>{ticket.user_name || "\u2014"}</div>
+                  <div style={{ fontSize: 10, color: "#71717A" }}>{ticket.user_email}</div>
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
+                  {ticket.org_name || "\u2014"}
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                  <TicketCategoryBadge category={ticket.category} />
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", display: "inline-block", background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }} />
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                  <TicketStatusBadge status={ticket.status} />
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
+                  {formatDate(ticket.created_at)}
+                </td>
+                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                  {hasUnread(ticket) && (
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3B82F6", display: "inline-block" }} />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

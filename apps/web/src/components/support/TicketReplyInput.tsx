@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { SendHorizontal, Paperclip, X, Loader2 } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 
 interface Attachment {
   file_url: string;
@@ -23,7 +23,7 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/csv",
 ];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 3;
 
 export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInputProps) {
@@ -50,7 +50,6 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
     if (!content.trim() && files.length === 0) return;
     setSending(true);
     try {
-      // Upload files first
       const attachments: Attachment[] = [];
       for (const file of files) {
         const formData = new FormData();
@@ -80,31 +79,45 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
   }
 
   return (
-    <div className="border-t border-[#27272A] p-4">
+    <div>
+      {/* File chips above the bar */}
       {files.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div style={{ padding: "8px 24px 0", display: "flex", flexWrap: "wrap", gap: 6, background: "#18181B", borderTop: "1px solid #27272A" }}>
           {files.map((f, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-md bg-[#27272A] px-2 py-1 text-xs text-[#FAFAFA]">
-              <span className="max-w-[150px] truncate">{f.name}</span>
-              <button type="button" onClick={() => removeFile(i)} className="text-[#71717A] hover:text-[#FAFAFA]">
-                <X className="h-3 w-3" />
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#27272A",
+                borderRadius: 5,
+                padding: "4px 8px",
+                fontSize: 10,
+                color: "#D4D4D8",
+              }}
+            >
+              <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+              <button type="button" onClick={() => removeFile(i)} style={{ color: "#71717A", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+                <X size={10} />
               </button>
             </div>
           ))}
         </div>
       )}
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t("writeReply")}
-            disabled={disabled || sending}
-            rows={2}
-            className="w-full resize-none rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-muted-foreground focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] disabled:opacity-50"
-          />
-        </div>
+
+      {/* Reply bar */}
+      <div
+        style={{
+          padding: "12px 24px",
+          borderTop: files.length > 0 ? "none" : "1px solid #27272A",
+          background: "#18181B",
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 8,
+        }}
+      >
+        {/* Paperclip button */}
         <input
           ref={fileRef}
           type="file"
@@ -117,18 +130,74 @@ export function TicketReplyInput({ ticketId, onSend, disabled }: TicketReplyInpu
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={disabled || sending || files.length >= MAX_FILES}
-          className="rounded-lg p-2 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA] disabled:opacity-50"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 7,
+            background: "#27272A",
+            border: "1px solid #3F3F46",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            cursor: disabled ? "default" : "pointer",
+            flexShrink: 0,
+            opacity: disabled ? 0.5 : 1,
+            color: "#D4D4D8",
+          }}
           title={t("attachments")}
         >
-          <Paperclip className="h-4 w-4" />
+          {"\uD83D\uDCCE"}
         </button>
+
+        {/* Textarea */}
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={t("writeReply")}
+          disabled={disabled || sending}
+          rows={1}
+          style={{
+            flex: 1,
+            background: "#27272A",
+            border: "1px solid #3F3F46",
+            borderRadius: 8,
+            padding: "8px 12px",
+            fontSize: 13,
+            color: "#D4D4D8",
+            resize: "none",
+            outline: "none",
+            minHeight: 38,
+            fontFamily: "'Inter', sans-serif",
+            opacity: disabled ? 0.5 : 1,
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "#F97316"; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = "#3F3F46"; }}
+        />
+
+        {/* Send button */}
         <button
           type="button"
           onClick={handleSend}
           disabled={disabled || sending || (!content.trim() && files.length === 0)}
-          className="rounded-lg bg-[#F97316] p-2 text-white hover:bg-[#F97316]/90 disabled:opacity-50"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 7,
+            background: "linear-gradient(135deg, #F97316, #EA580C)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            cursor: disabled || sending ? "default" : "pointer",
+            flexShrink: 0,
+            border: "none",
+            color: "white",
+            opacity: (disabled || sending || (!content.trim() && files.length === 0)) ? 0.5 : 1,
+          }}
         >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+          {sending ? <Loader2 size={14} className="animate-spin" /> : "\u27A4"}
         </button>
       </div>
     </div>
