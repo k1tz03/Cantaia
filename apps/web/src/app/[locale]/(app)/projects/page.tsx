@@ -653,8 +653,8 @@ export default function ProjectsPage() {
                           background: AVATAR_COLORS[0],
                         }}
                       >
-                        {profile?.first_name && profile?.last_name
-                          ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+                        {(profile as any)?.first_name && (profile as any)?.last_name
+                          ? `${(profile as any).first_name[0]}${(profile as any).last_name[0]}`.toUpperCase()
                           : "??"}
                       </div>
                     )}
