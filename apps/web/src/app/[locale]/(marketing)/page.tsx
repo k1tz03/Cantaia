@@ -4,7 +4,8 @@ import { ProofSection } from "@/components/landing/ProofSection";
 import { ProblemSection } from "@/components/landing/ProblemSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { SpotlightSection } from "@/components/landing/SpotlightSection";
-import { FeaturePrixSection } from "@/components/landing/BentoGrid";
+// HIDDEN: FeaturePrixSection disabled — price analysis paused
+// import { FeaturePrixSection } from "@/components/landing/BentoGrid";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TrustSection } from "@/components/landing/FAQSection";
 // HIDDEN: Pricing temporarily disabled — user undecided on final prices
@@ -99,16 +100,10 @@ const jsonLd = {
       url: "https://cantaia.io",
       offers: {
         "@type": "Offer",
-        price: "99",
+        price: "0",
         priceCurrency: "CHF",
-        priceValidUntil: "2027-01-01",
+        description: "14-day free trial",
         availability: "https://schema.org/InStock",
-      },
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.8",
-        ratingCount: "12",
-        bestRating: "5",
       },
     },
     {
@@ -134,7 +129,7 @@ export default function LandingPage() {
       <ProblemSection />
       <FeaturesSection />
       <SpotlightSection />
-      <FeaturePrixSection />
+      {/* HIDDEN: FeaturePrixSection — price analysis paused */}
       <VideoSection />
       <HowItWorksSection />
       <TrustSection />

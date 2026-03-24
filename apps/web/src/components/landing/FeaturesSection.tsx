@@ -12,7 +12,7 @@ const features = [
   {
     icon: ClipboardList,
     title: "Soumissions",
-    description: "Upload Excel ou PDF, analyse IA des postes CFC, demandes de prix en 4 étapes et comparaison fournisseurs automatique.",
+    description: "Upload Excel ou PDF, analyse IA des postes CFC, envoi des demandes aux fournisseurs et suivi des réponses.",
   },
   {
     icon: CalendarRange,
