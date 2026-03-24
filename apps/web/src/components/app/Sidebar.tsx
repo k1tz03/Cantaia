@@ -122,8 +122,7 @@ export function Sidebar() {
     localStorage.setItem("cantaia_sidebar_collapsed", String(collapsed));
   }, [collapsed]);
 
-  const isBranded = branding.brandingEnabled;
-  const displayName = branding.customName || "Cantaia";
+  // Logo removed — now in AppHeader
 
   function isActive(href: string): boolean {
     const pathWithoutLocale = pathname.replace(/^\/(fr|en|de)/, "");
