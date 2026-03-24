@@ -8,6 +8,7 @@ import { FeaturePrixSection } from "@/components/landing/BentoGrid";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TrustSection } from "@/components/landing/FAQSection";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { VideoSection } from "@/components/landing/VideoSection";
 import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
 const homeSeo: Record<string, { title: string; description: string; keywords: string[] }> = {
@@ -133,6 +134,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <SpotlightSection />
       <FeaturePrixSection />
+      <VideoSection />
       <HowItWorksSection />
       <TrustSection />
       <PricingSection />

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 
@@ -7,9 +8,9 @@ export function TrustSection() {
   const t = useTranslations("landing.proof");
 
   const cards = [
-    { emoji: t("card1Emoji"), title: t("card1Title"), description: t("card1Desc") },
-    { emoji: t("card2Emoji"), title: t("card2Title"), description: t("card2Desc") },
-    { emoji: t("card3Emoji"), title: t("card3Title"), description: t("card3Desc") },
+    { emoji: t("card1Emoji"), title: t("card1Title"), description: t("card1Desc"), image: null },
+    { emoji: t("card2Emoji"), title: t("card2Title"), description: t("card2Desc"), image: null },
+    { emoji: t("card3Emoji"), title: t("card3Title"), description: t("card3Desc"), image: "/landing/trust-datacenter.png" },
   ];
 
   const bottomStats = [
@@ -46,13 +47,30 @@ export function TrustSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm p-7 h-full transition-all duration-300 hover:border-[#3F3F46]"
+              className="group relative rounded-2xl border border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm overflow-hidden h-full transition-all duration-300 hover:border-[#3F3F46]"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#27272A] text-2xl mb-5">
-                {card.emoji}
+              {/* Background image for datacenter card */}
+              {card.image && (
+                <div className="relative h-40 w-full overflow-hidden">
+                  <Image
+                    src={card.image}
+                    alt={card.title}
+                    fill
+                    className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#18181B] via-[#18181B]/60 to-transparent" />
+                </div>
+              )}
+              <div className="p-7">
+                {!card.image && (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#27272A] text-2xl mb-5">
+                    {card.emoji}
+                  </div>
+                )}
+                <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#71717A]">{card.description}</p>
               </div>
-              <h3 className="font-display text-lg font-bold text-white">{card.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#71717A]">{card.description}</p>
             </motion.div>
           ))}
         </div>

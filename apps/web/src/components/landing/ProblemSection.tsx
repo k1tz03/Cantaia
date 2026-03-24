@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Clock, TrendingDown, Check } from "lucide-react";
@@ -56,6 +57,31 @@ export function ProblemSection() {
           <p className="mt-4 text-lg text-[#71717A]">
             {t("subtitle")}
           </p>
+        </motion.div>
+
+        {/* Messy desk visual */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.7 }}
+          className="relative rounded-2xl overflow-hidden border border-[#EF4444]/20 mb-16"
+        >
+          <Image
+            src="/landing/problem-bg.png"
+            alt="Bureau de chef de projet construction surchargé"
+            width={1200}
+            height={600}
+            className="w-full h-auto object-cover"
+            sizes="(max-width: 1200px) 100vw, 1200px"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F11] via-[#0F0F11]/40 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#EF4444]/10 border border-[#EF4444]/20 px-4 py-2 backdrop-blur-sm">
+              <span className="h-2 w-2 rounded-full bg-[#EF4444] animate-pulse" />
+              <span className="text-sm font-semibold text-[#EF4444]">Sans Cantaia — La réalité de 90% des chefs de projet</span>
+            </div>
+          </div>
         </motion.div>
 
         {/* Pain points */}
