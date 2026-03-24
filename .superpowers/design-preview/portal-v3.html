@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cantaia — Portail Chantier</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; max-width: 430px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
+
+/* ====== PIN SCREEN ====== */
+.pin-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; background: linear-gradient(180deg, #0F0F11, #18181B); }
+.pin-logo { width: 48px; height: 48px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; font-weight: 800; font-family: 'Plus Jakarta Sans'; margin-bottom: 16px; }
+.pin-title { font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 800; color: #FAFAFA; text-align: center; }
+.pin-project { font-size: 13px; color: #71717A; text-align: center; margin-top: 4px; margin-bottom: 24px; }
+.pin-field { width: 100%; margin-bottom: 12px; }
+.pin-label { font-size: 11px; font-weight: 600; color: #A1A1AA; margin-bottom: 4px; display: block; }
+.pin-input { width: 100%; background: #27272A; border: 1px solid #3F3F46; border-radius: 10px; padding: 12px 16px; font-size: 15px; color: #FAFAFA; text-align: center; letter-spacing: 8px; font-weight: 700; outline: none; font-family: 'Plus Jakarta Sans'; }
+.pin-input:focus { border-color: #F97316; }
+.pin-input.name { letter-spacing: 0; text-align: left; font-weight: 400; font-family: 'Inter'; font-size: 14px; }
+.pin-btn { width: 100%; padding: 14px; border-radius: 10px; background: linear-gradient(135deg, #F97316, #EA580C); color: white; font-size: 15px; font-weight: 600; border: none; cursor: pointer; margin-top: 8px; font-family: 'Plus Jakarta Sans'; }
+.pin-btn:active { opacity: 0.9; transform: scale(0.99); }
+.pin-hint { font-size: 11px; color: #52525B; text-align: center; margin-top: 12px; }
+
+/* ====== APP SHELL ====== */
+.app-header { background: #09090B; padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #27272A; }
+.app-header-logo { width: 28px; height: 28px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: 800; font-family: 'Plus Jakarta Sans'; }
+.app-header-info { flex: 1; }
+.app-header-project { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; color: #FAFAFA; }
+.app-header-user { font-size: 11px; color: #71717A; }
+
+.app-content { flex: 1; overflow-y: auto; padding-bottom: 68px; }
+
+/* Bottom nav */
+.bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #09090B; border-top: 1px solid #27272A; display: flex; padding: 6px 0; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; cursor: pointer; transition: all 0.12s; }
+.nav-item .nav-icon { font-size: 18px; }
+.nav-item .nav-label { font-size: 9px; color: #52525B; font-weight: 500; }
+.nav-item.active .nav-label { color: #F97316; }
+.nav-item.active .nav-icon { filter: drop-shadow(0 0 4px rgba(249,115,22,0.4)); }
+
+/* ====== TAB: CHANTIER ====== */
+.site-tab { padding: 16px; }
+.site-card { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+.site-card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; margin-bottom: 6px; }
+.site-project-name { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #FAFAFA; }
+.site-code { font-size: 12px; color: #71717A; margin-top: 2px; }
+.site-address { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 12px; background: #27272A; border-radius: 8px; cursor: pointer; }
+.site-address:active { background: #3F3F46; }
+.site-address-icon { font-size: 16px; }
+.site-address-text { font-size: 13px; color: #60A5FA; flex: 1; }
+.site-address-arrow { color: #52525B; font-size: 12px; }
+
+.site-desc { font-size: 13px; color: #D4D4D8; line-height: 1.5; }
+
+/* Emergency & Safety */
+.safety-card { background: linear-gradient(135deg, #1C0909, #1A0505); border: 1px solid #EF444430; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+.safety-title { font-family: 'Plus Jakarta Sans'; font-size: 13px; font-weight: 700; color: #F87171; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.safety-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #EF444415; }
+.safety-row:last-child { border-bottom: none; }
+.safety-icon { font-size: 16px; width: 24px; text-align: center; }
+.safety-label { font-size: 11px; color: #A1A1AA; flex: 1; }
+.safety-value { font-size: 13px; color: #FAFAFA; font-weight: 600; }
+.safety-value a { color: #60A5FA; text-decoration: none; }
+
+.suva-rules { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 14px 16px; }
+.suva-title { font-family: 'Plus Jakarta Sans'; font-size: 13px; font-weight: 700; color: #FBBF24; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.suva-item { display: flex; align-items: start; gap: 8px; padding: 4px 0; font-size: 12px; color: #D4D4D8; line-height: 1.4; }
+.suva-check { color: #FBBF24; font-size: 12px; margin-top: 1px; flex-shrink: 0; }
+
+/* ====== TAB: SOUMISSION ====== */
+.soum-tab { padding: 16px; }
+.soum-search { width: 100%; background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #D4D4D8; outline: none; margin-bottom: 12px; }
+.soum-search::placeholder { color: #52525B; }
+.soum-group { background: #18181B; border: 1px solid #27272A; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.soum-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; }
+.soum-group-header:active { background: #27272A; }
+.soum-group-name { font-size: 13px; font-weight: 600; color: #FAFAFA; }
+.soum-group-count { font-size: 10px; color: #71717A; background: #27272A; padding: 2px 6px; border-radius: 4px; }
+.soum-item { padding: 8px 12px; border-top: 1px solid #27272A; }
+.soum-item-num { font-size: 10px; color: #71717A; font-family: monospace; }
+.soum-item-desc { font-size: 12px; color: #D4D4D8; margin-top: 2px; line-height: 1.4; }
+.soum-item-qty { font-size: 11px; color: #A1A1AA; margin-top: 3px; }
+
+/* ====== TAB: RAPPORT ====== */
+.report-tab { padding: 16px; }
+.report-date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.report-date-btn { width: 36px; height: 36px; border-radius: 8px; background: #18181B; border: 1px solid #3F3F46; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #A1A1AA; cursor: pointer; }
+.report-date-btn:active { background: #27272A; }
+.report-date { font-family: 'Plus Jakarta Sans'; font-size: 15px; font-weight: 700; color: #FAFAFA; }
+.report-status { font-size: 10px; padding: 3px 8px; border-radius: 5px; font-weight: 600; }
+.report-status.draft { background: #27272A; color: #A1A1AA; }
+.report-status.submitted { background: #10B98118; color: #34D399; }
+
+.report-section { background: #18181B; border: 1px solid #27272A; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.report-section-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; }
+.report-section-header:active { background: #1C1C1F; }
+.report-section-title { font-size: 13px; font-weight: 600; color: #FAFAFA; display: flex; align-items: center; gap: 6px; }
+.report-section-count { font-size: 10px; color: #71717A; background: #27272A; padding: 2px 6px; border-radius: 4px; }
+.report-section-chevron { color: #52525B; font-size: 12px; }
+
+.report-crew { padding: 0 14px 10px; }
+.crew-member { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #27272A; }
+.crew-member:last-child { border-bottom: none; }
+.crew-check { width: 22px; height: 22px; border: 2px solid #3F3F46; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.crew-check.checked { background: #F97316; border-color: #F97316; color: white; font-size: 12px; }
+.crew-name { font-size: 13px; color: #D4D4D8; flex: 1; }
+.crew-role { font-size: 10px; color: #52525B; }
+
+.crew-work { padding: 0 14px 10px; margin-left: 32px; }
+.work-entry { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+.work-desc { flex: 1; background: #27272A; border: 1px solid #3F3F46; border-radius: 6px; padding: 7px 10px; font-size: 12px; color: #D4D4D8; outline: none; }
+.work-hours { width: 60px; background: #27272A; border: 1px solid #3F3F46; border-radius: 6px; padding: 7px 8px; font-size: 12px; color: #FAFAFA; text-align: center; outline: none; font-weight: 600; }
+.work-driver { width: 28px; height: 28px; border-radius: 6px; background: #27272A; border: 1px solid #3F3F46; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; }
+.work-driver.active { background: #F9731620; border-color: #F97316; }
+.work-add { font-size: 11px; color: #F97316; cursor: pointer; padding: 4px 0; font-weight: 500; }
+
+.report-actions { display: flex; gap: 8px; padding: 16px 0; }
+.report-btn { flex: 1; padding: 12px; border-radius: 10px; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer; border: none; }
+.report-btn.draft { background: #27272A; color: #D4D4D8; border: 1px solid #3F3F46; }
+.report-btn.submit { background: linear-gradient(135deg, #F97316, #EA580C); color: white; }
+.report-btn:active { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<!-- ====== SECTION 1: PIN SCREEN ====== -->
+<div class="pin-screen" id="pin-screen">
+  <div class="pin-logo">C</div>
+  <div class="pin-title">Portail Chantier</div>
+  <div class="pin-project">Central Malley · 9240302</div>
+
+  <div class="pin-field">
+    <label class="pin-label">Votre nom</label>
+    <input class="pin-input name" placeholder="Ex: Edgar Cardoso" value="Edgar Cardoso" />
+  </div>
+  <div class="pin-field">
+    <label class="pin-label">Code PIN</label>
+    <input class="pin-input" placeholder="• • • • • •" value="482715" maxlength="6" />
+  </div>
+  <button class="pin-btn">Accéder au chantier</button>
+  <div class="pin-hint">Code fourni par votre conducteur de travaux</div>
+</div>
+
+<!-- ====== SECTION 2: APP (after login) ====== -->
+<div style="display:flex;flex-direction:column;min-height:100vh;margin-top:40px;border-top:3px solid #F97316;">
+
+  <!-- App header -->
+  <div class="app-header">
+    <div class="app-header-logo">C</div>
+    <div class="app-header-info">
+      <div class="app-header-project">Central Malley</div>
+      <div class="app-header-user">Edgar Cardoso · Chef d'équipe</div>
+    </div>
+  </div>
+
+  <div class="app-content">
+
+    <!-- ====== TAB: CHANTIER ====== -->
+    <div class="site-tab">
+      <div class="site-card">
+        <div class="site-card-title">Projet</div>
+        <div class="site-project-name">Central Malley</div>
+        <div class="site-code">9240302 · Implenia</div>
+        <div class="site-address">
+          <span class="site-address-icon">📍</span>
+          <span class="site-address-text">Chemin de l'usine à gaz, 1008 Prilly</span>
+          <span class="site-address-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="site-card">
+        <div class="site-card-title">Instructions du conducteur</div>
+        <div class="site-desc">Attention au passage des piétons côté nord. Zone de stockage matériaux déplacée vers le parking P2 à partir du 25 mars. Accès camions uniquement par la rue de l'Industrie.</div>
+      </div>
+
+      <!-- Emergency -->
+      <div class="safety-card">
+        <div class="safety-title">🚨 Numéros d'urgence</div>
+        <div class="safety-row">
+          <span class="safety-icon">🚑</span>
+          <span class="safety-label">Ambulance / Urgences</span>
+          <span class="safety-value"><a href="tel:144">144</a></span>
+        </div>
+        <div class="safety-row">
+          <span class="safety-icon">🚒</span>
+          <span class="safety-label">Pompiers</span>
+          <span class="safety-value"><a href="tel:118">118</a></span>
+        </div>
+        <div class="safety-row">
+          <span class="safety-icon">👮</span>
+          <span class="safety-label">Police</span>
+          <span class="safety-value"><a href="tel:117">117</a></span>
+        </div>
+        <div class="safety-row">
+          <span class="safety-icon">📞</span>
+          <span class="safety-label">Conducteur (Julien Ray)</span>
+          <span class="safety-value"><a href="tel:+41791234567">079 123 45 67</a></span>
+        </div>
+      </div>
+
+      <!-- SUVA rules -->
+      <div class="suva-rules">
+        <div class="suva-title">⚠️ Règles SUVA — Sécurité chantier</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Port du casque obligatoire en toutes circonstances</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Chaussures de sécurité S3 obligatoires</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Gilet haute visibilité obligatoire</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Protection auditive en zone de bruit > 85 dB</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Lunettes de protection pour travaux de meulage/découpe</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Harnais obligatoire au-dessus de 2 mètres</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Interdiction de travailler sous l'emprise d'alcool ou drogues</div>
+        <div class="suva-item"><span class="suva-check">☑</span> Signaler tout accident/incident immédiatement</div>
+      </div>
+    </div>
+
+    <!-- ====== TAB: SOUMISSION ====== -->
+    <div style="margin-top:24px;padding-top:16px;border-top:3px solid #3B82F6;">
+      <div style="padding:0 16px 6px;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;color:#60A5FA;">📋 Soumission</div>
+      <div class="soum-tab">
+        <input class="soum-search" placeholder="🔍 Rechercher un poste..." />
+
+        <div class="soum-group">
+          <div class="soum-group-header">
+            <span class="soum-group-name">Béton</span>
+            <span class="soum-group-count">32 postes</span>
+          </div>
+          <div class="soum-item">
+            <div class="soum-item-num">302.1</div>
+            <div class="soum-item-desc">Fourniture et pose sur lit de béton de caniveau type Ln 150 avec ou sans pente intégrée</div>
+            <div class="soum-item-qty">172.000 ml</div>
+          </div>
+          <div class="soum-item">
+            <div class="soum-item-num">302.4</div>
+            <div class="soum-item-desc">Béton armé pour fondations semelles filantes et isolées, coffrage et ferraillage compris, C30/37</div>
+            <div class="soum-item-qty">45.000 m³</div>
+          </div>
+        </div>
+
+        <div class="soum-group">
+          <div class="soum-group-header">
+            <span class="soum-group-name">Terrassement</span>
+            <span class="soum-group-count">28 postes</span>
+          </div>
+        </div>
+
+        <div class="soum-group">
+          <div class="soum-group-header">
+            <span class="soum-group-name">Canalisations</span>
+            <span class="soum-group-count">15 postes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== TAB: RAPPORT ====== -->
+    <div style="margin-top:24px;padding-top:16px;border-top:3px solid #F97316;">
+      <div style="padding:0 16px 6px;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;color:#FB923C;">📝 Rapport journalier</div>
+      <div class="report-tab">
+        <!-- Date nav -->
+        <div class="report-date-nav">
+          <div class="report-date-btn">‹</div>
+          <div style="text-align:center;">
+            <div class="report-date">Lundi 24 mars 2026</div>
+            <span class="report-status draft">Brouillon</span>
+          </div>
+          <div class="report-date-btn">›</div>
+        </div>
+
+        <!-- Personnel -->
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-title">👷 Personnel présent <span class="report-section-count">3/4</span></div>
+            <span class="report-section-chevron">▼</span>
+          </div>
+          <div class="report-crew">
+            <div class="crew-member">
+              <div class="crew-check checked">✓</div>
+              <span class="crew-name">Edgar Cardoso</span>
+              <span class="crew-role">Chef d'équipe</span>
+            </div>
+            <div class="crew-member">
+              <div class="crew-check checked">✓</div>
+              <span class="crew-name">Daniel Perreira</span>
+              <span class="crew-role">Maçon</span>
+            </div>
+            <div class="crew-member">
+              <div class="crew-check checked">✓</div>
+              <span class="crew-name">José Manuel</span>
+              <span class="crew-role">Manoeuvre</span>
+            </div>
+            <div class="crew-member">
+              <div class="crew-check"></div>
+              <span class="crew-name" style="color:#52525B;">Ricardo M. dos Santos</span>
+              <span class="crew-role">Absent</span>
+            </div>
+          </div>
+
+          <!-- Work entries for Edgar -->
+          <div class="crew-work">
+            <div style="font-size:10px;color:#71717A;margin-bottom:4px;font-weight:600;">Edgar Cardoso</div>
+            <div class="work-entry">
+              <input class="work-desc" value="Terrassement talus nord" />
+              <input class="work-hours" value="4h" />
+              <div class="work-driver active" title="Conducteur">🚛</div>
+            </div>
+            <div class="work-entry">
+              <input class="work-desc" value="Engazonnement zone B" />
+              <input class="work-hours" value="3h" />
+              <div class="work-driver" title="Conducteur">🚛</div>
+            </div>
+            <div class="work-add">+ Ajouter un travail</div>
+          </div>
+        </div>
+
+        <!-- Machines -->
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-title">🚜 Machines <span class="report-section-count">2</span></div>
+            <span class="report-section-chevron">▼</span>
+          </div>
+          <div style="padding:0 14px 10px;">
+            <div class="work-entry">
+              <input class="work-desc" value="Pelleteuse 2t5" />
+              <input class="work-hours" value="4h" />
+              <div class="work-driver" title="Louée" style="font-size:10px;color:#71717A;">L</div>
+            </div>
+            <div class="work-entry">
+              <input class="work-desc" value="Pied de mouton" />
+              <input class="work-hours" value="1h" />
+              <div class="work-driver active" title="Louée" style="font-size:10px;">L</div>
+            </div>
+            <div class="work-add">+ Ajouter une machine</div>
+          </div>
+        </div>
+
+        <!-- Delivery notes -->
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-title">📦 Bons de livraison <span class="report-section-count">1</span></div>
+            <span class="report-section-chevron">▼</span>
+          </div>
+          <div style="padding:0 14px 10px;">
+            <div style="background:#27272A;border-radius:8px;padding:10px;margin-bottom:6px;">
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <input class="work-desc" value="BL-2024-447" placeholder="N° bon" style="flex:0.4;" />
+                <input class="work-desc" value="Holcim SA" placeholder="Fournisseur" style="flex:0.6;" />
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:48px;height:48px;border-radius:6px;background:#3F3F46;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;">📷</div>
+                <div style="font-size:10px;color:#71717A;">Photo du bon de livraison<br><span style="color:#52525B;">Appuyer pour prendre en photo</span></div>
+              </div>
+            </div>
+            <div class="work-add">+ Ajouter un bon</div>
+          </div>
+        </div>
+
+        <!-- Remarks -->
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-title">💬 Remarques</div>
+            <span class="report-section-chevron">▼</span>
+          </div>
+          <div style="padding:0 14px 10px;">
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:#71717A;margin-bottom:3px;font-weight:600;">Météo</div>
+              <input class="work-desc" value="Ensoleillé, 18°C" style="width:100%;" />
+            </div>
+            <textarea class="work-desc" style="width:100%;min-height:60px;resize:vertical;" placeholder="Notes, incidents, retards...">RAS aujourd'hui. Bonne progression sur le talus nord.</textarea>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="report-actions">
+          <button class="report-btn draft">💾 Sauvegarder</button>
+          <button class="report-btn submit">📤 Envoyer le rapport</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active"><span class="nav-icon">🏗️</span><span class="nav-label">Chantier</span></div>
+    <div class="nav-item"><span class="nav-icon">📋</span><span class="nav-label">Soumission</span></div>
+    <div class="nav-item"><span class="nav-icon">📐</span><span class="nav-label">Plans</span></div>
+    <div class="nav-item"><span class="nav-icon">📝</span><span class="nav-label">Rapport</span></div>
+  </div>
+</div>
+
+</body>
+</html>

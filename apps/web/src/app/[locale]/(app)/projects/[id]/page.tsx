@@ -126,7 +126,7 @@ export default function ProjectDetailPage() {
   if (projectLoading) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <Loader2 className="h-6 w-6 animate-spin text-brand" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-muted-foreground">{t("projectNotFound")}</p>
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
       </div>
     );
   }
@@ -158,52 +158,55 @@ export default function ProjectDetailPage() {
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <ProjectBreadcrumb section={activeTab !== "overview" ? activeTab : undefined} />
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-          <Link
-            href="/projects"
-            className="mt-1 shrink-0 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div
-                className="h-4 w-4 shrink-0 rounded-full"
-                style={{ backgroundColor: project.color }}
-              />
-              <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
-                {project.name}
-              </h1>
-              {project.code && (
-                <span className="text-sm text-muted-foreground">{project.code}</span>
-              )}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              {project.client_name && (
+      {/* Project header card with gradient top border */}
+      <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4 sm:p-5 shadow-sm" style={{ borderTopWidth: "3px", borderTopColor: project.color || "#F97316" }}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+            <Link
+              href="/projects"
+              className="mt-1 shrink-0 rounded-md p-2 text-[#71717A] hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div
+                  className="h-4 w-4 shrink-0 rounded-full"
+                  style={{ backgroundColor: project.color }}
+                />
+                <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#FAFAFA] truncate">
+                  {project.name}
+                </h1>
+                {project.code && (
+                  <span className="text-sm text-[#71717A]">{project.code}</span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[#71717A]">
+                {project.client_name && (
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {project.client_name}
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5" />
-                  {project.client_name}
+                  <MapPin className="h-3.5 w-3.5" />
+                  {project.city}
                 </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {project.city}
-              </span>
-              <StatusBadge status={project.status} />
+                <StatusBadge status={project.status} />
+              </div>
             </div>
           </div>
+          <Link
+            href={`/projects/${project.id}/settings`}
+            className="hidden rounded-md border border-[#27272A] px-4 py-2 text-sm font-medium text-[#71717A] transition-colors hover:bg-[#1C1C1F] sm:inline-flex"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            {t("settingsTab")}
+          </Link>
         </div>
-        <Link
-          href={`/projects/${project.id}/settings`}
-          className="hidden rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          {t("settingsTab")}
-        </Link>
       </div>
 
-      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-border">
+      <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-[#27272A]">
         <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -214,8 +217,8 @@ export default function ProjectDetailPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? "border-brand text-brand"
-                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                    ? "border-[#F97316] text-[#F97316]"
+                    : "border-transparent text-[#71717A] hover:border-[#27272A] hover:text-[#FAFAFA]"
                 }`}
               >
                 <Icon className="h-4 w-4" />

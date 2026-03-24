@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Assistant IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes typing { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+
+/* Chat layout */
+.chat-layout { flex: 1; display: flex; overflow: hidden; }
+
+/* Conversations sidebar */
+.conv-sidebar { width: 280px; border-right: 1px solid #27272A; background: #0F0F11; display: flex; flex-direction: column; }
+.conv-header { padding: 12px 14px; border-bottom: 1px solid #27272A; }
+.conv-new-btn { width: 100%; font-size: 12px; padding: 8px; border-radius: 8px; border: 1px dashed #3F3F46; background: transparent; color: #A1A1AA; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.conv-new-btn:hover { border-color: #F97316; color: #F97316; background: #F9731608; }
+.conv-search { margin-top: 8px; width: 100%; background: #18181B; border: 1px solid #27272A; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #D4D4D8; outline: none; }
+.conv-search::placeholder { color: #52525B; }
+
+.conv-list { flex: 1; overflow-y: auto; padding: 6px; }
+.conv-section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #71717A; padding: 8px 8px 4px; font-weight: 600; }
+.conv-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; cursor: pointer; transition: all 0.1s; margin-bottom: 1px; }
+.conv-item:hover { background: #18181B; }
+.conv-item.active { background: #F9731612; }
+.conv-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.conv-text { flex: 1; min-width: 0; }
+.conv-title { font-size: 12px; color: #D4D4D8; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-item.active .conv-title { color: #F97316; }
+.conv-date { font-size: 9px; color: #71717A; }
+
+/* Chat main */
+.chat-main { flex: 1; display: flex; flex-direction: column; background: #0F0F11; }
+
+/* Chat header */
+.chat-header { padding: 12px 20px; border-bottom: 1px solid #27272A; display: flex; align-items: center; justify-content: space-between; }
+.chat-header-left { display: flex; align-items: center; gap: 8px; }
+.chat-header-title { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; color: #FAFAFA; }
+.chat-header-context { font-size: 11px; padding: 3px 8px; border-radius: 5px; background: #3B82F612; color: #60A5FA; }
+.chat-header-right { display: flex; gap: 6px; }
+.chat-header-btn { font-size: 10px; padding: 5px 10px; border-radius: 6px; border: 1px solid #3F3F46; background: #18181B; color: #A1A1AA; cursor: pointer; }
+.chat-header-btn:hover { background: #27272A; color: #D4D4D8; }
+
+/* Messages */
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+.msg { display: flex; gap: 10px; animation: fadeInUp 0.3s ease-out; max-width: 85%; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg-avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 600; flex-shrink: 0; }
+.msg-content { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 10px 14px; }
+.msg.user .msg-content { background: #F9731615; border-color: #F9731630; }
+.msg-name { font-size: 10px; font-weight: 600; margin-bottom: 4px; }
+.msg.user .msg-name { color: #FB923C; }
+.msg.ai .msg-name { color: #60A5FA; }
+.msg-text { font-size: 13px; color: #D4D4D8; line-height: 1.6; }
+.msg-text p { margin-bottom: 8px; }
+.msg-text p:last-child { margin-bottom: 0; }
+.msg-text b { color: #FAFAFA; }
+.msg-text code { background: #27272A; padding: 1px 5px; border-radius: 3px; font-size: 11px; color: #FB923C; }
+.msg-text ul { margin: 6px 0; padding-left: 16px; }
+.msg-text li { margin-bottom: 4px; }
+.msg-time { font-size: 9px; color: #3F3F46; margin-top: 4px; }
+
+/* File attachment in message */
+.msg-file { display: flex; align-items: center; gap: 8px; background: #27272A; border-radius: 6px; padding: 6px 10px; margin-top: 6px; }
+.msg-file-icon { font-size: 16px; }
+.msg-file-info { flex: 1; }
+.msg-file-name { font-size: 11px; color: #D4D4D8; font-weight: 500; }
+.msg-file-size { font-size: 9px; color: #52525B; }
+.msg-file-badge { font-size: 8px; padding: 2px 6px; border-radius: 3px; background: #10B98118; color: #34D399; font-weight: 600; }
+
+/* Suggestions */
+.suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 10px; }
+.suggestion { font-size: 11px; padding: 6px 12px; border-radius: 20px; border: 1px solid #27272A; background: #18181B; color: #A1A1AA; cursor: pointer; transition: all 0.12s; }
+.suggestion:hover { border-color: #F97316; color: #F97316; background: #F9731608; }
+
+/* Typing indicator */
+.typing { display: flex; align-items: center; gap: 10px; padding: 0 20px 8px; }
+.typing-avatar { width: 30px; height: 30px; border-radius: 8px; background: #3B82F6; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 600; }
+.typing-dots { display: flex; gap: 4px; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #3B82F6; }
+.typing-dot:nth-child(1) { animation: typing 1s 0s infinite; }
+.typing-dot:nth-child(2) { animation: typing 1s 0.2s infinite; }
+.typing-dot:nth-child(3) { animation: typing 1s 0.4s infinite; }
+.typing-label { font-size: 11px; color: #52525B; }
+
+/* Input area */
+.chat-input-area { border-top: 1px solid #27272A; padding: 12px 20px; background: #0F0F11; }
+
+/* File preview chips */
+.file-chips { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.file-chip { display: flex; align-items: center; gap: 5px; background: #27272A; border: 1px solid #3F3F46; border-radius: 6px; padding: 4px 8px; font-size: 10px; color: #D4D4D8; }
+.file-chip-icon { font-size: 12px; }
+.file-chip-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-chip-remove { color: #52525B; cursor: pointer; font-size: 12px; margin-left: 2px; }
+.file-chip-remove:hover { color: #F87171; }
+
+/* Drag overlay */
+.drag-overlay { display: none; position: absolute; inset: 0; background: #F9731610; border: 2px dashed #F97316; border-radius: 12px; z-index: 10; display: none; align-items: center; justify-content: center; }
+.drag-overlay.active { display: flex; }
+.drag-text { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #F97316; }
+
+.chat-input-row { display: flex; align-items: end; gap: 8px; }
+.chat-paperclip { width: 36px; height: 36px; border-radius: 8px; background: #18181B; border: 1px solid #3F3F46; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+.chat-paperclip:hover { background: #27272A; border-color: #52525B; }
+.chat-textarea { flex: 1; background: #18181B; border: 1px solid #3F3F46; border-radius: 10px; padding: 8px 14px; font-size: 13px; color: #D4D4D8; resize: none; outline: none; min-height: 40px; max-height: 120px; font-family: 'Inter', sans-serif; line-height: 1.5; }
+.chat-textarea::placeholder { color: #52525B; }
+.chat-textarea:focus { border-color: #F97316; }
+.chat-send { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EA580C); display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; flex-shrink: 0; border: none; color: white; }
+.chat-send:hover { opacity: 0.9; }
+.chat-send.disabled { background: #27272A; color: #52525B; cursor: default; }
+
+.chat-hint { font-size: 10px; color: #3F3F46; margin-top: 6px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb">Ménétrey SA › <b>Assistant IA</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i"><span class="ic">✅</span> Tâches</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Référentiels</div>
+      <div class="sb-i"><span class="ic">👷</span> Fournisseurs</div>
+      <div class="sb-i"><span class="ic">💰</span> Cantaia Prix</div>
+      <div class="sb-i"><span class="ic">📊</span> Rapports</div>
+      <div class="sb-i active"><span class="ic">🤖</span> Assistant IA</div>
+    </div>
+
+    <div class="chat-layout">
+      <!-- Conversations sidebar -->
+      <div class="conv-sidebar">
+        <div class="conv-header">
+          <button class="conv-new-btn">+ Nouvelle conversation</button>
+          <input class="conv-search" placeholder="🔍 Rechercher..." />
+        </div>
+        <div class="conv-list">
+          <div class="conv-section-label">Aujourd'hui</div>
+          <div class="conv-item active">
+            <div class="conv-icon" style="background:#F9731615;">📐</div>
+            <div class="conv-text"><div class="conv-title">Analyse plan structure R+2</div><div class="conv-date">il y a 20 min</div></div>
+          </div>
+          <div class="conv-item">
+            <div class="conv-icon" style="background:#3B82F615;">📋</div>
+            <div class="conv-text"><div class="conv-title">Analyse soumission Ménétrey</div><div class="conv-date">il y a 2h</div></div>
+          </div>
+
+          <div class="conv-section-label">Hier</div>
+          <div class="conv-item">
+            <div class="conv-icon" style="background:#10B98115;">💰</div>
+            <div class="conv-text"><div class="conv-title">Comparer prix CVC</div><div class="conv-date">hier</div></div>
+          </div>
+          <div class="conv-item">
+            <div class="conv-icon" style="background:#8B5CF615;">📧</div>
+            <div class="conv-text"><div class="conv-title">Rédiger réponse fournisseur</div><div class="conv-date">hier</div></div>
+          </div>
+
+          <div class="conv-section-label">Plus ancien</div>
+          <div class="conv-item">
+            <div class="conv-icon" style="background:#52525B15;">❓</div>
+            <div class="conv-text"><div class="conv-title">Codes CFC paysagisme</div><div class="conv-date">19.03</div></div>
+          </div>
+          <div class="conv-item">
+            <div class="conv-icon" style="background:#52525B15;">📅</div>
+            <div class="conv-text"><div class="conv-title">Organise mes vacances</div><div class="conv-date">18.03</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat main -->
+      <div class="chat-main" style="position:relative;">
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <div class="chat-header-title">Analyse plan structure R+2</div>
+            <span class="chat-header-context">📁 Central Malley</span>
+          </div>
+          <div class="chat-header-right">
+            <button class="chat-header-btn">📋 Résumer</button>
+            <button class="chat-header-btn">🗑 Supprimer</button>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages">
+          <!-- User message with file -->
+          <div class="msg user">
+            <div class="msg-avatar" style="background:linear-gradient(135deg,#F97316,#EF4444);">JR</div>
+            <div class="msg-content">
+              <div class="msg-name">Julien</div>
+              <div class="msg-text">Analyse-moi ce plan de structure, je veux savoir les quantités de béton et ferraillage.</div>
+              <div class="msg-file">
+                <span class="msg-file-icon">📄</span>
+                <div class="msg-file-info">
+                  <div class="msg-file-name">Plan_Structure_R+2_v3.pdf</div>
+                  <div class="msg-file-size">4.2 MB</div>
+                </div>
+                <span class="msg-file-badge">PDF analysé</span>
+              </div>
+              <div class="msg-time">il y a 20 min</div>
+            </div>
+          </div>
+
+          <!-- AI response -->
+          <div class="msg ai">
+            <div class="msg-avatar" style="background:#3B82F6;">🤖</div>
+            <div class="msg-content">
+              <div class="msg-name">Cantaia IA</div>
+              <div class="msg-text">
+                <p>J'ai analysé le plan de structure R+2. Voici les quantités que j'ai identifiées :</p>
+                <p><b>🏗️ Béton armé</b></p>
+                <ul>
+                  <li>Dalle R+2 : <b>~85 m³</b> de béton C30/37 (épaisseur 22 cm, surface ~385 m²)</li>
+                  <li>Voiles porteurs : <b>~12 m³</b> (5 voiles × 3m × 0.20m × ~4m)</li>
+                  <li>Poutres : <b>~8 m³</b> (retombées 40×60 cm, longueur totale ~33 ml)</li>
+                </ul>
+                <p><b>🔩 Ferraillage</b></p>
+                <ul>
+                  <li>Dalle : <b>~7.5 tonnes</b> d'acier B500B (ratio ~90 kg/m³)</li>
+                  <li>Voiles : <b>~1.2 tonnes</b> (ratio ~100 kg/m³)</li>
+                  <li>Poutres : <b>~1.5 tonnes</b> (ratio ~180 kg/m³)</li>
+                </ul>
+                <p><b>📊 Total estimé :</b></p>
+                <ul>
+                  <li>Béton : <code>~105 m³</code></li>
+                  <li>Ferraillage : <code>~10.2 tonnes</code></li>
+                  <li>Coffrage : <code>~420 m²</code></li>
+                </ul>
+                <p>⚠️ <b>Point d'attention</b> : J'ai remarqué que la trémie d'ascenseur (zone C3) présente un renforcement local qui n'est pas standard. Je recommande de vérifier avec l'ingénieur structure.</p>
+              </div>
+              <div class="msg-time">il y a 18 min</div>
+            </div>
+          </div>
+
+          <!-- User follow-up -->
+          <div class="msg user">
+            <div class="msg-avatar" style="background:linear-gradient(135deg,#F97316,#EF4444);">JR</div>
+            <div class="msg-content">
+              <div class="msg-name">Julien</div>
+              <div class="msg-text">Compare avec le plan R+1 que je t'avais envoyé hier. Y a-t-il des différences significatives ?</div>
+              <div class="msg-time">il y a 15 min</div>
+            </div>
+          </div>
+
+          <!-- AI response -->
+          <div class="msg ai">
+            <div class="msg-avatar" style="background:#3B82F6;">🤖</div>
+            <div class="msg-content">
+              <div class="msg-name">Cantaia IA</div>
+              <div class="msg-text">
+                <p>Comparaison R+1 vs R+2 :</p>
+                <p><b>Différences principales :</b></p>
+                <ul>
+                  <li>Dalle R+2 : <b>+15 m³</b> de béton vs R+1 (surface +40 m² due au balcon sud)</li>
+                  <li>Voiles : <b>1 voile en moins</b> au R+2 (ouverture pour double hauteur séjour)</li>
+                  <li>Ferraillage total : <b>+0.8 tonnes</b> (renforcement trémie ascenseur)</li>
+                  <li>Coffrage : <b>identique</b> à ±5%</li>
+                </ul>
+                <p>💡 La suppression du voile au R+2 implique une poutre de reprise de <b>8.5 ml</b> non présente au R+1. Vérifiez que c'est bien prévu dans le lot ferraillage.</p>
+              </div>
+              <div class="msg-time">il y a 12 min</div>
+            </div>
+          </div>
+
+          <!-- User with image -->
+          <div class="msg user">
+            <div class="msg-avatar" style="background:linear-gradient(135deg,#F97316,#EF4444);">JR</div>
+            <div class="msg-content">
+              <div class="msg-name">Julien</div>
+              <div class="msg-text">Voici une photo du chantier. Est-ce que le ferraillage correspond à ce qui est prévu sur le plan ?</div>
+              <div class="msg-file">
+                <span class="msg-file-icon">🖼️</span>
+                <div class="msg-file-info">
+                  <div class="msg-file-name">IMG_20260324_chantier.jpg</div>
+                  <div class="msg-file-size">2.8 MB</div>
+                </div>
+                <span class="msg-file-badge">Vision IA</span>
+              </div>
+              <div class="msg-time">il y a 5 min</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="typing">
+          <div class="typing-avatar">🤖</div>
+          <div class="typing-dots">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+          <span class="typing-label">Cantaia IA analyse l'image...</span>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="suggestions">
+          <div class="suggestion">📐 Extraire les métrés</div>
+          <div class="suggestion">💰 Estimer le coût du R+2</div>
+          <div class="suggestion">📋 Créer les tâches correspondantes</div>
+          <div class="suggestion">📧 Rédiger un email pour l'ingénieur</div>
+        </div>
+
+        <!-- Input -->
+        <div class="chat-input-area">
+          <div class="file-chips">
+            <div class="file-chip">
+              <span class="file-chip-icon">🖼️</span>
+              <span class="file-chip-name">IMG_20260324_chantier.jpg</span>
+              <span class="file-chip-remove">✕</span>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <div class="chat-paperclip" title="Joindre un fichier (PDF, image, Excel)">📎</div>
+            <textarea class="chat-textarea" placeholder="Posez votre question à Cantaia IA..." rows="1"></textarea>
+            <button class="chat-send">➤</button>
+          </div>
+          <div class="chat-hint">Glissez-déposez des fichiers ici · PDF, images, Excel · Max 3 fichiers, 10 Mo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

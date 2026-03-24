@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Fournisseurs</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow-x: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+
+.main { flex: 1; overflow-y: auto; background: #0F0F11; padding: 24px 28px; }
+
+/* Page header */
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.page-title { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; color: #FAFAFA; }
+.page-sub { font-size: 13px; color: #71717A; margin-top: 2px; }
+.page-actions { display: flex; gap: 8px; }
+.btn { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.btn:hover { background: #27272A; }
+.btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+
+/* Toolbar */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.type-toggle { display: flex; background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 3px; }
+.type-toggle button { font-size: 12px; padding: 5px 14px; border-radius: 6px; border: none; background: transparent; color: #71717A; cursor: pointer; font-weight: 500; }
+.type-toggle button.active { background: #27272A; color: #FAFAFA; }
+.search-input { background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 7px 14px; font-size: 12px; color: #D4D4D8; flex: 1; outline: none; }
+.search-input::placeholder { color: #52525B; }
+.search-input:focus { border-color: #F97316; }
+.filter-select { background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 7px 12px; font-size: 12px; color: #D4D4D8; outline: none; -webkit-appearance: none; }
+
+/* KPIs */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.kpi { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 12px 14px; }
+.kpi-val { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; color: #FAFAFA; }
+.kpi-label { font-size: 10px; color: #71717A; margin-top: 2px; }
+
+/* Table */
+.suppliers-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.suppliers-table thead th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid #27272A; }
+.suppliers-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.suppliers-table tbody tr:hover { background: #18181B; }
+.suppliers-table tbody td { padding: 10px 12px; border-bottom: 1px solid #1C1C1F; font-size: 12px; color: #D4D4D8; vertical-align: middle; }
+
+.supplier-cell { display: flex; align-items: center; gap: 10px; }
+.supplier-avatar { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; flex-shrink: 0; }
+.supplier-name { font-size: 13px; font-weight: 600; color: #FAFAFA; }
+.supplier-contact { font-size: 10px; color: #71717A; }
+.supplier-type { font-size: 9px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+.supplier-type.fournisseur { background: #10B98118; color: #34D399; }
+.supplier-type.prestataire { background: #3B82F618; color: #60A5FA; }
+
+.spec-tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #27272A; color: #A1A1AA; margin-right: 3px; display: inline-block; margin-bottom: 2px; }
+.spec-more { font-size: 9px; color: #52525B; }
+
+.score-bar { display: flex; align-items: center; gap: 6px; }
+.score-num { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; }
+.score-num.high { color: #34D399; }
+.score-num.mid { color: #FBBF24; }
+.score-num.low { color: #F87171; }
+.score-track { width: 50px; height: 4px; background: #27272A; border-radius: 2px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 2px; }
+
+.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.cfc-tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #3B82F612; color: #60A5FA; margin-right: 3px; display: inline-block; }
+
+/* ====== DETAIL PANEL ====== */
+.detail-overlay { position: fixed; top: 0; right: 0; width: 420px; height: 100vh; background: #18181B; border-left: 1px solid #27272A; z-index: 20; overflow-y: auto; box-shadow: -8px 0 32px rgba(0,0,0,0.5); }
+.detail-header { padding: 16px 20px; border-bottom: 1px solid #27272A; display: flex; justify-content: space-between; align-items: start; }
+.detail-close { width: 28px; height: 28px; border-radius: 6px; background: #27272A; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #A1A1AA; font-size: 14px; }
+.detail-close:hover { background: #3F3F46; }
+.detail-avatar { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; font-weight: 700; margin-bottom: 8px; }
+.detail-name { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #FAFAFA; }
+.detail-type { margin-top: 4px; }
+
+.detail-section { padding: 16px 20px; border-bottom: 1px solid #27272A; }
+.detail-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; font-weight: 600; margin-bottom: 10px; }
+
+.detail-score { display: flex; align-items: center; gap: 12px; }
+.detail-score-big { font-family: 'Plus Jakarta Sans'; font-size: 42px; font-weight: 800; line-height: 1; }
+.detail-score-label { font-size: 12px; color: #71717A; }
+.detail-score-sub { display: flex; gap: 16px; margin-top: 8px; }
+.detail-score-item { text-align: center; }
+.detail-score-item-val { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #FAFAFA; }
+.detail-score-item-label { font-size: 9px; color: #52525B; }
+
+.detail-info-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.detail-info-icon { font-size: 14px; width: 20px; text-align: center; }
+.detail-info-text { font-size: 12px; color: #D4D4D8; }
+.detail-info-link { color: #F97316; text-decoration: none; }
+
+.detail-specs { display: flex; flex-wrap: wrap; gap: 4px; }
+.detail-spec { font-size: 10px; padding: 3px 8px; border-radius: 5px; background: #27272A; color: #D4D4D8; }
+.detail-cfc { font-size: 10px; padding: 3px 8px; border-radius: 5px; background: #3B82F612; color: #60A5FA; font-weight: 500; }
+
+/* Price history mini chart */
+.price-chart { background: #27272A; border-radius: 8px; padding: 12px; margin-top: 8px; }
+.price-chart-header { display: flex; justify-content: space-between; font-size: 10px; color: #71717A; margin-bottom: 6px; }
+.price-bars { display: flex; align-items: end; gap: 3px; height: 50px; }
+.price-bar { width: 100%; border-radius: 2px 2px 0 0; transition: all 0.12s; }
+.price-bar:hover { opacity: 0.8; }
+
+/* Interactions timeline */
+.interaction { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #27272A; }
+.interaction:last-child { border-bottom: none; }
+.interaction-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.interaction-text { font-size: 11px; color: #D4D4D8; }
+.interaction-date { font-size: 10px; color: #52525B; }
+
+.detail-actions { padding: 16px 20px; display: flex; gap: 8px; }
+.detail-btn { flex: 1; font-size: 11px; padding: 8px; border-radius: 7px; border: 1px solid #3F3F46; background: #27272A; color: #D4D4D8; cursor: pointer; text-align: center; font-weight: 500; }
+.detail-btn:hover { background: #3F3F46; }
+.detail-btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb">Ménétrey SA › <b>Fournisseurs</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i"><span class="ic">✅</span> Tâches</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Référentiels</div>
+      <div class="sb-i active"><span class="ic">👷</span> Fournisseurs</div>
+      <div class="sb-i"><span class="ic">💰</span> Cantaia Prix</div>
+      <div class="sb-i"><span class="ic">📊</span> Rapports</div>
+      <div class="sb-i"><span class="ic">🤖</span> Assistant IA</div>
+    </div>
+
+    <div class="main">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Fournisseurs</div>
+          <div class="page-sub">12 fournisseurs et prestataires</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn">✨ Recherche IA</button>
+          <button class="btn">📥 Importer CSV</button>
+          <button class="btn primary">+ Ajouter</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-val">12</div><div class="kpi-label">Total fournisseurs</div></div>
+        <div class="kpi"><div class="kpi-val" style="color:#34D399;">87%</div><div class="kpi-label">Taux de réponse moyen</div></div>
+        <div class="kpi"><div class="kpi-val">8</div><div class="kpi-label">Fournisseurs actifs</div></div>
+        <div class="kpi"><div class="kpi-val">23</div><div class="kpi-label">Offres reçues</div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="type-toggle">
+          <button class="active">Tous</button>
+          <button>Fournisseurs</button>
+          <button>Prestataires</button>
+        </div>
+        <input class="search-input" placeholder="🔍 Rechercher par nom, email, spécialité..." />
+        <select class="filter-select"><option>Toutes spécialités</option></select>
+        <select class="filter-select"><option>Toutes zones</option></select>
+      </div>
+
+      <!-- Table -->
+      <table class="suppliers-table">
+        <thead>
+          <tr>
+            <th>Entreprise</th>
+            <th>Type</th>
+            <th>Spécialités</th>
+            <th>Codes CFC</th>
+            <th>Score</th>
+            <th>Taux rép.</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#10B981;">GE</div>
+                <div><div class="supplier-name">Geberit SA</div><div class="supplier-contact">Peter Müller · p.mueller@geberit.com</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type fournisseur">Fournisseur</span></td>
+            <td><span class="spec-tag">Sanitaire</span><span class="spec-tag">Plomberie</span><span class="spec-more">+1</span></td>
+            <td><span class="cfc-tag">251</span><span class="cfc-tag">252</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num high">95</span>
+                <div class="score-track"><div class="score-fill" style="width:95%;background:#34D399;"></div></div>
+              </div>
+            </td>
+            <td style="color:#34D399;font-weight:600;">92%</td>
+            <td><span class="status-dot" style="background:#34D399;"></span> Actif</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#3B82F6;">BO</div>
+                <div><div class="supplier-name">Bouygues E&S Suisse</div><div class="supplier-contact">Thomas Favre · t.favre@bouygues.ch</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type prestataire">Prestataire</span></td>
+            <td><span class="spec-tag">Électricité</span><span class="spec-tag">Courant fort</span><span class="spec-more">+1</span></td>
+            <td><span class="cfc-tag">232</span><span class="cfc-tag">233</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num high">88</span>
+                <div class="score-track"><div class="score-fill" style="width:88%;background:#34D399;"></div></div>
+              </div>
+            </td>
+            <td style="color:#34D399;font-weight:600;">85%</td>
+            <td><span class="status-dot" style="background:#34D399;"></span> Actif</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#8B5CF6;">SC</div>
+                <div><div class="supplier-name">Schindler SA</div><div class="supplier-contact">Laurent Dubois · l.dubois@schindler.ch</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type prestataire">Prestataire</span></td>
+            <td><span class="spec-tag">Ascenseurs</span><span class="spec-tag">Monte-charge</span></td>
+            <td><span class="cfc-tag">241</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num mid">72</span>
+                <div class="score-track"><div class="score-fill" style="width:72%;background:#FBBF24;"></div></div>
+              </div>
+            </td>
+            <td style="color:#FBBF24;">67%</td>
+            <td><span class="status-dot" style="background:#34D399;"></span> Actif</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#F97316;">AL</div>
+                <div><div class="supplier-name">Alpiq InTec SA</div><div class="supplier-contact">Sophie Blanc · s.blanc@alpiq.ch</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type prestataire">Prestataire</span></td>
+            <td><span class="spec-tag">CVC</span><span class="spec-tag">Chauffage</span><span class="spec-more">+2</span></td>
+            <td><span class="cfc-tag">234</span><span class="cfc-tag">235</span><span class="cfc-tag">236</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num high">91</span>
+                <div class="score-track"><div class="score-fill" style="width:91%;background:#34D399;"></div></div>
+              </div>
+            </td>
+            <td style="color:#34D399;font-weight:600;">90%</td>
+            <td><span class="status-dot" style="background:#34D399;"></span> Actif</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#EC4899;">FO</div>
+                <div><div class="supplier-name">Forbo Flooring SA</div><div class="supplier-contact">Marie Jolivet · m.jolivet@forbo.ch</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type fournisseur">Fournisseur</span></td>
+            <td><span class="spec-tag">Revêtements sols</span><span class="spec-tag">Linoléum</span></td>
+            <td><span class="cfc-tag">281</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num mid">65</span>
+                <div class="score-track"><div class="score-fill" style="width:65%;background:#FBBF24;"></div></div>
+              </div>
+            </td>
+            <td style="color:#FBBF24;">60%</td>
+            <td><span class="status-dot" style="background:#34D399;"></span> Actif</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="supplier-cell">
+                <div class="supplier-avatar" style="background:#52525B;">IM</div>
+                <div><div class="supplier-name">Implenia SA</div><div class="supplier-contact">Marco Rossi · m.rossi@implenia.com</div></div>
+              </div>
+            </td>
+            <td><span class="supplier-type prestataire">Prestataire</span></td>
+            <td><span class="spec-tag">Gros œuvre</span><span class="spec-tag">Terrassement</span></td>
+            <td><span class="cfc-tag">211</span><span class="cfc-tag">117</span></td>
+            <td>
+              <div class="score-bar">
+                <span class="score-num low">45</span>
+                <div class="score-track"><div class="score-fill" style="width:45%;background:#F87171;"></div></div>
+              </div>
+            </td>
+            <td style="color:#F87171;">35%</td>
+            <td><span class="status-dot" style="background:#F59E0B;"></span> Inactif</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail-overlay">
+      <div class="detail-header">
+        <div>
+          <div class="detail-avatar" style="background:#10B981;">GE</div>
+          <div class="detail-name">Geberit SA</div>
+          <div class="detail-type"><span class="supplier-type fournisseur">Fournisseur</span></div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <div class="detail-close" title="Modifier">✏️</div>
+          <div class="detail-close" title="Supprimer">🗑</div>
+          <div class="detail-close">✕</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Score global</div>
+        <div class="detail-score">
+          <div class="detail-score-big" style="color:#34D399;">95</div>
+          <div>
+            <div class="detail-score-label">/100</div>
+            <div class="detail-score-sub">
+              <div class="detail-score-item"><div class="detail-score-item-val">92%</div><div class="detail-score-item-label">Taux réponse</div></div>
+              <div class="detail-score-item"><div class="detail-score-item-val">2j</div><div class="detail-score-item-label">Délai moyen</div></div>
+              <div class="detail-score-item"><div class="detail-score-item-val">12</div><div class="detail-score-item-label">Offres</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Contact</div>
+        <div class="detail-info-row"><span class="detail-info-icon">👤</span><span class="detail-info-text">Peter Müller</span></div>
+        <div class="detail-info-row"><span class="detail-info-icon">📧</span><a class="detail-info-link" href="#">p.mueller@geberit.com</a></div>
+        <div class="detail-info-row"><span class="detail-info-icon">📞</span><span class="detail-info-text">+41 55 221 63 00</span></div>
+        <div class="detail-info-row"><span class="detail-info-icon">📍</span><span class="detail-info-text">Rapperswil-Jona, SG</span></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Spécialités</div>
+        <div class="detail-specs">
+          <span class="detail-spec">Sanitaire</span>
+          <span class="detail-spec">Plomberie</span>
+          <span class="detail-spec">Évacuation</span>
+        </div>
+        <div style="margin-top: 8px;">
+          <div class="detail-section-title" style="margin-bottom:4px;">Codes CFC</div>
+          <span class="detail-cfc">251</span>
+          <span class="detail-cfc">252</span>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Évolution des prix</div>
+        <div class="price-chart">
+          <div class="price-chart-header"><span>6 derniers mois</span><span style="color:#34D399;">▼ -3.2%</span></div>
+          <div class="price-bars">
+            <div class="price-bar" style="height:70%;background:#3B82F6;"></div>
+            <div class="price-bar" style="height:75%;background:#3B82F6;"></div>
+            <div class="price-bar" style="height:68%;background:#3B82F6;"></div>
+            <div class="price-bar" style="height:72%;background:#3B82F6;"></div>
+            <div class="price-bar" style="height:65%;background:#3B82F6;"></div>
+            <div class="price-bar" style="height:60%;background:#10B981;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Interactions récentes</div>
+        <div class="interaction"><div class="interaction-dot" style="background:#34D399;"></div><div><div class="interaction-text">Offre CVC reçue — CHF 45'000</div><div class="interaction-date">Central Malley · 20.03.2026</div></div></div>
+        <div class="interaction"><div class="interaction-dot" style="background:#3B82F6;"></div><div><div class="interaction-text">Demande de prix envoyée — Béton</div><div class="interaction-date">Central Malley · 18.03.2026</div></div></div>
+        <div class="interaction"><div class="interaction-dot" style="background:#34D399;"></div><div><div class="interaction-text">Offre sanitaire reçue — CHF 12'800</div><div class="interaction-date">Les Cèdres · 10.03.2026</div></div></div>
+        <div class="interaction"><div class="interaction-dot" style="background:#F59E0B;"></div><div><div class="interaction-text">Relance envoyée</div><div class="interaction-date">Les Cèdres · 05.03.2026</div></div></div>
+      </div>
+
+      <div class="detail-actions">
+        <button class="detail-btn primary">📧 Contacter</button>
+        <button class="detail-btn">📋 Demande de prix</button>
+        <button class="detail-btn">✨ Enrichir IA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Planning Gantt</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* Header */
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-crumb a { color: #F97316; text-decoration: none; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+/* Layout */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+.sb-proj { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 7px; font-size: 13px; color: #D4D4D8; cursor: pointer; font-weight: 600; }
+.sb-proj .dot { width: 8px; height: 8px; border-radius: 50%; }
+.sb-sub { padding: 3px 10px 3px 34px; font-size: 12px; color: #71717A; cursor: pointer; border-radius: 6px; }
+.sb-sub:hover { color: #D4D4D8; background: #1C1C1F; }
+.sb-sub.active { color: #F97316; background: #F9731610; }
+
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0F0F11; }
+
+/* Planning toolbar */
+.plan-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #27272A; background: #0F0F11; flex-shrink: 0; }
+.plan-toolbar-left { display: flex; align-items: center; gap: 12px; }
+.plan-title { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #FAFAFA; }
+.plan-info { font-size: 11px; padding: 3px 10px; border-radius: 6px; background: #18181B; border: 1px solid #27272A; color: #A1A1AA; display: flex; align-items: center; gap: 4px; }
+.plan-info b { color: #FAFAFA; font-weight: 600; }
+.plan-toolbar-right { display: flex; align-items: center; gap: 6px; }
+.plan-btn { font-size: 11px; padding: 6px 12px; border-radius: 6px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.plan-btn:hover { background: #27272A; }
+.plan-btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+.plan-btn.active { border-color: #F97316; color: #F97316; background: #F9731610; }
+
+/* Zoom controls */
+.zoom-toggle { display: flex; background: #18181B; border: 1px solid #3F3F46; border-radius: 6px; padding: 2px; }
+.zoom-toggle button { font-size: 10px; padding: 4px 10px; border-radius: 4px; border: none; background: transparent; color: #71717A; cursor: pointer; font-weight: 500; }
+.zoom-toggle button.active { background: #27272A; color: #FAFAFA; }
+
+/* Phase legend */
+.legend { display: flex; gap: 10px; padding: 6px 20px; border-bottom: 1px solid #27272A; flex-shrink: 0; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #71717A; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* Gantt container */
+.gantt { display: flex; flex: 1; overflow: hidden; }
+
+/* Task list panel */
+.gantt-list { width: 460px; border-right: 1px solid #27272A; overflow-y: auto; flex-shrink: 0; background: #0F0F11; }
+.gantt-list-header { display: grid; grid-template-columns: 36px 1fr 48px 70px 70px; gap: 0; padding: 0; background: #18181B; border-bottom: 1px solid #27272A; position: sticky; top: 0; z-index: 2; }
+.gantt-list-header div { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 8px 6px; border-right: 1px solid #27272A; }
+.gantt-list-header div:last-child { border-right: none; }
+
+.gantt-row { display: grid; grid-template-columns: 36px 1fr 48px 70px 70px; border-bottom: 1px solid #1C1C1F; cursor: pointer; transition: background 0.08s; height: 32px; }
+.gantt-row:hover { background: #18181B; }
+.gantt-row.phase { background: #18181B; }
+.gantt-row div { padding: 0 6px; font-size: 11px; color: #D4D4D8; border-right: 1px solid #1C1C1F; display: flex; align-items: center; height: 32px; overflow: hidden; }
+.gantt-row div:last-child { border-right: none; }
+.gantt-row .wbs { color: #52525B; font-family: 'JetBrains Mono', monospace; font-size: 10px; justify-content: center; }
+.gantt-row .name { font-weight: 500; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gantt-row .name .expand { color: #52525B; font-size: 8px; cursor: pointer; flex-shrink: 0; }
+.gantt-row.phase .name { font-weight: 700; color: #FAFAFA; font-size: 12px; }
+.gantt-row .dur { color: #71717A; font-size: 10px; justify-content: center; text-align: center; }
+.gantt-row .date { color: #71717A; font-size: 10px; justify-content: center; }
+
+/* Timeline panel */
+.gantt-timeline { flex: 1; overflow-x: auto; overflow-y: auto; position: relative; }
+
+/* Month headers */
+.timeline-months { display: flex; position: sticky; top: 0; z-index: 1; background: #18181B; border-bottom: 1px solid #27272A; }
+.timeline-month { padding: 4px 0; text-align: center; font-size: 10px; font-weight: 600; color: #A1A1AA; border-right: 1px solid #27272A; display: flex; align-items: center; justify-content: center; }
+
+/* Week headers */
+.timeline-weeks { display: flex; border-bottom: 1px solid #27272A; background: #141416; }
+.timeline-week { text-align: center; font-size: 8px; color: #52525B; padding: 3px 0; border-right: 1px solid #1C1C1F; }
+.timeline-week.today { background: #F9731610; color: #F97316; font-weight: 600; }
+
+/* Bars area */
+.timeline-body { position: relative; }
+.timeline-row { height: 32px; border-bottom: 1px solid #1C1C1F; position: relative; }
+.timeline-row.phase { background: #18181B08; }
+
+/* Today line */
+.today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #F97316; z-index: 5; opacity: 0.7; }
+.today-label { position: absolute; top: -18px; font-size: 8px; color: #F97316; font-weight: 600; background: #F9731620; padding: 1px 4px; border-radius: 3px; transform: translateX(-50%); white-space: nowrap; }
+
+/* Gantt bars */
+.gantt-bar { position: absolute; height: 18px; top: 7px; border-radius: 4px; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; padding: 0 6px; font-size: 9px; color: white; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gantt-bar:hover { filter: brightness(1.15); transform: scaleY(1.15); z-index: 3; }
+.gantt-bar.phase-bar { height: 10px; top: 11px; border-radius: 2px; opacity: 0.4; }
+
+/* Milestone */
+.milestone { position: absolute; top: 10px; width: 12px; height: 12px; transform: rotate(45deg); cursor: pointer; z-index: 2; }
+.milestone:hover { filter: brightness(1.3); transform: rotate(45deg) scale(1.2); }
+
+/* Dependency arrows (simplified as lines) */
+.dep-line { position: absolute; border-bottom: 1px dashed #3F3F46; border-right: 1px dashed #3F3F46; z-index: 1; }
+
+/* Progress overlay */
+.gantt-bar .progress { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.15); border-radius: 4px 0 0 4px; }
+
+/* Colors by phase */
+.bar-prep { background: linear-gradient(90deg, #F97316, #FB923C); }
+.bar-gros { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+.bar-second { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+.bar-finish { background: linear-gradient(90deg, #10B981, #34D399); }
+.bar-install { background: linear-gradient(90deg, #EC4899, #F472B6); }
+.bar-livraison { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+.ms-prep { background: #F97316; }
+.ms-gros { background: #3B82F6; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb"><a href="#">Central Malley</a> › <b>Planning</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i"><span class="ic">✅</span> Tâches</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Central Malley</div>
+      <div class="sb-proj"><span class="dot" style="background:#3B82F6;"></span> Central Malley ▾</div>
+      <div class="sb-sub">📋 Aperçu</div>
+      <div class="sb-sub">✅ Tâches</div>
+      <div class="sb-sub active">📅 Planning</div>
+      <div class="sb-sub">📄 Soumissions</div>
+      <div class="sb-sub">📐 Plans</div>
+      <div class="sb-sub">··· Voir tout</div>
+    </div>
+
+    <div class="main">
+      <!-- Toolbar -->
+      <div class="plan-toolbar">
+        <div class="plan-toolbar-left">
+          <div class="plan-title">Planning — Central Malley</div>
+          <div class="plan-info">⏱ Durée: <b>1540 jours</b></div>
+          <div class="plan-info">📅 Fin estimée: <b>01.07.2030</b></div>
+        </div>
+        <div class="plan-toolbar-right">
+          <div class="zoom-toggle">
+            <button>Jour</button>
+            <button>Semaine</button>
+            <button class="active">Mois</button>
+          </div>
+          <div style="width:1px;height:20px;background:#27272A;"></div>
+          <button class="plan-btn">🔄 Régénérer</button>
+          <button class="plan-btn">📄 Export PDF A3</button>
+          <button class="plan-btn">🔗 Partager</button>
+          <button class="plan-btn">📌 Figer baseline</button>
+          <div style="width:1px;height:20px;background:#27272A;"></div>
+          <button class="plan-btn">↩ Annuler</button>
+          <button class="plan-btn">↪ Rétablir</button>
+        </div>
+      </div>
+
+      <!-- Edit toolbar -->
+      <div class="legend" style="justify-content:space-between;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="plan-btn" style="font-size:11px;padding:5px 10px;">📁 + Phase</button>
+          <button class="plan-btn" style="font-size:11px;padding:5px 10px;">✅ + Tâche</button>
+          <button class="plan-btn" style="font-size:11px;padding:5px 10px;">◆ + Jalon</button>
+          <button class="plan-btn active" style="font-size:11px;padding:5px 10px;">🖱 Sélection</button>
+          <div style="width:1px;height:16px;background:#27272A;margin:0 4px;"></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F97316;"></div> Préparation</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3B82F6;"></div> Gros œuvre</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6;"></div> Second œuvre</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#10B981;"></div> Finitions</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#EC4899;"></div> Installations</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F59E0B;"></div> Livraison</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="legend-item"><div style="width:10px;height:10px;background:#F97316;transform:rotate(45deg);border-radius:1px;"></div> Jalon</div>
+          <div class="legend-item"><div style="width:2px;height:14px;background:#F97316;border-radius:1px;"></div> Aujourd'hui</div>
+        </div>
+      </div>
+
+      <!-- Gantt -->
+      <div class="gantt">
+        <!-- Task list -->
+        <div class="gantt-list">
+          <div class="gantt-list-header">
+            <div>WBS</div>
+            <div>Nom</div>
+            <div>Durée</div>
+            <div>Début</div>
+            <div>Fin</div>
+          </div>
+          <!-- Phase 1 -->
+          <div class="gantt-row phase">
+            <div class="wbs">1</div>
+            <div class="name"><span class="expand">▼</span> <span style="color:#F97316;">●</span> Préparation du terrain</div>
+            <div class="dur">361j</div>
+            <div class="date">13.04.26</div>
+            <div class="date">09.04.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">1.1</div>
+            <div class="name">Installation chantier</div>
+            <div class="dur">33j</div>
+            <div class="date">13.04.26</div>
+            <div class="date">28.05.26</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">1.2</div>
+            <div class="name">Terrassement général</div>
+            <div class="dur">259j</div>
+            <div class="date">13.04.26</div>
+            <div class="date">09.04.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">1.3</div>
+            <div class="name">Évacuation terre</div>
+            <div class="dur">259j</div>
+            <div class="date">13.04.26</div>
+            <div class="date">09.04.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">⬦</div>
+            <div class="name" style="color:#FBBF24;font-style:italic;">Jalon: Fin terrassement</div>
+            <div class="dur">—</div>
+            <div class="date">09.04.27</div>
+            <div class="date">—</div>
+          </div>
+          <!-- Phase 2 -->
+          <div class="gantt-row phase">
+            <div class="wbs">2</div>
+            <div class="name"><span class="expand">▼</span> <span style="color:#3B82F6;">●</span> Gros œuvre</div>
+            <div class="dur">263j</div>
+            <div class="date">09.04.27</div>
+            <div class="date">28.12.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">2.1</div>
+            <div class="name">Béton fondations</div>
+            <div class="dur">57j</div>
+            <div class="date">09.04.27</div>
+            <div class="date">29.06.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">2.2</div>
+            <div class="name">Maçonnerie</div>
+            <div class="dur">66j</div>
+            <div class="date">09.04.27</div>
+            <div class="date">12.07.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">2.3</div>
+            <div class="name">Coffrage</div>
+            <div class="dur">15j</div>
+            <div class="date">09.04.27</div>
+            <div class="date">30.04.27</div>
+          </div>
+          <div class="gantt-row">
+            <div class="wbs">2.4</div>
+            <div class="name">Ferraillage</div>
+            <div class="dur">45j</div>
+            <div class="date">30.04.27</div>
+            <div class="date">01.07.27</div>
+          </div>
+          <!-- Phase 3 -->
+          <div class="gantt-row phase">
+            <div class="wbs">3</div>
+            <div class="name"><span class="expand">▶</span> <span style="color:#8B5CF6;">●</span> Second œuvre</div>
+            <div class="dur">180j</div>
+            <div class="date">28.12.27</div>
+            <div class="date">15.09.28</div>
+          </div>
+          <!-- Phase 4 -->
+          <div class="gantt-row phase">
+            <div class="wbs">4</div>
+            <div class="name"><span class="expand">▶</span> <span style="color:#10B981;">●</span> Finitions</div>
+            <div class="dur">120j</div>
+            <div class="date">15.09.28</div>
+            <div class="date">20.03.29</div>
+          </div>
+          <!-- Phase 5 -->
+          <div class="gantt-row phase">
+            <div class="wbs">5</div>
+            <div class="name"><span class="expand">▶</span> <span style="color:#EC4899;">●</span> Installations techniques</div>
+            <div class="dur">90j</div>
+            <div class="date">20.03.29</div>
+            <div class="date">15.08.29</div>
+          </div>
+          <!-- Phase 6 -->
+          <div class="gantt-row phase">
+            <div class="wbs">6</div>
+            <div class="name"><span class="expand">▶</span> <span style="color:#F59E0B;">●</span> Livraison</div>
+            <div class="dur">60j</div>
+            <div class="date">15.08.29</div>
+            <div class="date">01.07.30</div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="gantt-timeline">
+          <!-- Month headers -->
+          <div class="timeline-months">
+            <div class="timeline-month" style="width:90px;">Mars 2026</div>
+            <div class="timeline-month" style="width:90px;">Avril 2026</div>
+            <div class="timeline-month" style="width:90px;">Mai 2026</div>
+            <div class="timeline-month" style="width:90px;">Juin 2026</div>
+            <div class="timeline-month" style="width:90px;">Juil. 2026</div>
+            <div class="timeline-month" style="width:90px;">Août 2026</div>
+            <div class="timeline-month" style="width:90px;">Sept. 2026</div>
+            <div class="timeline-month" style="width:90px;">Oct. 2026</div>
+            <div class="timeline-month" style="width:90px;">Nov. 2026</div>
+            <div class="timeline-month" style="width:90px;">Déc. 2026</div>
+            <div class="timeline-month" style="width:90px;">Jan. 2027</div>
+            <div class="timeline-month" style="width:90px;">Fév. 2027</div>
+            <div class="timeline-month" style="width:90px;">Mars 2027</div>
+            <div class="timeline-month" style="width:90px;">Avril 2027</div>
+            <div class="timeline-month" style="width:90px;">Mai 2027</div>
+            <div class="timeline-month" style="width:90px;">Juin 2027</div>
+            <div class="timeline-month" style="width:90px;">Juil. 2027</div>
+          </div>
+
+          <!-- Gantt body with bars -->
+          <div class="timeline-body" style="height: 448px;">
+            <!-- Today line -->
+            <div class="today-line" style="left:30px;">
+              <div class="today-label">24 mars</div>
+            </div>
+
+            <!-- Phase 1 bar (summary) -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-prep" style="left:88px;width:520px;"></div>
+            </div>
+            <!-- 1.1 Installation -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-prep" style="left:88px;width:48px;">
+                <div class="progress" style="width:70%;"></div>
+                Installation
+              </div>
+            </div>
+            <!-- 1.2 Terrassement -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-prep" style="left:88px;width:380px;">
+                <div class="progress" style="width:25%;"></div>
+                Terrassement
+              </div>
+            </div>
+            <!-- 1.3 Évacuation -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-prep" style="left:88px;width:380px;">
+                <div class="progress" style="width:20%;"></div>
+                Évacuation terre
+              </div>
+            </div>
+            <!-- Milestone -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="milestone ms-prep" style="left:462px;"></div>
+            </div>
+            <!-- Phase 2 bar -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-gros" style="left:472px;width:390px;"></div>
+            </div>
+            <!-- 2.1 Béton -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-gros" style="left:472px;width:82px;">Béton fond.</div>
+            </div>
+            <!-- 2.2 Maçonnerie -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-gros" style="left:472px;width:96px;">Maçonnerie</div>
+            </div>
+            <!-- 2.3 Coffrage -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-gros" style="left:472px;width:22px;"></div>
+            </div>
+            <!-- 2.4 Ferraillage -->
+            <div class="timeline-row" style="height:32px;">
+              <div class="gantt-bar bar-gros" style="left:494px;width:65px;">Ferraillage</div>
+            </div>
+            <!-- Phase 3 -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-second" style="left:862px;width:260px;"></div>
+            </div>
+            <!-- Phase 4 -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-finish" style="left:1122px;width:172px;"></div>
+            </div>
+            <!-- Phase 5 -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-install" style="left:1294px;width:130px;"></div>
+            </div>
+            <!-- Phase 6 -->
+            <div class="timeline-row phase" style="height:32px;">
+              <div class="gantt-bar phase-bar bar-livraison" style="left:1424px;width:86px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

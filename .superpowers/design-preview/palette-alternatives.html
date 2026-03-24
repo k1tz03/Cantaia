@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — 3 Palettes Alternatives</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 32px; }
+h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 8px; }
+.subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 40px; }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 48px; }
+
+.palette-card {
+  border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.3s;
+  border: 2px solid transparent;
+}
+.palette-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+.palette-card.selected { border-color: #F97316; box-shadow: 0 0 0 4px #F9731630; }
+
+/* PALETTE A — Warm Slate */
+.palette-a .app-preview { background: #1C1917; }
+.palette-a .preview-header { background: #0C0A09; border-bottom: 1px solid #292524; }
+.palette-a .preview-sidebar { background: #1C1917; border-right: 1px solid #292524; }
+.palette-a .preview-card { background: #292524; border: 1px solid #3F3B38; }
+.palette-a .preview-accent { color: #F97316; }
+.palette-a .preview-nav-active { background: #F9731615; color: #F97316; border-left: 2px solid #F97316; }
+.palette-a .preview-btn { background: #F97316; }
+.palette-a .preview-badge { background: #F9731620; color: #F97316; }
+
+/* PALETTE B — Forest */
+.palette-b .app-preview { background: #0F1A14; }
+.palette-b .preview-header { background: #080F0B; border-bottom: 1px solid #1A2E22; }
+.palette-b .preview-sidebar { background: #0F1A14; border-right: 1px solid #1A2E22; }
+.palette-b .preview-card { background: #162420; border: 1px solid #1E3A2E; }
+.palette-b .preview-accent { color: #10B981; }
+.palette-b .preview-nav-active { background: #10B98115; color: #10B981; border-left: 2px solid #10B981; }
+.palette-b .preview-btn { background: #10B981; }
+.palette-b .preview-badge { background: #10B98120; color: #10B981; }
+
+/* PALETTE C — Graphite */
+.palette-c .app-preview { background: #18181B; }
+.palette-c .preview-header { background: #09090B; border-bottom: 1px solid #27272A; }
+.palette-c .preview-sidebar { background: #18181B; border-right: 1px solid #27272A; }
+.palette-c .preview-card { background: #27272A; border: 1px solid #3F3F46; }
+.palette-c .preview-accent { color: #F97316; }
+.palette-c .preview-nav-active { background: #F9731612; color: #F97316; border-left: 2px solid #F97316; }
+.palette-c .preview-btn { background: linear-gradient(135deg, #F97316, #EF4444); }
+.palette-c .preview-badge { background: #F9731620; color: #F97316; }
+
+/* Shared preview styles */
+.palette-label { padding: 16px 20px; text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; }
+.palette-label h3 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.palette-label p { font-size: 12px; color: #888; }
+
+.app-preview { height: 420px; position: relative; overflow: hidden; }
+.preview-header { height: 36px; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+.preview-header .logo { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 12px; color: #F1F5F9; }
+.preview-header .breadcrumb { font-size: 10px; color: #666; }
+.preview-header .breadcrumb .active { color: #aaa; }
+.preview-header .avatar-small { width: 20px; height: 20px; border-radius: 50%; background: #444; margin-left: auto; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #ccc; }
+
+.preview-body { display: flex; height: calc(100% - 36px); }
+.preview-sidebar { width: 140px; padding: 10px 8px; }
+.preview-nav-item { padding: 5px 8px; border-radius: 4px; font-size: 10px; color: #777; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; border-left: 2px solid transparent; }
+.preview-nav-section { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #555; padding: 8px 8px 4px; font-weight: 600; }
+.preview-nav-badge { margin-left: auto; font-size: 8px; background: #F97316; color: white; padding: 0 4px; border-radius: 6px; }
+
+.preview-main { flex: 1; padding: 14px; overflow: hidden; }
+.preview-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 700; color: #E5E5E5; margin-bottom: 10px; }
+
+.preview-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.preview-kpi { padding: 8px; border-radius: 6px; }
+.preview-kpi-label { font-size: 7px; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 4px; }
+.preview-kpi-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; }
+
+.preview-table { width: 100%; margin-top: 8px; }
+.preview-table-header { display: flex; padding: 4px 8px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #555; font-weight: 600; }
+.preview-table-row { display: flex; padding: 6px 8px; font-size: 9px; color: #999; border-radius: 4px; }
+.preview-table-row:hover { background: rgba(255,255,255,0.03); }
+.preview-table-col { flex: 1; }
+.preview-table-col:first-child { flex: 2; color: #ddd; font-weight: 500; }
+
+.preview-project-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
+.preview-project-card { padding: 10px; border-radius: 6px; }
+.preview-project-name { font-size: 11px; font-weight: 600; color: #E5E5E5; margin-bottom: 2px; }
+.preview-project-meta { font-size: 8px; color: #666; }
+.preview-project-bar { height: 2px; background: #333; border-radius: 1px; margin-top: 6px; }
+
+/* Color swatches */
+.swatches { display: flex; gap: 4px; margin-top: 8px; padding: 0 20px 16px; justify-content: center; }
+.swatch { width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+
+/* Choice indicator */
+.choice-label {
+  display: block; text-align: center; padding: 12px; font-size: 13px; font-weight: 600;
+  background: #1a1a1a; border-top: 1px solid #333; cursor: pointer;
+}
+.choice-label:hover { background: #222; }
+</style>
+</head>
+<body>
+
+<h1>Choisissez votre palette</h1>
+<p class="subtitle">Cliquez sur celle qui vous parle le plus — on peut ajuster ensuite</p>
+
+<div class="grid">
+
+<!-- PALETTE A — Warm Slate -->
+<div class="palette-card palette-a" onclick="this.classList.toggle('selected')">
+  <div class="palette-label">
+    <h3>A · Warm Slate</h3>
+    <p>Tons chauds, pierre & orange — industriel mais chaleureux</p>
+  </div>
+  <div class="app-preview">
+    <div class="preview-header">
+      <div class="logo">Cantaia</div>
+      <div class="breadcrumb">Ménétrey SA <span style="color:#444">›</span> <span class="active">Central Malley</span></div>
+      <div class="avatar-small">JR</div>
+    </div>
+    <div class="preview-body">
+      <div class="preview-sidebar">
+        <div class="preview-nav-section">Quotidien</div>
+        <div class="preview-nav-item">📊 Dashboard</div>
+        <div class="preview-nav-item">📧 Mail <span class="preview-nav-badge">25</span></div>
+        <div class="preview-nav-item">📋 Briefing</div>
+        <div class="preview-nav-section">Référentiels</div>
+        <div class="preview-nav-item">👥 Fournisseurs</div>
+        <div class="preview-nav-section">Projet</div>
+        <div class="preview-nav-item preview-nav-active">📋 Aperçu</div>
+        <div class="preview-nav-item">✅ Tâches</div>
+        <div class="preview-nav-item">📅 Planning</div>
+      </div>
+      <div class="preview-main">
+        <div class="preview-title">Projets</div>
+        <div class="preview-kpis">
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Projets</div><div class="preview-kpi-value preview-accent">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Budget</div><div class="preview-kpi-value" style="color:#E5E5E5">28.3M</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">En retard</div><div class="preview-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Soumissions</div><div class="preview-kpi-value preview-accent">2</div></div>
+        </div>
+        <div class="preview-project-cards">
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Central Malley</div>
+            <div class="preview-project-meta">Implenia · Prilly</div>
+            <div class="preview-project-bar"><div style="width:45%;height:100%;background:#F97316;border-radius:1px"></div></div>
+          </div>
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Tour Horizon Ph.2</div>
+            <div class="preview-project-meta">Horizon Immo · Genève</div>
+            <div class="preview-project-bar"><div style="width:30%;height:100%;background:#F97316;border-radius:1px"></div></div>
+          </div>
+        </div>
+        <div class="preview-table-header"><div class="preview-table-col">Soumission</div><div class="preview-table-col">Postes</div><div class="preview-table-col">Statut</div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Soum. Ménétrey</div><div class="preview-table-col">180</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Aménag. ext.</div><div class="preview-table-col">46</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="swatches">
+    <div class="swatch" style="background:#0C0A09"></div>
+    <div class="swatch" style="background:#1C1917"></div>
+    <div class="swatch" style="background:#292524"></div>
+    <div class="swatch" style="background:#F97316"></div>
+    <div class="swatch" style="background:#EF4444"></div>
+    <div class="swatch" style="background:#10B981"></div>
+  </div>
+  <div class="choice-label">Choisir Warm Slate</div>
+</div>
+
+<!-- PALETTE B — Forest -->
+<div class="palette-card palette-b" onclick="this.classList.toggle('selected')">
+  <div class="palette-label">
+    <h3>B · Forest</h3>
+    <p>Tons verts sombres — nature, construction durable, suisse</p>
+  </div>
+  <div class="app-preview">
+    <div class="preview-header">
+      <div class="logo">Cantaia</div>
+      <div class="breadcrumb">Ménétrey SA <span style="color:#444">›</span> <span class="active">Central Malley</span></div>
+      <div class="avatar-small">JR</div>
+    </div>
+    <div class="preview-body">
+      <div class="preview-sidebar">
+        <div class="preview-nav-section">Quotidien</div>
+        <div class="preview-nav-item">📊 Dashboard</div>
+        <div class="preview-nav-item">📧 Mail <span class="preview-nav-badge" style="background:#10B981">25</span></div>
+        <div class="preview-nav-item">📋 Briefing</div>
+        <div class="preview-nav-section">Référentiels</div>
+        <div class="preview-nav-item">👥 Fournisseurs</div>
+        <div class="preview-nav-section">Projet</div>
+        <div class="preview-nav-item preview-nav-active">📋 Aperçu</div>
+        <div class="preview-nav-item">✅ Tâches</div>
+        <div class="preview-nav-item">📅 Planning</div>
+      </div>
+      <div class="preview-main">
+        <div class="preview-title">Projets</div>
+        <div class="preview-kpis">
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Projets</div><div class="preview-kpi-value preview-accent">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Budget</div><div class="preview-kpi-value" style="color:#E5E5E5">28.3M</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">En retard</div><div class="preview-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Soumissions</div><div class="preview-kpi-value preview-accent">2</div></div>
+        </div>
+        <div class="preview-project-cards">
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Central Malley</div>
+            <div class="preview-project-meta">Implenia · Prilly</div>
+            <div class="preview-project-bar"><div style="width:45%;height:100%;background:#10B981;border-radius:1px"></div></div>
+          </div>
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Tour Horizon Ph.2</div>
+            <div class="preview-project-meta">Horizon Immo · Genève</div>
+            <div class="preview-project-bar"><div style="width:30%;height:100%;background:#10B981;border-radius:1px"></div></div>
+          </div>
+        </div>
+        <div class="preview-table-header"><div class="preview-table-col">Soumission</div><div class="preview-table-col">Postes</div><div class="preview-table-col">Statut</div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Soum. Ménétrey</div><div class="preview-table-col">180</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Aménag. ext.</div><div class="preview-table-col">46</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="swatches">
+    <div class="swatch" style="background:#080F0B"></div>
+    <div class="swatch" style="background:#0F1A14"></div>
+    <div class="swatch" style="background:#162420"></div>
+    <div class="swatch" style="background:#10B981"></div>
+    <div class="swatch" style="background:#F97316"></div>
+    <div class="swatch" style="background:#3B82F6"></div>
+  </div>
+  <div class="choice-label">Choisir Forest</div>
+</div>
+
+<!-- PALETTE C — Graphite -->
+<div class="palette-card palette-c" onclick="this.classList.toggle('selected')">
+  <div class="palette-label">
+    <h3>C · Graphite</h3>
+    <p>Gris neutres purs + orange/rouge dégradé — moderne, premium</p>
+  </div>
+  <div class="app-preview">
+    <div class="preview-header">
+      <div class="logo">Cantaia</div>
+      <div class="breadcrumb">Ménétrey SA <span style="color:#444">›</span> <span class="active">Central Malley</span></div>
+      <div class="avatar-small">JR</div>
+    </div>
+    <div class="preview-body">
+      <div class="preview-sidebar">
+        <div class="preview-nav-section">Quotidien</div>
+        <div class="preview-nav-item">📊 Dashboard</div>
+        <div class="preview-nav-item">📧 Mail <span class="preview-nav-badge">25</span></div>
+        <div class="preview-nav-item">📋 Briefing</div>
+        <div class="preview-nav-section">Référentiels</div>
+        <div class="preview-nav-item">👥 Fournisseurs</div>
+        <div class="preview-nav-section">Projet</div>
+        <div class="preview-nav-item preview-nav-active">📋 Aperçu</div>
+        <div class="preview-nav-item">✅ Tâches</div>
+        <div class="preview-nav-item">📅 Planning</div>
+      </div>
+      <div class="preview-main">
+        <div class="preview-title">Projets</div>
+        <div class="preview-kpis">
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Projets</div><div class="preview-kpi-value preview-accent">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Budget</div><div class="preview-kpi-value" style="color:#E5E5E5">28.3M</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">En retard</div><div class="preview-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="preview-kpi preview-card"><div class="preview-kpi-label">Soumissions</div><div class="preview-kpi-value preview-accent">2</div></div>
+        </div>
+        <div class="preview-project-cards">
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Central Malley</div>
+            <div class="preview-project-meta">Implenia · Prilly</div>
+            <div class="preview-project-bar"><div style="width:45%;height:100%;background:linear-gradient(90deg,#F97316,#EF4444);border-radius:1px"></div></div>
+          </div>
+          <div class="preview-project-card preview-card">
+            <div class="preview-project-name">Tour Horizon Ph.2</div>
+            <div class="preview-project-meta">Horizon Immo · Genève</div>
+            <div class="preview-project-bar"><div style="width:30%;height:100%;background:linear-gradient(90deg,#F97316,#EF4444);border-radius:1px"></div></div>
+          </div>
+        </div>
+        <div class="preview-table-header"><div class="preview-table-col">Soumission</div><div class="preview-table-col">Postes</div><div class="preview-table-col">Statut</div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Soum. Ménétrey</div><div class="preview-table-col">180</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+        <div class="preview-table-row"><div class="preview-table-col">Aménag. ext.</div><div class="preview-table-col">46</div><div class="preview-table-col"><span class="preview-badge" style="font-size:8px;padding:1px 5px;border-radius:3px">Analysé</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="swatches">
+    <div class="swatch" style="background:#09090B"></div>
+    <div class="swatch" style="background:#18181B"></div>
+    <div class="swatch" style="background:#27272A"></div>
+    <div class="swatch" style="background:#F97316"></div>
+    <div class="swatch" style="background:#EF4444"></div>
+    <div class="swatch" style="background:#A855F7"></div>
+  </div>
+  <div class="choice-label">Choisir Graphite</div>
+</div>
+
+</div>
+
+<div style="text-align:center;color:#555;font-size:12px;padding-bottom:32px">
+  Double-cliquez sur une palette pour la sélectionner — on peut mixer et ajuster les couleurs ensuite
+</div>
+
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Tâches</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow-x: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* Header */
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+/* Layout */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-badge.r { background: #EF4444; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+
+/* Main */
+.main { flex: 1; overflow-y: auto; background: #0F0F11; display: flex; flex-direction: column; }
+
+/* Page header */
+.page-head { padding: 16px 28px 0; display: flex; justify-content: space-between; align-items: center; }
+.page-title { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; color: #FAFAFA; }
+.page-actions { display: flex; gap: 8px; }
+.btn { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.btn:hover { background: #27272A; }
+.btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+
+/* Toolbar */
+.toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 28px; }
+.toolbar-left { display: flex; align-items: center; gap: 8px; }
+.view-toggle { display: flex; background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 3px; }
+.view-toggle button { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: none; background: transparent; color: #71717A; cursor: pointer; font-weight: 500; }
+.view-toggle button.active { background: #27272A; color: #FAFAFA; }
+.filter { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid #3F3F46; background: #18181B; color: #A1A1AA; cursor: pointer; }
+.filter:hover { border-color: #52525B; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+.search-input { background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #D4D4D8; width: 200px; outline: none; }
+.search-input::placeholder { color: #52525B; }
+.search-input:focus { border-color: #F97316; }
+
+/* Quick filter chips */
+.chips { display: flex; gap: 6px; padding: 0 28px 12px; }
+.chip { font-size: 11px; padding: 4px 12px; border-radius: 20px; border: 1px solid #27272A; background: #18181B; color: #A1A1AA; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.chip:hover { border-color: #3F3F46; color: #D4D4D8; }
+.chip.active { border-color: transparent; font-weight: 600; }
+.chip.red { background: #EF444418; color: #F87171; border-color: #EF444430; }
+.chip.orange { background: #F9731618; color: #FB923C; border-color: #F9731630; }
+.chip.blue { background: #3B82F618; color: #60A5FA; border-color: #3B82F630; }
+.chip.green { background: #10B98118; color: #34D399; border-color: #10B98130; }
+
+/* ====== KANBAN ====== */
+.kanban { display: flex; gap: 12px; padding: 0 28px 20px; flex: 1; overflow-x: auto; }
+.kanban-col { flex: 1; min-width: 240px; display: flex; flex-direction: column; }
+.kanban-col-header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.kanban-col-dot { width: 8px; height: 8px; border-radius: 50%; }
+.kanban-col-title { font-size: 12px; font-weight: 600; color: #D4D4D8; text-transform: uppercase; letter-spacing: 0.04em; }
+.kanban-col-count { font-size: 10px; background: #27272A; color: #A1A1AA; padding: 1px 6px; border-radius: 4px; }
+.kanban-col-body { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+.task-card { background: #18181B; border: 1px solid #27272A; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.12s; }
+.task-card:hover { border-color: #3F3F46; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.task-card-priority { width: 100%; height: 2px; border-radius: 1px; margin-bottom: 8px; }
+.task-card-priority.urgent { background: #EF4444; }
+.task-card-priority.high { background: #F59E0B; }
+.task-card-priority.medium { background: #3B82F6; }
+.task-card-priority.low { background: #71717A; }
+.task-card-title { font-size: 12px; font-weight: 500; color: #FAFAFA; line-height: 1.3; }
+.task-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.task-card-project { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #71717A; }
+.task-card-project .dot { width: 5px; height: 5px; border-radius: 50%; }
+.task-card-date { font-size: 10px; display: flex; align-items: center; gap: 3px; }
+.task-card-date.overdue { color: #F87171; }
+.task-card-date.ok { color: #71717A; }
+.task-card-tags { display: flex; gap: 4px; margin-top: 6px; }
+.task-tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+.task-tag.cfc { background: #3B82F612; color: #60A5FA; }
+.task-tag.source { background: #27272A; color: #A1A1AA; }
+.task-card-assignee { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.task-avatar { width: 18px; height: 18px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 600; }
+.task-assignee-name { font-size: 10px; color: #71717A; }
+
+/* ====== TABLE VIEW ====== */
+.task-table-wrap { padding: 0 28px 20px; }
+.task-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.task-table thead th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid #27272A; position: sticky; top: 0; background: #0F0F11; cursor: pointer; }
+.task-table thead th:hover { color: #A1A1AA; }
+.task-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.task-table tbody tr:hover { background: #18181B; }
+.task-table tbody td { padding: 10px 12px; border-bottom: 1px solid #1C1C1F; font-size: 12px; color: #D4D4D8; }
+.t-task-title { font-weight: 500; color: #FAFAFA; }
+.t-project { display: flex; align-items: center; gap: 5px; }
+.t-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.t-priority { font-size: 9px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+.t-priority.urgent { background: #EF444418; color: #F87171; }
+.t-priority.high { background: #F59E0B18; color: #FBBF24; }
+.t-priority.medium { background: #3B82F618; color: #60A5FA; }
+.t-priority.low { background: #71717A18; color: #A1A1AA; }
+.t-status { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+.t-status.todo { background: #27272A; color: #A1A1AA; }
+.t-status.progress { background: #3B82F618; color: #60A5FA; }
+.t-status.waiting { background: #F59E0B18; color: #FBBF24; }
+.t-status.done { background: #10B98118; color: #34D399; }
+.t-date { color: #71717A; }
+.t-date.overdue { color: #F87171; font-weight: 500; }
+.t-source { font-size: 10px; color: #52525B; }
+
+/* Section divider */
+.sdiv { margin: 20px 28px; display: flex; align-items: center; gap: 12px; }
+.sdiv-line { flex: 1; height: 1px; background: #27272A; }
+.sdiv-label { font-size: 11px; color: #52525B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb">Ménétrey SA › <b>Tâches</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i active"><span class="ic">✅</span> Tâches <span class="sb-badge r">4</span></div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Référentiels</div>
+      <div class="sb-i"><span class="ic">👷</span> Fournisseurs</div>
+      <div class="sb-i"><span class="ic">💰</span> Cantaia Prix</div>
+      <div class="sb-i"><span class="ic">📊</span> Rapports</div>
+      <div class="sb-i"><span class="ic">🤖</span> Assistant IA</div>
+    </div>
+
+    <div class="main">
+      <div class="page-head">
+        <div class="page-title">Tâches</div>
+        <div class="page-actions">
+          <button class="btn primary">+ Nouvelle tâche</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="view-toggle">
+            <button class="active">📋 Kanban</button>
+            <button>📝 Liste</button>
+          </div>
+          <select class="filter"><option>Tous les projets</option></select>
+          <select class="filter"><option>Toutes priorités</option></select>
+          <select class="filter"><option>Toutes sources</option></select>
+        </div>
+        <div class="toolbar-right">
+          <input class="search-input" placeholder="🔍 Rechercher..." />
+        </div>
+      </div>
+
+      <div class="chips">
+        <div class="chip red active">⚠ En retard · 4</div>
+        <div class="chip orange">Aujourd'hui · 2</div>
+        <div class="chip blue">Cette semaine · 3</div>
+        <div class="chip">Plus tard · 10</div>
+        <div class="chip green">Terminé · 8</div>
+      </div>
+
+      <!-- ====== KANBAN VIEW ====== -->
+      <div class="kanban">
+        <!-- À FAIRE -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <div class="kanban-col-dot" style="background:#71717A;"></div>
+            <div class="kanban-col-title">À faire</div>
+            <div class="kanban-col-count">10</div>
+          </div>
+          <div class="kanban-col-body">
+            <div class="task-card">
+              <div class="task-card-priority urgent"></div>
+              <div class="task-card-title">Valider plans béton R+1</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date overdue">⚠ 21.03</div>
+              </div>
+              <div class="task-card-tags"><span class="task-tag cfc">CFC 211</span><span class="task-tag source">Manuel</span></div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority urgent"></div>
+              <div class="task-card-title">Commander ferraillage R+2</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date overdue">⚠ 19.03</div>
+              </div>
+              <div class="task-card-tags"><span class="task-tag cfc">CFC 211.2</span></div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority high"></div>
+              <div class="task-card-title">Préparer PV séance de chantier #12</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">25.03</div>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority medium"></div>
+              <div class="task-card-title">Mise à jour planning général</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">28.03</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EN COURS -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <div class="kanban-col-dot" style="background:#3B82F6;"></div>
+            <div class="kanban-col-title">En cours</div>
+            <div class="kanban-col-count">3</div>
+          </div>
+          <div class="kanban-col-body">
+            <div class="task-card">
+              <div class="task-card-priority urgent"></div>
+              <div class="task-card-title">Finaliser soumission structure</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#F97316;"></span> Tour Horizon</div>
+                <div class="task-card-date overdue">⚠ 20.03</div>
+              </div>
+              <div class="task-card-assignee">
+                <div class="task-avatar" style="background:#8B5CF6;">SM</div>
+                <span class="task-assignee-name">Sophie Martin</span>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority urgent"></div>
+              <div class="task-card-title">Obtenir autorisation de construire</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#F97316;"></span> Tour Horizon</div>
+                <div class="task-card-date ok">02.04</div>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority medium"></div>
+              <div class="task-card-title">Commander acier B500B pour dalles</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#F97316;"></span> Tour Horizon</div>
+                <div class="task-card-date ok">28.03</div>
+              </div>
+              <div class="task-card-tags"><span class="task-tag cfc">CFC 271</span><span class="task-tag source">Email</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EN ATTENTE -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <div class="kanban-col-dot" style="background:#F59E0B;"></div>
+            <div class="kanban-col-title">En attente</div>
+            <div class="kanban-col-count">4</div>
+          </div>
+          <div class="kanban-col-body">
+            <div class="task-card">
+              <div class="task-card-priority high"></div>
+              <div class="task-card-title">Réunion coordination CVC</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">23.03</div>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority high"></div>
+              <div class="task-card-title">Approuver variante fenêtres alu</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">24.03</div>
+              </div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-priority medium"></div>
+              <div class="task-card-title">Négocier avenant Bouygues électricité</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">30.03</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TERMINÉ -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <div class="kanban-col-dot" style="background:#10B981;"></div>
+            <div class="kanban-col-title">Terminé</div>
+            <div class="kanban-col-count">8</div>
+          </div>
+          <div class="kanban-col-body">
+            <div class="task-card" style="opacity:0.6;">
+              <div class="task-card-priority low"></div>
+              <div class="task-card-title" style="text-decoration:line-through;">Envoyer commande béton fondations</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley</div>
+                <div class="task-card-date ok">✓ 18.03</div>
+              </div>
+            </div>
+            <div class="task-card" style="opacity:0.6;">
+              <div class="task-card-priority low"></div>
+              <div class="task-card-title" style="text-decoration:line-through;">Valider rapport de sol</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#10B981;"></span> Les Cèdres</div>
+                <div class="task-card-date ok">✓ 17.03</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANNULÉ -->
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <div class="kanban-col-dot" style="background:#EF4444;"></div>
+            <div class="kanban-col-title">Annulé</div>
+            <div class="kanban-col-count">1</div>
+          </div>
+          <div class="kanban-col-body">
+            <div class="task-card" style="opacity:0.4;">
+              <div class="task-card-priority low"></div>
+              <div class="task-card-title" style="text-decoration:line-through;">Commande variante escalier métal</div>
+              <div class="task-card-meta">
+                <div class="task-card-project"><span class="dot" style="background:#F97316;"></span> Tour Horizon</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== TABLE VIEW ====== -->
+      <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-label">Vue Liste</div><div class="sdiv-line"></div></div>
+
+      <div class="task-table-wrap">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th style="width:30px;"></th>
+              <th>Tâche ↕</th>
+              <th>Projet</th>
+              <th>Assigné</th>
+              <th>Deadline ↕</th>
+              <th>Priorité ↕</th>
+              <th>Statut</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Commander ferraillage R+2</span><br><span style="font-size:10px;color:#52525B;">CFC 211.2</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#3B82F6;"></span> Central Malley</div></td>
+              <td style="color:#71717A;">—</td>
+              <td><span class="t-date overdue">⚠ 19.03</span></td>
+              <td><span class="t-priority urgent">Urgente</span></td>
+              <td><span class="t-status todo">À faire</span></td>
+              <td><span class="t-source">Manuel</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Mise à jour planning général</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#3B82F6;"></span> Central Malley</div></td>
+              <td style="color:#71717A;">—</td>
+              <td><span class="t-date">20.03</span></td>
+              <td><span class="t-priority high">Haute</span></td>
+              <td><span class="t-status todo">À faire</span></td>
+              <td><span class="t-source">Manuel</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Finaliser soumission structure</span><br><span style="font-size:10px;color:#52525B;">CFC 211</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#F97316;"></span> Tour Horizon</div></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <div class="task-avatar" style="background:#8B5CF6;width:20px;height:20px;font-size:7px;">SM</div>
+                  <span style="font-size:11px;color:#D4D4D8;">Sophie M.</span>
+                </div>
+              </td>
+              <td><span class="t-date overdue">⚠ 20.03</span></td>
+              <td><span class="t-priority urgent">Urgente</span></td>
+              <td><span class="t-status progress">En cours</span></td>
+              <td><span class="t-source">Manuel</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Commander acier B500B pour dalles</span><br><span style="font-size:10px;color:#52525B;">CFC 271</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#F97316;"></span> Tour Horizon</div></td>
+              <td style="color:#71717A;">—</td>
+              <td><span class="t-date">28.03</span></td>
+              <td><span class="t-priority medium">Moyenne</span></td>
+              <td><span class="t-status progress">En cours</span></td>
+              <td><span class="t-source">Email</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Réunion coordination CVC</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#3B82F6;"></span> Central Malley</div></td>
+              <td style="color:#71717A;">—</td>
+              <td><span class="t-date">23.03</span></td>
+              <td><span class="t-priority high">Haute</span></td>
+              <td><span class="t-status waiting">En attente</span></td>
+              <td><span class="t-source">Manuel</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" style="accent-color:#F97316;" /></td>
+              <td><span class="t-task-title">Valider plans béton R+1</span><br><span style="font-size:10px;color:#52525B;">CFC 211</span></td>
+              <td><div class="t-project"><span class="t-dot" style="background:#3B82F6;"></span> Central Malley</div></td>
+              <td style="color:#71717A;">—</td>
+              <td><span class="t-date overdue">⚠ 21.03</span></td>
+              <td><span class="t-priority urgent">Urgente</span></td>
+              <td><span class="t-status todo">À faire</span></td>
+              <td><span class="t-source">Manuel</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -264,16 +264,16 @@ export default function SubmissionDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-6 w-6 text-brand animate-spin" />
+        <Loader2 className="h-6 w-6 text-[#F97316] animate-spin" />
       </div>
     );
   }
 
   if (!submission) {
     return (
-      <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-foreground">Soumission introuvable</h2>
-        <Link href="/submissions" className="text-sm text-primary hover:underline mt-2 inline-block">
+      <div className="p-6 text-center bg-[#0F0F11]">
+        <h2 className="text-lg font-medium text-[#FAFAFA]">Soumission introuvable</h2>
+        <Link href="/submissions" className="text-sm text-[#F97316] hover:underline mt-2 inline-block">
           Retour aux soumissions
         </Link>
       </div>
@@ -292,27 +292,27 @@ export default function SubmissionDetailPage() {
   ];
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-auto bg-[#0F0F11]">
       {/* Header */}
-      <div className="bg-background border-b border-border px-6 py-4">
+      <div className="bg-[#18181B] border-b border-[#27272A] px-6 py-4">
         <ProjectBreadcrumb section="submissions" />
         <div className="flex items-center gap-3 mb-3">
-          <Link href="/submissions" className="p-1 hover:bg-muted rounded">
-            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+          <Link href="/submissions" className="p-1 hover:bg-[#1C1C1F] rounded">
+            <ArrowLeft className="h-4 w-4 text-[#71717A]" />
           </Link>
           {submission.projects && (
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full" style={{ backgroundColor: submission.projects.color || "#94a3b8" }} />
-              <span className="text-sm text-muted-foreground">{submission.projects.name}</span>
+              <span className="text-sm text-[#71717A]">{submission.projects.name}</span>
             </div>
           )}
         </div>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">
+            <h1 className="font-display text-xl font-extrabold text-[#FAFAFA]">
               {submission.file_name || "Soumission"}
             </h1>
-            <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 mt-2 text-sm text-[#71717A]">
               <AnalysisStatusBadge status={submission.analysis_status} />
               {items.length > 0 && (
                 <span>{items.length} postes · {materialGroups.length} groupes</span>
@@ -324,7 +324,7 @@ export default function SubmissionDetailPage() {
             {submission.analysis_status === "done" && submission.project_id && (
               <Link
                 href={`/projects/${submission.project_id}/planning`}
-                className="text-xs px-3 py-1.5 border border-primary/20 rounded-lg hover:bg-primary/10 text-primary flex items-center gap-1.5"
+                className="text-xs px-3 py-1.5 border border-[#F97316]/20 rounded-lg hover:bg-[#F97316]/10 text-[#F97316] flex items-center gap-1.5"
               >
                 <CalendarRange className="h-3 w-3" />
                 Planning
@@ -333,7 +333,7 @@ export default function SubmissionDetailPage() {
             {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
               <button
                 onClick={handleReanalyze}
-                className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-muted text-muted-foreground flex items-center gap-1.5"
+                className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#71717A] flex items-center gap-1.5"
               >
                 <RefreshCw className="h-3 w-3" />
                 Ré-analyser
@@ -352,14 +352,14 @@ export default function SubmissionDetailPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.key
-                    ? "text-brand border-brand bg-background"
-                    : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                    ? "text-[#F97316] border-[#F97316] bg-[#18181B]"
+                    : "text-[#71717A] border-transparent hover:text-[#FAFAFA] hover:border-[#27272A]"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-1">
+                  <span className="text-[10px] bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded-full ml-1">
                     {tab.count}
                   </span>
                 )}
@@ -371,22 +371,22 @@ export default function SubmissionDetailPage() {
 
       {/* Analysis in progress */}
       {analyzing && (
-        <div className="mx-6 mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3">
-          <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+        <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4 flex items-center gap-3">
+          <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
           <div>
-            <p className="text-sm font-medium text-blue-900">Analyse IA en cours...</p>
-            <p className="text-xs text-primary">Extraction des postes du descriptif</p>
+            <p className="text-sm font-medium text-[#FAFAFA]">Analyse IA en cours...</p>
+            <p className="text-xs text-[#F97316]">Extraction des postes du descriptif</p>
           </div>
         </div>
       )}
 
       {/* Analysis error */}
       {submission.analysis_status === "error" && submission.analysis_error && (
-        <div className="mx-6 mt-6 bg-red-500/10 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+        <div className="mx-6 mt-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-red-900">Erreur d'analyse</p>
-            <p className="text-xs text-red-600">{submission.analysis_error}</p>
+            <p className="text-sm font-medium text-red-400">Erreur d&apos;analyse</p>
+            <p className="text-xs text-red-500">{submission.analysis_error}</p>
           </div>
         </div>
       )}
@@ -476,10 +476,10 @@ export default function SubmissionDetailPage() {
 // ── Analysis status badge ────────────────────────────────────
 function AnalysisStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    pending: { label: "En attente", className: "bg-muted text-muted-foreground" },
-    analyzing: { label: "Analyse en cours...", className: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
-    done: { label: "Analysé", className: "bg-green-500/10 text-green-700 dark:text-green-400" },
-    error: { label: "Erreur", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
+    pending: { label: "En attente", className: "bg-[#27272A] text-[#71717A]" },
+    analyzing: { label: "Analyse en cours...", className: "bg-purple-500/10 text-purple-400" },
+    done: { label: "Analysé", className: "bg-green-500/10 text-green-400" },
+    error: { label: "Erreur", className: "bg-red-500/10 text-red-400" },
   };
   const c = config[status] || config.pending;
   return (
@@ -525,9 +525,9 @@ function ItemsTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <FileSpreadsheet className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Aucun poste extrait</p>
-        <p className="text-xs text-muted-foreground mt-1">Lancez l'analyse IA pour extraire les postes du descriptif</p>
+        <FileSpreadsheet className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
+        <p className="text-sm text-[#71717A]">Aucun poste extrait</p>
+        <p className="text-xs text-[#71717A] mt-1">Lancez l'analyse IA pour extraire les postes du descriptif</p>
       </div>
     );
   }
@@ -557,18 +557,18 @@ function ItemsTabContent({
     <div className="space-y-3">
       {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
       {false && !hasBudget && items.length > 0 && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+        <div className="bg-[#F97316]/10 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calculator className="h-5 w-5 text-primary shrink-0" />
+            <Calculator className="h-5 w-5 text-[#F97316] shrink-0" />
             <div>
-              <p className="text-sm font-medium text-blue-900">Estimer les prix de cette soumission</p>
-              <p className="text-xs text-primary">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
+              <p className="text-sm font-medium text-[#FAFAFA]">Estimer les prix de cette soumission</p>
+              <p className="text-xs text-[#F97316]">Utilise vos offres fournisseurs, le référentiel CRB 2025 et l&apos;IA pour estimer chaque poste</p>
             </div>
           </div>
           <button
             onClick={handleEstimateBudget}
             disabled={estimatingBudget}
-            className="px-4 py-2 bg-brand text-white rounded-lg text-xs font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+            className="px-4 py-2 bg-cta text-white rounded-lg text-xs font-medium hover:bg-[#EA580C] disabled:opacity-50 flex items-center gap-1.5 shrink-0"
           >
             {estimatingBudget ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calculator className="h-3 w-3" />}
             {estimatingBudget ? "Estimation..." : "Estimer les prix"}
@@ -589,35 +589,35 @@ function ItemsTabContent({
         }, 0);
 
         return (
-          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
+          <div key={group} className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             <button
               onClick={() => toggleGroup(group)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted"
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1C1C1F]"
             >
               <div className="flex items-center gap-3">
-                <svg className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                <span className="text-sm font-medium text-foreground">{group}</span>
-                <span className="text-xs text-muted-foreground">{groupItems.length} postes</span>
+                <svg className={`h-4 w-4 text-[#71717A] transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
+                <span className="text-xs text-[#71717A]">{groupItems.length} postes</span>
               </div>
               <div className="flex items-center gap-3">
                 {quotedCount > 0 && (
-                  <span className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
                     {quotedCount}/{groupItems.length} cotés
                   </span>
                 )}
                 {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
                 {false && hasBudget && groupTotal > 0 && (
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-sm font-semibold text-[#FAFAFA]">
                     {formatCHF(groupTotal)}
                   </span>
                 )}
               </div>
             </button>
             {expanded && (
-              <div className="border-t border-border overflow-x-auto">
+              <div className="border-t border-[#27272A] overflow-x-auto">
                 <table className="w-full min-w-[600px]">
                   <thead>
-                    <tr className="bg-muted text-[11px] font-medium text-muted-foreground uppercase">
+                    <tr className="bg-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
                       <th className="text-left px-4 py-2 w-20">N°</th>
                       <th className="text-left px-4 py-2">Description</th>
                       <th className="text-center px-4 py-2 w-16">Unité</th>
@@ -642,62 +642,62 @@ function ItemsTabContent({
                       const source = hasQuote ? "fournisseur" : budget?.source ?? null;
 
                       return (
-                        <tr key={item.id} className="hover:bg-muted text-sm">
-                          <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{item.item_number || "—"}</td>
-                          <td className="px-4 py-2 text-foreground">
+                        <tr key={item.id} className="hover:bg-[#1C1C1F] text-sm">
+                          <td className="px-4 py-2 text-xs font-mono text-[#71717A]">{item.item_number || "—"}</td>
+                          <td className="px-4 py-2 text-[#FAFAFA]">
                             <div>{item.description}</div>
                             {item.product_name && (
-                              <span className="inline-block mt-0.5 text-[11px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium">
+                              <span className="inline-block mt-0.5 text-[11px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded font-medium">
                                 {item.product_name}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-center text-xs text-muted-foreground">{item.unit || "—"}</td>
-                          <td className="px-4 py-2 text-right text-muted-foreground">
+                          <td className="px-4 py-2 text-center text-xs text-[#71717A]">{item.unit || "—"}</td>
+                          <td className="px-4 py-2 text-right text-[#71717A]">
                             {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                           </td>
                           <td className="px-4 py-2 text-center">
                             {item.cfc_code && (
-                              <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-mono bg-[#F97316]/10 text-[#F97316] px-1.5 py-0.5 rounded">
                                 {item.cfc_code}
                               </span>
                             )}
                           </td>
                           {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
                           {false && hasBudget && (
-                            <td className="px-4 py-2 text-right font-medium text-foreground">
+                            <td className="px-4 py-2 text-right font-medium text-[#FAFAFA]">
                               {unitPrice != null ? formatCHF(unitPrice as number) : "—"}
                             </td>
                           )}
                           {false && hasBudget && (
-                            <td className="px-4 py-2 text-right text-muted-foreground">
+                            <td className="px-4 py-2 text-right text-[#71717A]">
                               {totalPrice != null ? formatCHF(totalPrice as number) : "—"}
                             </td>
                           )}
                           {false && (
                           <td className="px-4 py-2 text-center">
                             {hasQuote ? (
-                              <span className="text-[10px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-full">
                                 Fournisseur
                               </span>
                             ) : source === "historique_interne" ? (
-                              <span className="text-[10px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 Fournisseur
                               </span>
                             ) : source === "referentiel_crb" ? (
-                              <span className="text-[10px] font-medium bg-teal-500/10 text-teal-700 dark:text-teal-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 CRB
                               </span>
                             ) : source === "benchmark_cantaia" ? (
-                              <span className="text-[10px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
+                              <span className="text-[10px] font-medium bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded-full" title={budget?.detail_source}>
                                 Marché
                               </span>
                             ) : source === "estimation_ia" ? (
-                              <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-[#F97316]/10 text-[#F97316] px-1.5 py-0.5 rounded-full">
                                 IA
                               </span>
                             ) : (
-                              <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                              <span className="text-[10px] font-medium bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded-full">
                                 En attente
                               </span>
                             )}
@@ -768,9 +768,9 @@ function ComparisonTabContent({
   if (quotes.length === 0) {
     return (
       <div className="text-center py-16">
-        <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Aucune offre reçue</p>
-        <p className="text-xs text-muted-foreground mt-1">Les résultats apparaîtront ici après réception des réponses fournisseurs</p>
+        <BarChart3 className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
+        <p className="text-sm text-[#71717A]">Aucune offre reçue</p>
+        <p className="text-xs text-[#71717A] mt-1">Les résultats apparaîtront ici après réception des réponses fournisseurs</p>
       </div>
     );
   }
@@ -786,14 +786,14 @@ function ComparisonTabContent({
     <div className="space-y-6">
       {/* Award success banner */}
       {awardSuccess && (
-        <div className="bg-emerald-500/10 border border-emerald-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {awardSuccess}
         </div>
       )}
       {/* Award error banner */}
       {awardError && (
-        <div className="bg-red-500/10 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {awardError}
           <button onClick={() => setAwardError(null)} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
@@ -803,14 +803,14 @@ function ComparisonTabContent({
       {/* Confirm award dialog */}
       {confirmAward && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h3 className="text-base font-semibold text-foreground mb-2">Attribuer la soumission</h3>
-            <p className="text-sm text-muted-foreground mb-5">
+          <div className="bg-[#18181B] rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-semibold text-[#FAFAFA] mb-2">Attribuer la soumission</h3>
+            <p className="text-sm text-[#71717A] mb-5">
               Attribuer cette soumission à <strong>{confirmAward.supplierName}</strong> ?
               Les autres fournisseurs seront marqués comme non retenus.
             </p>
             {awardError && (
-              <div className="mb-4 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+              <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-xs text-red-400 flex items-center gap-2">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {awardError}
               </div>
@@ -819,7 +819,7 @@ function ComparisonTabContent({
               <button
                 onClick={() => { setConfirmAward(null); setAwardError(null); }}
                 disabled={awarding}
-                className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-[#FAFAFA] border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] disabled:opacity-50"
               >
                 Annuler
               </button>
@@ -842,16 +842,16 @@ function ComparisonTabContent({
         if (groupRequests.length === 0) return null;
 
         return (
-          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-muted border-b border-border flex items-center gap-3">
-              <span className="text-sm font-medium text-foreground">{group}</span>
-              <span className="text-xs text-muted-foreground">{groupRequests.length} offre(s)</span>
+          <div key={group} className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A] flex items-center gap-3">
+              <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
+              <span className="text-xs text-[#71717A]">{groupRequests.length} offre(s)</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-border text-[11px] font-medium text-muted-foreground uppercase">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-background z-10 w-48">Description</th>
+                  <tr className="border-b border-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
+                    <th className="text-left px-3 py-2 sticky left-0 bg-[#18181B] z-10 w-48">Description</th>
                     <th className="text-center px-2 py-2 w-12">Unité</th>
                     <th className="text-right px-2 py-2 w-16">Qté</th>
                     {groupRequests.map((pr) => {
@@ -859,21 +859,21 @@ function ComparisonTabContent({
                       const hasAward = !!awardedRequestId;
                       return (
                         <th key={pr.id} className={`px-3 py-2 w-32 ${isAwarded ? "bg-emerald-500/10" : ""}`}>
-                          <div className="text-xs font-medium text-foreground text-right">{supplierNames[pr.id]}</div>
+                          <div className="text-xs font-medium text-[#FAFAFA] text-right">{supplierNames[pr.id]}</div>
                           {isAwarded ? (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full mt-0.5">
                               <CheckCircle2 className="h-2.5 w-2.5" />
                               Attribué
                             </span>
                           ) : hasAward ? (
-                            <span className="inline-flex text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full mt-0.5">
+                            <span className="inline-flex text-[9px] font-medium text-[#71717A] bg-[#27272A] px-1.5 py-0.5 rounded-full mt-0.5">
                               Non retenu
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setConfirmAward({ requestId: pr.id, supplierName: supplierNames[pr.id] })}
-                              className="mt-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-300 bg-background hover:bg-emerald-500/10 px-1.5 py-0.5 rounded-full transition-colors"
+                              className="mt-0.5 text-[9px] font-medium text-emerald-400 border border-emerald-500/30 bg-[#18181B] hover:bg-emerald-500/10 px-1.5 py-0.5 rounded-full transition-colors"
                             >
                               Attribuer
                             </button>
@@ -881,7 +881,7 @@ function ComparisonTabContent({
                         </th>
                       );
                     })}
-                    <th className="text-right px-3 py-2 w-20 bg-muted">Ecart</th>
+                    <th className="text-right px-3 py-2 w-20 bg-[#27272A]">Ecart</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -896,13 +896,13 @@ function ComparisonTabContent({
                     const gap = minPrice && maxPrice && minPrice > 0 ? Math.round(((maxPrice - minPrice) / minPrice) * 100) : null;
 
                     return (
-                      <tr key={item.id} className="hover:bg-muted text-sm">
-                        <td className="px-3 py-2 sticky left-0 bg-background z-10">
-                          <div className="text-xs font-mono text-muted-foreground">{item.item_number}</div>
-                          <div className="text-sm text-foreground truncate max-w-[200px]">{item.description}</div>
+                      <tr key={item.id} className="hover:bg-[#1C1C1F] text-sm">
+                        <td className="px-3 py-2 sticky left-0 bg-[#18181B] z-10">
+                          <div className="text-xs font-mono text-[#71717A]">{item.item_number}</div>
+                          <div className="text-sm text-[#FAFAFA] truncate max-w-[200px]">{item.description}</div>
                         </td>
-                        <td className="px-2 py-2 text-center text-xs text-muted-foreground">{item.unit}</td>
-                        <td className="px-2 py-2 text-right text-muted-foreground text-xs">
+                        <td className="px-2 py-2 text-center text-xs text-[#71717A]">{item.unit}</td>
+                        <td className="px-2 py-2 text-right text-[#71717A] text-xs">
                           {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
                         </td>
                         {prices.map((p) => {
@@ -912,17 +912,17 @@ function ComparisonTabContent({
                             <td
                               key={p.requestId}
                               className={`px-3 py-2 text-right text-sm ${
-                                isCheapest ? "text-green-700 dark:text-green-400 font-bold bg-green-500/10/50" :
-                                isMostExpensive ? "text-red-600" : "text-foreground"
+                                isCheapest ? "text-green-400 font-bold bg-green-500/10/50" :
+                                isMostExpensive ? "text-red-600" : "text-[#FAFAFA]"
                               }`}
                             >
                               {p.price !== null ? p.price.toFixed(2) : (
-                                <span className="text-xs text-muted-foreground">—</span>
+                                <span className="text-xs text-[#71717A]">—</span>
                               )}
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-right bg-muted">
+                        <td className="px-3 py-2 text-right bg-[#27272A]">
                           {gap !== null ? (
                             <span className={`text-xs font-medium ${gap > 15 ? "text-red-600" : gap > 5 ? "text-amber-600" : "text-green-600"}`}>
                               {gap}%
@@ -962,45 +962,45 @@ function SummaryTabContent({
     <div className="space-y-6 max-w-2xl">
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-background border border-border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-foreground">{items.length}</div>
-          <div className="text-xs text-muted-foreground mt-1">Postes</div>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-[#FAFAFA]">{items.length}</div>
+          <div className="text-xs text-[#71717A] mt-1">Postes</div>
         </div>
-        <div className="bg-background border border-border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-foreground">{materialGroups.length}</div>
-          <div className="text-xs text-muted-foreground mt-1">Groupes</div>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-[#FAFAFA]">{materialGroups.length}</div>
+          <div className="text-xs text-[#71717A] mt-1">Groupes</div>
         </div>
-        <div className="bg-background border border-border rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-primary">{sentCount}</div>
-          <div className="text-xs text-muted-foreground mt-1">Demandes envoyées</div>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-[#F97316]">{sentCount}</div>
+          <div className="text-xs text-[#71717A] mt-1">Demandes envoyées</div>
         </div>
-        <div className="bg-background border border-border rounded-lg p-4 text-center">
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-green-600">{respondedCount}</div>
-          <div className="text-xs text-muted-foreground mt-1">Réponses reçues</div>
+          <div className="text-xs text-[#71717A] mt-1">Réponses reçues</div>
         </div>
       </div>
 
       {/* Progress */}
       {sentCount > 0 && (
-        <div className="bg-background border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-foreground mb-3">Avancement</h3>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Avancement</h3>
           <div className="space-y-3">
             <div>
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <div className="flex justify-between text-xs text-[#71717A] mb-1">
                 <span>Postes cotés</span>
                 <span>{quotedItems}/{items.length}</span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-2 bg-[#27272A] rounded-full overflow-hidden">
                 <div className="h-full bg-green-500 rounded-full" style={{ width: `${items.length > 0 ? (quotedItems / items.length) * 100 : 0}%` }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <div className="flex justify-between text-xs text-[#71717A] mb-1">
                 <span>Fournisseurs répondus</span>
                 <span>{respondedCount}/{sentCount}</span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary/100 rounded-full" style={{ width: `${sentCount > 0 ? (respondedCount / sentCount) * 100 : 0}%` }} />
+              <div className="h-2 bg-[#27272A] rounded-full overflow-hidden">
+                <div className="h-full bg-[#F97316]/100 rounded-full" style={{ width: `${sentCount > 0 ? (respondedCount / sentCount) * 100 : 0}%` }} />
               </div>
             </div>
           </div>
@@ -1009,32 +1009,32 @@ function SummaryTabContent({
 
       {/* Project info */}
       {submission.projects && (
-        <div className="bg-background border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-foreground mb-3">Informations</h3>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Informations</h3>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-xs text-muted-foreground">Projet</dt>
-              <dd className="text-foreground">{submission.projects.name}</dd>
+              <dt className="text-xs text-[#71717A]">Projet</dt>
+              <dd className="text-[#FAFAFA]">{submission.projects.name}</dd>
             </div>
             {submission.projects.client_name && (
               <div>
-                <dt className="text-xs text-muted-foreground">Client</dt>
-                <dd className="text-foreground">{submission.projects.client_name}</dd>
+                <dt className="text-xs text-[#71717A]">Client</dt>
+                <dd className="text-[#FAFAFA]">{submission.projects.client_name}</dd>
               </div>
             )}
             {submission.projects.city && (
               <div>
-                <dt className="text-xs text-muted-foreground">Ville</dt>
-                <dd className="text-foreground">{submission.projects.city}</dd>
+                <dt className="text-xs text-[#71717A]">Ville</dt>
+                <dd className="text-[#FAFAFA]">{submission.projects.city}</dd>
               </div>
             )}
             <div>
-              <dt className="text-xs text-muted-foreground">Fichier</dt>
-              <dd className="text-foreground">{submission.file_name || "—"}</dd>
+              <dt className="text-xs text-[#71717A]">Fichier</dt>
+              <dd className="text-[#FAFAFA]">{submission.file_name || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Date</dt>
-              <dd className="text-foreground">{new Date(submission.created_at).toLocaleDateString("fr-CH")}</dd>
+              <dt className="text-xs text-[#71717A]">Date</dt>
+              <dd className="text-[#FAFAFA]">{new Date(submission.created_at).toLocaleDateString("fr-CH")}</dd>
             </div>
           </dl>
         </div>
@@ -1042,19 +1042,19 @@ function SummaryTabContent({
 
       {/* Material groups breakdown */}
       {materialGroups.length > 0 && (
-        <div className="bg-background border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-foreground mb-3">Répartition par groupe</h3>
+        <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-4">
+          <h3 className="text-sm font-medium text-[#FAFAFA] mb-3">Répartition par groupe</h3>
           <div className="space-y-2">
             {materialGroups.map((group) => {
               const count = items.filter((i) => i.material_group === group).length;
               const pct = items.length > 0 ? (count / items.length) * 100 : 0;
               return (
                 <div key={group} className="flex items-center gap-3">
-                  <span className="text-xs text-foreground w-40 truncate">{group}</span>
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-brand/60 rounded-full" style={{ width: `${pct}%` }} />
+                  <span className="text-xs text-[#FAFAFA] w-40 truncate">{group}</span>
+                  <div className="flex-1 h-2 bg-[#27272A] rounded-full overflow-hidden">
+                    <div className="h-full bg-[#F97316]/60 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs text-muted-foreground w-12 text-right">{count}</span>
+                  <span className="text-xs text-[#71717A] w-12 text-right">{count}</span>
                 </div>
               );
             })}
@@ -1079,31 +1079,31 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
   const accuracyPct = stats?.avg_accuracy != null ? Math.round(stats.avg_accuracy * 100) : null;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+    <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4 space-y-3">
       <div className="flex items-center gap-2 mb-1">
-        <BarChart3 className="h-4 w-4 text-brand" />
-        <span className="text-sm font-medium text-foreground">Intelligence prix</span>
-        <span className="text-xs text-muted-foreground ml-auto">Base de données de votre organisation</span>
+        <BarChart3 className="h-4 w-4 text-[#F97316]" />
+        <span className="text-sm font-medium text-[#FAFAFA]">Intelligence prix</span>
+        <span className="text-xs text-[#71717A] ml-auto">Base de données de votre organisation</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Price count */}
-        <div className="flex items-start gap-2 bg-muted rounded-lg p-3">
-          <Database className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2 bg-[#27272A] rounded-lg p-3">
+          <Database className="h-4 w-4 text-[#F97316] mt-0.5 shrink-0" />
           <div>
-            <div className="text-lg font-bold text-foreground">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
-            <div className="text-[11px] text-muted-foreground">Prix fournisseurs enregistrés</div>
+            <div className="text-lg font-bold text-[#FAFAFA]">{(stats?.price_count ?? 0).toLocaleString("fr-CH")}</div>
+            <div className="text-[11px] text-[#71717A]">Prix fournisseurs enregistrés</div>
           </div>
         </div>
 
         {/* Accuracy */}
-        <div className="flex items-start gap-2 bg-muted rounded-lg p-3">
+        <div className="flex items-start gap-2 bg-[#27272A] rounded-lg p-3">
           <TrendingUp className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
           <div>
-            <div className="text-lg font-bold text-foreground">
+            <div className="text-lg font-bold text-[#FAFAFA]">
               {accuracyPct != null ? `${accuracyPct}%` : "—"}
             </div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-[11px] text-[#71717A]">
               Précision moyenne
               {stats?.calibration_count ? ` (${stats.calibration_count} calibr.)` : ""}
             </div>
@@ -1111,8 +1111,8 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
         </div>
 
         {/* Source distribution */}
-        <div className="sm:col-span-2 bg-muted rounded-lg p-3">
-          <div className="text-[11px] text-muted-foreground mb-1.5">Répartition des sources — cette estimation</div>
+        <div className="sm:col-span-2 bg-[#27272A] rounded-lg p-3">
+          <div className="text-[11px] text-[#71717A] mb-1.5">Répartition des sources — cette estimation</div>
           {/* Stacked bar */}
           <div className="flex h-3 w-full rounded-full overflow-hidden gap-px">
             {pctReal > 0 && (
@@ -1138,14 +1138,14 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
             )}
             {pctAi > 0 && (
               <div
-                className="bg-blue-400 transition-all"
+                className="bg-[#F97316]/60 transition-all"
                 style={{ width: `${pctAi}%` }}
                 title={`IA: ${pctAi}%`}
               />
             )}
             {pctOther > 0 && (
               <div
-                className="bg-muted transition-all"
+                className="bg-[#27272A] transition-all"
                 style={{ width: `${pctOther}%` }}
                 title={`Non estimé: ${pctOther}%`}
               />
@@ -1153,36 +1153,36 @@ function FeedbackBanner({ stats, budget }: { stats: FeedbackStats | null; budget
           </div>
           {/* Legend */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
-            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
-            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
-            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />IA {pctAi}%</span>}
+            {pctReal > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Réel {pctReal}%</span>}
+            {pctMarket > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />Marché {pctMarket}%</span>}
+            {pctCrb > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />CRB {pctCrb}%</span>}
+            {pctAi > 0 && <span className="flex items-center gap-1 text-[10px] text-[#71717A]"><span className="w-2 h-2 rounded-full bg-[#F97316]/60 shrink-0" />IA {pctAi}%</span>}
           </div>
         </div>
       </div>
 
       {/* Monthly trend sparkline */}
       {stats?.monthly_trend && stats.monthly_trend.length >= 2 && (
-        <div className="border-t border-border pt-3">
-          <div className="text-[11px] text-muted-foreground mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
+        <div className="border-t border-[#27272A] pt-3">
+          <div className="text-[11px] text-[#71717A] mb-1.5">Tendance précision des estimations (6 derniers mois)</div>
           <div className="h-12">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.monthly_trend} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="accuracyGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#F97316" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Tooltip
-                  contentStyle={{ fontSize: "11px", padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: "6px" }}
+                  contentStyle={{ fontSize: "11px", padding: "4px 8px", border: "1px solid #27272A", borderRadius: "6px", backgroundColor: "#18181B", color: "#FAFAFA" }}
                   formatter={(v: number) => [`${Math.round(v * 100)}%`, "Précision"]}
                   labelFormatter={(label: string) => label}
                 />
                 <Area
                   type="monotone"
                   dataKey="accuracy"
-                  stroke="#2563EB"
+                  stroke="#F97316"
                   strokeWidth={1.5}
                   fill="url(#accuracyGrad)"
                   dot={false}
@@ -1238,8 +1238,8 @@ function BudgetTabContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Analysez d&apos;abord le descriptif</p>
+        <Calculator className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
+        <p className="text-sm text-[#71717A]">Analysez d&apos;abord le descriptif</p>
       </div>
     );
   }
@@ -1247,20 +1247,20 @@ function BudgetTabContent({
   if (!budget) {
     return (
       <div className="text-center py-16">
-        <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
-        <p className="text-xs text-muted-foreground mb-6 max-w-md mx-auto">
+        <Calculator className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
+        <p className="text-sm text-[#71717A] mb-4">Estimez le budget de cette soumission avec l&apos;IA</p>
+        <p className="text-xs text-[#71717A] mb-6 max-w-md mx-auto">
           L&apos;estimation utilise vos offres fournisseurs, les prix du marché, le référentiel CRB 2025, et l&apos;IA en dernier recours.
         </p>
         {error && (
-          <div className="mb-4 text-xs text-red-600 bg-red-500/10 border border-red-200 rounded-lg px-3 py-2 inline-block">
+          <div className="mb-4 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 inline-block">
             {error}
           </div>
         )}
         <button
           onClick={handleEstimate}
           disabled={estimating}
-          className="px-6 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 flex items-center gap-2 mx-auto"
+          className="px-6 py-2.5 bg-cta text-white rounded-lg text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 flex items-center gap-2 mx-auto"
         >
           {estimating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
           {estimating ? "Estimation en cours..." : `Estimer le budget (${items.length} postes)`}
@@ -1280,13 +1280,13 @@ function BudgetTabContent({
   return (
     <div className="space-y-6">
       {/* Total banner */}
-      <div className="bg-gradient-to-r from-brand/5 to-blue-50 border border-brand/20 rounded-xl p-6">
+      <div className="bg-gradient-to-r from-[#F97316]/5 to-[#18181B] border border-[#F97316]/20 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-foreground">Budget estimé</h3>
+          <h3 className="text-sm font-medium text-[#FAFAFA]">Budget estimé</h3>
           <button
             onClick={handleEstimate}
             disabled={estimating}
-            className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-background text-muted-foreground flex items-center gap-1.5"
+            className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#18181B] text-[#71717A] flex items-center gap-1.5"
           >
             {estimating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Recalculer
@@ -1294,19 +1294,19 @@ function BudgetTabContent({
         </div>
         <div className="grid grid-cols-3 gap-6">
           <div>
-            <div className="text-xs text-muted-foreground mb-1">Minimum</div>
-            <div className="text-xl font-bold text-muted-foreground">CHF {formatCHF(budget.total_min)}</div>
+            <div className="text-xs text-[#71717A] mb-1">Minimum</div>
+            <div className="text-xl font-bold text-[#71717A]">CHF {formatCHF(budget.total_min)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground mb-1">Médiane</div>
-            <div className="text-2xl font-bold text-brand">CHF {formatCHF(budget.total_median)}</div>
+            <div className="text-xs text-[#71717A] mb-1">Médiane</div>
+            <div className="text-2xl font-bold text-[#F97316]">CHF {formatCHF(budget.total_median)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground mb-1">Maximum</div>
-            <div className="text-xl font-bold text-muted-foreground">CHF {formatCHF(budget.total_max)}</div>
+            <div className="text-xs text-[#71717A] mb-1">Maximum</div>
+            <div className="text-xl font-bold text-[#71717A]">CHF {formatCHF(budget.total_max)}</div>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-4 mt-4 text-xs text-[#71717A] flex-wrap">
           {(budget.source_breakdown?.historique_interne ?? 0) > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -1327,13 +1327,13 @@ function BudgetTabContent({
           )}
           {budget.ai_count > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-primary/100"></span>
+              <span className="w-2 h-2 rounded-full bg-[#F97316]/100"></span>
               {budget.ai_count} estimés IA
             </span>
           )}
           {budget.unestimated_count > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-muted"></span>
+              <span className="w-2 h-2 rounded-full bg-[#27272A]"></span>
               {budget.unestimated_count} non estimés
             </span>
           )}
@@ -1353,18 +1353,18 @@ function BudgetTabContent({
         const groupMedian = ests.reduce((s, e) => s + (e.quantity ?? 0) * e.prix_median, 0);
 
         return (
-          <div key={group} className="bg-background border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-muted border-b border-border flex items-center justify-between">
+          <div key={group} className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-foreground">{group}</span>
-                <span className="text-xs text-muted-foreground">{ests.length} postes</span>
+                <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
+                <span className="text-xs text-[#71717A]">{ests.length} postes</span>
               </div>
-              <span className="text-sm font-semibold text-foreground">CHF {formatCHF(Math.round(groupMedian))}</span>
+              <span className="text-sm font-semibold text-[#FAFAFA]">CHF {formatCHF(Math.round(groupMedian))}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
-                  <tr className="bg-muted/50 text-[11px] font-medium text-muted-foreground uppercase">
+                  <tr className="bg-[#27272A]/50 text-[11px] font-medium text-[#71717A] uppercase">
                     <th className="text-left px-3 py-2 w-16">N°</th>
                     <th className="text-left px-3 py-2">Description</th>
                     <th className="text-center px-3 py-2 w-14">Unité</th>
@@ -1380,36 +1380,36 @@ function BudgetTabContent({
                   {ests.map((est) => {
                     const total = (est.quantity ?? 0) * est.prix_median;
                     return (
-                      <tr key={est.item_id} className="text-sm hover:bg-muted">
-                        <td className="px-3 py-2 text-xs font-mono text-muted-foreground">{est.item_number || "—"}</td>
-                        <td className="px-3 py-2 text-foreground truncate max-w-[250px]">{est.description}</td>
-                        <td className="px-3 py-2 text-center text-xs text-muted-foreground">{est.unit || "—"}</td>
-                        <td className="px-3 py-2 text-right text-muted-foreground text-xs">
+                      <tr key={est.item_id} className="text-sm hover:bg-[#1C1C1F]">
+                        <td className="px-3 py-2 text-xs font-mono text-[#71717A]">{est.item_number || "—"}</td>
+                        <td className="px-3 py-2 text-[#FAFAFA] truncate max-w-[250px]">{est.description}</td>
+                        <td className="px-3 py-2 text-center text-xs text-[#71717A]">{est.unit || "—"}</td>
+                        <td className="px-3 py-2 text-right text-[#71717A] text-xs">
                           {est.quantity != null ? Number(est.quantity).toLocaleString("fr-CH") : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                        <td className="px-3 py-2 text-right text-xs text-[#71717A]">
                           {est.prix_min > 0 ? est.prix_min.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-sm font-medium text-foreground">
+                        <td className="px-3 py-2 text-right text-sm font-medium text-[#FAFAFA]">
                           {est.prix_median > 0 ? est.prix_median.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                        <td className="px-3 py-2 text-right text-xs text-[#71717A]">
                           {est.prix_max > 0 ? est.prix_max.toFixed(2) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-foreground">
+                        <td className="px-3 py-2 text-right font-medium text-[#FAFAFA]">
                           {total > 0 ? formatCHF(Math.round(total)) : "—"}
                         </td>
                         <td className="px-3 py-2 text-center">
                           {est.source === "historique_interne" ? (
-                            <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Prix réels fournisseurs"}>Réel</span>
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Prix réels fournisseurs"}>Réel</span>
                           ) : est.source === "benchmark_cantaia" ? (
-                            <span className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Benchmark marché"}>Marché</span>
+                            <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Benchmark marché"}>Marché</span>
                           ) : est.source === "referentiel_crb" ? (
-                            <span className="text-[10px] bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Référentiel CRB 2025"}>CRB</span>
+                            <span className="text-[10px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-medium" title={est.detail_source || "Référentiel CRB 2025"}>CRB</span>
                           ) : est.source === "estimation_ia" ? (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">IA</span>
+                            <span className="text-[10px] bg-[#F97316]/10 text-[#F97316] px-1.5 py-0.5 rounded font-medium">IA</span>
                           ) : (
-                            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">—</span>
+                            <span className="text-[10px] bg-[#27272A] text-[#71717A] px-1.5 py-0.5 rounded">—</span>
                           )}
                         </td>
                       </tr>

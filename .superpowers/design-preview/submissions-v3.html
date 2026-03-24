@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Soumission Détail</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow-x: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* Header */
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; z-index: 10; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-crumb a { color: #F97316; text-decoration: none; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+/* Layout */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; margin-bottom: 0; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+.sb-proj { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 7px; font-size: 13px; color: #D4D4D8; cursor: pointer; font-weight: 600; }
+.sb-proj .dot { width: 8px; height: 8px; border-radius: 50%; }
+.sb-sub { padding: 3px 10px 3px 34px; font-size: 12px; color: #71717A; cursor: pointer; border-radius: 6px; }
+.sb-sub:hover { color: #D4D4D8; background: #1C1C1F; }
+.sb-sub.active { color: #F97316; background: #F9731610; }
+.sb-bottom { margin-top: auto; padding-top: 6px; border-top: 1px solid #27272A; }
+
+/* Main */
+.main { flex: 1; overflow-y: auto; background: #0F0F11; }
+
+/* Submission header */
+.sub-header { background: #18181B; border-bottom: 1px solid #27272A; padding: 16px 28px; }
+.sub-back { font-size: 12px; color: #71717A; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.sub-back:hover { color: #D4D4D8; }
+.sub-top { display: flex; justify-content: space-between; align-items: start; }
+.sub-title { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #FAFAFA; }
+.sub-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 12px; color: #71717A; }
+.sub-badge { font-size: 10px; padding: 3px 10px; border-radius: 6px; font-weight: 600; }
+.sub-badge.analyzed { background: #10B98118; color: #34D399; }
+.sub-actions { display: flex; gap: 8px; }
+.btn { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.btn:hover { background: #27272A; }
+.btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+
+/* Tabs */
+.sub-tabs { display: flex; gap: 0; background: #18181B; border-bottom: 1px solid #27272A; padding: 0 28px; }
+.sub-tab { padding: 10px 18px; font-size: 13px; color: #71717A; cursor: pointer; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.12s; }
+.sub-tab:hover { color: #D4D4D8; }
+.sub-tab.active { color: #F97316; border-bottom-color: #F97316; }
+.sub-tab .count { background: #27272A; color: #A1A1AA; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+.sub-tab.active .count { background: #F9731620; color: #F97316; }
+
+/* Content */
+.sub-content { padding: 20px 28px; }
+
+/* ====== POSTES TAB ====== */
+.group-section { margin-bottom: 16px; animation: fadeInUp 0.3s ease-out; }
+.group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #18181B; border: 1px solid #27272A; border-radius: 8px 8px 0 0; cursor: pointer; }
+.group-header:hover { background: #1C1C1F; }
+.group-left { display: flex; align-items: center; gap: 10px; }
+.group-chevron { color: #52525B; font-size: 12px; transition: transform 0.2s; }
+.group-chevron.open { transform: rotate(90deg); }
+.group-name { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; color: #FAFAFA; }
+.group-count { font-size: 11px; color: #71717A; }
+.group-cfc { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #3B82F618; color: #60A5FA; font-weight: 500; }
+
+/* Items table */
+.items-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.items-table thead th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 6px 12px; text-align: left; background: #141416; border-bottom: 1px solid #27272A; }
+.items-table thead th:first-child { border-left: 1px solid #27272A; }
+.items-table thead th:last-child { border-right: 1px solid #27272A; }
+.items-table tbody tr { transition: background 0.1s; }
+.items-table tbody tr:hover { background: #18181B; }
+.items-table tbody td { padding: 8px 12px; border-bottom: 1px solid #1C1C1F; font-size: 12px; color: #D4D4D8; vertical-align: top; }
+.items-table tbody td:first-child { border-left: 1px solid #27272A; }
+.items-table tbody td:last-child { border-right: 1px solid #27272A; }
+.items-table tbody tr:last-child td { border-bottom: 1px solid #27272A; }
+.items-table tbody tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+.items-table tbody tr:last-child td:last-child { border-bottom-right-radius: 8px; }
+.item-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #71717A; font-weight: 500; }
+.item-desc { color: #D4D4D8; line-height: 1.4; }
+.item-unit { color: #A1A1AA; text-align: center; }
+.item-qty { font-family: 'Plus Jakarta Sans'; font-weight: 600; color: #FAFAFA; text-align: right; }
+.item-cfc { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #3B82F612; color: #60A5FA; }
+
+/* ====== DEMANDES DE PRIX TAB ====== */
+.wizard { margin-top: 4px; }
+.wizard-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 24px; }
+.wizard-step { display: flex; align-items: center; gap: 8px; }
+.wizard-step-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans'; font-size: 13px; font-weight: 700; }
+.wizard-step-num.active { background: linear-gradient(135deg, #F97316, #EA580C); color: white; }
+.wizard-step-num.done { background: #10B981; color: white; }
+.wizard-step-num.pending { background: #27272A; color: #52525B; }
+.wizard-step-label { font-size: 12px; font-weight: 500; }
+.wizard-step-label.active { color: #FAFAFA; }
+.wizard-step-label.done { color: #34D399; }
+.wizard-step-label.pending { color: #52525B; }
+.wizard-connector { width: 40px; height: 2px; margin: 0 8px; }
+.wizard-connector.done { background: #10B981; }
+.wizard-connector.pending { background: #27272A; }
+
+.wizard-content { background: #18181B; border: 1px solid #27272A; border-radius: 12px; padding: 20px 24px; }
+.wizard-title { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #FAFAFA; margin-bottom: 4px; }
+.wizard-desc { font-size: 12px; color: #71717A; margin-bottom: 16px; }
+
+.group-check { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #27272A; border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: all 0.12s; }
+.group-check:hover { border-color: #3F3F46; background: #1C1C1F; }
+.group-check.selected { border-color: #F97316; background: #F9731608; }
+.group-check-box { width: 20px; height: 20px; border: 2px solid #3F3F46; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: transparent; flex-shrink: 0; transition: all 0.12s; }
+.group-check.selected .group-check-box { background: #F97316; border-color: #F97316; color: white; }
+.group-check-info { flex: 1; }
+.group-check-name { font-size: 13px; font-weight: 600; color: #FAFAFA; }
+.group-check-meta { font-size: 11px; color: #71717A; margin-top: 1px; }
+.group-check-cfc { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #3B82F618; color: #60A5FA; font-weight: 500; flex-shrink: 0; }
+
+.wizard-footer { display: flex; justify-content: space-between; margin-top: 20px; }
+
+/* ====== ANALYSE COMPARATIVE ====== */
+.compare-header { display: flex; gap: 12px; margin-bottom: 16px; }
+.compare-card { flex: 1; background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 14px; text-align: center; }
+.compare-card.best { border-color: #10B98140; }
+.compare-supplier { font-size: 14px; font-weight: 600; color: #FAFAFA; }
+.compare-total { font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 800; margin-top: 4px; }
+.compare-total.best { color: #34D399; }
+.compare-total.normal { color: #D4D4D8; }
+.compare-diff { font-size: 11px; margin-top: 2px; }
+.compare-badge { font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-top: 6px; display: inline-block; }
+.compare-badge.winner { background: #10B98118; color: #34D399; }
+.compare-badge.neutral { background: #27272A; color: #A1A1AA; }
+
+.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px; }
+.compare-table thead th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid #27272A; }
+.compare-table tbody td { padding: 8px 12px; border-bottom: 1px solid #1C1C1F; font-size: 12px; color: #D4D4D8; }
+.compare-table tbody tr:hover { background: #18181B; }
+.price-cell { font-family: 'Plus Jakarta Sans'; font-weight: 600; }
+.price-cell.best { color: #34D399; }
+.price-cell.high { color: #F87171; }
+
+/* ====== TRACKING ====== */
+.tracking-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tracking-card { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 14px; transition: all 0.12s; }
+.tracking-card:hover { border-color: #3F3F46; }
+.tracking-supplier { font-size: 13px; font-weight: 600; color: #FAFAFA; }
+.tracking-groups { font-size: 11px; color: #71717A; margin-top: 2px; }
+.tracking-status { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 500; }
+.tracking-status .dot { width: 7px; height: 7px; border-radius: 50%; }
+.tracking-date { font-size: 10px; color: #52525B; margin-top: 4px; }
+.tracking-actions { margin-top: 8px; }
+.tracking-actions button { font-size: 10px; padding: 4px 10px; border-radius: 5px; border: 1px solid #3F3F46; background: #27272A; color: #D4D4D8; cursor: pointer; }
+.tracking-actions button:hover { background: #3F3F46; }
+.tracking-actions button.relance { border-color: #F9731640; color: #FB923C; background: #F9731610; }
+
+/* Section divider */
+.sdiv { margin: 28px 0 16px; display: flex; align-items: center; gap: 12px; }
+.sdiv-line { flex: 1; height: 1px; background: #27272A; }
+.sdiv-label { font-size: 11px; color: #52525B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb"><a href="#">Central Malley</a> › <b>Soumissions</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i"><span class="ic">✅</span> Tâches</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Référentiels</div>
+      <div class="sb-i"><span class="ic">👷</span> Fournisseurs</div>
+      <div class="sb-i"><span class="ic">💰</span> Cantaia Prix</div>
+      <div class="sb-i"><span class="ic">📊</span> Rapports</div>
+      <div class="sb-i"><span class="ic">🤖</span> Assistant IA</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Central Malley</div>
+      <div class="sb-proj"><span class="dot" style="background:#3B82F6;"></span> Central Malley ▾</div>
+      <div class="sb-sub">📋 Aperçu</div>
+      <div class="sb-sub">✅ Tâches</div>
+      <div class="sb-sub">📅 Planning</div>
+      <div class="sb-sub active">📄 Soumissions</div>
+      <div class="sb-sub">📐 Plans</div>
+      <div class="sb-sub">📧 Emails</div>
+      <div class="sb-sub">··· Voir tout</div>
+      <div class="sb-bottom">
+        <div class="sb-i"><span class="ic">🎫</span> Support</div>
+        <div class="sb-i"><span class="ic">⚙️</span> Paramètres</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- Submission header -->
+      <div class="sub-header">
+        <div class="sub-back">← Retour aux soumissions</div>
+        <div class="sub-top">
+          <div>
+            <div class="sub-title">25.04.15 — Soumission Ménétrey SA.xlsx</div>
+            <div class="sub-meta">
+              <span class="sub-badge analyzed">✓ Analysé</span>
+              <span>180 postes</span>
+              <span>13 groupes</span>
+              <span>17.03.2026</span>
+            </div>
+          </div>
+          <div class="sub-actions">
+            <button class="btn">📅 Planning</button>
+            <button class="btn">🔄 Ré-analyser</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="sub-tabs">
+        <div class="sub-tab active">📋 Postes <span class="count">180</span></div>
+        <div class="sub-tab">📨 Demandes de prix</div>
+        <div class="sub-tab">📊 Analyse comparative</div>
+        <div class="sub-tab">📋 Récapitulatif</div>
+      </div>
+
+      <div class="sub-content">
+
+        <!-- ====== POSTES ====== -->
+        <div class="group-section">
+          <div class="group-header">
+            <div class="group-left">
+              <span class="group-chevron open">▶</span>
+              <span class="group-name">Béton</span>
+              <span class="group-count">32 postes</span>
+            </div>
+            <span class="group-cfc">CFC 211</span>
+          </div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width:60px;">N°</th>
+                <th>Description</th>
+                <th style="width:50px;">Unité</th>
+                <th style="width:80px;text-align:right;">Quantité</th>
+                <th style="width:60px;">CFC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="item-num">302.1</span></td>
+                <td><span class="item-desc">Fourniture et pose sur lit de béton de caniveau type Ln 150 avec ou sans pente intégrée, inclus grille passerelle C 250</span></td>
+                <td class="item-unit">ml</td>
+                <td class="item-qty">172.000</td>
+                <td><span class="item-cfc">261</span></td>
+              </tr>
+              <tr>
+                <td><span class="item-num">302.2</span></td>
+                <td><span class="item-desc">Fourniture et pose sur lit de béton d'avaloir dessableur pour caniveau type Ln 150 avec récipient, inclus grille fonte C 250</span></td>
+                <td class="item-unit">p</td>
+                <td class="item-qty">—</td>
+                <td><span class="item-cfc">261</span></td>
+              </tr>
+              <tr>
+                <td><span class="item-num">302.3</span></td>
+                <td><span class="item-desc">Fourniture et pose de regard de contrôle Ø 30 hauteur 50 avec couvercle en ciment. Localisation : secteur sur dalle</span></td>
+                <td class="item-unit">p</td>
+                <td class="item-qty">—</td>
+                <td><span class="item-cfc">261</span></td>
+              </tr>
+              <tr>
+                <td><span class="item-num">302.4</span></td>
+                <td><span class="item-desc">Béton armé pour fondations semelles filantes et isolées, coffrage et ferraillage compris, C30/37</span></td>
+                <td class="item-unit">m³</td>
+                <td class="item-qty">45.000</td>
+                <td><span class="item-cfc">211</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="group-section">
+          <div class="group-header">
+            <div class="group-left">
+              <span class="group-chevron">▶</span>
+              <span class="group-name">Terrassement</span>
+              <span class="group-count">28 postes</span>
+            </div>
+            <span class="group-cfc">CFC 117</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="group-header">
+            <div class="group-left">
+              <span class="group-chevron">▶</span>
+              <span class="group-name">Canalisations, drainage</span>
+              <span class="group-count">15 postes</span>
+            </div>
+            <span class="group-cfc">CFC 151</span>
+          </div>
+        </div>
+
+        <!-- ====== DEMANDES DE PRIX ====== -->
+        <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-label">Onglet : Demandes de prix</div><div class="sdiv-line"></div></div>
+
+        <div class="wizard">
+          <div class="wizard-steps">
+            <div class="wizard-step"><div class="wizard-step-num done">✓</div><span class="wizard-step-label done">Groupes</span></div>
+            <div class="wizard-connector done"></div>
+            <div class="wizard-step"><div class="wizard-step-num done">✓</div><span class="wizard-step-label done">Postes</span></div>
+            <div class="wizard-connector done"></div>
+            <div class="wizard-step"><div class="wizard-step-num active">3</div><span class="wizard-step-label active">Fournisseurs</span></div>
+            <div class="wizard-connector pending"></div>
+            <div class="wizard-step"><div class="wizard-step-num pending">4</div><span class="wizard-step-label pending">Envoi</span></div>
+          </div>
+
+          <div class="wizard-content">
+            <div class="wizard-title">Assignez les fournisseurs</div>
+            <div class="wizard-desc">Pour chaque groupe, sélectionnez les fournisseurs qui recevront la demande de prix. L'IA recommande les plus pertinents.</div>
+
+            <div class="group-check selected">
+              <div class="group-check-box">✓</div>
+              <div class="group-check-info">
+                <div class="group-check-name">Béton — 32 postes</div>
+                <div class="group-check-meta">3 fournisseurs assignés · <span style="color:#34D399;">✓ Configuré</span></div>
+              </div>
+              <div class="group-check-cfc">CFC 211</div>
+            </div>
+            <div class="group-check selected">
+              <div class="group-check-box">✓</div>
+              <div class="group-check-info">
+                <div class="group-check-name">Terrassement — 28 postes</div>
+                <div class="group-check-meta">2 fournisseurs assignés · <span style="color:#34D399;">✓ Configuré</span></div>
+              </div>
+              <div class="group-check-cfc">CFC 117</div>
+            </div>
+            <div class="group-check">
+              <div class="group-check-box"></div>
+              <div class="group-check-info">
+                <div class="group-check-name">Canalisations — 15 postes</div>
+                <div class="group-check-meta" style="color:#F59E0B;">⚠ 0 fournisseur assigné</div>
+              </div>
+              <div class="group-check-cfc">CFC 151</div>
+            </div>
+
+            <div class="wizard-footer">
+              <button class="btn">← Retour</button>
+              <button class="btn primary">Suivant →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== ANALYSE COMPARATIVE ====== -->
+        <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-label">Onglet : Analyse comparative</div><div class="sdiv-line"></div></div>
+
+        <div class="compare-header">
+          <div class="compare-card best">
+            <div class="compare-supplier">Bouygues E&S</div>
+            <div class="compare-total best">CHF 2'354'705</div>
+            <div class="compare-diff" style="color:#34D399;">Le moins cher</div>
+            <span class="compare-badge winner">🏆 Recommandé</span>
+          </div>
+          <div class="compare-card">
+            <div class="compare-supplier">Implenia Tech</div>
+            <div class="compare-total normal">CHF 2'487'300</div>
+            <div class="compare-diff" style="color:#F87171;">+5.6% vs meilleur</div>
+            <span class="compare-badge neutral">2ème</span>
+          </div>
+          <div class="compare-card">
+            <div class="compare-supplier">Losinger Marazzi</div>
+            <div class="compare-total normal">CHF 2'612'450</div>
+            <div class="compare-diff" style="color:#F87171;">+10.9% vs meilleur</div>
+            <span class="compare-badge neutral">3ème</span>
+          </div>
+        </div>
+
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th>Description</th>
+              <th>Bouygues E&S</th>
+              <th>Implenia Tech</th>
+              <th>Losinger M.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="item-num">302.1</span></td>
+              <td>Caniveau type Ln 150</td>
+              <td><span class="price-cell best">114.00</span></td>
+              <td><span class="price-cell">125.00</span></td>
+              <td><span class="price-cell high">138.00</span></td>
+            </tr>
+            <tr>
+              <td><span class="item-num">302.2</span></td>
+              <td>Avaloir dessableur</td>
+              <td><span class="price-cell">266.68</span></td>
+              <td><span class="price-cell best">245.00</span></td>
+              <td><span class="price-cell high">289.00</span></td>
+            </tr>
+            <tr>
+              <td><span class="item-num">302.4</span></td>
+              <td>Béton armé C30/37</td>
+              <td><span class="price-cell best">385.00</span></td>
+              <td><span class="price-cell">410.00</span></td>
+              <td><span class="price-cell">395.00</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ====== SUIVI POST-ENVOI ====== -->
+        <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-label">Suivi des demandes (après envoi)</div><div class="sdiv-line"></div></div>
+
+        <div class="tracking-grid">
+          <div class="tracking-card">
+            <div class="tracking-supplier">Bouygues E&S Suisse</div>
+            <div class="tracking-groups">Béton, Terrassement · 60 postes</div>
+            <div class="tracking-status"><span class="dot" style="background:#34D399;"></span> <span style="color:#34D399;">Répondu</span></div>
+            <div class="tracking-date">Envoyé 18.03 · Répondu 20.03</div>
+          </div>
+          <div class="tracking-card">
+            <div class="tracking-supplier">Implenia Technique</div>
+            <div class="tracking-groups">Béton, Canalisations · 47 postes</div>
+            <div class="tracking-status"><span class="dot" style="background:#3B82F6;"></span> <span style="color:#60A5FA;">Envoyé</span></div>
+            <div class="tracking-date">Envoyé 18.03</div>
+            <div class="tracking-actions"><button class="relance">🔄 Relancer</button></div>
+          </div>
+          <div class="tracking-card">
+            <div class="tracking-supplier">Losinger Marazzi</div>
+            <div class="tracking-groups">Béton · 32 postes</div>
+            <div class="tracking-status"><span class="dot" style="background:#F59E0B;"></span> <span style="color:#FBBF24;">En retard</span></div>
+            <div class="tracking-date">Envoyé 18.03 · Deadline dépassé</div>
+            <div class="tracking-actions"><button class="relance">🔄 Relancer</button></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

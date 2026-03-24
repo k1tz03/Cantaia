@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Mail Design Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 24px; }
+h1 { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 32px; }
+
+.options-grid { display: grid; grid-template-columns: 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
+.option-block { border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+.option-block:hover { border-color: #555; }
+.option-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #1a1a1a; }
+.option-header h2 { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; }
+.option-header p { font-size: 12px; color: #888; }
+.option-header .tag { background: #F97316; color: white; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+
+/* Shared app frame */
+.app-frame { background: #FAFAFA; display: flex; flex-direction: column; height: 480px; }
+.frame-header { height: 36px; background: #18181B; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+.frame-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 11px; color: #FAFAFA; display: flex; align-items: center; gap: 5px; }
+.frame-header .logo-icon { width: 16px; height: 16px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: 800; }
+.frame-header .crumb { font-size: 9px; color: #71717A; margin-left: 12px; }
+.frame-header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.frame-header .avatar { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; }
+.frame-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar shared */
+.frame-sidebar { width: 140px; background: #1C1C1F; padding: 8px 4px; flex-shrink: 0; }
+.fs-section { font-size: 7px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; padding: 6px 6px 2px; font-weight: 600; }
+.fs-item { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 4px; font-size: 9px; color: #A1A1AA; margin-bottom: 1px; }
+.fs-item.active { background: #F9731612; color: #F97316; }
+.fs-badge { margin-left: auto; background: #F97316; color: white; font-size: 6px; padding: 0 3px; border-radius: 6px; font-weight: 600; }
+.fs-divider { height: 1px; background: #2a2a2e; margin: 4px 6px; }
+
+/* Main content */
+.frame-main { flex: 1; overflow: hidden; }
+
+/* ====== OPTION A — Inbox 2 panneaux ====== */
+.inbox-layout { display: flex; height: 100%; }
+.inbox-list { width: 320px; border-right: 1px solid #E4E4E7; overflow-y: auto; background: #FFF; }
+.inbox-toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #E4E4E7; background: #FAFAFA; }
+.inbox-toolbar input { flex: 1; border: 1px solid #E4E4E7; border-radius: 5px; padding: 4px 8px; font-size: 9px; background: #FFF; color: #18181B; }
+.inbox-toolbar .filter-btn { font-size: 9px; color: #71717A; background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 4px; padding: 3px 8px; }
+.inbox-email { padding: 10px; border-bottom: 1px solid #F4F4F5; cursor: pointer; }
+.inbox-email:hover { background: #FAFAFA; }
+.inbox-email.active { background: #FFF7ED; border-left: 2px solid #F97316; }
+.inbox-email.unread { background: #FEFCE8; }
+.inbox-email-sender { font-size: 10px; font-weight: 600; color: #18181B; display: flex; justify-content: space-between; }
+.inbox-email-sender .time { font-weight: 400; color: #A1A1AA; font-size: 9px; }
+.inbox-email-subject { font-size: 9px; color: #3F3F46; margin-top: 2px; }
+.inbox-email-preview { font-size: 8px; color: #A1A1AA; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-email-tags { display: flex; gap: 4px; margin-top: 4px; }
+.inbox-tag { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; }
+.inbox-tag.project { background: #DBEAFE; color: #2563EB; }
+.inbox-tag.urgent { background: #FEE2E2; color: #EF4444; }
+.inbox-tag.action { background: #FEF3C7; color: #D97706; }
+.inbox-tag.info { background: #F3F4F6; color: #6B7280; }
+
+.inbox-preview { flex: 1; background: #FFF; padding: 16px; overflow-y: auto; }
+.inbox-preview-header { margin-bottom: 12px; }
+.inbox-preview-subject { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; color: #18181B; }
+.inbox-preview-meta { font-size: 9px; color: #A1A1AA; margin-top: 4px; }
+.inbox-preview-ai { background: #FFF7ED; border: 1px solid #FFEDD5; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
+.inbox-preview-ai-label { font-size: 8px; font-weight: 600; color: #F97316; text-transform: uppercase; margin-bottom: 3px; }
+.inbox-preview-ai-text { font-size: 9px; color: #78350F; line-height: 1.4; }
+.inbox-preview-body { font-size: 10px; color: #3F3F46; line-height: 1.6; }
+.inbox-preview-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #E4E4E7; }
+.inbox-preview-actions button { font-size: 9px; padding: 5px 10px; border-radius: 5px; border: 1px solid #E4E4E7; background: #FFF; color: #3F3F46; cursor: pointer; }
+.inbox-preview-actions button.primary { background: #F97316; color: white; border-color: #F97316; }
+
+/* ====== OPTION B — Décisions enrichie ====== */
+.decisions-layout { padding: 14px; overflow-y: auto; height: 100%; background: #FAFAFA; }
+.decisions-greeting { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #18181B; }
+.decisions-sub { font-size: 10px; color: #A1A1AA; margin-bottom: 12px; }
+.decisions-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+.decisions-kpi { background: #FFF; border: 1px solid #E4E4E7; border-radius: 6px; padding: 8px 10px; }
+.decisions-kpi-label { font-size: 7px; text-transform: uppercase; color: #A1A1AA; margin-bottom: 2px; }
+.decisions-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; }
+.decisions-bucket { margin-bottom: 14px; }
+.decisions-bucket-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.decisions-bucket-dot { width: 8px; height: 8px; border-radius: 50%; }
+.decisions-bucket-title { font-size: 11px; font-weight: 600; color: #18181B; }
+.decisions-bucket-count { font-size: 9px; color: #A1A1AA; }
+.decisions-card { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
+.decisions-card:hover { border-color: #D4D4D8; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.decisions-card-top { display: flex; justify-content: space-between; align-items: start; }
+.decisions-card-sender { font-size: 10px; font-weight: 600; color: #18181B; }
+.decisions-card-time { font-size: 8px; color: #A1A1AA; }
+.decisions-card-subject { font-size: 9px; color: #3F3F46; margin-top: 2px; }
+.decisions-card-ai { font-size: 8px; color: #92400E; background: #FFF7ED; padding: 4px 8px; border-radius: 4px; margin-top: 6px; display: inline-block; }
+.decisions-card-actions { display: flex; gap: 4px; margin-top: 8px; }
+.decisions-card-actions button { font-size: 8px; padding: 3px 8px; border-radius: 4px; border: 1px solid #E4E4E7; background: #FFF; color: #3F3F46; cursor: pointer; }
+.decisions-card-actions button.primary { background: #F97316; color: white; border-color: #F97316; }
+.decisions-card-project { display: inline-flex; align-items: center; gap: 3px; font-size: 8px; color: #6B7280; margin-top: 4px; }
+.decisions-card-project .dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* ====== OPTION C — Hybride ====== */
+.hybrid-layout { height: 100%; display: flex; flex-direction: column; background: #FAFAFA; }
+.hybrid-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid #E4E4E7; background: #FFF; }
+.hybrid-toolbar-left { display: flex; align-items: center; gap: 8px; }
+.hybrid-toggle { display: flex; background: #F4F4F5; border-radius: 6px; padding: 2px; }
+.hybrid-toggle button { font-size: 9px; padding: 4px 10px; border-radius: 4px; border: none; background: transparent; color: #71717A; cursor: pointer; }
+.hybrid-toggle button.active { background: #FFF; color: #18181B; box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-weight: 500; }
+.hybrid-stats { font-size: 9px; color: #A1A1AA; }
+.hybrid-toolbar-right { display: flex; gap: 6px; }
+.hybrid-toolbar-right button { font-size: 9px; padding: 4px 10px; border-radius: 4px; border: 1px solid #E4E4E7; background: #FFF; color: #3F3F46; cursor: pointer; }
+.hybrid-toolbar-right button.primary { background: #F97316; color: white; border-color: #F97316; }
+
+.hybrid-content { flex: 1; display: flex; overflow: hidden; }
+.hybrid-list { width: 340px; overflow-y: auto; border-right: 1px solid #E4E4E7; background: #FFF; }
+.hybrid-bucket-label { padding: 6px 12px; font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #A1A1AA; background: #FAFAFA; border-bottom: 1px solid #E4E4E7; display: flex; align-items: center; gap: 5px; }
+.hybrid-bucket-label .dot { width: 6px; height: 6px; border-radius: 50%; }
+.hybrid-email { padding: 10px 12px; border-bottom: 1px solid #F4F4F5; cursor: pointer; }
+.hybrid-email:hover { background: #FAFAFA; }
+.hybrid-email.active { background: #FFF7ED; border-left: 2px solid #F97316; }
+.hybrid-email-sender { font-size: 10px; font-weight: 600; color: #18181B; }
+.hybrid-email-subject { font-size: 9px; color: #3F3F46; margin-top: 1px; }
+.hybrid-email-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.hybrid-email-project { font-size: 8px; color: #6B7280; display: flex; align-items: center; gap: 3px; }
+.hybrid-email-project .dot { width: 4px; height: 4px; border-radius: 50%; }
+.hybrid-email-time { font-size: 8px; color: #A1A1AA; }
+
+.hybrid-preview { flex: 1; padding: 14px; overflow-y: auto; background: #FFF; }
+.hybrid-preview-subject { font-family: 'Plus Jakarta Sans'; font-size: 13px; font-weight: 700; color: #18181B; }
+.hybrid-preview-meta { font-size: 9px; color: #A1A1AA; margin-top: 3px; margin-bottom: 10px; }
+.hybrid-preview-ai { background: #FFF7ED; border: 1px solid #FFEDD5; border-radius: 6px; padding: 8px; margin-bottom: 10px; }
+.hybrid-preview-ai-label { font-size: 7px; font-weight: 600; color: #F97316; text-transform: uppercase; }
+.hybrid-preview-ai-text { font-size: 9px; color: #78350F; margin-top: 2px; line-height: 1.4; }
+.hybrid-preview-body { font-size: 9px; color: #3F3F46; line-height: 1.6; }
+.hybrid-preview-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #E4E4E7; }
+.hybrid-preview-actions button { font-size: 8px; padding: 4px 10px; border-radius: 4px; border: 1px solid #E4E4E7; background: #FFF; color: #3F3F46; cursor: pointer; }
+.hybrid-preview-actions button.primary { background: #F97316; color: white; border-color: #F97316; }
+</style>
+</head>
+<body>
+
+<h1>Module Mail — 3 Options</h1>
+<p class="subtitle">Cliquez pour zoomer. Même sidebar Graphite #1C1C1F + header noir.</p>
+
+<div class="options-grid">
+
+<!-- OPTION A — Inbox 2 panneaux -->
+<div class="option-block">
+  <div class="option-header">
+    <div><h2>A · Inbox 2 panneaux</h2><p>Comme Outlook, mais avec IA — liste à gauche, preview à droite</p></div>
+  </div>
+  <div class="app-frame">
+    <div class="frame-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › <b style="color:#A1A1AA">Mail</b></div>
+      <div class="right"><div class="avatar">JR</div></div>
+    </div>
+    <div class="frame-body">
+      <div class="frame-sidebar">
+        <div class="fs-section">Quotidien</div>
+        <div class="fs-item">📊 Dashboard</div>
+        <div class="fs-item active">📧 Mail <span class="fs-badge">25</span></div>
+        <div class="fs-item">📋 Briefing</div>
+        <div class="fs-item">✅ Tâches</div>
+      </div>
+      <div class="frame-main">
+        <div class="inbox-layout">
+          <div class="inbox-list">
+            <div class="inbox-toolbar">
+              <input placeholder="Rechercher un email..." />
+              <div class="filter-btn">Projet ▾</div>
+              <div class="filter-btn">Statut ▾</div>
+            </div>
+            <div class="inbox-email active">
+              <div class="inbox-email-sender">John-Alexandre Favre <span class="time">il y a 2h</span></div>
+              <div class="inbox-email-subject">RE: Cèdres — Préparation Prélèvement des arbres</div>
+              <div class="inbox-email-preview">Bonjour, suite à notre discussion, je vous confirme que les travaux de...</div>
+              <div class="inbox-email-tags"><span class="inbox-tag project">Les Cèdres</span><span class="inbox-tag action">Action requise</span></div>
+            </div>
+            <div class="inbox-email unread">
+              <div class="inbox-email-sender">Sophie Martin <span class="time">il y a 5h</span></div>
+              <div class="inbox-email-subject">EDIFEA — Cèdres HIJK — Eau potable</div>
+              <div class="inbox-email-preview">Veuillez trouver ci-joint les plans mis à jour pour le réseau d'eau...</div>
+              <div class="inbox-email-tags"><span class="inbox-tag project">Les Cèdres</span><span class="inbox-tag info">Info</span></div>
+            </div>
+            <div class="inbox-email">
+              <div class="inbox-email-sender">Pierre Lambert <span class="time">hier</span></div>
+              <div class="inbox-email-subject">Offre 26.00756 — Prilly — Tilia Tower</div>
+              <div class="inbox-email-preview">En réponse à votre appel d'offres, nous avons le plaisir de vous...</div>
+              <div class="inbox-email-tags"><span class="inbox-tag project">Central Malley</span><span class="inbox-tag urgent">Urgent</span></div>
+            </div>
+            <div class="inbox-email">
+              <div class="inbox-email-sender">Marc Dupont <span class="time">hier</span></div>
+              <div class="inbox-email-subject">Planning chantier semaine 13</div>
+              <div class="inbox-email-preview">Ci-joint le planning mis à jour pour la semaine prochaine...</div>
+              <div class="inbox-email-tags"><span class="inbox-tag project">Tour Horizon</span><span class="inbox-tag info">Info</span></div>
+            </div>
+          </div>
+          <div class="inbox-preview">
+            <div class="inbox-preview-header">
+              <div class="inbox-preview-subject">RE: Cèdres — Préparation Prélèvement des arbres</div>
+              <div class="inbox-preview-meta">De : John-Alexandre Favre · À : Julien Ray · il y a 2h · <span style="color:#3B82F6">Les Cèdres</span></div>
+            </div>
+            <div class="inbox-preview-ai">
+              <div class="inbox-preview-ai-label">✨ Résumé IA</div>
+              <div class="inbox-preview-ai-text">John-Alexandre confirme les travaux de prélèvement pour le 28 mars. Il demande la validation du périmètre de sécurité et l'envoi du bon de commande avant vendredi.</div>
+            </div>
+            <div class="inbox-preview-body">
+              Bonjour Julien,<br><br>
+              Suite à notre discussion de ce matin, je vous confirme que les travaux de prélèvement des arbres sur le site des Cèdres pourront débuter le 28 mars comme prévu.<br><br>
+              Merci de valider le périmètre de sécurité...
+            </div>
+            <div class="inbox-preview-actions">
+              <button class="primary">✨ Répondre avec IA</button>
+              <button>↩ Répondre</button>
+              <button>↪ Transférer</button>
+              <button>✅ Créer tâche</button>
+              <button>📁 Archiver</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTION B — Décisions enrichie -->
+<div class="option-block">
+  <div class="option-header">
+    <div><h2>B · Décisions enrichie</h2><p>Vue action-first — buckets urgences/semaine/infos avec actions inline</p></div>
+    <span class="tag">Recommandé</span>
+  </div>
+  <div class="app-frame">
+    <div class="frame-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › <b style="color:#A1A1AA">Mail</b></div>
+      <div class="right"><div class="avatar">JR</div></div>
+    </div>
+    <div class="frame-body">
+      <div class="frame-sidebar">
+        <div class="fs-section">Quotidien</div>
+        <div class="fs-item">📊 Dashboard</div>
+        <div class="fs-item active">📧 Mail <span class="fs-badge">25</span></div>
+        <div class="fs-item">📋 Briefing</div>
+        <div class="fs-item">✅ Tâches</div>
+      </div>
+      <div class="frame-main">
+        <div class="decisions-layout">
+          <div class="decisions-greeting">Bonjour Julien</div>
+          <div class="decisions-sub">Lundi 24 mars · 16 emails en attente</div>
+          <div class="decisions-kpis">
+            <div class="decisions-kpi"><div class="decisions-kpi-label">Temps moyen</div><div class="decisions-kpi-value" style="color:#18181B">2h</div></div>
+            <div class="decisions-kpi"><div class="decisions-kpi-label">Traités</div><div class="decisions-kpi-value" style="color:#10B981">9/25</div></div>
+            <div class="decisions-kpi"><div class="decisions-kpi-label">Décisions</div><div class="decisions-kpi-value" style="color:#F97316">3</div></div>
+            <div class="decisions-kpi"><div class="decisions-kpi-label">Économies IA</div><div class="decisions-kpi-value" style="color:#8B5CF6">45min</div></div>
+          </div>
+          <div class="decisions-bucket">
+            <div class="decisions-bucket-header">
+              <div class="decisions-bucket-dot" style="background:#EF4444"></div>
+              <div class="decisions-bucket-title">Urgentes</div>
+              <div class="decisions-bucket-count">2 emails</div>
+            </div>
+            <div class="decisions-card">
+              <div class="decisions-card-top">
+                <div class="decisions-card-sender">Pierre Lambert</div>
+                <div class="decisions-card-time">hier 18:30</div>
+              </div>
+              <div class="decisions-card-subject">Offre 26.00756 — Prilly — Tilia Tower</div>
+              <div class="decisions-card-project"><span class="dot" style="background:#3B82F6"></span> Central Malley</div>
+              <div class="decisions-card-ai">✨ Offre de prix reçue — CHF 45'000 pour lot CVC. Deadline réponse : vendredi</div>
+              <div class="decisions-card-actions">
+                <button class="primary">✨ Répondre IA</button>
+                <button>📧 Lire</button>
+                <button>✅ Tâche</button>
+                <button>📁 Archiver</button>
+              </div>
+            </div>
+            <div class="decisions-card">
+              <div class="decisions-card-top">
+                <div class="decisions-card-sender">Bureau Weinmann</div>
+                <div class="decisions-card-time">il y a 3h</div>
+              </div>
+              <div class="decisions-card-subject">URGENT — Plans structure modifiés R+2</div>
+              <div class="decisions-card-project"><span class="dot" style="background:#F97316"></span> Tour Horizon Ph.2</div>
+              <div class="decisions-card-ai">✨ Nouvelles versions de 3 plans structure envoyées. Modification de la dalle R+2.</div>
+              <div class="decisions-card-actions">
+                <button class="primary">✨ Répondre IA</button>
+                <button>📧 Lire</button>
+                <button>✅ Tâche</button>
+                <button>📁 Archiver</button>
+              </div>
+            </div>
+          </div>
+          <div class="decisions-bucket">
+            <div class="decisions-bucket-header">
+              <div class="decisions-bucket-dot" style="background:#F59E0B"></div>
+              <div class="decisions-bucket-title">Cette semaine</div>
+              <div class="decisions-bucket-count">5 emails</div>
+            </div>
+            <div class="decisions-card">
+              <div class="decisions-card-top">
+                <div class="decisions-card-sender">John-Alexandre Favre</div>
+                <div class="decisions-card-time">il y a 2h</div>
+              </div>
+              <div class="decisions-card-subject">Cèdres — Préparation Prélèvement des arbres</div>
+              <div class="decisions-card-project"><span class="dot" style="background:#10B981"></span> Les Cèdres</div>
+              <div class="decisions-card-ai">✨ Confirmation travaux 28 mars. Validation périmètre sécurité demandée.</div>
+              <div class="decisions-card-actions">
+                <button class="primary">✨ Répondre IA</button>
+                <button>📧 Lire</button>
+                <button>✅ Tâche</button>
+                <button>📁 Archiver</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTION C — Hybride -->
+<div class="option-block">
+  <div class="option-header">
+    <div><h2>C · Hybride</h2><p>Toggle Décisions ↔ Inbox — le meilleur des deux mondes</p></div>
+  </div>
+  <div class="app-frame">
+    <div class="frame-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › <b style="color:#A1A1AA">Mail</b></div>
+      <div class="right"><div class="avatar">JR</div></div>
+    </div>
+    <div class="frame-body">
+      <div class="frame-sidebar">
+        <div class="fs-section">Quotidien</div>
+        <div class="fs-item">📊 Dashboard</div>
+        <div class="fs-item active">📧 Mail <span class="fs-badge">25</span></div>
+        <div class="fs-item">📋 Briefing</div>
+        <div class="fs-item">✅ Tâches</div>
+      </div>
+      <div class="frame-main">
+        <div class="hybrid-layout">
+          <div class="hybrid-toolbar">
+            <div class="hybrid-toolbar-left">
+              <div class="hybrid-toggle">
+                <button class="active">📋 Décisions</button>
+                <button>📧 Inbox</button>
+              </div>
+              <div class="hybrid-stats">16 en attente · 9 traités aujourd'hui</div>
+            </div>
+            <div class="hybrid-toolbar-right">
+              <button>🔄 Sync</button>
+              <button class="primary">✨ Résumés IA</button>
+            </div>
+          </div>
+          <div class="hybrid-content">
+            <div class="hybrid-list">
+              <div class="hybrid-bucket-label"><span class="dot" style="background:#EF4444"></span> Urgentes · 2</div>
+              <div class="hybrid-email active">
+                <div class="hybrid-email-sender">Pierre Lambert</div>
+                <div class="hybrid-email-subject">Offre 26.00756 — Prilly — Tilia Tower</div>
+                <div class="hybrid-email-meta">
+                  <div class="hybrid-email-project"><span class="dot" style="background:#3B82F6"></span> Central Malley</div>
+                  <div class="hybrid-email-time">hier</div>
+                </div>
+              </div>
+              <div class="hybrid-email">
+                <div class="hybrid-email-sender">Bureau Weinmann</div>
+                <div class="hybrid-email-subject">URGENT — Plans structure R+2</div>
+                <div class="hybrid-email-meta">
+                  <div class="hybrid-email-project"><span class="dot" style="background:#F97316"></span> Tour Horizon</div>
+                  <div class="hybrid-email-time">3h</div>
+                </div>
+              </div>
+              <div class="hybrid-bucket-label"><span class="dot" style="background:#F59E0B"></span> Cette semaine · 5</div>
+              <div class="hybrid-email">
+                <div class="hybrid-email-sender">John-Alexandre Favre</div>
+                <div class="hybrid-email-subject">Cèdres — Prélèvement arbres</div>
+                <div class="hybrid-email-meta">
+                  <div class="hybrid-email-project"><span class="dot" style="background:#10B981"></span> Les Cèdres</div>
+                  <div class="hybrid-email-time">2h</div>
+                </div>
+              </div>
+              <div class="hybrid-email">
+                <div class="hybrid-email-sender">Marc Dupont</div>
+                <div class="hybrid-email-subject">Planning chantier sem. 13</div>
+                <div class="hybrid-email-meta">
+                  <div class="hybrid-email-project"><span class="dot" style="background:#F97316"></span> Tour Horizon</div>
+                  <div class="hybrid-email-time">hier</div>
+                </div>
+              </div>
+              <div class="hybrid-bucket-label"><span class="dot" style="background:#9CA3AF"></span> Infos · 9</div>
+              <div class="hybrid-email">
+                <div class="hybrid-email-sender">Newsletter BKW</div>
+                <div class="hybrid-email-subject">Mise à jour tarifs énergie Q2</div>
+                <div class="hybrid-email-meta">
+                  <div class="hybrid-email-time">hier</div>
+                </div>
+              </div>
+            </div>
+            <div class="hybrid-preview">
+              <div class="hybrid-preview-subject">Offre 26.00756 — Prilly — Tilia Tower</div>
+              <div class="hybrid-preview-meta">De : Pierre Lambert · hier 18:30 · <span style="color:#3B82F6">Central Malley</span></div>
+              <div class="hybrid-preview-ai">
+                <div class="hybrid-preview-ai-label">✨ Résumé IA</div>
+                <div class="hybrid-preview-ai-text">Offre de prix reçue pour le lot CVC — CHF 45'000. Pierre demande une réponse avant vendredi. 2 pièces jointes (devis PDF + conditions).</div>
+              </div>
+              <div class="hybrid-preview-body">
+                Bonjour M. Ray,<br><br>
+                En réponse à votre appel d'offres réf. 26.00756 pour le projet Tilia Tower à Prilly, nous avons le plaisir de vous transmettre notre offre pour les travaux de CVC...<br><br>
+                Notre offre s'élève à CHF 45'000.— HT...
+              </div>
+              <div class="hybrid-preview-actions">
+                <button class="primary">✨ Répondre avec IA</button>
+                <button>↩ Répondre</button>
+                <button>↪ Transférer</button>
+                <button>✅ Créer tâche</button>
+                <button>📁 Archiver</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

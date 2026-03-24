@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Light avec sidebar sombre</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 24px; }
+h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 32px; }
+
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.version { border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+.version-label { text-align: center; padding: 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; }
+
+/* ====== VERSION A — Sidebar Slate (gris moyen) ====== */
+.app-a { background: #FAFAFA; min-height: 560px; display: flex; flex-direction: column; color: #18181B; }
+
+/* Header reste sombre dans les deux */
+.app-header { height: 40px; background: #18181B; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #27272A; }
+.app-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 12px; color: #FAFAFA; margin-right: 16px; display: flex; align-items: center; gap: 6px; }
+.app-header .logo-icon { width: 18px; height: 18px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 800; }
+.app-header .crumb { font-size: 10px; color: #71717A; }
+.app-header .crumb b { color: #A1A1AA; font-weight: 500; }
+.app-header .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.app-header .search { background: #27272A; border: 1px solid #3F3F46; border-radius: 5px; padding: 3px 10px; font-size: 9px; color: #71717A; display: flex; align-items: center; gap: 4px; }
+.app-header .search kbd { background: #3F3F46; padding: 0 3px; border-radius: 2px; font-size: 8px; }
+.app-header .notif { position: relative; font-size: 12px; color: #A1A1AA; }
+.app-header .notif-dot { position: absolute; top: -2px; right: -4px; width: 10px; height: 10px; background: #F97316; border-radius: 50%; font-size: 6px; display: flex; align-items: center; justify-content: center; color: white; }
+.app-header .avatar { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+
+.app-body { display: flex; flex: 1; }
+
+/* Sidebar A — Slate */
+.sidebar-a { width: 150px; background: #1E293B; padding: 10px 6px; }
+.sidebar-a .nav-section { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; padding: 8px 8px 3px; font-weight: 600; }
+.sidebar-a .nav-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; font-size: 10px; color: #94A3B8; margin-bottom: 1px; }
+.sidebar-a .nav-item:hover { background: #334155; color: #E2E8F0; }
+.sidebar-a .nav-item.active { background: #F9731618; color: #F97316; }
+.sidebar-a .nav-badge { margin-left: auto; background: #F97316; color: white; font-size: 7px; padding: 0 4px; border-radius: 8px; font-weight: 600; }
+.sidebar-a .nav-divider { height: 1px; background: #334155; margin: 6px 8px; }
+.sidebar-a .nav-project { margin: 6px; padding: 8px; background: #334155; border-radius: 6px; }
+.sidebar-a .nav-project-name { font-size: 10px; font-weight: 600; color: #F1F5F9; display: flex; align-items: center; gap: 5px; }
+.sidebar-a .nav-project-name .dot { width: 6px; height: 6px; border-radius: 50%; background: #F97316; }
+.sidebar-a .nav-project-meta { font-size: 8px; color: #64748B; margin-top: 1px; padding-left: 11px; }
+.sidebar-a .bottom-items { margin-top: auto; padding-top: 8px; }
+.sidebar-a .bottom-items .nav-item { color: #64748B; }
+.sidebar-a .user-block { margin: 8px 6px; padding: 8px; display: flex; align-items: center; gap: 6px; border-radius: 6px; }
+.sidebar-a .user-block:hover { background: #334155; }
+.sidebar-a .user-avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+.sidebar-a .user-name { font-size: 10px; font-weight: 500; color: #E2E8F0; }
+.sidebar-a .user-role { font-size: 8px; color: #64748B; }
+
+/* Sidebar B — Noir pur */
+.sidebar-b { width: 150px; background: #09090B; padding: 10px 6px; }
+.sidebar-b .nav-section { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; padding: 8px 8px 3px; font-weight: 600; }
+.sidebar-b .nav-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; font-size: 10px; color: #A1A1AA; margin-bottom: 1px; }
+.sidebar-b .nav-item:hover { background: #27272A; color: #E4E4E7; }
+.sidebar-b .nav-item.active { background: #F9731615; color: #F97316; }
+.sidebar-b .nav-badge { margin-left: auto; background: #F97316; color: white; font-size: 7px; padding: 0 4px; border-radius: 8px; font-weight: 600; }
+.sidebar-b .nav-divider { height: 1px; background: #27272A; margin: 6px 8px; }
+.sidebar-b .nav-project { margin: 6px; padding: 8px; background: #18181B; border-radius: 6px; border: 1px solid #27272A; }
+.sidebar-b .nav-project-name { font-size: 10px; font-weight: 600; color: #FAFAFA; display: flex; align-items: center; gap: 5px; }
+.sidebar-b .nav-project-name .dot { width: 6px; height: 6px; border-radius: 50%; background: #F97316; }
+.sidebar-b .nav-project-meta { font-size: 8px; color: #52525B; margin-top: 1px; padding-left: 11px; }
+.sidebar-b .user-block { margin: 8px 6px; padding: 8px; display: flex; align-items: center; gap: 6px; border-radius: 6px; }
+.sidebar-b .user-block:hover { background: #27272A; }
+.sidebar-b .user-avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+.sidebar-b .user-name { font-size: 10px; font-weight: 500; color: #E4E4E7; }
+.sidebar-b .user-role { font-size: 8px; color: #52525B; }
+
+/* Main content (light) — shared */
+.light-main { flex: 1; padding: 16px; overflow: hidden; }
+.light-page-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #F97316; font-weight: 600; margin-bottom: 4px; }
+.light-page-title { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #18181B; }
+.light-page-subtitle { font-size: 10px; color: #A1A1AA; margin-top: 2px; margin-bottom: 14px; }
+.light-btn-primary { background: #F97316; color: white; border: none; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+.light-btn-secondary { background: white; color: #3F3F46; border: 1px solid #E4E4E7; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+
+.light-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.light-kpi { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; }
+.light-kpi-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #A1A1AA; margin-bottom: 4px; font-weight: 500; }
+.light-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #18181B; }
+
+.light-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.light-card { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; }
+.light-card:hover { border-color: #D4D4D8; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.light-card-name { font-size: 11px; font-weight: 600; color: #18181B; }
+.light-card-badge { font-size: 7px; padding: 1px 5px; border-radius: 3px; background: #DCFCE7; color: #16A34A; font-weight: 500; }
+.light-card-meta { font-size: 8px; color: #A1A1AA; margin-top: 2px; }
+.light-card-stats { display: flex; gap: 8px; margin-top: 8px; font-size: 8px; color: #A1A1AA; }
+.light-card-stats strong { color: #3F3F46; }
+.light-card-stats .red { color: #EF4444; }
+.light-card-bar { height: 2px; background: #E4E4E7; border-radius: 1px; margin-top: 8px; }
+.light-card-bar-fill { height: 100%; border-radius: 1px; background: linear-gradient(90deg, #F97316, #EF4444); }
+
+.light-table { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; overflow: hidden; }
+.light-table-title { padding: 8px 12px; font-size: 11px; font-weight: 600; color: #18181B; border-bottom: 1px solid #E4E4E7; font-family: 'Plus Jakarta Sans'; }
+.light-th { display: flex; padding: 6px 12px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #A1A1AA; font-weight: 600; background: #FAFAFA; }
+.light-tr { display: flex; padding: 7px 12px; font-size: 9px; color: #71717A; border-bottom: 1px solid #F4F4F5; }
+.light-tr:hover { background: #FAFAFA; }
+.light-td { flex: 1; }
+.light-td:first-child { flex: 2.5; color: #18181B; font-weight: 500; }
+.light-badge-sm { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; background: #DCFCE7; color: #16A34A; }
+</style>
+</head>
+<body>
+
+<h1>Mode Clair — Sidebar sombre</h1>
+<p class="subtitle">Header + sidebar sombres = repère visuel fort. Contenu clair = lisibilité maximale.</p>
+
+<div class="comparison">
+
+<!-- VERSION A — Slate Blue sidebar -->
+<div class="version">
+  <div class="version-label" style="background:#1E293B;color:#94A3B8">A · Sidebar Slate Blue</div>
+  <div class="app-a">
+    <div class="app-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA <span style="color:#3F3F46">›</span> <b>Central Malley</b> <span style="color:#3F3F46">›</span> <b>Projets</b></div>
+      <div class="right">
+        <div class="search">🔍 Rechercher <kbd>⌘K</kbd></div>
+        <div class="notif">🔔<div class="notif-dot">3</div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="sidebar-a" style="display:flex;flex-direction:column">
+        <div>
+          <div class="nav-section">Quotidien</div>
+          <div class="nav-item">📊 Dashboard</div>
+          <div class="nav-item">📧 Mail <span class="nav-badge">25</span></div>
+          <div class="nav-item">📋 Briefing</div>
+          <div class="nav-item">✅ Tâches</div>
+          <div class="nav-divider"></div>
+          <div class="nav-section">Référentiels</div>
+          <div class="nav-item">👥 Fournisseurs</div>
+          <div class="nav-item">💰 Cantaia Prix</div>
+          <div class="nav-item">📄 Rapports</div>
+          <div class="nav-item">🤖 Assistant IA</div>
+          <div class="nav-divider"></div>
+          <div class="nav-section">Projet actif</div>
+          <div class="nav-project">
+            <div class="nav-project-name"><span class="dot"></span>Central Malley</div>
+            <div class="nav-project-meta">9240302 · Implenia</div>
+          </div>
+          <div style="margin-top:4px">
+            <div class="nav-item active">📋 Aperçu</div>
+            <div class="nav-item">✅ Tâches</div>
+            <div class="nav-item">📅 Planning</div>
+            <div class="nav-item">📐 Plans</div>
+            <div class="nav-item">📦 Soumissions</div>
+          </div>
+        </div>
+        <div class="bottom-items">
+          <div class="nav-divider"></div>
+          <div class="nav-item">🎫 Support</div>
+          <div class="nav-item">⚙️ Paramètres</div>
+          <div class="user-block">
+            <div class="user-avatar">JR</div>
+            <div><div class="user-name">Julien Ray</div><div class="user-role">Chef de projet</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="light-main">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+          <div>
+            <div class="light-page-label">Gestion de chantier</div>
+            <div class="light-page-title">Projets</div>
+            <div class="light-page-subtitle">4 projets actifs · CHF 28.3M budget total</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="light-btn-secondary">Filtrer</button>
+            <button class="light-btn-primary">+ Nouveau projet</button>
+          </div>
+        </div>
+        <div class="light-kpis">
+          <div class="light-kpi"><div class="light-kpi-label">Projets actifs</div><div class="light-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Budget total</div><div class="light-kpi-value">28.3M</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">En retard</div><div class="light-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Soumissions</div><div class="light-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="light-cards">
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Central Malley</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">9240302 · Implenia · Prilly</div>
+            <div class="light-card-stats"><span><strong>17</strong> emails</span><span><strong>11</strong> tâches</span><span class="red"><strong>3</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:45%"></div></div>
+          </div>
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Tour Horizon Ph.2</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">THP2 · Horizon · Genève</div>
+            <div class="light-card-stats"><span><strong>0</strong> emails</span><span><strong>8</strong> tâches</span><span class="red"><strong>2</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:30%"></div></div>
+          </div>
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Les Cèdres</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">9250475 · Edifea</div>
+            <div class="light-card-stats"><span><strong>2</strong> emails</span><span><strong>0</strong> tâches</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:15%"></div></div>
+          </div>
+        </div>
+        <div class="light-table">
+          <div class="light-table-title">Soumissions récentes</div>
+          <div class="light-th"><div class="light-td">Référence</div><div class="light-td">Projet</div><div class="light-td">Postes</div><div class="light-td">Statut</div></div>
+          <div class="light-tr"><div class="light-td">Soum. Ménétrey SA</div><div class="light-td">Central Malley</div><div class="light-td">180</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div></div>
+          <div class="light-tr"><div class="light-td">Aménag. extérieurs</div><div class="light-td">Les Cèdres</div><div class="light-td">46</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VERSION B — Noir pur sidebar -->
+<div class="version">
+  <div class="version-label" style="background:#09090B;color:#A1A1AA">B · Sidebar Noir Pur</div>
+  <div class="app-a">
+    <div class="app-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA <span style="color:#3F3F46">›</span> <b>Central Malley</b> <span style="color:#3F3F46">›</span> <b>Projets</b></div>
+      <div class="right">
+        <div class="search">🔍 Rechercher <kbd>⌘K</kbd></div>
+        <div class="notif">🔔<div class="notif-dot">3</div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="sidebar-b" style="display:flex;flex-direction:column">
+        <div>
+          <div class="nav-section">Quotidien</div>
+          <div class="nav-item">📊 Dashboard</div>
+          <div class="nav-item">📧 Mail <span class="nav-badge">25</span></div>
+          <div class="nav-item">📋 Briefing</div>
+          <div class="nav-item">✅ Tâches</div>
+          <div class="nav-divider"></div>
+          <div class="nav-section">Référentiels</div>
+          <div class="nav-item">👥 Fournisseurs</div>
+          <div class="nav-item">💰 Cantaia Prix</div>
+          <div class="nav-item">📄 Rapports</div>
+          <div class="nav-item">🤖 Assistant IA</div>
+          <div class="nav-divider"></div>
+          <div class="nav-section">Projet actif</div>
+          <div class="nav-project">
+            <div class="nav-project-name"><span class="dot" style="background:#F97316"></span>Central Malley</div>
+            <div class="nav-project-meta">9240302 · Implenia</div>
+          </div>
+          <div style="margin-top:4px">
+            <div class="nav-item active">📋 Aperçu</div>
+            <div class="nav-item">✅ Tâches</div>
+            <div class="nav-item">📅 Planning</div>
+            <div class="nav-item">📐 Plans</div>
+            <div class="nav-item">📦 Soumissions</div>
+          </div>
+        </div>
+        <div style="margin-top:auto;padding-top:8px">
+          <div class="nav-divider"></div>
+          <div class="nav-item" style="color:#52525B">🎫 Support</div>
+          <div class="nav-item" style="color:#52525B">⚙️ Paramètres</div>
+          <div class="user-block">
+            <div class="user-avatar">JR</div>
+            <div><div class="user-name">Julien Ray</div><div class="user-role">Chef de projet</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="light-main">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+          <div>
+            <div class="light-page-label">Gestion de chantier</div>
+            <div class="light-page-title">Projets</div>
+            <div class="light-page-subtitle">4 projets actifs · CHF 28.3M budget total</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="light-btn-secondary">Filtrer</button>
+            <button class="light-btn-primary">+ Nouveau projet</button>
+          </div>
+        </div>
+        <div class="light-kpis">
+          <div class="light-kpi"><div class="light-kpi-label">Projets actifs</div><div class="light-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Budget total</div><div class="light-kpi-value">28.3M</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">En retard</div><div class="light-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Soumissions</div><div class="light-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="light-cards">
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Central Malley</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">9240302 · Implenia · Prilly</div>
+            <div class="light-card-stats"><span><strong>17</strong> emails</span><span><strong>11</strong> tâches</span><span class="red"><strong>3</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:45%"></div></div>
+          </div>
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Tour Horizon Ph.2</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">THP2 · Horizon · Genève</div>
+            <div class="light-card-stats"><span><strong>0</strong> emails</span><span><strong>8</strong> tâches</span><span class="red"><strong>2</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:30%"></div></div>
+          </div>
+          <div class="light-card">
+            <div style="display:flex;justify-content:space-between"><div class="light-card-name">Les Cèdres</div><span class="light-card-badge">Actif</span></div>
+            <div class="light-card-meta">9250475 · Edifea</div>
+            <div class="light-card-stats"><span><strong>2</strong> emails</span><span><strong>0</strong> tâches</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:15%"></div></div>
+          </div>
+        </div>
+        <div class="light-table">
+          <div class="light-table-title">Soumissions récentes</div>
+          <div class="light-th"><div class="light-td">Référence</div><div class="light-td">Projet</div><div class="light-td">Postes</div><div class="light-td">Statut</div></div>
+          <div class="light-tr"><div class="light-td">Soum. Ménétrey SA</div><div class="light-td">Central Malley</div><div class="light-td">180</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div></div>
+          <div class="light-tr"><div class="light-td">Aménag. extérieurs</div><div class="light-td">Les Cèdres</div><div class="light-td">46</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

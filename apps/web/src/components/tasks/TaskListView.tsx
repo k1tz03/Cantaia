@@ -37,57 +37,57 @@ export function TaskListView({
   }
 
   return (
-    <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-xl sm:border border-border bg-background shadow-sm">
+    <div className="mt-4 -mx-4 sm:mx-0 overflow-x-auto rounded-xl sm:border border-[#27272A] bg-[#18181B] shadow-sm">
       <table className="w-full min-w-[600px]">
         <thead>
-          <tr className="border-b border-border bg-muted/80">
+          <tr className="border-b border-[#27272A] bg-[#27272A]/80">
             <th className="w-10 px-3 py-2.5">
               <input
                 type="checkbox"
                 checked={selected.size === tasks.length && tasks.length > 0}
                 onChange={onToggleSelectAll}
-                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary/20"
+                className="h-3.5 w-3.5 rounded border-[#52525B] bg-[#27272A] text-[#F97316] focus:ring-[#F97316]/20"
               />
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA] transition-colors"
               onClick={() => onToggleSort("title")}
             >
               <span className="flex items-center gap-1">
                 {t("colTask")}
-                <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                <ArrowUpDown className="h-3 w-3 text-[#52525B]" />
               </span>
             </th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
               {t("colProject")}
             </th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
               {t("colAssigned")}
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA] transition-colors"
               onClick={() => onToggleSort("due_date")}
             >
               <span className="flex items-center gap-1">
                 {t("colDeadline")}
-                <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                <ArrowUpDown className="h-3 w-3 text-[#52525B]" />
               </span>
             </th>
             <th
-              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors"
+              className="cursor-pointer px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A] hover:text-[#FAFAFA] transition-colors"
               onClick={() => onToggleSort("priority")}
             >
               <span className="flex items-center gap-1">
                 {t("colPriority")}
-                <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                <ArrowUpDown className="h-3 w-3 text-[#52525B]" />
               </span>
             </th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
               {t("colSource")}
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-[#27272A]">
           {tasks.map((task) => {
             const project = getProjectForTask(task);
             const overdue = isOverdue(task);
@@ -100,10 +100,10 @@ export function TaskListView({
               <tr
                 key={task.id}
                 onClick={() => onOpenTask(task)}
-                className={`cursor-pointer transition-colors duration-100 hover:bg-muted/80 border-b border-border last:border-b-0 ${
+                className={`cursor-pointer transition-colors duration-100 hover:bg-[#1C1C1F] border-b border-[#27272A] last:border-b-0 ${
                   overdue ? "bg-red-500/5" : ""
                 } ${isDone ? "opacity-50" : ""} ${
-                  selectedTaskId === task.id ? "bg-primary/10 hover:bg-primary/10" : ""
+                  selectedTaskId === task.id ? "bg-[#F97316]/10 hover:bg-[#F97316]/10" : ""
                 }`}
               >
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -111,7 +111,7 @@ export function TaskListView({
                     type="checkbox"
                     checked={selected.has(task.id)}
                     onChange={() => onToggleSelect(task.id)}
-                    className="h-3.5 w-3.5 rounded border-border"
+                    className="h-3.5 w-3.5 rounded border-[#52525B] bg-[#27272A]"
                   />
                 </td>
                 <td className="max-w-[300px] px-3 py-2.5">
@@ -125,8 +125,8 @@ export function TaskListView({
                       title={isDone ? t("statusTodo") : t("markDone")}
                       className={`shrink-0 rounded-full transition-colors ${
                         isDone
-                          ? "text-green-500 hover:text-green-600"
-                          : "text-muted-foreground hover:text-green-500"
+                          ? "text-green-500 hover:text-green-400"
+                          : "text-[#52525B] hover:text-green-500"
                       }`}
                     >
                       <CheckCircle2 className="h-5 w-5" />
@@ -135,14 +135,14 @@ export function TaskListView({
                       <p
                         className={`text-sm font-medium ${
                           isDone
-                            ? "text-muted-foreground line-through"
-                            : "text-foreground"
+                            ? "text-[#71717A] line-through"
+                            : "text-[#FAFAFA]"
                         }`}
                       >
                         {task.title}
                       </p>
                       {task.lot_code && (
-                        <span className="text-[10px] text-muted-foreground">{task.lot_code}</span>
+                        <span className="text-[10px] text-[#71717A]">{task.lot_code}</span>
                       )}
                     </div>
                   </div>
@@ -154,7 +154,7 @@ export function TaskListView({
                         className="inline-block h-2 w-2 rounded-full"
                         style={{ backgroundColor: project.color }}
                       />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[#71717A]">
                         {project.name.length > 18
                           ? project.name.slice(0, 18) + "..."
                           : project.name}
@@ -162,11 +162,11 @@ export function TaskListView({
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 text-xs text-[#71717A]">
                   {task.assigned_to_name && task.assigned_to_name !== "Intervenant non identifié" ? (
                     <span>{task.assigned_to_name}</span>
                   ) : (
-                    <span className="text-muted-foreground">{"\u2014"}</span>
+                    <span className="text-[#52525B]">{"\u2014"}</span>
                   )}
                 </td>
                 <td className="px-3 py-2.5">
@@ -174,16 +174,16 @@ export function TaskListView({
                     <span
                       className={`text-xs font-medium ${
                         overdue
-                          ? "text-red-600"
+                          ? "text-red-400"
                           : isDone
-                            ? "text-muted-foreground"
-                            : "text-muted-foreground"
+                            ? "text-[#71717A]"
+                            : "text-[#D4D4D8]"
                       }`}
                     >
                       {formatDateShort(task.due_date)}
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{"\u2014"}</span>
+                    <span className="text-xs text-[#52525B]">{"\u2014"}</span>
                   )}
                 </td>
                 <td className="px-3 py-2.5">
@@ -195,7 +195,7 @@ export function TaskListView({
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-xs text-[#71717A]">
                     <SourceIcon className="h-3 w-3" />
                     {t(`source${task.source.charAt(0).toUpperCase() + task.source.slice(1)}` as "sourceEmail")}
                   </span>

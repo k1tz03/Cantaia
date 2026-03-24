@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Graphite Dark vs Light</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 24px; }
+h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 32px; }
+
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.version { border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+.version-label { text-align: center; padding: 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 15px; background: #1a1a1a; }
+
+/* ====== DARK VERSION ====== */
+.dark-app { background: #18181B; min-height: 560px; display: flex; flex-direction: column; }
+.dark-header { height: 40px; background: #09090B; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #27272A; }
+.dark-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 12px; color: #FAFAFA; margin-right: 16px; display: flex; align-items: center; gap: 6px; }
+.dark-header .logo .logo-icon { width: 18px; height: 18px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 800; }
+.dark-header .crumb { font-size: 10px; color: #71717A; }
+.dark-header .crumb b { color: #A1A1AA; font-weight: 500; }
+.dark-header .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.dark-header .search { background: #27272A; border: 1px solid #3F3F46; border-radius: 5px; padding: 3px 10px; font-size: 9px; color: #71717A; display: flex; align-items: center; gap: 4px; }
+.dark-header .search kbd { background: #3F3F46; padding: 0 3px; border-radius: 2px; font-size: 8px; }
+.dark-header .notif { position: relative; font-size: 12px; }
+.dark-header .notif-dot { position: absolute; top: -2px; right: -4px; width: 10px; height: 10px; background: #F97316; border-radius: 50%; font-size: 6px; display: flex; align-items: center; justify-content: center; color: white; }
+.dark-header .avatar { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+
+.dark-body { display: flex; flex: 1; }
+.dark-sidebar { width: 150px; background: #18181B; border-right: 1px solid #27272A; padding: 10px 6px; }
+.dark-nav-section { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; padding: 8px 8px 3px; font-weight: 600; }
+.dark-nav-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; font-size: 10px; color: #A1A1AA; margin-bottom: 1px; }
+.dark-nav-item:hover { background: #27272A; }
+.dark-nav-item.active { background: #F9731612; color: #F97316; }
+.dark-nav-badge { margin-left: auto; background: #F97316; color: white; font-size: 7px; padding: 0 4px; border-radius: 8px; font-weight: 600; }
+.dark-nav-project { margin: 6px; padding: 8px; background: #27272A; border-radius: 6px; border: 1px solid #3F3F46; }
+.dark-nav-project-name { font-size: 10px; font-weight: 600; color: #FAFAFA; display: flex; align-items: center; gap: 5px; }
+.dark-nav-project-name .dot { width: 6px; height: 6px; border-radius: 50%; }
+.dark-nav-project-meta { font-size: 8px; color: #52525B; margin-top: 1px; padding-left: 11px; }
+.dark-nav-divider { height: 1px; background: #27272A; margin: 6px 8px; }
+
+.dark-main { flex: 1; padding: 16px; overflow: hidden; }
+.dark-page-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #F97316; font-weight: 600; margin-bottom: 4px; }
+.dark-page-title { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #FAFAFA; }
+.dark-page-subtitle { font-size: 10px; color: #52525B; margin-top: 2px; margin-bottom: 14px; }
+.dark-actions { display: flex; gap: 6px; position: absolute; top: 16px; right: 16px; }
+.dark-btn-primary { background: #F97316; color: white; border: none; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+.dark-btn-secondary { background: #27272A; color: #E4E4E7; border: 1px solid #3F3F46; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+
+.dark-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.dark-kpi { background: #27272A; border: 1px solid #3F3F46; border-radius: 8px; padding: 10px 12px; }
+.dark-kpi-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #71717A; margin-bottom: 4px; font-weight: 500; }
+.dark-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; }
+
+.dark-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.dark-card { background: #27272A; border: 1px solid #3F3F46; border-radius: 8px; padding: 12px; }
+.dark-card:hover { border-color: #52525B; }
+.dark-card-header { display: flex; justify-content: space-between; align-items: start; }
+.dark-card-name { font-size: 11px; font-weight: 600; color: #FAFAFA; }
+.dark-card-badge { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; }
+.dark-card-badge.active { background: #10B98120; color: #10B981; }
+.dark-card-meta { font-size: 8px; color: #71717A; margin-top: 2px; }
+.dark-card-stats { display: flex; gap: 8px; margin-top: 8px; font-size: 8px; color: #71717A; }
+.dark-card-stats strong { color: #D4D4D8; }
+.dark-card-stats .red { color: #EF4444; }
+.dark-card-bar { height: 2px; background: #3F3F46; border-radius: 1px; margin-top: 8px; }
+.dark-card-bar-fill { height: 100%; border-radius: 1px; background: linear-gradient(90deg, #F97316, #EF4444); }
+
+.dark-table { background: #27272A; border: 1px solid #3F3F46; border-radius: 8px; overflow: hidden; }
+.dark-table-title { padding: 8px 12px; font-size: 11px; font-weight: 600; color: #FAFAFA; border-bottom: 1px solid #3F3F46; font-family: 'Plus Jakarta Sans'; }
+.dark-th { display: flex; padding: 6px 12px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #52525B; font-weight: 600; background: #1F1F23; }
+.dark-tr { display: flex; padding: 7px 12px; font-size: 9px; color: #A1A1AA; border-bottom: 1px solid #27272A; }
+.dark-tr:hover { background: #3F3F4620; }
+.dark-td { flex: 1; }
+.dark-td:first-child { flex: 2.5; color: #E4E4E7; font-weight: 500; }
+.dark-badge-sm { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; background: #10B98120; color: #10B981; }
+
+/* ====== LIGHT VERSION ====== */
+.light-app { background: #FAFAFA; min-height: 560px; display: flex; flex-direction: column; color: #18181B; }
+.light-header { height: 40px; background: #FFFFFF; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #E4E4E7; }
+.light-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 12px; color: #18181B; margin-right: 16px; display: flex; align-items: center; gap: 6px; }
+.light-header .logo .logo-icon { width: 18px; height: 18px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 800; }
+.light-header .crumb { font-size: 10px; color: #A1A1AA; }
+.light-header .crumb b { color: #52525B; font-weight: 500; }
+.light-header .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.light-header .search { background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 5px; padding: 3px 10px; font-size: 9px; color: #A1A1AA; display: flex; align-items: center; gap: 4px; }
+.light-header .search kbd { background: #E4E4E7; padding: 0 3px; border-radius: 2px; font-size: 8px; color: #71717A; }
+.light-header .notif { position: relative; font-size: 12px; }
+.light-header .notif-dot { position: absolute; top: -2px; right: -4px; width: 10px; height: 10px; background: #F97316; border-radius: 50%; font-size: 6px; display: flex; align-items: center; justify-content: center; color: white; }
+.light-header .avatar { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 600; }
+
+.light-body { display: flex; flex: 1; }
+.light-sidebar { width: 150px; background: #FFFFFF; border-right: 1px solid #E4E4E7; padding: 10px 6px; }
+.light-nav-section { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #A1A1AA; padding: 8px 8px 3px; font-weight: 600; }
+.light-nav-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; font-size: 10px; color: #71717A; margin-bottom: 1px; }
+.light-nav-item:hover { background: #F4F4F5; }
+.light-nav-item.active { background: #FFF7ED; color: #EA580C; }
+.light-nav-badge { margin-left: auto; background: #F97316; color: white; font-size: 7px; padding: 0 4px; border-radius: 8px; font-weight: 600; }
+.light-nav-project { margin: 6px; padding: 8px; background: #F4F4F5; border-radius: 6px; border: 1px solid #E4E4E7; }
+.light-nav-project-name { font-size: 10px; font-weight: 600; color: #18181B; display: flex; align-items: center; gap: 5px; }
+.light-nav-project-name .dot { width: 6px; height: 6px; border-radius: 50%; }
+.light-nav-project-meta { font-size: 8px; color: #A1A1AA; margin-top: 1px; padding-left: 11px; }
+.light-nav-divider { height: 1px; background: #E4E4E7; margin: 6px 8px; }
+
+.light-main { flex: 1; padding: 16px; overflow: hidden; position: relative; }
+.light-page-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #F97316; font-weight: 600; margin-bottom: 4px; }
+.light-page-title { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #18181B; }
+.light-page-subtitle { font-size: 10px; color: #A1A1AA; margin-top: 2px; margin-bottom: 14px; }
+.light-btn-primary { background: #F97316; color: white; border: none; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+.light-btn-secondary { background: white; color: #3F3F46; border: 1px solid #E4E4E7; padding: 5px 12px; border-radius: 5px; font-size: 10px; font-weight: 500; cursor: pointer; }
+
+.light-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.light-kpi { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; }
+.light-kpi-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #A1A1AA; margin-bottom: 4px; font-weight: 500; }
+.light-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #18181B; }
+
+.light-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.light-card { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; }
+.light-card:hover { border-color: #D4D4D8; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.light-card-header { display: flex; justify-content: space-between; align-items: start; }
+.light-card-name { font-size: 11px; font-weight: 600; color: #18181B; }
+.light-card-badge { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; }
+.light-card-badge.active { background: #DCFCE7; color: #16A34A; }
+.light-card-meta { font-size: 8px; color: #A1A1AA; margin-top: 2px; }
+.light-card-stats { display: flex; gap: 8px; margin-top: 8px; font-size: 8px; color: #A1A1AA; }
+.light-card-stats strong { color: #3F3F46; }
+.light-card-stats .red { color: #EF4444; }
+.light-card-bar { height: 2px; background: #E4E4E7; border-radius: 1px; margin-top: 8px; }
+.light-card-bar-fill { height: 100%; border-radius: 1px; background: linear-gradient(90deg, #F97316, #EF4444); }
+
+.light-table { background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 8px; overflow: hidden; }
+.light-table-title { padding: 8px 12px; font-size: 11px; font-weight: 600; color: #18181B; border-bottom: 1px solid #E4E4E7; font-family: 'Plus Jakarta Sans'; }
+.light-th { display: flex; padding: 6px 12px; font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #A1A1AA; font-weight: 600; background: #FAFAFA; }
+.light-tr { display: flex; padding: 7px 12px; font-size: 9px; color: #71717A; border-bottom: 1px solid #F4F4F5; }
+.light-tr:hover { background: #FAFAFA; }
+.light-td { flex: 1; }
+.light-td:first-child { flex: 2.5; color: #18181B; font-weight: 500; }
+.light-badge-sm { font-size: 7px; padding: 1px 5px; border-radius: 3px; font-weight: 500; background: #DCFCE7; color: #16A34A; }
+</style>
+</head>
+<body>
+
+<h1>Graphite — Dark vs Light</h1>
+<p class="subtitle">Même design system, deux ambiances. L'utilisateur pourra basculer avec le toggle Clair/Sombre.</p>
+
+<div class="comparison">
+
+<!-- DARK -->
+<div class="version">
+  <div class="version-label" style="color:#F97316">Mode Sombre — Graphite</div>
+  <div class="dark-app">
+    <div class="dark-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA <span style="color:#3F3F46">›</span> <b>Central Malley</b> <span style="color:#3F3F46">›</span> <b>Projets</b></div>
+      <div class="right">
+        <div class="search">🔍 Rechercher <kbd>⌘K</kbd></div>
+        <div class="notif">🔔<div class="notif-dot">3</div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="dark-body">
+      <div class="dark-sidebar">
+        <div class="dark-nav-section">Quotidien</div>
+        <div class="dark-nav-item">📊 Dashboard</div>
+        <div class="dark-nav-item">📧 Mail <span class="dark-nav-badge">25</span></div>
+        <div class="dark-nav-item">📋 Briefing</div>
+        <div class="dark-nav-item">✅ Tâches</div>
+        <div class="dark-nav-divider"></div>
+        <div class="dark-nav-section">Référentiels</div>
+        <div class="dark-nav-item">👥 Fournisseurs</div>
+        <div class="dark-nav-item">💰 Cantaia Prix</div>
+        <div class="dark-nav-item">📄 Rapports</div>
+        <div class="dark-nav-item">🤖 Assistant IA</div>
+        <div class="dark-nav-divider"></div>
+        <div class="dark-nav-section">Projet actif</div>
+        <div class="dark-nav-project">
+          <div class="dark-nav-project-name"><span class="dot" style="background:#F97316"></span>Central Malley</div>
+          <div class="dark-nav-project-meta">9240302 · Implenia</div>
+        </div>
+        <div style="margin-top:4px">
+          <div class="dark-nav-item active">📋 Aperçu</div>
+          <div class="dark-nav-item">✅ Tâches</div>
+          <div class="dark-nav-item">📅 Planning</div>
+          <div class="dark-nav-item">📐 Plans</div>
+          <div class="dark-nav-item">📦 Soumissions</div>
+        </div>
+      </div>
+      <div class="dark-main" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+          <div>
+            <div class="dark-page-label">Gestion de chantier</div>
+            <div class="dark-page-title">Projets</div>
+            <div class="dark-page-subtitle">4 projets actifs · CHF 28.3M budget total</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="dark-btn-secondary">Filtrer</button>
+            <button class="dark-btn-primary">+ Nouveau projet</button>
+          </div>
+        </div>
+        <div class="dark-kpis">
+          <div class="dark-kpi"><div class="dark-kpi-label">Projets actifs</div><div class="dark-kpi-value" style="color:#F97316">4</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-label">Budget total</div><div class="dark-kpi-value" style="color:#FAFAFA">28.3M</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-label">Tâches en retard</div><div class="dark-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-label">Soumissions</div><div class="dark-kpi-value" style="color:#F97316">2</div></div>
+        </div>
+        <div class="dark-cards">
+          <div class="dark-card">
+            <div class="dark-card-header"><div class="dark-card-name">Central Malley</div><span class="dark-card-badge active">Actif</span></div>
+            <div class="dark-card-meta">9240302 · Implenia · Prilly</div>
+            <div class="dark-card-stats"><span><strong>17</strong> emails</span><span><strong>11</strong> tâches</span><span class="red"><strong>3</strong> retard</span></div>
+            <div class="dark-card-bar"><div class="dark-card-bar-fill" style="width:45%"></div></div>
+          </div>
+          <div class="dark-card">
+            <div class="dark-card-header"><div class="dark-card-name">Tour Horizon Ph.2</div><span class="dark-card-badge active">Actif</span></div>
+            <div class="dark-card-meta">THP2 · Horizon Immo · Genève</div>
+            <div class="dark-card-stats"><span><strong>0</strong> emails</span><span><strong>8</strong> tâches</span><span class="red"><strong>2</strong> retard</span></div>
+            <div class="dark-card-bar"><div class="dark-card-bar-fill" style="width:30%"></div></div>
+          </div>
+          <div class="dark-card">
+            <div class="dark-card-header"><div class="dark-card-name">Les Cèdres</div><span class="dark-card-badge active">Actif</span></div>
+            <div class="dark-card-meta">9250475 · Edifea · Chavannes</div>
+            <div class="dark-card-stats"><span><strong>2</strong> emails</span><span><strong>0</strong> tâches</span></div>
+            <div class="dark-card-bar"><div class="dark-card-bar-fill" style="width:15%"></div></div>
+          </div>
+        </div>
+        <div class="dark-table">
+          <div class="dark-table-title">Soumissions récentes</div>
+          <div class="dark-th"><div class="dark-td">Référence</div><div class="dark-td">Projet</div><div class="dark-td">Postes</div><div class="dark-td">Statut</div><div class="dark-td">Date</div></div>
+          <div class="dark-tr"><div class="dark-td">Soum. Ménétrey SA</div><div class="dark-td">Central Malley</div><div class="dark-td">180</div><div class="dark-td"><span class="dark-badge-sm">Analysé</span></div><div class="dark-td">17.03</div></div>
+          <div class="dark-tr"><div class="dark-td">Aménag. extérieurs</div><div class="dark-td">Les Cèdres</div><div class="dark-td">46</div><div class="dark-td"><span class="dark-badge-sm">Analysé</span></div><div class="dark-td">20.03</div></div>
+          <div class="dark-tr"><div class="dark-td">Soum. BauBit</div><div class="dark-td">FACT Grens</div><div class="dark-td">46</div><div class="dark-td"><span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#F59E0B20;color:#F59E0B">En analyse</span></div><div class="dark-td">23.03</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHT -->
+<div class="version">
+  <div class="version-label" style="background:#fff;color:#F97316;border-bottom:1px solid #E4E4E7">Mode Clair — Graphite Light</div>
+  <div class="light-app">
+    <div class="light-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA <span style="color:#D4D4D8">›</span> <b>Central Malley</b> <span style="color:#D4D4D8">›</span> <b>Projets</b></div>
+      <div class="right">
+        <div class="search">🔍 Rechercher <kbd>⌘K</kbd></div>
+        <div class="notif">🔔<div class="notif-dot">3</div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="light-body">
+      <div class="light-sidebar">
+        <div class="light-nav-section">Quotidien</div>
+        <div class="light-nav-item">📊 Dashboard</div>
+        <div class="light-nav-item">📧 Mail <span class="light-nav-badge">25</span></div>
+        <div class="light-nav-item">📋 Briefing</div>
+        <div class="light-nav-item">✅ Tâches</div>
+        <div class="light-nav-divider"></div>
+        <div class="light-nav-section">Référentiels</div>
+        <div class="light-nav-item">👥 Fournisseurs</div>
+        <div class="light-nav-item">💰 Cantaia Prix</div>
+        <div class="light-nav-item">📄 Rapports</div>
+        <div class="light-nav-item">🤖 Assistant IA</div>
+        <div class="light-nav-divider"></div>
+        <div class="light-nav-section">Projet actif</div>
+        <div class="light-nav-project">
+          <div class="light-nav-project-name"><span class="dot" style="background:#F97316"></span>Central Malley</div>
+          <div class="light-nav-project-meta">9240302 · Implenia</div>
+        </div>
+        <div style="margin-top:4px">
+          <div class="light-nav-item active">📋 Aperçu</div>
+          <div class="light-nav-item">✅ Tâches</div>
+          <div class="light-nav-item">📅 Planning</div>
+          <div class="light-nav-item">📐 Plans</div>
+          <div class="light-nav-item">📦 Soumissions</div>
+        </div>
+      </div>
+      <div class="light-main" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+          <div>
+            <div class="light-page-label">Gestion de chantier</div>
+            <div class="light-page-title">Projets</div>
+            <div class="light-page-subtitle">4 projets actifs · CHF 28.3M budget total</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="light-btn-secondary">Filtrer</button>
+            <button class="light-btn-primary">+ Nouveau projet</button>
+          </div>
+        </div>
+        <div class="light-kpis">
+          <div class="light-kpi"><div class="light-kpi-label">Projets actifs</div><div class="light-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Budget total</div><div class="light-kpi-value">28.3M</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Tâches en retard</div><div class="light-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="light-kpi"><div class="light-kpi-label">Soumissions</div><div class="light-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="light-cards">
+          <div class="light-card">
+            <div class="light-card-header"><div class="light-card-name">Central Malley</div><span class="light-card-badge active">Actif</span></div>
+            <div class="light-card-meta">9240302 · Implenia · Prilly</div>
+            <div class="light-card-stats"><span><strong>17</strong> emails</span><span><strong>11</strong> tâches</span><span class="red"><strong>3</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:45%"></div></div>
+          </div>
+          <div class="light-card">
+            <div class="light-card-header"><div class="light-card-name">Tour Horizon Ph.2</div><span class="light-card-badge active">Actif</span></div>
+            <div class="light-card-meta">THP2 · Horizon Immo · Genève</div>
+            <div class="light-card-stats"><span><strong>0</strong> emails</span><span><strong>8</strong> tâches</span><span class="red"><strong>2</strong> retard</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:30%"></div></div>
+          </div>
+          <div class="light-card">
+            <div class="light-card-header"><div class="light-card-name">Les Cèdres</div><span class="light-card-badge active">Actif</span></div>
+            <div class="light-card-meta">9250475 · Edifea · Chavannes</div>
+            <div class="light-card-stats"><span><strong>2</strong> emails</span><span><strong>0</strong> tâches</span></div>
+            <div class="light-card-bar"><div class="light-card-bar-fill" style="width:15%"></div></div>
+          </div>
+        </div>
+        <div class="light-table">
+          <div class="light-table-title">Soumissions récentes</div>
+          <div class="light-th"><div class="light-td">Référence</div><div class="light-td">Projet</div><div class="light-td">Postes</div><div class="light-td">Statut</div><div class="light-td">Date</div></div>
+          <div class="light-tr"><div class="light-td">Soum. Ménétrey SA</div><div class="light-td">Central Malley</div><div class="light-td">180</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div><div class="light-td">17.03</div></div>
+          <div class="light-tr"><div class="light-td">Aménag. extérieurs</div><div class="light-td">Les Cèdres</div><div class="light-td">46</div><div class="light-td"><span class="light-badge-sm">Analysé</span></div><div class="light-td">20.03</div></div>
+          <div class="light-tr"><div class="light-td">Soum. BauBit</div><div class="light-td">FACT Grens</div><div class="light-td">46</div><div class="light-td"><span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#FEF3C7;color:#D97706">En analyse</span></div><div class="light-td">23.03</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

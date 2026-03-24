@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Nuances sidebar</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 24px; }
+h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 32px; }
+
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.option { border-radius: 12px; overflow: hidden; border: 2px solid #333; cursor: pointer; transition: all 0.2s; }
+.option:hover { border-color: #555; transform: translateY(-2px); }
+.option.selected { border-color: #F97316; box-shadow: 0 0 0 3px #F9731630; }
+.option-label { text-align: center; padding: 10px; font-size: 12px; font-weight: 600; background: #1a1a1a; }
+.option-label span { display: block; font-size: 10px; font-weight: 400; color: #666; margin-top: 2px; font-family: monospace; }
+
+.mini-app { height: 380px; display: flex; flex-direction: column; background: #FAFAFA; }
+.mini-header { height: 32px; background: #18181B; display: flex; align-items: center; padding: 0 8px; gap: 6px; }
+.mini-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 10px; color: #FAFAFA; display: flex; align-items: center; gap: 4px; }
+.mini-header .logo-icon { width: 14px; height: 14px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: 800; }
+.mini-header .crumb { font-size: 8px; color: #71717A; margin-left: 8px; }
+.mini-header .avatar { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); margin-left: auto; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; }
+
+.mini-body { display: flex; flex: 1; }
+.mini-sidebar { width: 120px; padding: 8px 4px; display: flex; flex-direction: column; }
+.mini-nav-section { font-size: 7px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 6px 2px; font-weight: 600; }
+.mini-nav-item { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 4px; font-size: 9px; margin-bottom: 1px; }
+.mini-nav-item.active { color: #F97316 !important; }
+.mini-nav-badge { margin-left: auto; background: #F97316; color: white; font-size: 6px; padding: 0 3px; border-radius: 6px; font-weight: 600; }
+.mini-nav-divider { height: 1px; margin: 4px 6px; }
+.mini-nav-project { margin: 4px; padding: 6px; border-radius: 5px; }
+.mini-nav-project-name { font-size: 9px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.mini-nav-project-name .dot { width: 5px; height: 5px; border-radius: 50%; background: #F97316; }
+.mini-nav-project-meta { font-size: 7px; margin-top: 1px; padding-left: 9px; }
+.mini-user { margin-top: auto; padding: 6px; display: flex; align-items: center; gap: 4px; border-radius: 4px; margin: auto 4px 4px; }
+.mini-user-avatar { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: 600; }
+.mini-user-name { font-size: 8px; font-weight: 500; }
+.mini-user-role { font-size: 7px; }
+
+.mini-main { flex: 1; padding: 10px; }
+.mini-title { font-family: 'Plus Jakarta Sans'; font-size: 12px; font-weight: 700; color: #18181B; margin-bottom: 8px; }
+.mini-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
+.mini-kpi { background: #FFF; border: 1px solid #E4E4E7; border-radius: 5px; padding: 6px; }
+.mini-kpi-label { font-size: 6px; text-transform: uppercase; color: #A1A1AA; margin-bottom: 2px; }
+.mini-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 13px; font-weight: 700; }
+.mini-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
+.mini-card { background: #FFF; border: 1px solid #E4E4E7; border-radius: 5px; padding: 8px; }
+.mini-card-name { font-size: 9px; font-weight: 600; color: #18181B; }
+.mini-card-meta { font-size: 7px; color: #A1A1AA; }
+.mini-card-bar { height: 2px; background: #E4E4E7; border-radius: 1px; margin-top: 6px; }
+.mini-card-bar-fill { height: 100%; border-radius: 1px; background: linear-gradient(90deg, #F97316, #EF4444); }
+
+/* Sidebar theme variants */
+.sidebar-1 { background: #111113; }
+.sidebar-1 .mini-nav-section { color: #444; }
+.sidebar-1 .mini-nav-item { color: #888; }
+.sidebar-1 .mini-nav-item.active { background: #F9731612; }
+.sidebar-1 .mini-nav-divider { background: #222; }
+.sidebar-1 .mini-nav-project { background: #1a1a1c; border: 1px solid #2a2a2c; }
+.sidebar-1 .mini-nav-project-name { color: #e4e4e7; }
+.sidebar-1 .mini-nav-project-meta { color: #555; }
+.sidebar-1 .mini-user-name { color: #d4d4d8; }
+.sidebar-1 .mini-user-role { color: #555; }
+
+.sidebar-2 { background: #161618; }
+.sidebar-2 .mini-nav-section { color: #4a4a4f; }
+.sidebar-2 .mini-nav-item { color: #909098; }
+.sidebar-2 .mini-nav-item.active { background: #F9731612; }
+.sidebar-2 .mini-nav-divider { background: #252528; }
+.sidebar-2 .mini-nav-project { background: #1e1e21; border: 1px solid #2c2c30; }
+.sidebar-2 .mini-nav-project-name { color: #e4e4e7; }
+.sidebar-2 .mini-nav-project-meta { color: #555; }
+.sidebar-2 .mini-user-name { color: #d4d4d8; }
+.sidebar-2 .mini-user-role { color: #555; }
+
+.sidebar-3 { background: #1C1C1F; }
+.sidebar-3 .mini-nav-section { color: #505058; }
+.sidebar-3 .mini-nav-item { color: #9898a0; }
+.sidebar-3 .mini-nav-item.active { background: #F9731610; }
+.sidebar-3 .mini-nav-divider { background: #2a2a2e; }
+.sidebar-3 .mini-nav-project { background: #242428; border: 1px solid #323236; }
+.sidebar-3 .mini-nav-project-name { color: #e4e4e7; }
+.sidebar-3 .mini-nav-project-meta { color: #5a5a60; }
+.sidebar-3 .mini-user-name { color: #d4d4d8; }
+.sidebar-3 .mini-user-role { color: #5a5a60; }
+
+.sidebar-4 { background: #222226; }
+.sidebar-4 .mini-nav-section { color: #56565e; }
+.sidebar-4 .mini-nav-item { color: #a0a0a8; }
+.sidebar-4 .mini-nav-item.active { background: #F9731610; }
+.sidebar-4 .mini-nav-divider { background: #303036; }
+.sidebar-4 .mini-nav-project { background: #2a2a2f; border: 1px solid #383840; }
+.sidebar-4 .mini-nav-project-name { color: #e4e4e7; }
+.sidebar-4 .mini-nav-project-meta { color: #606068; }
+.sidebar-4 .mini-user-name { color: #d4d4d8; }
+.sidebar-4 .mini-user-role { color: #606068; }
+</style>
+</head>
+<body>
+
+<h1>Trouvez la bonne nuance</h1>
+<p class="subtitle">4 niveaux de gris entre le noir pur et le gris moyen — cliquez sur votre préféré</p>
+
+<div class="grid">
+
+<!-- 1 -->
+<div class="option" onclick="document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected')">
+  <div class="option-label">1 · Charbon<span>#111113</span></div>
+  <div class="mini-app">
+    <div class="mini-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › Central Malley</div>
+      <div class="avatar">JR</div>
+    </div>
+    <div class="mini-body">
+      <div class="mini-sidebar sidebar-1">
+        <div class="mini-nav-section">Quotidien</div>
+        <div class="mini-nav-item">📊 Dashboard</div>
+        <div class="mini-nav-item">📧 Mail <span class="mini-nav-badge">25</span></div>
+        <div class="mini-nav-item">📋 Briefing</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Référentiels</div>
+        <div class="mini-nav-item">👥 Fournisseurs</div>
+        <div class="mini-nav-item">🤖 Assistant IA</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Projet</div>
+        <div class="mini-nav-project">
+          <div class="mini-nav-project-name"><span class="dot"></span>Central Malley</div>
+          <div class="mini-nav-project-meta">9240302</div>
+        </div>
+        <div class="mini-nav-item active">📋 Aperçu</div>
+        <div class="mini-nav-item">✅ Tâches</div>
+        <div class="mini-nav-item">📅 Planning</div>
+        <div class="mini-user">
+          <div class="mini-user-avatar">JR</div>
+          <div><div class="mini-user-name">Julien</div><div class="mini-user-role">Chef de projet</div></div>
+        </div>
+      </div>
+      <div class="mini-main">
+        <div class="mini-title">Projets</div>
+        <div class="mini-kpis">
+          <div class="mini-kpi"><div class="mini-kpi-label">Projets</div><div class="mini-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Budget</div><div class="mini-kpi-value">28.3M</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Retard</div><div class="mini-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Soum.</div><div class="mini-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="mini-cards">
+          <div class="mini-card"><div class="mini-card-name">Central Malley</div><div class="mini-card-meta">Implenia</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:45%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Tour Horizon</div><div class="mini-card-meta">Horizon Immo</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:30%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Les Cèdres</div><div class="mini-card-meta">Edifea</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:15%"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="option" onclick="document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected')">
+  <div class="option-label">2 · Anthracite<span>#161618</span></div>
+  <div class="mini-app">
+    <div class="mini-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › Central Malley</div>
+      <div class="avatar">JR</div>
+    </div>
+    <div class="mini-body">
+      <div class="mini-sidebar sidebar-2">
+        <div class="mini-nav-section">Quotidien</div>
+        <div class="mini-nav-item">📊 Dashboard</div>
+        <div class="mini-nav-item">📧 Mail <span class="mini-nav-badge">25</span></div>
+        <div class="mini-nav-item">📋 Briefing</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Référentiels</div>
+        <div class="mini-nav-item">👥 Fournisseurs</div>
+        <div class="mini-nav-item">🤖 Assistant IA</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Projet</div>
+        <div class="mini-nav-project">
+          <div class="mini-nav-project-name"><span class="dot"></span>Central Malley</div>
+          <div class="mini-nav-project-meta">9240302</div>
+        </div>
+        <div class="mini-nav-item active">📋 Aperçu</div>
+        <div class="mini-nav-item">✅ Tâches</div>
+        <div class="mini-nav-item">📅 Planning</div>
+        <div class="mini-user">
+          <div class="mini-user-avatar">JR</div>
+          <div><div class="mini-user-name">Julien</div><div class="mini-user-role">Chef de projet</div></div>
+        </div>
+      </div>
+      <div class="mini-main">
+        <div class="mini-title">Projets</div>
+        <div class="mini-kpis">
+          <div class="mini-kpi"><div class="mini-kpi-label">Projets</div><div class="mini-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Budget</div><div class="mini-kpi-value">28.3M</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Retard</div><div class="mini-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Soum.</div><div class="mini-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="mini-cards">
+          <div class="mini-card"><div class="mini-card-name">Central Malley</div><div class="mini-card-meta">Implenia</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:45%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Tour Horizon</div><div class="mini-card-meta">Horizon Immo</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:30%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Les Cèdres</div><div class="mini-card-meta">Edifea</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:15%"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="option" onclick="document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected')">
+  <div class="option-label">3 · Graphite<span>#1C1C1F</span></div>
+  <div class="mini-app">
+    <div class="mini-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › Central Malley</div>
+      <div class="avatar">JR</div>
+    </div>
+    <div class="mini-body">
+      <div class="mini-sidebar sidebar-3">
+        <div class="mini-nav-section">Quotidien</div>
+        <div class="mini-nav-item">📊 Dashboard</div>
+        <div class="mini-nav-item">📧 Mail <span class="mini-nav-badge">25</span></div>
+        <div class="mini-nav-item">📋 Briefing</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Référentiels</div>
+        <div class="mini-nav-item">👥 Fournisseurs</div>
+        <div class="mini-nav-item">🤖 Assistant IA</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Projet</div>
+        <div class="mini-nav-project">
+          <div class="mini-nav-project-name"><span class="dot"></span>Central Malley</div>
+          <div class="mini-nav-project-meta">9240302</div>
+        </div>
+        <div class="mini-nav-item active">📋 Aperçu</div>
+        <div class="mini-nav-item">✅ Tâches</div>
+        <div class="mini-nav-item">📅 Planning</div>
+        <div class="mini-user">
+          <div class="mini-user-avatar">JR</div>
+          <div><div class="mini-user-name">Julien</div><div class="mini-user-role">Chef de projet</div></div>
+        </div>
+      </div>
+      <div class="mini-main">
+        <div class="mini-title">Projets</div>
+        <div class="mini-kpis">
+          <div class="mini-kpi"><div class="mini-kpi-label">Projets</div><div class="mini-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Budget</div><div class="mini-kpi-value">28.3M</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Retard</div><div class="mini-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Soum.</div><div class="mini-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="mini-cards">
+          <div class="mini-card"><div class="mini-card-name">Central Malley</div><div class="mini-card-meta">Implenia</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:45%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Tour Horizon</div><div class="mini-card-meta">Horizon Immo</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:30%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Les Cèdres</div><div class="mini-card-meta">Edifea</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:15%"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="option" onclick="document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected')">
+  <div class="option-label">4 · Étain<span>#222226</span></div>
+  <div class="mini-app">
+    <div class="mini-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › Central Malley</div>
+      <div class="avatar">JR</div>
+    </div>
+    <div class="mini-body">
+      <div class="mini-sidebar sidebar-4">
+        <div class="mini-nav-section">Quotidien</div>
+        <div class="mini-nav-item">📊 Dashboard</div>
+        <div class="mini-nav-item">📧 Mail <span class="mini-nav-badge">25</span></div>
+        <div class="mini-nav-item">📋 Briefing</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Référentiels</div>
+        <div class="mini-nav-item">👥 Fournisseurs</div>
+        <div class="mini-nav-item">🤖 Assistant IA</div>
+        <div class="mini-nav-divider"></div>
+        <div class="mini-nav-section">Projet</div>
+        <div class="mini-nav-project">
+          <div class="mini-nav-project-name"><span class="dot"></span>Central Malley</div>
+          <div class="mini-nav-project-meta">9240302</div>
+        </div>
+        <div class="mini-nav-item active">📋 Aperçu</div>
+        <div class="mini-nav-item">✅ Tâches</div>
+        <div class="mini-nav-item">📅 Planning</div>
+        <div class="mini-user">
+          <div class="mini-user-avatar">JR</div>
+          <div><div class="mini-user-name">Julien</div><div class="mini-user-role">Chef de projet</div></div>
+        </div>
+      </div>
+      <div class="mini-main">
+        <div class="mini-title">Projets</div>
+        <div class="mini-kpis">
+          <div class="mini-kpi"><div class="mini-kpi-label">Projets</div><div class="mini-kpi-value" style="color:#EA580C">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Budget</div><div class="mini-kpi-value">28.3M</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Retard</div><div class="mini-kpi-value" style="color:#EF4444">4</div></div>
+          <div class="mini-kpi"><div class="mini-kpi-label">Soum.</div><div class="mini-kpi-value" style="color:#EA580C">2</div></div>
+        </div>
+        <div class="mini-cards">
+          <div class="mini-card"><div class="mini-card-name">Central Malley</div><div class="mini-card-meta">Implenia</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:45%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Tour Horizon</div><div class="mini-card-meta">Horizon Immo</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:30%"></div></div></div>
+          <div class="mini-card"><div class="mini-card-name">Les Cèdres</div><div class="mini-card-meta">Edifea</div><div class="mini-card-bar"><div class="mini-card-bar-fill" style="width:15%"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

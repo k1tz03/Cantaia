@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Support</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0C0C0E; color: #E4E4E7; overflow-x: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+.header { height: 48px; background: #09090B; border-bottom: 1px solid #27272A; display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+.h-logo { font-family: 'Plus Jakarta Sans'; font-weight: 800; font-size: 15px; color: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.h-logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 800; }
+.h-crumb { font-size: 13px; color: #71717A; margin-left: 20px; }
+.h-crumb b { color: #D4D4D8; }
+.h-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.h-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 600; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+.sidebar { width: 220px; background: #111113; border-right: 1px solid #27272A; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; }
+.sb-sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #52525B; padding: 8px 10px 2px; font-weight: 600; }
+.sb-i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: #A1A1AA; cursor: pointer; }
+.sb-i:hover { background: #1C1C1F; color: #D4D4D8; }
+.sb-i.active { background: linear-gradient(90deg, #F9731618, transparent); color: #F97316; font-weight: 600; }
+.sb-i .ic { width: 18px; text-align: center; font-size: 14px; }
+.sb-badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.sb-div { height: 1px; background: #27272A; margin: 5px 10px; }
+
+.main { flex: 1; overflow-y: auto; background: #0F0F11; }
+
+/* ====== TICKET LIST ====== */
+.list-view { padding: 24px 28px; }
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.page-title { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; color: #FAFAFA; }
+.page-sub { font-size: 13px; color: #71717A; margin-top: 2px; }
+.btn { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.btn:hover { background: #27272A; }
+.btn.primary { background: linear-gradient(135deg, #F97316, #EA580C); color: white; border-color: transparent; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 14px; }
+.filter-select { background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 7px 12px; font-size: 12px; color: #D4D4D8; outline: none; }
+
+.ticket-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.ticket-table thead th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #52525B; font-weight: 600; padding: 8px 14px; text-align: left; border-bottom: 1px solid #27272A; }
+.ticket-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.ticket-table tbody tr:hover { background: #18181B; }
+.ticket-table tbody td { padding: 12px 14px; border-bottom: 1px solid #1C1C1F; font-size: 12px; color: #D4D4D8; vertical-align: middle; }
+
+.ticket-subject { font-size: 13px; font-weight: 500; color: #FAFAFA; }
+.ticket-msgs { font-size: 10px; color: #71717A; margin-left: 6px; }
+.ticket-unread { width: 7px; height: 7px; border-radius: 50%; background: #3B82F6; display: inline-block; margin-left: 6px; }
+
+.cat-badge { font-size: 9px; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
+.cat-badge.bug { background: #EF444418; color: #F87171; }
+.cat-badge.question { background: #3B82F618; color: #60A5FA; }
+.cat-badge.feature { background: #8B5CF618; color: #A78BFA; }
+.cat-badge.billing { background: #F59E0B18; color: #FBBF24; }
+
+.status-badge { font-size: 9px; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
+.status-badge.open { background: #3B82F618; color: #60A5FA; }
+.status-badge.progress { background: #F59E0B18; color: #FBBF24; }
+.status-badge.resolved { background: #10B98118; color: #34D399; }
+.status-badge.closed { background: #27272A; color: #71717A; }
+
+.priority-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+/* ====== TICKET DETAIL ====== */
+.detail-view { display: flex; height: calc(100vh - 48px); }
+.detail-thread { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.detail-header { padding: 14px 24px; border-bottom: 1px solid #27272A; }
+.detail-back { font-size: 12px; color: #71717A; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.detail-back:hover { color: #D4D4D8; }
+.detail-subject { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; color: #FAFAFA; }
+.detail-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+/* Resolved banner */
+.resolved-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; background: #10B98110; border-bottom: 1px solid #10B98125; }
+.resolved-text { font-size: 12px; color: #34D399; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.reopen-btn { font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid #3F3F46; background: #18181B; color: #D4D4D8; cursor: pointer; }
+
+/* Messages */
+.messages { flex: 1; overflow-y: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.msg { display: flex; gap: 10px; max-width: 80%; }
+.msg.user { align-self: flex-start; }
+.msg.admin { align-self: flex-end; flex-direction: row-reverse; }
+.msg-avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 600; flex-shrink: 0; }
+.msg-bubble { border-radius: 10px; padding: 10px 14px; }
+.msg.user .msg-bubble { background: #18181B; border: 1px solid #27272A; }
+.msg.admin .msg-bubble { background: #F9731612; border: 1px solid #F9731625; }
+.msg-sender { font-size: 10px; font-weight: 600; margin-bottom: 3px; }
+.msg.user .msg-sender { color: #D4D4D8; }
+.msg.admin .msg-sender { color: #FB923C; }
+.msg-text { font-size: 13px; color: #D4D4D8; line-height: 1.5; }
+.msg-time { font-size: 9px; color: #52525B; margin-top: 4px; }
+.msg-attachment { display: flex; align-items: center; gap: 6px; background: #27272A; border-radius: 5px; padding: 5px 8px; margin-top: 6px; font-size: 10px; color: #D4D4D8; }
+.msg-attachment:hover { background: #3F3F46; }
+
+/* Reply input */
+.reply-area { padding: 12px 24px; border-top: 1px solid #27272A; background: #18181B; display: flex; align-items: end; gap: 8px; }
+.reply-input { flex: 1; background: #27272A; border: 1px solid #3F3F46; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #D4D4D8; resize: none; outline: none; min-height: 38px; font-family: 'Inter', sans-serif; }
+.reply-input:focus { border-color: #F97316; }
+.reply-input::placeholder { color: #52525B; }
+.reply-clip { width: 34px; height: 34px; border-radius: 7px; background: #27272A; border: 1px solid #3F3F46; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+.reply-clip:hover { background: #3F3F46; }
+.reply-send { width: 34px; height: 34px; border-radius: 7px; background: linear-gradient(135deg, #F97316, #EA580C); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; flex-shrink: 0; border: none; color: white; }
+
+/* User info sidebar */
+.detail-sidebar { width: 280px; border-left: 1px solid #27272A; padding: 16px; overflow-y: auto; background: #111113; }
+.ds-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; font-weight: 600; margin-bottom: 10px; }
+.ds-info-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.ds-icon { font-size: 14px; width: 20px; text-align: center; }
+.ds-text { font-size: 12px; color: #D4D4D8; }
+.ds-text.subtle { color: #71717A; }
+
+.ds-status-section { margin-top: 16px; }
+.ds-status-label { font-size: 10px; color: #71717A; margin-bottom: 4px; }
+.ds-status-select { width: 100%; background: #18181B; border: 1px solid #3F3F46; border-radius: 7px; padding: 7px 10px; font-size: 12px; color: #D4D4D8; outline: none; }
+.ds-priority-dots { display: flex; gap: 8px; margin-top: 8px; }
+.ds-priority-option { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #A1A1AA; cursor: pointer; padding: 4px 8px; border-radius: 5px; }
+.ds-priority-option:hover { background: #1C1C1F; }
+.ds-priority-option.active { background: #F9731612; color: #F97316; }
+
+/* Empty state */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+.empty-text { font-size: 14px; color: #71717A; margin-bottom: 16px; }
+
+/* Section divider */
+.sdiv { margin: 28px 0 16px; display: flex; align-items: center; gap: 12px; padding: 0 28px; }
+.sdiv-line { flex: 1; height: 1px; background: #27272A; }
+.sdiv-label { font-size: 11px; color: #52525B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="h-logo"><div class="h-logo-icon">C</div> Cantaia</div>
+    <div class="h-crumb">Ménétrey SA › <b>Support</b></div>
+    <div class="h-right"><div class="h-avatar">JR</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-sec">Quotidien</div>
+      <div class="sb-i"><span class="ic">📊</span> Dashboard</div>
+      <div class="sb-i"><span class="ic">📧</span> Mail <span class="sb-badge">25</span></div>
+      <div class="sb-i"><span class="ic">📋</span> Briefing</div>
+      <div class="sb-i"><span class="ic">✅</span> Tâches</div>
+      <div class="sb-div"></div>
+      <div class="sb-sec">Référentiels</div>
+      <div class="sb-i"><span class="ic">👷</span> Fournisseurs</div>
+      <div class="sb-i"><span class="ic">💰</span> Cantaia Prix</div>
+      <div class="sb-i"><span class="ic">📊</span> Rapports</div>
+      <div class="sb-i"><span class="ic">🤖</span> Assistant IA</div>
+      <div class="sb-div"></div>
+      <div class="sb-i active"><span class="ic">🎫</span> Support <span class="sb-badge">2</span></div>
+      <div class="sb-i"><span class="ic">⚙️</span> Paramètres</div>
+    </div>
+
+    <div class="main">
+
+      <!-- ====== TICKET LIST ====== -->
+      <div class="list-view">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Support</div>
+            <div class="page-sub">Besoin d'aide ? Créez un ticket.</div>
+          </div>
+          <button class="btn primary">+ Nouveau ticket</button>
+        </div>
+
+        <div class="filters">
+          <select class="filter-select"><option>Tous les statuts</option><option>Ouvert</option><option>En cours</option><option>Résolu</option></select>
+          <select class="filter-select"><option>Toutes catégories</option><option>Bug</option><option>Question</option><option>Fonctionnalité</option><option>Facturation</option></select>
+        </div>
+
+        <table class="ticket-table">
+          <thead>
+            <tr>
+              <th>Sujet</th>
+              <th>Catégorie</th>
+              <th>Priorité</th>
+              <th>Statut</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span class="ticket-subject">Sync Outlook ne fonctionne plus depuis ce matin</span>
+                <span class="ticket-msgs">(4)</span>
+                <span class="ticket-unread"></span>
+              </td>
+              <td><span class="cat-badge bug">🐛 Bug</span></td>
+              <td><span class="priority-dot" style="background:#EF4444;"></span></td>
+              <td><span class="status-badge progress">En cours</span></td>
+              <td style="color:#71717A;">23.03.2026</td>
+              <td><span class="ticket-unread"></span></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="ticket-subject">Comment exporter le planning en PDF A3 ?</span>
+                <span class="ticket-msgs">(2)</span>
+              </td>
+              <td><span class="cat-badge question">❓ Question</span></td>
+              <td><span class="priority-dot" style="background:#F59E0B;"></span></td>
+              <td><span class="status-badge resolved">Résolu</span></td>
+              <td style="color:#71717A;">21.03.2026</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="ticket-subject">Demande : notification push quand un fournisseur répond</span>
+                <span class="ticket-msgs">(1)</span>
+              </td>
+              <td><span class="cat-badge feature">💡 Fonctionnalité</span></td>
+              <td><span class="priority-dot" style="background:#71717A;"></span></td>
+              <td><span class="status-badge open">Ouvert</span></td>
+              <td style="color:#71717A;">20.03.2026</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="ticket-subject">Facturation : je n'ai pas reçu la facture de février</span>
+                <span class="ticket-msgs">(3)</span>
+              </td>
+              <td><span class="cat-badge billing">💳 Facturation</span></td>
+              <td><span class="priority-dot" style="background:#F59E0B;"></span></td>
+              <td><span class="status-badge closed">Fermé</span></td>
+              <td style="color:#71717A;">15.03.2026</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ====== TICKET DETAIL ====== -->
+      <div class="sdiv"><div class="sdiv-line"></div><div class="sdiv-label">Vue détail ticket (quand on clique)</div><div class="sdiv-line"></div></div>
+
+      <div class="detail-view">
+        <div class="detail-thread">
+          <div class="detail-header">
+            <div class="detail-back">← Mes tickets</div>
+            <div class="detail-subject">Sync Outlook ne fonctionne plus depuis ce matin</div>
+            <div class="detail-meta">
+              <span class="cat-badge bug">🐛 Bug</span>
+              <span class="status-badge progress">En cours</span>
+              <span class="priority-dot" style="background:#EF4444;"></span>
+              <span style="font-size:11px;color:#71717A;">23.03.2026</span>
+            </div>
+          </div>
+
+          <div class="messages">
+            <div class="msg user">
+              <div class="msg-avatar" style="background:linear-gradient(135deg,#F97316,#EF4444);">JR</div>
+              <div class="msg-bubble">
+                <div class="msg-sender">Julien Ray</div>
+                <div class="msg-text">Bonjour, depuis ce matin la synchronisation Outlook ne fonctionne plus. Quand je clique sur "Sync", rien ne se passe. Pas de message d'erreur non plus. J'ai essayé de me déconnecter/reconnecter Microsoft 365 dans les paramètres mais le problème persiste.</div>
+                <div class="msg-attachment">📸 screenshot-erreur.png · 145 KB</div>
+                <div class="msg-time">23.03 · 08:15</div>
+              </div>
+            </div>
+
+            <div class="msg admin">
+              <div class="msg-avatar" style="background:#3B82F6;">CA</div>
+              <div class="msg-bubble">
+                <div class="msg-sender">Équipe Cantaia</div>
+                <div class="msg-text">Bonjour Julien, merci pour le signalement. Nous avons identifié un problème avec le refresh des tokens Microsoft. Pouvez-vous aller dans Paramètres → Connexion Email → cliquer "Déconnecter" puis "Connecter" à nouveau ?</div>
+                <div class="msg-time">23.03 · 09:30</div>
+              </div>
+            </div>
+
+            <div class="msg user">
+              <div class="msg-avatar" style="background:linear-gradient(135deg,#F97316,#EF4444);">JR</div>
+              <div class="msg-bubble">
+                <div class="msg-sender">Julien Ray</div>
+                <div class="msg-text">J'ai essayé, ça me redirige vers Microsoft mais après ça revient sur la page settings sans aucun changement. Toujours "Non connecté".</div>
+                <div class="msg-time">23.03 · 10:45</div>
+              </div>
+            </div>
+
+            <div class="msg admin">
+              <div class="msg-avatar" style="background:#3B82F6;">CA</div>
+              <div class="msg-bubble">
+                <div class="msg-sender">Équipe Cantaia</div>
+                <div class="msg-text">Merci pour le retour. Nous avons poussé un correctif. Pouvez-vous vider le cache de votre navigateur (Ctrl+Shift+Delete) puis réessayer la connexion Microsoft ? Le problème venait d'un cookie expiré côté Azure AD.</div>
+                <div class="msg-time">23.03 · 14:20</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="reply-area">
+            <div class="reply-clip">📎</div>
+            <textarea class="reply-input" placeholder="Écrire une réponse..." rows="1"></textarea>
+            <button class="reply-send">➤</button>
+          </div>
+        </div>
+
+        <!-- Admin view: user info sidebar -->
+        <div class="detail-sidebar">
+          <div class="ds-title">Informations utilisateur</div>
+          <div class="ds-info-row"><span class="ds-icon">👤</span><div><div class="ds-text">Julien Ray</div><div class="ds-text subtle">julien.buildwise@outlook.fr</div></div></div>
+          <div class="ds-info-row"><span class="ds-icon">🏢</span><span class="ds-text">Ménétrey SA</span></div>
+          <div class="ds-info-row"><span class="ds-icon">💳</span><span class="ds-text">Plan Trial · 12 jours</span></div>
+          <div class="ds-info-row"><span class="ds-icon">📅</span><span class="ds-text subtle">Membre depuis 16.03.2026</span></div>
+
+          <div class="ds-status-section">
+            <div class="ds-title" style="margin-top:16px;">Gestion ticket</div>
+            <div class="ds-status-label">Statut</div>
+            <select class="ds-status-select">
+              <option>Ouvert</option>
+              <option selected>En cours</option>
+              <option>Résolu</option>
+              <option>Fermé</option>
+            </select>
+
+            <div class="ds-status-label" style="margin-top:10px;">Priorité</div>
+            <div class="ds-priority-dots">
+              <div class="ds-priority-option active"><span class="priority-dot" style="background:#EF4444;"></span> Haute</div>
+              <div class="ds-priority-option"><span class="priority-dot" style="background:#F59E0B;"></span> Moyenne</div>
+              <div class="ds-priority-option"><span class="priority-dot" style="background:#71717A;"></span> Basse</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

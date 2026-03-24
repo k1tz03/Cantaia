@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Design Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0F1419; color: #F1F5F9; }
+
+/* Header Bar */
+.header {
+  height: 48px; background: #000; display: flex; align-items: center; padding: 0 16px;
+  border-bottom: 1px solid #1E293B; position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+}
+.header-logo { display: flex; align-items: center; gap: 8px; margin-right: 24px; }
+.header-logo svg { width: 24px; height: 24px; }
+.header-logo span { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 16px; color: #F1F5F9; }
+.header-breadcrumb { display: flex; align-items: center; gap: 8px; flex: 1; }
+.header-breadcrumb span { font-size: 13px; color: #94A3B8; }
+.header-breadcrumb span.active { color: #F1F5F9; font-weight: 500; }
+.header-breadcrumb .sep { color: #475569; font-size: 11px; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+.header-actions .search-btn { background: #1A1F2E; border: 1px solid #1E293B; border-radius: 6px; padding: 6px 12px; color: #64748B; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.header-actions .search-btn kbd { background: #232A3B; padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+.header-actions .icon-btn { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #94A3B8; cursor: pointer; }
+.header-actions .icon-btn:hover { background: #1A1F2E; color: #F1F5F9; }
+.header-actions .avatar { width: 28px; height: 28px; border-radius: 50%; background: #3B82F6; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: white; }
+.header-actions .notif { position: relative; }
+.header-actions .notif-badge { position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: #F97316; font-size: 9px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+
+/* Sidebar */
+.sidebar {
+  width: 220px; background: #1A1F2E; position: fixed; top: 48px; left: 0; bottom: 0;
+  border-right: 1px solid #1E293B; padding: 12px 0; overflow-y: auto;
+}
+.sidebar-section { padding: 0 12px; margin-bottom: 16px; }
+.sidebar-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; padding: 0 8px; margin-bottom: 6px; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px;
+  font-size: 13px; color: #94A3B8; cursor: pointer; transition: all 0.15s;
+}
+.sidebar-item:hover { background: #232A3B; color: #F1F5F9; }
+.sidebar-item.active { background: #3B82F620; color: #3B82F6; font-weight: 500; }
+.sidebar-item .icon { width: 18px; height: 18px; opacity: 0.7; }
+.sidebar-item.active .icon { opacity: 1; }
+.sidebar-item .badge { margin-left: auto; background: #F97316; color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+.sidebar-divider { height: 1px; background: #1E293B; margin: 8px 12px; }
+.sidebar-project { padding: 8px 12px; margin: 4px 12px; background: #232A3B; border-radius: 8px; }
+.sidebar-project-name { font-size: 13px; font-weight: 600; color: #F1F5F9; display: flex; align-items: center; gap: 8px; }
+.sidebar-project-name .dot { width: 8px; height: 8px; border-radius: 50%; background: #3B82F6; }
+.sidebar-project-meta { font-size: 11px; color: #64748B; margin-top: 2px; padding-left: 16px; }
+
+/* Main Content */
+.main { margin-left: 220px; margin-top: 48px; padding: 24px; min-height: calc(100vh - 48px); }
+
+/* Page Header */
+.page-header { margin-bottom: 24px; }
+.page-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 700; color: #F1F5F9; }
+.page-subtitle { font-size: 13px; color: #64748B; margin-top: 4px; }
+.page-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-primary { background: #F97316; color: white; }
+.btn-primary:hover { background: #EA580C; }
+.btn-secondary { background: #232A3B; color: #F1F5F9; border: 1px solid #334155; }
+.btn-secondary:hover { background: #334155; }
+.btn-ghost { background: transparent; color: #94A3B8; }
+.btn-ghost:hover { background: #232A3B; color: #F1F5F9; }
+
+/* KPI Cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: #1A1F2E; border: 1px solid #1E293B; border-radius: 10px; padding: 16px 20px; }
+.kpi-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; margin-bottom: 8px; }
+.kpi-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 700; color: #F1F5F9; }
+.kpi-value.orange { color: #F97316; }
+.kpi-value.blue { color: #3B82F6; }
+.kpi-value.green { color: #10B981; }
+.kpi-value.red { color: #EF4444; }
+.kpi-change { font-size: 11px; color: #10B981; margin-top: 4px; }
+
+/* Table */
+.table-container { background: #1A1F2E; border: 1px solid #1E293B; border-radius: 10px; overflow: hidden; }
+.table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1E293B; }
+.table-header h3 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 600; color: #F1F5F9; }
+table { width: 100%; border-collapse: collapse; }
+thead th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; background: #151A24; border-bottom: 1px solid #1E293B; }
+tbody td { padding: 10px 16px; font-size: 13px; color: #CBD5E1; border-bottom: 1px solid #1E293B; }
+tbody tr:hover { background: #232A3B; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* Status badges */
+.badge-status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.badge-active { background: #10B98120; color: #10B981; }
+.badge-review { background: #F59E0B20; color: #F59E0B; }
+.badge-draft { background: #64748B20; color: #94A3B8; }
+.badge-urgent { background: #EF444420; color: #EF4444; }
+
+/* Project Cards */
+.project-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.project-card {
+  background: #1A1F2E; border: 1px solid #1E293B; border-radius: 10px; padding: 20px;
+  cursor: pointer; transition: all 0.2s;
+}
+.project-card:hover { border-color: #334155; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.project-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.project-card-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 600; color: #F1F5F9; }
+.project-card-code { font-size: 11px; color: #64748B; font-family: monospace; }
+.project-card-client { font-size: 12px; color: #94A3B8; margin-bottom: 12px; }
+.project-card-stats { display: flex; gap: 16px; }
+.project-card-stat { font-size: 12px; color: #64748B; }
+.project-card-stat strong { color: #CBD5E1; }
+.project-card-bar { height: 3px; background: #232A3B; border-radius: 2px; margin-top: 12px; }
+.project-card-bar-fill { height: 100%; border-radius: 2px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid #1E293B; margin-bottom: 20px; }
+.tab { padding: 10px 16px; font-size: 13px; font-weight: 500; color: #64748B; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+.tab:hover { color: #CBD5E1; }
+.tab.active { color: #3B82F6; border-bottom-color: #3B82F6; }
+.tab .count { background: #232A3B; padding: 1px 6px; border-radius: 10px; font-size: 10px; margin-left: 4px; }
+.tab.active .count { background: #3B82F620; color: #3B82F6; }
+
+/* Section title */
+h2.section-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 600; color: #F1F5F9; margin-bottom: 16px; padding-bottom: 8px; }
+
+/* Label */
+.label-text { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #F97316; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER BAR -->
+<div class="header">
+  <div class="header-logo">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="#3B82F6" stroke-width="2"/><path d="M8 12h8M12 8v8" stroke="#10B981" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>Cantaia</span>
+  </div>
+  <div class="header-breadcrumb">
+    <span>Ménétrey SA</span>
+    <span class="sep">›</span>
+    <span class="active">Central Malley</span>
+    <span class="sep">›</span>
+    <span class="active">Soumissions</span>
+  </div>
+  <div class="header-actions">
+    <div class="search-btn">🔍 Rechercher... <kbd>⌘K</kbd></div>
+    <div class="icon-btn notif">🔔<span class="notif-badge">3</span></div>
+    <div class="icon-btn">❓</div>
+    <div class="avatar">JR</div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Quotidien</div>
+    <div class="sidebar-item"><span class="icon">📊</span> Dashboard</div>
+    <div class="sidebar-item"><span class="icon">📧</span> Mail <span class="badge">25</span></div>
+    <div class="sidebar-item"><span class="icon">📋</span> Briefing</div>
+    <div class="sidebar-item"><span class="icon">✅</span> Tâches</div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Référentiels</div>
+    <div class="sidebar-item"><span class="icon">👥</span> Fournisseurs</div>
+    <div class="sidebar-item"><span class="icon">💰</span> Cantaia Prix</div>
+    <div class="sidebar-item"><span class="icon">📄</span> Rapports chantier</div>
+    <div class="sidebar-item"><span class="icon">🤖</span> Assistant IA</div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Projet actif</div>
+    <div class="sidebar-project">
+      <div class="sidebar-project-name"><span class="dot"></span>Central Malley</div>
+      <div class="sidebar-project-meta">9240302 · Implenia</div>
+    </div>
+    <div style="margin-top:8px">
+      <div class="sidebar-item active"><span class="icon">📋</span> Aperçu</div>
+      <div class="sidebar-item"><span class="icon">✅</span> Tâches <span style="margin-left:auto;font-size:11px;color:#64748B">9</span></div>
+      <div class="sidebar-item"><span class="icon">📅</span> Planning</div>
+      <div class="sidebar-item"><span class="icon">📐</span> Plans <span style="margin-left:auto;font-size:11px;color:#64748B">2</span></div>
+      <div class="sidebar-item"><span class="icon">📦</span> Soumissions <span style="margin-left:auto;font-size:11px;color:#64748B">1</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT — Projects List -->
+<div class="main">
+  <div class="page-header" style="display:flex;align-items:start;justify-content:space-between">
+    <div>
+      <div class="label-text">Gestion de chantier</div>
+      <div class="page-title">Projets</div>
+      <div class="page-subtitle">4 projets actifs · CHF 28.3M budget total</div>
+    </div>
+    <div class="page-actions" style="margin-top:0">
+      <button class="btn btn-secondary">📊 Filtrer</button>
+      <button class="btn btn-primary">+ Nouveau projet</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Projets actifs</div>
+      <div class="kpi-value blue">4</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Budget total</div>
+      <div class="kpi-value">28.3M</div>
+      <div class="kpi-change">CHF</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tâches en retard</div>
+      <div class="kpi-value red">4</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Soumissions actives</div>
+      <div class="kpi-value orange">2</div>
+    </div>
+  </div>
+
+  <!-- Project Cards -->
+  <div class="project-grid">
+    <div class="project-card">
+      <div class="project-card-header">
+        <div class="project-card-name">Central Malley</div>
+        <span class="badge-status badge-active">● Actif</span>
+      </div>
+      <div class="project-card-code">9240302</div>
+      <div class="project-card-client">Implenia · Prilly</div>
+      <div class="project-card-stats">
+        <div class="project-card-stat"><strong>17</strong> emails</div>
+        <div class="project-card-stat"><strong>11</strong> tâches</div>
+        <div class="project-card-stat" style="color:#EF4444"><strong>3</strong> en retard</div>
+      </div>
+      <div class="project-card-bar"><div class="project-card-bar-fill" style="width:45%;background:linear-gradient(90deg,#3B82F6,#10B981)"></div></div>
+    </div>
+    <div class="project-card">
+      <div class="project-card-header">
+        <div class="project-card-name">Tour Horizon Phase 2</div>
+        <span class="badge-status badge-active">● Actif</span>
+      </div>
+      <div class="project-card-code">THP2-2026</div>
+      <div class="project-card-client">Horizon Immobilier · Genève</div>
+      <div class="project-card-stats">
+        <div class="project-card-stat"><strong>0</strong> emails</div>
+        <div class="project-card-stat"><strong>8</strong> tâches</div>
+        <div class="project-card-stat" style="color:#EF4444"><strong>2</strong> en retard</div>
+      </div>
+      <div class="project-card-bar"><div class="project-card-bar-fill" style="width:30%;background:linear-gradient(90deg,#3B82F6,#F59E0B)"></div></div>
+    </div>
+    <div class="project-card">
+      <div class="project-card-header">
+        <div class="project-card-name">Les Cèdres</div>
+        <span class="badge-status badge-active">● Actif</span>
+      </div>
+      <div class="project-card-code">9250475</div>
+      <div class="project-card-client">Edifea · Chavannes-près-Renens</div>
+      <div class="project-card-stats">
+        <div class="project-card-stat"><strong>2</strong> emails</div>
+        <div class="project-card-stat"><strong>0</strong> tâches</div>
+      </div>
+      <div class="project-card-bar"><div class="project-card-bar-fill" style="width:15%;background:#3B82F6"></div></div>
+    </div>
+  </div>
+
+  <!-- Table Section -->
+  <div style="margin-top:32px">
+    <h2 class="section-title">Soumissions récentes</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Projet</th>
+            <th>Postes</th>
+            <th>Groupes</th>
+            <th>Statut</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:500;color:#F1F5F9">25.04.15 – Soumission Ménétrey</td>
+            <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B82F6;margin-right:6px"></span>Central Malley</td>
+            <td>180</td>
+            <td>13</td>
+            <td><span class="badge-status badge-active">Analysé</span></td>
+            <td style="color:#64748B">17.03.2026</td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;color:#F1F5F9">25.08.05 – Aménagements ext.</td>
+            <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#8B5CF6;margin-right:6px"></span>Les Cèdres</td>
+            <td>46</td>
+            <td>5</td>
+            <td><span class="badge-status badge-active">Analysé</span></td>
+            <td style="color:#64748B">20.03.2026</td>
+          </tr>
+          <tr>
+            <td style="font-weight:500;color:#F1F5F9">25.11.24 – Soum. BauBit</td>
+            <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#F97316;margin-right:6px"></span>FACT Grens</td>
+            <td>46</td>
+            <td>5</td>
+            <td><span class="badge-status badge-review">En analyse</span></td>
+            <td style="color:#64748B">23.03.2026</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tabs demo -->
+  <div style="margin-top:32px">
+    <h2 class="section-title">Détail projet — Central Malley</h2>
+    <div class="tabs">
+      <div class="tab active">Aperçu</div>
+      <div class="tab">Emails <span class="count">17</span></div>
+      <div class="tab">Tâches <span class="count">11</span></div>
+      <div class="tab">PV de séance</div>
+      <div class="tab">Soumissions <span class="count">1</span></div>
+      <div class="tab">Plans <span class="count">2</span></div>
+      <div class="tab">Planning</div>
+      <div class="tab">Rapports</div>
+      <div class="tab">Clôture</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

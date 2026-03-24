@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cantaia — Dashboard Design Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #111; color: #F1F5F9; padding: 24px; }
+h1 { font-family: 'Plus Jakarta Sans'; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 32px; }
+
+.options-grid { display: grid; grid-template-columns: 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
+.option-block { border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+.option-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #1a1a1a; }
+.option-header h2 { font-family: 'Plus Jakarta Sans'; font-size: 16px; font-weight: 700; }
+.option-header p { font-size: 12px; color: #888; }
+.option-header .tag { background: #F97316; color: white; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+
+.app-frame { background: #FAFAFA; display: flex; flex-direction: column; height: 520px; }
+.frame-header { height: 36px; background: #18181B; display: flex; align-items: center; padding: 0 10px; gap: 6px; flex-shrink: 0; }
+.frame-header .logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 11px; color: #FAFAFA; display: flex; align-items: center; gap: 5px; }
+.frame-header .logo-icon { width: 16px; height: 16px; background: linear-gradient(135deg, #F97316, #EF4444); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: 800; }
+.frame-header .crumb { font-size: 9px; color: #71717A; margin-left: 12px; }
+.frame-header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.frame-header .notif { width: 18px; height: 18px; border-radius: 50%; background: #27272A; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #A1A1AA; position: relative; }
+.frame-header .notif .dot { position: absolute; top: -1px; right: -1px; width: 6px; height: 6px; background: #EF4444; border-radius: 50%; }
+.frame-header .avatar { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, #F97316, #EF4444); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; }
+.frame-body { display: flex; flex: 1; overflow: hidden; }
+
+.frame-sidebar { width: 140px; background: #1C1C1F; padding: 8px 4px; flex-shrink: 0; }
+.fs-section { font-size: 7px; text-transform: uppercase; letter-spacing: 0.08em; color: #52525B; padding: 6px 6px 2px; font-weight: 600; }
+.fs-item { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 4px; font-size: 9px; color: #A1A1AA; margin-bottom: 1px; }
+.fs-item.active { background: #F9731612; color: #F97316; }
+.fs-badge { margin-left: auto; background: #F97316; color: white; font-size: 6px; padding: 0 3px; border-radius: 6px; font-weight: 600; }
+.fs-divider { height: 1px; background: #2a2a2e; margin: 4px 6px; }
+
+.frame-main { flex: 1; overflow-y: auto; background: #FAFAFA; }
+
+/* ====== OPTION A — KPIs + Actions ====== */
+.dash-a { padding: 14px 16px; }
+.dash-a-greeting { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #18181B; }
+.dash-a-date { font-size: 10px; color: #A1A1AA; margin-bottom: 14px; }
+
+.dash-a-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.dash-a-kpi { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; }
+.dash-a-kpi-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-bottom: 6px; }
+.dash-a-kpi-value { font-family: 'Plus Jakarta Sans'; font-size: 20px; font-weight: 700; color: #18181B; }
+.dash-a-kpi-label { font-size: 9px; color: #A1A1AA; margin-top: 1px; }
+.dash-a-kpi-sub { font-size: 8px; margin-top: 2px; }
+
+.dash-a-actions { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+.dash-a-actions-title { font-size: 11px; font-weight: 600; color: #18181B; display: flex; align-items: center; gap: 5px; margin-bottom: 8px; }
+.dash-a-actions-title .dot { width: 6px; height: 6px; border-radius: 50%; background: #EF4444; }
+.dash-a-action-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #F4F4F5; }
+.dash-a-action-row:last-child { border-bottom: none; }
+.dash-a-action-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.dash-a-action-text { flex: 1; }
+.dash-a-action-title { font-size: 10px; font-weight: 500; color: #18181B; }
+.dash-a-action-desc { font-size: 8px; color: #A1A1AA; }
+.dash-a-action-project { font-size: 7px; color: #71717A; display: flex; align-items: center; gap: 3px; }
+.dash-a-action-project .dot { width: 4px; height: 4px; border-radius: 50%; }
+.dash-a-action-btn { font-size: 8px; padding: 3px 8px; border-radius: 4px; background: #F97316; color: white; border: none; cursor: pointer; flex-shrink: 0; }
+
+.dash-a-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dash-a-widget { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; }
+.dash-a-widget-title { font-size: 10px; font-weight: 600; color: #18181B; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+
+.timeline-item { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid #F4F4F5; }
+.timeline-item:last-child { border-bottom: none; }
+.timeline-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+.timeline-text { font-size: 9px; color: #3F3F46; }
+.timeline-time { font-size: 8px; color: #A1A1AA; }
+
+.deadline-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #F4F4F5; }
+.deadline-row:last-child { border-bottom: none; }
+.deadline-name { font-size: 9px; color: #18181B; }
+.deadline-date { font-size: 8px; padding: 2px 6px; border-radius: 3px; }
+.deadline-date.soon { background: #FEF3C7; color: #D97706; }
+.deadline-date.overdue { background: #FEE2E2; color: #EF4444; }
+.deadline-date.ok { background: #F0FDF4; color: #16A34A; }
+
+/* ====== OPTION B — Command Center ====== */
+.dash-b { padding: 14px 16px; }
+.dash-b-top { display: flex; justify-content: space-between; align-items: start; margin-bottom: 14px; }
+.dash-b-greeting { font-family: 'Plus Jakarta Sans'; font-size: 18px; font-weight: 700; color: #18181B; }
+.dash-b-date { font-size: 10px; color: #A1A1AA; }
+.dash-b-quick-actions { display: flex; gap: 6px; }
+.dash-b-quick-actions button { font-size: 9px; padding: 5px 10px; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFF; color: #3F3F46; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.dash-b-quick-actions button.primary { background: #F97316; color: white; border-color: #F97316; }
+
+.dash-b-projects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.dash-b-project-card { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; position: relative; overflow: hidden; }
+.dash-b-project-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.dash-b-project-card.blue::before { background: #3B82F6; }
+.dash-b-project-card.orange::before { background: #F97316; }
+.dash-b-project-card.green::before { background: #10B981; }
+.dash-b-project-name { font-size: 11px; font-weight: 600; color: #18181B; }
+.dash-b-project-code { font-size: 8px; color: #A1A1AA; }
+.dash-b-project-stats { display: flex; gap: 10px; margin-top: 6px; }
+.dash-b-project-stat { text-align: center; }
+.dash-b-project-stat-value { font-family: 'Plus Jakarta Sans'; font-size: 14px; font-weight: 700; }
+.dash-b-project-stat-label { font-size: 7px; color: #A1A1AA; }
+.dash-b-project-health { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 8px; }
+.dash-b-project-health .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.dash-b-bottom { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+
+.dash-b-feed { background: #FFF; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; }
+.dash-b-feed-title { font-size: 10px; font-weight: 600; color: #18181B; margin-bottom: 8px; }
+.feed-item { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #F4F4F5; align-items: start; }
+.feed-item:last-child { border-bottom: none; }
+.feed-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; flex-shrink: 0; font-weight: 600; }
+.feed-content { flex: 1; }
+.feed-text { font-size: 9px; color: #3F3F46; }
+.feed-text b { color: #18181B; }
+.feed-meta { font-size: 8px; color: #A1A1AA; margin-top: 1px; display: flex; align-items: center; gap: 4px; }
+.feed-meta .dot { width: 3px; height: 3px; border-radius: 50%; }
+
+.dash-b-briefing { background: linear-gradient(135deg, #FFF7ED, #FFFBEB); border: 1px solid #FFEDD5; border-radius: 8px; padding: 12px; }
+.dash-b-briefing-title { font-size: 10px; font-weight: 600; color: #92400E; display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.dash-b-briefing-text { font-size: 9px; color: #78350F; line-height: 1.5; }
+.dash-b-briefing-actions { margin-top: 8px; display: flex; gap: 4px; }
+.dash-b-briefing-actions button { font-size: 8px; padding: 3px 8px; border-radius: 4px; border: 1px solid #FDBA74; background: #FFF; color: #9A3412; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>Dashboard — 2 Options</h1>
+<p class="subtitle">Design system Zinc + Orange. Sidebar Graphite.</p>
+
+<div class="options-grid">
+
+<!-- OPTION A — KPIs + Actions requises -->
+<div class="option-block">
+  <div class="option-header">
+    <div><h2>A · KPIs + Actions requises</h2><p>Chiffres clés en haut, puis liste d'actions urgentes, puis widgets contextuels</p></div>
+    <span class="tag">Recommandé</span>
+  </div>
+  <div class="app-frame">
+    <div class="frame-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › <b style="color:#A1A1AA">Dashboard</b></div>
+      <div class="right">
+        <div class="notif">🔔<div class="dot"></div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="frame-body">
+      <div class="frame-sidebar">
+        <div class="fs-section">Quotidien</div>
+        <div class="fs-item active">📊 Dashboard</div>
+        <div class="fs-item">📧 Mail <span class="fs-badge">25</span></div>
+        <div class="fs-item">📋 Briefing</div>
+        <div class="fs-item">✅ Tâches</div>
+        <div class="fs-divider"></div>
+        <div class="fs-section">Référentiels</div>
+        <div class="fs-item">👷 Fournisseurs</div>
+        <div class="fs-item">💰 Cantaia Prix</div>
+        <div class="fs-item">🤖 Assistant IA</div>
+        <div class="fs-divider"></div>
+        <div class="fs-section">Projet actif</div>
+        <div class="fs-item" style="color:#3B82F6; font-weight:500;">● Central Malley ▾</div>
+        <div class="fs-item" style="padding-left:14px;">Aperçu</div>
+        <div class="fs-item" style="padding-left:14px;">Tâches <span class="fs-badge" style="background:#EF4444;">3</span></div>
+        <div class="fs-item" style="padding-left:14px;">Planning</div>
+      </div>
+      <div class="frame-main">
+        <div class="dash-a">
+          <div class="dash-a-greeting">Bonjour, Julien</div>
+          <div class="dash-a-date">📅 Lundi 24 mars 2026</div>
+
+          <div class="dash-a-kpis">
+            <div class="dash-a-kpi">
+              <div class="dash-a-kpi-icon" style="background:#FEE2E2;">📧</div>
+              <div class="dash-a-kpi-value" style="color:#18181B;">25</div>
+              <div class="dash-a-kpi-label">Emails non traités</div>
+              <div class="dash-a-kpi-sub" style="color:#EF4444;">↑ 3 depuis hier</div>
+            </div>
+            <div class="dash-a-kpi">
+              <div class="dash-a-kpi-icon" style="background:#FEF3C7;">✅</div>
+              <div class="dash-a-kpi-value" style="color:#18181B;">17</div>
+              <div class="dash-a-kpi-label">Tâches en cours</div>
+              <div class="dash-a-kpi-sub" style="color:#EF4444;">4 en retard</div>
+            </div>
+            <div class="dash-a-kpi">
+              <div class="dash-a-kpi-icon" style="background:#DBEAFE;">📋</div>
+              <div class="dash-a-kpi-value" style="color:#18181B;">2</div>
+              <div class="dash-a-kpi-label">Soumissions actives</div>
+              <div class="dash-a-kpi-sub" style="color:#F59E0B;">1 deadline cette semaine</div>
+            </div>
+            <div class="dash-a-kpi">
+              <div class="dash-a-kpi-icon" style="background:#F0FDF4;">📁</div>
+              <div class="dash-a-kpi-value" style="color:#18181B;">4</div>
+              <div class="dash-a-kpi-label">Projets actifs</div>
+              <div class="dash-a-kpi-sub" style="color:#10B981;">Tout en ordre</div>
+            </div>
+          </div>
+
+          <div class="dash-a-actions">
+            <div class="dash-a-actions-title"><span class="dot"></span> Actions requises — 5</div>
+            <div class="dash-a-action-row">
+              <div class="dash-a-action-icon" style="background:#FEE2E2;">⚠️</div>
+              <div class="dash-a-action-text">
+                <div class="dash-a-action-title">3 tâches en retard</div>
+                <div class="dash-a-action-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley · Commander ferraillage, Valider plans béton...</div>
+              </div>
+              <button class="dash-a-action-btn">Voir</button>
+            </div>
+            <div class="dash-a-action-row">
+              <div class="dash-a-action-icon" style="background:#FFF7ED;">📧</div>
+              <div class="dash-a-action-text">
+                <div class="dash-a-action-title">2 emails urgents à traiter</div>
+                <div class="dash-a-action-project"><span class="dot" style="background:#F97316;"></span> Tour Horizon · Offre CVC, Plans structure modifiés</div>
+              </div>
+              <button class="dash-a-action-btn">Traiter</button>
+            </div>
+            <div class="dash-a-action-row">
+              <div class="dash-a-action-icon" style="background:#FEF3C7;">📋</div>
+              <div class="dash-a-action-text">
+                <div class="dash-a-action-title">Deadline soumission vendredi</div>
+                <div class="dash-a-action-project"><span class="dot" style="background:#3B82F6;"></span> Central Malley · 3 fournisseurs n'ont pas répondu</div>
+              </div>
+              <button class="dash-a-action-btn">Relancer</button>
+            </div>
+          </div>
+
+          <div class="dash-a-grid">
+            <div class="dash-a-widget">
+              <div class="dash-a-widget-title">🕐 Activité récente</div>
+              <div class="timeline-item"><div class="timeline-dot" style="background:#10B981;"></div><div><div class="timeline-text">Rapport chantier soumis — Edgar Cardoso</div><div class="timeline-time">Les Cèdres · il y a 1h</div></div></div>
+              <div class="timeline-item"><div class="timeline-dot" style="background:#3B82F6;"></div><div><div class="timeline-text">Email classé — Offre Geberit SA</div><div class="timeline-time">Central Malley · il y a 3h</div></div></div>
+              <div class="timeline-item"><div class="timeline-dot" style="background:#F97316;"></div><div><div class="timeline-text">Plan modifié — Structure R+2</div><div class="timeline-time">Tour Horizon · hier</div></div></div>
+              <div class="timeline-item"><div class="timeline-dot" style="background:#8B5CF6;"></div><div><div class="timeline-text">Planning généré par IA</div><div class="timeline-time">Central Malley · hier</div></div></div>
+            </div>
+            <div class="dash-a-widget">
+              <div class="dash-a-widget-title">📅 Prochaines échéances</div>
+              <div class="deadline-row"><div class="deadline-name">Soumission CVC</div><div class="deadline-date soon">ven. 28.03</div></div>
+              <div class="deadline-row"><div class="deadline-name">PV séance #13</div><div class="deadline-date ok">mar. 25.03</div></div>
+              <div class="deadline-row"><div class="deadline-name">Visite Campus Santé</div><div class="deadline-date ok">jeu. 27.03</div></div>
+              <div class="deadline-row"><div class="deadline-name">Ferraillage R+2</div><div class="deadline-date overdue">lun. 17.03</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTION B — Command Center avec projets -->
+<div class="option-block">
+  <div class="option-header">
+    <div><h2>B · Command Center</h2><p>Vue projets en haut avec santé visuelle, feed d'activité + briefing IA</p></div>
+  </div>
+  <div class="app-frame">
+    <div class="frame-header">
+      <div class="logo"><div class="logo-icon">C</div> Cantaia</div>
+      <div class="crumb">Ménétrey SA › <b style="color:#A1A1AA">Dashboard</b></div>
+      <div class="right">
+        <div class="notif">🔔<div class="dot"></div></div>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+    <div class="frame-body">
+      <div class="frame-sidebar">
+        <div class="fs-section">Quotidien</div>
+        <div class="fs-item active">📊 Dashboard</div>
+        <div class="fs-item">📧 Mail <span class="fs-badge">25</span></div>
+        <div class="fs-item">📋 Briefing</div>
+        <div class="fs-item">✅ Tâches</div>
+        <div class="fs-divider"></div>
+        <div class="fs-section">Référentiels</div>
+        <div class="fs-item">👷 Fournisseurs</div>
+        <div class="fs-item">💰 Cantaia Prix</div>
+        <div class="fs-item">🤖 Assistant IA</div>
+        <div class="fs-divider"></div>
+        <div class="fs-section">Projet actif</div>
+        <div class="fs-item" style="color:#3B82F6; font-weight:500;">● Central Malley ▾</div>
+        <div class="fs-item" style="padding-left:14px;">Aperçu</div>
+        <div class="fs-item" style="padding-left:14px;">Tâches <span class="fs-badge" style="background:#EF4444;">3</span></div>
+        <div class="fs-item" style="padding-left:14px;">Planning</div>
+      </div>
+      <div class="frame-main">
+        <div class="dash-b">
+          <div class="dash-b-top">
+            <div>
+              <div class="dash-b-greeting">Bonjour, Julien</div>
+              <div class="dash-b-date">📅 Lundi 24 mars 2026 · 4 projets actifs</div>
+            </div>
+            <div class="dash-b-quick-actions">
+              <button>🔄 Sync emails</button>
+              <button>+ Tâche</button>
+              <button class="primary">+ Nouveau PV</button>
+            </div>
+          </div>
+
+          <div class="dash-b-projects">
+            <div class="dash-b-project-card blue">
+              <div class="dash-b-project-name">Central Malley</div>
+              <div class="dash-b-project-code">9240302 · Implenia · Prilly</div>
+              <div class="dash-b-project-stats">
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#EF4444;">3</div><div class="dash-b-project-stat-label">En retard</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">17</div><div class="dash-b-project-stat-label">Emails</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">1</div><div class="dash-b-project-stat-label">Soumission</div></div>
+              </div>
+              <div class="dash-b-project-health"><span class="dot" style="background:#F59E0B;"></span> <span style="color:#D97706; font-weight:500;">Attention</span> <span style="color:#A1A1AA;">· 3 tâches en retard</span></div>
+            </div>
+            <div class="dash-b-project-card orange">
+              <div class="dash-b-project-name">Tour Horizon Ph.2</div>
+              <div class="dash-b-project-code">THP2-2026 · Horizon Immobilier · Genève</div>
+              <div class="dash-b-project-stats">
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#EF4444;">2</div><div class="dash-b-project-stat-label">En retard</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">8</div><div class="dash-b-project-stat-label">Emails</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">0</div><div class="dash-b-project-stat-label">Soumission</div></div>
+              </div>
+              <div class="dash-b-project-health"><span class="dot" style="background:#EF4444;"></span> <span style="color:#EF4444; font-weight:500;">Critique</span> <span style="color:#A1A1AA;">· 2 tâches urgentes</span></div>
+            </div>
+            <div class="dash-b-project-card green">
+              <div class="dash-b-project-name">Les Cèdres</div>
+              <div class="dash-b-project-code">9250475 · Edifea · Chavannes</div>
+              <div class="dash-b-project-stats">
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#10B981;">0</div><div class="dash-b-project-stat-label">En retard</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">2</div><div class="dash-b-project-stat-label">Emails</div></div>
+                <div class="dash-b-project-stat"><div class="dash-b-project-stat-value" style="color:#18181B;">1</div><div class="dash-b-project-stat-label">Soumission</div></div>
+              </div>
+              <div class="dash-b-project-health"><span class="dot" style="background:#10B981;"></span> <span style="color:#10B981; font-weight:500;">En ordre</span> <span style="color:#A1A1AA;">· RAS</span></div>
+            </div>
+          </div>
+
+          <div class="dash-b-bottom">
+            <div class="dash-b-feed">
+              <div class="dash-b-feed-title">🕐 Fil d'activité</div>
+              <div class="feed-item">
+                <div class="feed-avatar" style="background:#10B981;">EC</div>
+                <div class="feed-content">
+                  <div class="feed-text"><b>Edgar Cardoso</b> a soumis un rapport de chantier</div>
+                  <div class="feed-meta"><span class="dot" style="background:#10B981;"></span> Les Cèdres · il y a 1h</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-avatar" style="background:#3B82F6;">IA</div>
+                <div class="feed-content">
+                  <div class="feed-text"><b>Cantaia IA</b> a classé 5 emails automatiquement</div>
+                  <div class="feed-meta"><span class="dot" style="background:#3B82F6;"></span> Multi-projets · il y a 2h</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-avatar" style="background:#F97316;">PL</div>
+                <div class="feed-content">
+                  <div class="feed-text"><b>Pierre Lambert</b> a envoyé une offre CVC (CHF 45K)</div>
+                  <div class="feed-meta"><span class="dot" style="background:#3B82F6;"></span> Central Malley · hier 18:30</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-avatar" style="background:#8B5CF6;">IA</div>
+                <div class="feed-content">
+                  <div class="feed-text"><b>Cantaia IA</b> a généré le planning Central Malley</div>
+                  <div class="feed-meta"><span class="dot" style="background:#3B82F6;"></span> Central Malley · hier 14:00</div>
+                </div>
+              </div>
+            </div>
+            <div class="dash-b-briefing">
+              <div class="dash-b-briefing-title">✨ Briefing IA du jour</div>
+              <div class="dash-b-briefing-text">
+                <b>3 points d'attention :</b><br>
+                • Soumission CVC deadline vendredi — 3 fournisseurs n'ont pas répondu<br>
+                • Plans structure R+2 modifiés hier — à valider avant coulage<br>
+                • Edgar a soumis le rapport chantier Les Cèdres — 4 ouvriers, 32h
+              </div>
+              <div class="dash-b-briefing-actions">
+                <button>📧 Relancer fournisseurs</button>
+                <button>📋 Voir le briefing complet</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

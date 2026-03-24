@@ -30,44 +30,44 @@ interface TaskKanbanViewProps {
 
 const COLUMN_STYLES: Record<string, { headerBg: string; headerColor: string; accentColor: string; countBg: string; countColor: string; dropHighlight: string }> = {
   todo: {
-    headerBg: "bg-primary/10",
-    headerColor: "text-blue-800 dark:text-blue-300",
+    headerBg: "bg-blue-500/10",
+    headerColor: "text-blue-300",
     accentColor: "border-t-blue-500",
-    countBg: "bg-blue-100",
-    countColor: "text-primary",
-    dropHighlight: "ring-blue-400 bg-primary/10/50",
+    countBg: "bg-blue-500/20",
+    countColor: "text-blue-300",
+    dropHighlight: "ring-blue-400 bg-blue-500/10",
   },
   in_progress: {
     headerBg: "bg-amber-500/10",
-    headerColor: "text-amber-800 dark:text-amber-300",
+    headerColor: "text-amber-300",
     accentColor: "border-t-amber-500",
-    countBg: "bg-amber-100",
-    countColor: "text-amber-700 dark:text-amber-400",
+    countBg: "bg-amber-500/20",
+    countColor: "text-amber-300",
     dropHighlight: "ring-amber-400 bg-amber-500/10",
   },
   waiting: {
     headerBg: "bg-orange-500/10",
-    headerColor: "text-orange-800 dark:text-orange-300",
+    headerColor: "text-orange-300",
     accentColor: "border-t-orange-400",
-    countBg: "bg-orange-100",
-    countColor: "text-orange-700 dark:text-orange-400",
+    countBg: "bg-orange-500/20",
+    countColor: "text-orange-300",
     dropHighlight: "ring-orange-400 bg-orange-500/10",
   },
   done: {
     headerBg: "bg-emerald-500/10",
-    headerColor: "text-emerald-800",
+    headerColor: "text-emerald-300",
     accentColor: "border-t-emerald-500",
-    countBg: "bg-emerald-100",
-    countColor: "text-emerald-700 dark:text-emerald-400",
+    countBg: "bg-emerald-500/20",
+    countColor: "text-emerald-300",
     dropHighlight: "ring-emerald-400 bg-emerald-500/10",
   },
   cancelled: {
-    headerBg: "bg-muted",
-    headerColor: "text-muted-foreground",
-    accentColor: "border-t-gray-400",
-    countBg: "bg-muted",
-    countColor: "text-muted-foreground",
-    dropHighlight: "ring-gray-400 bg-muted/50",
+    headerBg: "bg-[#27272A]",
+    headerColor: "text-[#71717A]",
+    accentColor: "border-t-[#52525B]",
+    countBg: "bg-[#27272A]",
+    countColor: "text-[#71717A]",
+    dropHighlight: "ring-[#52525B] bg-[#27272A]/50",
   },
 };
 
@@ -196,7 +196,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-[280px] shrink-0 flex-col rounded-xl border border-border bg-background shadow-sm border-t-[3px] ${style.accentColor} transition-all duration-150 ${
+      className={`flex w-[280px] shrink-0 flex-col rounded-xl border border-[#27272A] bg-[#18181B] shadow-sm border-t-[3px] ${style.accentColor} transition-all duration-150 ${
         isOver ? `ring-2 ${style.dropHighlight}` : ""
       }`}
     >
@@ -225,10 +225,10 @@ function KanbanColumn({
         ))}
         {tasks.length === 0 && (
           <div className={`flex flex-col items-center justify-center py-8 transition-colors ${isOver ? "opacity-60" : ""}`}>
-            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center mb-2">
-              <div className="h-3 w-3 rounded-full bg-muted" />
+            <div className="h-8 w-8 rounded-full bg-[#27272A] flex items-center justify-center mb-2">
+              <div className="h-3 w-3 rounded-full bg-[#3F3F46]" />
             </div>
-            <p className="text-xs text-muted-foreground">{t("noTasksInColumn")}</p>
+            <p className="text-xs text-[#71717A]">{t("noTasksInColumn")}</p>
           </div>
         )}
       </div>
@@ -300,21 +300,24 @@ function TaskCard({
   return (
     <div
       onClick={() => !isDragging && onOpenTask(task)}
-      className={`group rounded-lg border bg-background p-3 transition-all duration-150 ${
-        isDragging ? "shadow-lg ring-2 ring-primary/30 rotate-2 opacity-80" : "hover:shadow-md"
+      className={`group rounded-xl border bg-[#18181B] p-3 transition-all duration-150 ${
+        isDragging ? "shadow-lg ring-2 ring-[#F97316]/30 rotate-2 opacity-80" : "hover:shadow-md"
       } ${
         isFlashing ? "animate-kanban-flash" : ""
       } ${
         overdue
           ? "border-red-500/20 bg-red-500/5"
-          : "border-border hover:border-border"
-      } ${selectedTaskId === task.id ? "ring-2 ring-primary/30 border-primary/30" : ""}`}
+          : "border-[#27272A] hover:border-[#3F3F46]"
+      } ${selectedTaskId === task.id ? "ring-2 ring-[#F97316]/30 border-[#F97316]/30" : ""}`}
     >
+      {/* Priority bar at top */}
+      <div className={`-mx-3 -mt-3 mb-2.5 h-1 rounded-t-xl ${priorityCfg.dot}`} />
+
       {/* Priority indicator + title */}
       <div className="flex items-start gap-2.5">
         <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityCfg.dot}`} />
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[13px] font-medium text-foreground leading-snug">
+          <p className="line-clamp-2 text-[13px] font-medium text-[#FAFAFA] leading-snug">
             {task.title}
           </p>
         </div>
@@ -323,7 +326,7 @@ function TaskCard({
       {/* Meta row */}
       <div className="mt-2.5 flex items-center gap-2 flex-wrap">
         {project && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[#27272A] px-1.5 py-0.5 text-[10px] font-medium text-[#D4D4D8]">
             <span
               className="h-1.5 w-1.5 rounded-full shrink-0"
               style={{ backgroundColor: project.color || "#9CA3AF" }}
@@ -344,15 +347,15 @@ function TaskCard({
           {overdue ? (
             <AlertTriangle className="h-3 w-3 text-red-500" />
           ) : (
-            <Calendar className="h-3 w-3 text-muted-foreground" />
+            <Calendar className="h-3 w-3 text-[#71717A]" />
           )}
           <span
             className={`text-[11px] font-medium ${
               overdue
-                ? "text-red-600"
+                ? "text-red-400"
                 : task.status === "done"
-                  ? "text-emerald-600"
-                  : "text-muted-foreground"
+                  ? "text-emerald-400"
+                  : "text-[#71717A]"
             }`}
           >
             {formatDateShort(task.due_date)}

@@ -37,7 +37,7 @@ export function TaskFilters({
 }: TaskFiltersProps) {
   const t = useTranslations("tasks");
 
-  const selectClass = "rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer hover:border-border";
+  const selectClass = "rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-xs font-medium text-[#D4D4D8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all cursor-pointer hover:border-[#3F3F46]";
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -104,13 +104,13 @@ export function TaskFilters({
       </select>
 
       <div className="relative w-full sm:w-60 sm:ml-auto">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
-          className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+          className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2 pl-10 pr-3 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 transition-all"
         />
       </div>
     </div>
