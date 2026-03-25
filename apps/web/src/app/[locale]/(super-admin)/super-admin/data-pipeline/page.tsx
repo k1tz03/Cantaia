@@ -339,10 +339,10 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderLearning() {
     if (!learning) return <EmptyState />;
-    const emailCorrections = emailCorrections || [];
-    const emailRules = emailRules || { sender_rules: 0, keyword_rules: 0 };
-    const priceErrorTrend = priceErrorTrend || [];
-    const recentCalibrations = recentCalibrations || [];
+    const emailCorrections = learning.email_corrections || [];
+    const emailRules = learning.email_rules || { sender_rules: 0, keyword_rules: 0 };
+    const priceErrorTrend = learning.price_error_trend || [];
+    const recentCalibrations = learning.recent_calibrations || [];
     const otherModules = learning.other_modules || { pv: { count: 0, last_date: null }, visits: { count: 0, last_date: null }, submissions: { count: 0, last_date: null }, tasks: { count: 0, last_date: null } };
     return (
       <div className="space-y-6">
@@ -525,9 +525,9 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderQuality() {
     if (!quality) return <EmptyState />;
-    const monthlyAccuracy = monthlyAccuracy || [];
-    const confidenceDist = confidenceDist || [];
-    const corrByType = corrByType || [];
+    const monthlyAccuracy = quality.monthly_accuracy || [];
+    const confidenceDist = quality.confidence_distribution || [];
+    const corrByType = quality.corrections_by_type || [];
     return (
       <div className="space-y-6">
         {/* KPIs */}
@@ -607,7 +607,7 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderCost() {
     if (!cost) return <EmptyState />;
-    const costTrend = costTrend || [];
+    const costTrend = cost.daily_trend || [];
     return (
       <div className="space-y-6">
         {/* KPIs */}
