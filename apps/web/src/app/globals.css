@@ -201,9 +201,11 @@ html:not(.dark) {
 }
 .email-content-dark img {
   color: unset !important;
-  background-color: unset !important;
+  background-color: white !important;
   max-width: 100% !important;
   height: auto !important;
+  border-radius: 2px;
+  padding: 2px;
 }
 .email-content-dark a {
   color: #60A5FA !important;

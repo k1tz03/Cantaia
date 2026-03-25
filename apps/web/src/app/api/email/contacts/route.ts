@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -48,7 +49,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 3. Recent senders (from email_records)
+  // 3. Microsoft Graph People API (Outlook contacts + frequent contacts)
+  try {
+    const token = await getValidMicrosoftToken(user.id);
+    if (token) {
+      const graphRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/people?$search="${encodeURIComponent(q)}"&$top=10&$select=displayName,scoredEmailAddresses`,
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      if (graphRes.ok) {
+        const graphData = await graphRes.json();
+        const seen = new Set(contacts.map((c) => c.email.toLowerCase()));
+        for (const person of graphData.value || []) {
+          const email = person.scoredEmailAddresses?.[0]?.address;
+          if (!email || seen.has(email.toLowerCase())) continue;
+          contacts.push({ email, name: person.displayName || email, source: "outlook" });
+          seen.add(email.toLowerCase());
+        }
+      }
+    }
+  } catch { /* Graph API not available — continue with other sources */ }
+
+  // 4. Recent senders (from email_records)
   const { data: senders } = await admin
     .from("email_records")
     .select("sender_email, sender_name")

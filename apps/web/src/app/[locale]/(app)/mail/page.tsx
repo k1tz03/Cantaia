@@ -1276,7 +1276,7 @@ function ReplyModal({ email, onClose, onDone }: {
                       <div className="flex gap-1.5 flex-wrap">
                         {[
                           { key: "formal", label: "Formel" },
-                          { key: "casual", label: "D\u00e9contract\u00e9" },
+                          { key: "casual", label: "Décontracté" },
                           { key: "urgent", label: "Urgent" },
                           { key: "empathique", label: "Empathique" },
                         ].map((opt) => (
@@ -1292,7 +1292,7 @@ function ReplyModal({ email, onClose, onDone }: {
                         {[
                           { key: "court", label: "Court" },
                           { key: "moyen", label: "Moyen" },
-                          { key: "detaille", label: "D\u00e9taill\u00e9" },
+                          { key: "detaille", label: "Détaillé" },
                         ].map((opt) => (
                           <button key={opt.key} onClick={() => setReplyLength(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${replyLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
                             {opt.label}
@@ -1301,22 +1301,24 @@ function ReplyModal({ email, onClose, onDone }: {
                       </div>
                     </div>
                     <div className="mb-3">
-                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Instructions</label>
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Instructions (optionnel)</label>
                       <textarea
                         value={instructions}
                         onChange={(e) => setInstructions(e.target.value)}
-                        placeholder="Sur quel ton ? Que voulez-vous dire ? Ex: Dis-lui que le d\u00e9lai est repouss\u00e9 \u00e0 vendredi, ton amical"
+                        placeholder={"Sur quel ton ? Que voulez-vous dire ? Ex: Dis-lui que le délai est repoussé à vendredi, ton amical"}
                         className="w-full h-20 p-2.5 text-[12px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
                       />
                     </div>
-                    <button
-                      onClick={generateReply}
-                      disabled={replyLoading}
-                      className="w-full py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {replyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      G\u00e9n\u00e9rer la r\u00e9ponse
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={generateReply}
+                        disabled={replyLoading}
+                        className="flex-1 py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {replyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        {instructions.trim() ? "Générer avec instructions" : "Générer automatiquement"}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1763,8 +1765,8 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
     setSending(false);
   };
 
-  const sourceLabel: Record<string, string> = { team: "Équipe", supplier: "Fournisseur", recent: "Récent" };
-  const sourceColor: Record<string, string> = { team: "text-[#3B82F6]", supplier: "text-[#10B981]", recent: "text-[#71717A]" };
+  const sourceLabel: Record<string, string> = { team: "Équipe", supplier: "Fournisseur", recent: "Récent", outlook: "Outlook" };
+  const sourceColor: Record<string, string> = { team: "text-[#3B82F6]", supplier: "text-[#10B981]", recent: "text-[#71717A]", outlook: "text-[#F97316]" };
 
   return (
     <>
