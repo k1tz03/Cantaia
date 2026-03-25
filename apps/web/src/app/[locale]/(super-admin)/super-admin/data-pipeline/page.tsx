@@ -109,11 +109,11 @@ interface CostData {
 type TabKey = "health" | "learning" | "modules" | "quality" | "cost";
 
 const TABS: { key: TabKey; label: string; icon: typeof Activity }[] = [
-  { key: "health", label: "Sant\u00e9 Pipeline", icon: Activity },
+  { key: "health", label: "Santé Pipeline", icon: Activity },
   { key: "learning", label: "Apprentissage", icon: GraduationCap },
   { key: "modules", label: "Modules", icon: Grid3X3 },
-  { key: "quality", label: "Qualit\u00e9 Donn\u00e9es", icon: ShieldCheck },
-  { key: "cost", label: "Co\u00fbt vs Intelligence", icon: Scale },
+  { key: "quality", label: "Qualité Données", icon: ShieldCheck },
+  { key: "cost", label: "Coût vs Intelligence", icon: Scale },
 ];
 
 const MODULE_ICONS: Record<string, typeof Mail> = {
@@ -136,7 +136,7 @@ const MODULE_LABELS: Record<string, string> = {
   pv: "PV Chantier",
   visites: "Visites",
   chat: "Chat IA",
-  taches: "T\u00e2ches",
+  taches: "Tâches",
   fournisseurs: "Fournisseurs",
 };
 
@@ -388,8 +388,8 @@ export default function SuperAdminDataPipelinePage() {
               </div>
             )}
             <div className="mt-4 flex items-center gap-4 text-xs text-[#A1A1AA]">
-              <span>R\u00e8gles sender : <strong className="text-[#FAFAFA]">{emailRules.sender_rules}</strong></span>
-              <span>R\u00e8gles keyword : <strong className="text-[#FAFAFA]">{emailRules.keyword_rules}</strong></span>
+              <span>Règles sender : <strong className="text-[#FAFAFA]">{emailRules.sender_rules}</strong></span>
+              <span>Règles keyword : <strong className="text-[#FAFAFA]">{emailRules.keyword_rules}</strong></span>
             </div>
           </div>
 
@@ -407,7 +407,7 @@ export default function SuperAdminDataPipelinePage() {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-[#71717A]">Pas de donn\u00e9es de calibration</p>
+              <p className="text-xs text-[#71717A]">Pas de données de calibration</p>
             )}
           </div>
         </div>
@@ -415,14 +415,14 @@ export default function SuperAdminDataPipelinePage() {
         {/* Recent calibrations table */}
         {recentCalibrations.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
-            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Derni\u00e8res calibrations prix</h3>
+            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Dernières calibrations prix</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-[#27272A]">
                     <th className="pb-2 text-left font-medium text-[#71717A]">CFC</th>
-                    <th className="pb-2 text-right font-medium text-[#71717A]">Estim\u00e9</th>
-                    <th className="pb-2 text-right font-medium text-[#71717A]">R\u00e9el</th>
+                    <th className="pb-2 text-right font-medium text-[#71717A]">Estimé</th>
+                    <th className="pb-2 text-right font-medium text-[#71717A]">Réel</th>
                     <th className="pb-2 text-right font-medium text-[#71717A]">Coefficient</th>
                     <th className="pb-2 text-right font-medium text-[#71717A]">Date</th>
                   </tr>
@@ -462,7 +462,7 @@ export default function SuperAdminDataPipelinePage() {
               { key: "pv" as const, label: "PV Chantier", icon: ClipboardList },
               { key: "visits" as const, label: "Visites", icon: HardHat },
               { key: "submissions" as const, label: "Soumissions", icon: FileText },
-              { key: "tasks" as const, label: "T\u00e2ches", icon: CheckSquare },
+              { key: "tasks" as const, label: "Tâches", icon: CheckSquare },
             ] as const
           ).map((m) => {
             const data = otherModules[m.key];
@@ -473,7 +473,7 @@ export default function SuperAdminDataPipelinePage() {
                   <span className="text-xs font-medium text-[#A1A1AA]">{m.label}</span>
                 </div>
                 <p className="text-lg font-bold text-[#FAFAFA]">{data.count}</p>
-                <p className="text-[10px] text-[#52525B]">{data.last_date ? relativeTime(data.last_date) : "Aucune activit\u00e9"}</p>
+                <p className="text-[10px] text-[#52525B]">{data.last_date ? relativeTime(data.last_date) : "Aucune activité"}</p>
               </div>
             );
           })}
@@ -551,7 +551,7 @@ export default function SuperAdminDataPipelinePage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Monthly accuracy evolution */}
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
-            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">\u00c9volution pr\u00e9cision prix</h3>
+            <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Évolution précision prix</h3>
             {monthlyAccuracy.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={monthlyAccuracy}>
@@ -559,11 +559,11 @@ export default function SuperAdminDataPipelinePage() {
                   <XAxis dataKey="month" tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
                   <Tooltip {...CHART_TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="accuracy" name="Pr\u00e9cision %" stroke="#22C55E" fill="#22C55E" fillOpacity={0.15} strokeWidth={2} />
+                  <Area type="monotone" dataKey="accuracy" name="Précision %" stroke="#22C55E" fill="#22C55E" fillOpacity={0.15} strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-[#71717A]">Pas de donn\u00e9es disponibles</p>
+              <p className="text-xs text-[#71717A]">Pas de données disponibles</p>
             )}
           </div>
 
@@ -581,7 +581,7 @@ export default function SuperAdminDataPipelinePage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-[#71717A]">Pas de donn\u00e9es disponibles</p>
+              <p className="text-xs text-[#71717A]">Pas de données disponibles</p>
             )}
           </div>
         </div>
@@ -636,7 +636,7 @@ export default function SuperAdminDataPipelinePage() {
         {costTrend.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
-              Co\u00fbt IA vs Points d&apos;apprentissage
+              Coût IA vs Points d&apos;apprentissage
             </h3>
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={costTrend}>
@@ -645,14 +645,14 @@ export default function SuperAdminDataPipelinePage() {
                 <YAxis yAxisId="cost" tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="points" orientation="right" tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <Tooltip {...CHART_TOOLTIP_STYLE} />
-                <Area yAxisId="cost" type="monotone" dataKey="cost" name="Co\u00fbt IA (CHF)" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.15} strokeWidth={2} />
+                <Area yAxisId="cost" type="monotone" dataKey="cost" name="Coût IA (CHF)" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.15} strokeWidth={2} />
                 <Area yAxisId="points" type="monotone" dataKey="points" name="Points apprentissage" stroke="#F97316" fill="#F97316" fillOpacity={0.15} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
             <div className="mt-3 flex items-center justify-center gap-6 text-xs text-[#71717A]">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#3B82F6]" />
-                Co\u00fbt IA (CHF)
+                Coût IA (CHF)
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#F97316]" />
@@ -697,7 +697,7 @@ export default function SuperAdminDataPipelinePage() {
         <div>
           <h1 className="flex items-center gap-2 font-display text-xl font-bold text-[#FAFAFA]">
             <GitBranch className="h-6 w-6 text-[#F97316]" />
-            Pipeline de Donn\u00e9es
+            Pipeline de Données
           </h1>
           <p className="mt-1 text-sm text-[#A1A1AA]">
             Suivi de l&apos;enrichissement et de l&apos;apprentissage IA
