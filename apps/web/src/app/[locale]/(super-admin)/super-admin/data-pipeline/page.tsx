@@ -487,8 +487,10 @@ export default function SuperAdminDataPipelinePage() {
     if (!modules || mods.length === 0) return <EmptyState />;
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {mods.map((mod) => {
+        {mods.map((mod: any) => {
           const Icon = MODULE_ICONS[mod.module] || Database;
+          const sparkline = mod.sparkline || [];
+          const periodVal = mod.period ?? mod.period_count ?? 0;
           return (
             <div key={mod.module} className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
               <div className="mb-3 flex items-center gap-2">
@@ -500,14 +502,14 @@ export default function SuperAdminDataPipelinePage() {
               <div className="mb-1 flex items-end gap-3">
                 <span className="text-2xl font-bold text-[#FAFAFA]">{safeLoc(mod.total)}</span>
                 <span className="mb-0.5 text-xs font-medium text-[#F97316]">
-                  +{safeLoc(mod.period)}
+                  +{safeLoc(periodVal)}
                 </span>
               </div>
               {/* Tiny sparkline */}
-              {mod.sparkline.length > 1 && (
+              {sparkline.length > 1 && (
                 <div className="my-2">
                   <ResponsiveContainer width="100%" height={60}>
-                    <AreaChart data={mod.sparkline}>
+                    <AreaChart data={sparkline}>
                       <Area
                         type="monotone"
                         dataKey="value"
@@ -522,7 +524,7 @@ export default function SuperAdminDataPipelinePage() {
                 </div>
               )}
               <p className="text-[10px] text-[#52525B]">
-                Derni\u00e8re activit\u00e9 : {relativeTime(mod.last_activity)}
+                Dernière activité : {relativeTime(mod.last_activity)}
               </p>
             </div>
           );
