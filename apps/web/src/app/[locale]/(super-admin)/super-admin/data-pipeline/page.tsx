@@ -274,7 +274,9 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderHealth() {
     if (!health || (health.total_points === 0 && health.ai_calls === 0)) return <EmptyState />;
-    const maxModule = Math.max(...health.module_breakdown.map((m) => m.period_count), 1);
+    const breakdown = health.module_breakdown || [];
+    const trend = health.daily_trend || [];
+    const maxModule = Math.max(...breakdown.map((m) => m.period_count), 1);
     return (
       <div className="space-y-6">
         {/* KPIs */}
@@ -291,7 +293,7 @@ export default function SuperAdminDataPipelinePage() {
             Enrichissement par module <span className="font-normal text-[#71717A]">({period})</span>
           </h3>
           <div className="space-y-3">
-            {health.module_breakdown
+            {breakdown
               .sort((a, b) => b.period_count - a.period_count)
               .map((mod) => {
                 const pct = Math.round((mod.period_count / maxModule) * 100);
@@ -314,13 +316,13 @@ export default function SuperAdminDataPipelinePage() {
         </div>
 
         {/* Daily trend area chart */}
-        {health.daily_trend.length > 0 && (
+        {trend.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
               Tendance quotidienne
             </h3>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={health.daily_trend}>
+              <AreaChart data={trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                 <XAxis dataKey="date" tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -337,6 +339,11 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderLearning() {
     if (!learning) return <EmptyState />;
+    const emailCorrections = emailCorrections || [];
+    const emailRules = emailRules || { sender_rules: 0, keyword_rules: 0 };
+    const priceErrorTrend = priceErrorTrend || [];
+    const recentCalibrations = recentCalibrations || [];
+    const otherModules = learning.other_modules || { pv: { count: 0, last_date: null }, visits: { count: 0, last_date: null }, submissions: { count: 0, last_date: null }, tasks: { count: 0, last_date: null } };
     return (
       <div className="space-y-6">
         {/* KPIs */}
@@ -351,12 +358,12 @@ export default function SuperAdminDataPipelinePage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Boucle Email &mdash; Corrections</h3>
-            {learning.email_corrections.length === 0 ? (
+            {emailCorrections.length === 0 ? (
               <p className="text-xs text-[#71717A]">Aucune correction email</p>
             ) : (
               <div className="space-y-2.5">
-                {learning.email_corrections.map((ec) => {
-                  const maxC = Math.max(...learning.email_corrections.map((e) => e.count), 1);
+                {emailCorrections.map((ec) => {
+                  const maxC = Math.max(...emailCorrections.map((e) => e.count), 1);
                   const pct = Math.round((ec.count / maxC) * 100);
                   return (
                     <div key={ec.type}>
@@ -373,17 +380,17 @@ export default function SuperAdminDataPipelinePage() {
               </div>
             )}
             <div className="mt-4 flex items-center gap-4 text-xs text-[#A1A1AA]">
-              <span>R\u00e8gles sender : <strong className="text-[#FAFAFA]">{learning.email_rules.sender_rules}</strong></span>
-              <span>R\u00e8gles keyword : <strong className="text-[#FAFAFA]">{learning.email_rules.keyword_rules}</strong></span>
+              <span>R\u00e8gles sender : <strong className="text-[#FAFAFA]">{emailRules.sender_rules}</strong></span>
+              <span>R\u00e8gles keyword : <strong className="text-[#FAFAFA]">{emailRules.keyword_rules}</strong></span>
             </div>
           </div>
 
           {/* Price calibration */}
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Calibration Prix &mdash; Tendance erreur</h3>
-            {learning.price_error_trend.length > 0 ? (
+            {priceErrorTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
-                <AreaChart data={learning.price_error_trend}>
+                <AreaChart data={priceErrorTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                   <XAxis dataKey="month" tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} unit="%" />
@@ -398,7 +405,7 @@ export default function SuperAdminDataPipelinePage() {
         </div>
 
         {/* Recent calibrations table */}
-        {learning.recent_calibrations.length > 0 && (
+        {recentCalibrations.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Derni\u00e8res calibrations prix</h3>
             <div className="overflow-x-auto">
@@ -413,7 +420,7 @@ export default function SuperAdminDataPipelinePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {learning.recent_calibrations.map((cal, i) => (
+                  {recentCalibrations.map((cal, i) => (
                     <tr key={i} className="border-b border-[#27272A]/50">
                       <td className="py-2 text-[#FAFAFA]">{cal.cfc_code}</td>
                       <td className="py-2 text-right font-mono text-[#A1A1AA]">{cal.estimated.toFixed(2)}</td>
@@ -450,7 +457,7 @@ export default function SuperAdminDataPipelinePage() {
               { key: "tasks" as const, label: "T\u00e2ches", icon: CheckSquare },
             ] as const
           ).map((m) => {
-            const data = learning.other_modules[m.key];
+            const data = otherModules[m.key];
             return (
               <div key={m.key} className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
                 <div className="mb-2 flex items-center gap-2">
@@ -468,10 +475,11 @@ export default function SuperAdminDataPipelinePage() {
   }
 
   function renderModules() {
-    if (!modules || modules.modules.length === 0) return <EmptyState />;
+    const mods = modules?.modules || [];
+    if (!modules || mods.length === 0) return <EmptyState />;
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {modules.modules.map((mod) => {
+        {mods.map((mod) => {
           const Icon = MODULE_ICONS[mod.module] || Database;
           return (
             <div key={mod.module} className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
@@ -517,6 +525,9 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderQuality() {
     if (!quality) return <EmptyState />;
+    const monthlyAccuracy = monthlyAccuracy || [];
+    const confidenceDist = confidenceDist || [];
+    const corrByType = corrByType || [];
     return (
       <div className="space-y-6">
         {/* KPIs */}
@@ -531,9 +542,9 @@ export default function SuperAdminDataPipelinePage() {
           {/* Monthly accuracy evolution */}
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">\u00c9volution pr\u00e9cision prix</h3>
-            {quality.monthly_accuracy.length > 0 ? (
+            {monthlyAccuracy.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={quality.monthly_accuracy}>
+                <AreaChart data={monthlyAccuracy}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                   <XAxis dataKey="month" tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
@@ -549,9 +560,9 @@ export default function SuperAdminDataPipelinePage() {
           {/* Confidence distribution */}
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Distribution confiance classification</h3>
-            {quality.confidence_distribution.length > 0 ? (
+            {confidenceDist.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={quality.confidence_distribution}>
+                <BarChart data={confidenceDist}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                   <XAxis dataKey="bucket" tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "#71717A", fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -566,14 +577,14 @@ export default function SuperAdminDataPipelinePage() {
         </div>
 
         {/* Corrections by type horizontal */}
-        {quality.corrections_by_type.length > 0 && (
+        {corrByType.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">Corrections par type</h3>
             <div className="space-y-2.5">
-              {quality.corrections_by_type
+              {corrByType
                 .sort((a, b) => b.count - a.count)
                 .map((ct) => {
-                  const maxC = Math.max(...quality.corrections_by_type.map((c) => c.count), 1);
+                  const maxC = Math.max(...corrByType.map((c) => c.count), 1);
                   const pct = Math.round((ct.count / maxC) * 100);
                   return (
                     <div key={ct.type}>
@@ -596,6 +607,7 @@ export default function SuperAdminDataPipelinePage() {
 
   function renderCost() {
     if (!cost) return <EmptyState />;
+    const costTrend = costTrend || [];
     return (
       <div className="space-y-6">
         {/* KPIs */}
@@ -611,13 +623,13 @@ export default function SuperAdminDataPipelinePage() {
         </div>
 
         {/* Dual axis daily trend */}
-        {cost.daily_trend.length > 0 && (
+        {costTrend.length > 0 && (
           <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
             <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
               Co\u00fbt IA vs Points d&apos;apprentissage
             </h3>
             <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={cost.daily_trend}>
+              <AreaChart data={costTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                 <XAxis dataKey="date" tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="cost" tick={{ fill: "#71717A", fontSize: 11 }} tickLine={false} axisLine={false} />
