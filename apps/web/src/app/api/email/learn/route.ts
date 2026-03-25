@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   // Get the email
   const { data: email } = await (admin as any)
     .from("email_records")
-    .select("id, user_id, project_id, sender_email, from_email, subject")
+    .select("id, user_id, project_id, sender_email, from_email, subject, classification")
     .eq("id", body.email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
         projectId: targetProjectId,
         action: body.feedback_type,
         previousProjectId: email.project_id,
+        emailId: email.id,
+        userId: user.id,
+        originalClassification: email.classification || undefined,
+        correctedClassification: body.correct_category || undefined,
       });
     }
 

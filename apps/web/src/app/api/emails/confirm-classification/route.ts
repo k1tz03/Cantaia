@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   // 4. Fetch the email and verify ownership
   const { data: email, error: fetchErr } = await admin
     .from("email_records")
-    .select("id, user_id, sender_email, subject, project_id, classification_status")
+    .select("id, user_id, sender_email, subject, project_id, classification_status, classification")
     .eq("id", email_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
         subject: email.subject || "",
         projectId: email.project_id,
         action: "confirm",
+        emailId: email.id,
+        userId: user.id,
       }).catch(() => {});
     }
 
@@ -140,6 +142,10 @@ export async function POST(request: NextRequest) {
         projectId: project_id!,
         action: "correct",
         previousProjectId: email.project_id,
+        emailId: email.id,
+        userId: user.id,
+        originalClassification: email.classification_status || undefined,
+        correctedClassification: "confirmed",
       }).catch(() => {});
     }
 
@@ -172,6 +178,10 @@ export async function POST(request: NextRequest) {
         subject: email.subject || "",
         projectId: null,
         action: "reject",
+        emailId: email.id,
+        userId: user.id,
+        originalClassification: email.classification_status || undefined,
+        correctedClassification: "rejected",
       }).catch(() => {});
     }
 

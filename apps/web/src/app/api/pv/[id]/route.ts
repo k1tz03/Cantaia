@@ -92,7 +92,7 @@ export async function PUT(
 
     const { data: meetingCheck } = await (admin as any)
       .from("meetings")
-      .select("project_id")
+      .select("project_id, pv_content")
       .eq("id", id)
       .maybeSingle();
 
@@ -104,6 +104,26 @@ export async function PUT(
         .maybeSingle();
       if (projCheck && projCheck.organization_id !== userOrg.organization_id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    // Log PV content correction if pv_content changed (fire-and-forget)
+    if (body.pv_content && meetingCheck?.pv_content && userOrg?.organization_id) {
+      const existingJson = JSON.stringify(meetingCheck.pv_content);
+      const newJson = JSON.stringify(body.pv_content);
+      if (existingJson !== newJson) {
+        try {
+          await (admin as any).from("pv_corrections").insert({
+            organization_id: userOrg.organization_id,
+            meeting_id: id,
+            original_content: meetingCheck.pv_content,
+            corrected_content: body.pv_content,
+            corrected_by: user.id,
+            corrected_at: new Date().toISOString(),
+          });
+        } catch (pvLogErr) {
+          console.error("[PV Update] pv_corrections insert failed (non-blocking):", pvLogErr);
+        }
       }
     }
 

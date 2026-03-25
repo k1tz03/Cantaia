@@ -74,22 +74,61 @@ export async function POST(
 
     // Apply enrichment to supplier record
     const updates: Record<string, any> = {};
+    const fieldsEnriched: string[] = [];
+
     if (result.website_url && !supplier.website) {
       updates.website = result.website_url;
+      fieldsEnriched.push("website");
     }
     if (result.company_description && !supplier.notes) {
       updates.notes = result.company_description;
+      fieldsEnriched.push("notes");
     }
     if (result.certifications_found?.length > 0) {
       const existing = new Set(supplier.certifications || []);
       result.certifications_found.forEach((c: string) => existing.add(c));
       updates.certifications = Array.from(existing);
+      fieldsEnriched.push("certifications");
     }
     if (result.specialties_suggested?.length > 0) {
       const existing = new Set(supplier.specialties || []);
       result.specialties_suggested.forEach((s: string) => existing.add(s));
       updates.specialties = Array.from(existing);
+      fieldsEnriched.push("specialties");
     }
+
+    // ── Store enrichment metadata (confidence, model, fields enriched) ──
+    // Compute enrichment confidence: based on how many fields were found
+    const maxPossibleFields = 5; // website, notes, certifications, specialties, contacts
+    const foundCount = fieldsEnriched.length + (result.additional_contacts?.length > 0 ? 1 : 0);
+    const enrichmentConfidence = Math.min(1.0, foundCount / maxPossibleFields);
+
+    // Fetch existing metadata to merge
+    let existingMetadata: Record<string, any> = {};
+    try {
+      const { data: currentSupplier } = await (adminClient as any)
+        .from("suppliers")
+        .select("metadata")
+        .eq("id", id)
+        .maybeSingle();
+      existingMetadata = currentSupplier?.metadata || {};
+    } catch {
+      // metadata column may not exist yet
+    }
+
+    updates.metadata = {
+      ...existingMetadata,
+      last_enrichment: {
+        date: new Date().toISOString(),
+        model: MODEL_FOR_TASK.supplier_enrichment,
+        confidence: enrichmentConfidence,
+        fields_enriched: fieldsEnriched,
+        contacts_found: result.additional_contacts?.length || 0,
+        website_found: result.website_found,
+        certifications_count: result.certifications_found?.length || 0,
+        specialties_suggested_count: result.specialties_suggested?.length || 0,
+      },
+    };
 
     if (Object.keys(updates).length > 0) {
       await (adminClient as any)
@@ -101,7 +140,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       enrichment: result,
-      updates_applied: Object.keys(updates),
+      updates_applied: fieldsEnriched,
+      enrichment_confidence: enrichmentConfidence,
     });
   } catch (err: any) {
     console.error("[suppliers/enrich] Error:", err?.message || err);

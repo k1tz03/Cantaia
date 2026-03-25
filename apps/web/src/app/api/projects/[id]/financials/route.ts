@@ -106,6 +106,84 @@ export async function GET(
   const costPerHour = totalLaborHours > 0 ? invoicedAmount / totalLaborHours : 0;
   const hoursPerThousand = invoicedAmount > 0 ? (totalLaborHours / invoicedAmount) * 1000 : 0;
 
+  // ── Planning variance: compare actual site report hours vs planned durations ──
+  let planningVariance: Array<{
+    cfc_code: string;
+    planned_days: number;
+    actual_days: number;
+    variance_pct: number;
+  }> = [];
+
+  try {
+    // Get planning for this project
+    const { data: planning } = await (admin as any)
+      .from("project_plannings")
+      .select("id")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planning) {
+      // Get planning tasks grouped by CFC code
+      const { data: planningTasks } = await (admin as any)
+        .from("planning_tasks")
+        .select("cfc_code, duration_days")
+        .eq("planning_id", planning.id)
+        .not("cfc_code", "is", null);
+
+      if (planningTasks && planningTasks.length > 0) {
+        // Aggregate planned days by CFC code
+        const plannedByCfc = new Map<string, number>();
+        for (const t of planningTasks) {
+          if (!t.cfc_code) continue;
+          const prefix = t.cfc_code.split(".")[0];
+          plannedByCfc.set(prefix, (plannedByCfc.get(prefix) || 0) + (t.duration_days || 0));
+        }
+
+        // Aggregate actual hours from site_report_entries by CFC code (convert hours to days: 8h = 1 day)
+        if (reportIds.length > 0) {
+          const { data: laborEntries } = await (admin as any)
+            .from("site_report_entries")
+            .select("data")
+            .in("report_id", reportIds)
+            .eq("entry_type", "labor");
+
+          const actualHoursByCfc = new Map<string, number>();
+          for (const entry of laborEntries || []) {
+            const cfcCode = entry.data?.cfc_code;
+            const hours = parseFloat(entry.data?.duration_hours || "0");
+            if (cfcCode && hours > 0) {
+              const prefix = cfcCode.split(".")[0];
+              actualHoursByCfc.set(prefix, (actualHoursByCfc.get(prefix) || 0) + hours);
+            }
+          }
+
+          // Build variance array for CFC codes that exist in both planned and actual
+          for (const [cfc, plannedDays] of plannedByCfc) {
+            const actualHours = actualHoursByCfc.get(cfc);
+            if (actualHours !== undefined && plannedDays > 0) {
+              const actualDays = Math.round((actualHours / 8) * 100) / 100;
+              const variancePct = Math.round(((actualDays - plannedDays) / plannedDays) * 10000) / 100;
+              planningVariance.push({
+                cfc_code: cfc,
+                planned_days: plannedDays,
+                actual_days: actualDays,
+                variance_pct: variancePct,
+              });
+            }
+          }
+
+          // Sort by absolute variance descending (biggest deviations first)
+          planningVariance.sort((a, b) => Math.abs(b.variance_pct) - Math.abs(a.variance_pct));
+        }
+      }
+    }
+  } catch (err) {
+    // Planning tables may not exist — non-blocking
+    console.warn("[financials] Planning variance calculation error:", err);
+  }
+
   return NextResponse.json({
     project_id: id,
     project_name: project.name,
@@ -121,6 +199,7 @@ export async function GET(
     margin_pct: Math.round(marginPct * 100) / 100,
     cost_per_hour: Math.round(costPerHour * 100) / 100,
     hours_per_thousand: Math.round(hoursPerThousand * 100) / 100,
+    planning_variance: planningVariance,
   });
 }
 

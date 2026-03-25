@@ -137,10 +137,13 @@ export async function PUT(
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
   }
 
-  // When a project is marked as completed, extract planning calibration data
+  // When a project is marked as completed, extract planning calibration data + C2 benchmarks
   if (body.status === "completed") {
     extractPlanningCorrections(admin, id, userRow.organization_id)
       .catch(err => console.error("[planning-calibration]", err));
+
+    insertProjectBenchmark(admin, id, userRow.organization_id)
+      .catch(err => console.error("[project-benchmark]", err));
   }
 
   return NextResponse.json({ project });
@@ -318,4 +321,118 @@ export async function DELETE(
   }
 
   return NextResponse.json({ success: true });
+}
+
+// ============================================================================
+// C2 Benchmark: insert anonymized project data when project completes
+// ============================================================================
+
+async function insertProjectBenchmark(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  orgId: string,
+): Promise<void> {
+  // Check opt-in for data sharing
+  try {
+    const { data: consent } = await (admin as any)
+      .from("aggregation_consent")
+      .select("modules")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    // Only insert if org has opted in to sharing project data (or no consent table exists)
+    if (consent && consent.modules && !consent.modules.prix && !consent.modules.taches) {
+      return; // Org has consent record but did not opt in for relevant modules
+    }
+  } catch {
+    // aggregation_consent table may not exist — proceed anyway
+  }
+
+  // Get full project data with financial fields
+  const { data: fullProject } = await (admin as any)
+    .from("projects")
+    .select("name, description, budget_total, invoiced_amount, purchase_costs, start_date, end_date, closed_at, city, status")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (!fullProject) return;
+
+  const startDate = fullProject.start_date ? new Date(fullProject.start_date) : null;
+  const endDate = fullProject.end_date ? new Date(fullProject.end_date) : null;
+  const closedAt = fullProject.closed_at ? new Date(fullProject.closed_at) : new Date();
+
+  const durationPlannedDays = startDate && endDate
+    ? Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const durationActualDays = startDate
+    ? Math.ceil((closedAt.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const invoiced = parseFloat(fullProject.invoiced_amount || "0");
+  const costs = parseFloat(fullProject.purchase_costs || "0");
+  const marginPercent = invoiced > 0 ? ((invoiced - costs) / invoiced) * 100 : null;
+
+  // Detect project type from description
+  const desc = (fullProject.description || "").toLowerCase();
+  let projectType = "new_build";
+  if (desc.includes("rénovation") || desc.includes("renovation") || desc.includes("sanierung")) {
+    projectType = "renovation";
+  } else if (desc.includes("extension") || desc.includes("agrandissement") || desc.includes("erweiterung")) {
+    projectType = "extension";
+  } else if (desc.includes("transformation") || desc.includes("umbau")) {
+    projectType = "transformation";
+  }
+
+  // Get CFC summary from planning if available
+  let cfcSummary: Record<string, number> | null = null;
+  try {
+    const { data: planning } = await (admin as any)
+      .from("project_plannings")
+      .select("id")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planning) {
+      const { data: tasks } = await (admin as any)
+        .from("planning_tasks")
+        .select("cfc_code, duration_days")
+        .eq("planning_id", planning.id)
+        .not("cfc_code", "is", null);
+
+      if (tasks && tasks.length > 0) {
+        cfcSummary = {};
+        for (const t of tasks) {
+          if (!t.cfc_code) continue;
+          const prefix = t.cfc_code.split(".")[0];
+          cfcSummary[prefix] = (cfcSummary[prefix] || 0) + (t.duration_days || 0);
+        }
+      }
+    }
+  } catch {
+    // Planning tables may not exist
+  }
+
+  try {
+    await (admin as any)
+      .from("project_benchmarks")
+      .insert({
+        organization_id: orgId,
+        project_type: projectType,
+        total_budget: fullProject.budget_total ? parseFloat(fullProject.budget_total) : null,
+        actual_cost: costs > 0 ? costs : null,
+        margin_percent: marginPercent !== null ? Math.round(marginPercent * 100) / 100 : null,
+        duration_planned_days: durationPlannedDays,
+        duration_actual_days: durationActualDays,
+        region: fullProject.city || null,
+        cfc_summary: cfcSummary,
+        created_at: new Date().toISOString(),
+      });
+
+    console.log(`[project-benchmark] Inserted C2 benchmark for project ${projectId} (${projectType}, ${fullProject.city})`);
+  } catch (err) {
+    // project_benchmarks table may not exist — non-blocking
+    console.warn("[project-benchmark] Insert failed (table may not exist):", err);
+  }
 }

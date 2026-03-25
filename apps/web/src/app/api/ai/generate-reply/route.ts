@@ -186,6 +186,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── Track AI reply generation (fire-and-forget) ──
+  try {
+    (adminClient as any).from("email_classification_feedback").insert({
+      email_id: body.email_id,
+      organization_id: userProfile.organization_id,
+      user_id: user.id,
+      feedback_type: "ai_reply_generated",
+      original_value: null,
+      new_value: result.reply_text.substring(0, 500),
+      metadata: {
+        tone: body.tone || null,
+        length: body.length || null,
+        model_used: "claude-sonnet-4-5-20250929",
+        no_reply_needed: result.no_reply_needed,
+        reply_length: result.reply_text.length,
+        had_thread_context: !!body.thread_context,
+        had_full_body: !!bodyFull,
+      },
+    }).then(() => {}).catch((err: any) => {
+      console.error("[generate-reply] Failed to log AI reply feedback:", err?.message);
+    });
+  } catch (feedbackErr) {
+    console.error("[generate-reply] feedback tracking error:", feedbackErr);
+  }
+
   return NextResponse.json({
     success: true,
     reply_text: result.reply_text,

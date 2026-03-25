@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, cleanEmailForAI, isRetryableAIError, type ProjectForClassification } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { learnFromClassificationAction } from "@cantaia/core/emails";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 /** Run promises in batches with concurrency limit */
@@ -334,6 +335,22 @@ export async function POST() {
           emailsReclassified++;
         } else {
           emailsClassified++;
+        }
+
+        // Fire-and-forget: feed learning engine with reclassification result
+        if (result.project_id && userOrg?.organization_id) {
+          const learnAction = previousProjectId && previousProjectId !== result.project_id ? "correct" : "confirm";
+          learnFromClassificationAction({
+            supabase: adminClient,
+            organizationId: userOrg.organization_id,
+            senderEmail: email.sender_email,
+            subject: email.subject || "",
+            projectId: result.project_id,
+            action: learnAction,
+            previousProjectId: learnAction === "correct" ? previousProjectId : undefined,
+            emailId: email.id,
+            userId: user.id,
+          }).catch(() => {});
         }
 
         if (result.contains_task && result.task?.title && result.project_id) {

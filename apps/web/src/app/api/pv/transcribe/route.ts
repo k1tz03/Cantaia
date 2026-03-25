@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 export async function POST(request: NextRequest) {
@@ -139,6 +140,19 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      // Track Whisper API usage (fire-and-forget)
+      const audioDurationSeconds = Math.round((transcription as any).duration || 0);
+      trackApiUsage({
+        supabase: admin,
+        userId: user.id,
+        organizationId: userProfile.organization_id,
+        actionType: "pv_transcribe",
+        apiProvider: "openai_whisper",
+        model: "whisper-1",
+        audioSeconds: audioDurationSeconds,
+        metadata: { meeting_id },
+      }).catch(() => {});
 
       if (process.env.NODE_ENV === "development") console.log(
         `[Transcribe] Success: ${transcription.text.length} chars, lang=${(transcription as any).language}`

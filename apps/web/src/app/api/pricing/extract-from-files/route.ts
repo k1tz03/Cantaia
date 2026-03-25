@@ -101,6 +101,50 @@ export async function POST(request: Request) {
     const settled = await Promise.all(filePromises);
     const allResults = settled.flat();
 
+    // Persist extracted line items to ingested_offer_lines (fire-and-forget, non-blocking)
+    try {
+      const now = new Date();
+      const quarter = `${now.getFullYear()}-Q${Math.ceil((now.getMonth() + 1) / 3)}`;
+      const rowsToInsert: Record<string, unknown>[] = [];
+
+      for (const result of allResults) {
+        if (!result.has_prices || !result.line_items?.length) continue;
+        const supplierName = result.supplier_info?.company_name || result.supplier_info?.name || null;
+        for (const item of result.line_items) {
+          if (!item.description || !item.unit_price) continue;
+          rowsToInsert.push({
+            org_id: userOrg.organization_id,
+            source_file: result.fileName || "unknown",
+            source_type: "file_extraction",
+            fournisseur_nom: supplierName,
+            date_offre: now.toISOString().split("T")[0],
+            quarter,
+            cfc_code: item.cfc_code || null,
+            description: item.description,
+            quantite: item.quantity,
+            unite: item.unit || null,
+            prix_unitaire_ht: item.unit_price,
+            prix_total_ht: item.total_price || null,
+            confiance: "medium",
+            validated: false,
+          });
+        }
+      }
+
+      if (rowsToInsert.length > 0) {
+        const { error: insertErr } = await (adminClient as any)
+          .from("ingested_offer_lines")
+          .insert(rowsToInsert);
+        if (insertErr) {
+          console.error("[extract-from-files] ingested_offer_lines insert failed (non-blocking):", insertErr.message);
+        } else {
+          console.log(`[extract-from-files] Persisted ${rowsToInsert.length} line items to ingested_offer_lines`);
+        }
+      }
+    } catch (persistErr) {
+      console.error("[extract-from-files] Failed to persist to ingested_offer_lines (non-blocking):", persistErr);
+    }
+
     return NextResponse.json({
       success: true,
       results: allResults,

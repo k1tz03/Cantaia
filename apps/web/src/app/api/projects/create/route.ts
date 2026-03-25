@@ -198,5 +198,65 @@ export async function POST(request: NextRequest) {
     metadata: { project_id: project.id, project_name: body.name },
   });
 
+  // Fire-and-forget: check if this project was created from a prospect visit
+  // If a client_visit matches by client_name AND is_prospect=true, mark it as converted
+  trackProspectConversion(admin, userRow.organization_id, project.id, body).catch((err) => {
+    console.warn("[projects/create] Prospect conversion tracking error:", err);
+  });
+
   return NextResponse.json({ success: true, project });
+}
+
+// ============================================================================
+// Prospect conversion tracking: link new projects back to prospect visits
+// ============================================================================
+
+async function trackProspectConversion(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+  projectId: string,
+  body: Record<string, any>,
+): Promise<void> {
+  const clientName = (body.client_name || "").trim().toLowerCase();
+  if (!clientName) return;
+
+  // Search for prospect visits with matching client name in the same org
+  const { data: visits } = await (admin as any)
+    .from("client_visits")
+    .select("id, client_name, is_prospect")
+    .eq("organization_id", orgId)
+    .eq("is_prospect", true)
+    .limit(50);
+
+  if (!visits || visits.length === 0) return;
+
+  // Find visits where client name matches (case-insensitive, partial match)
+  const matchingVisits = visits.filter((v: any) => {
+    const visitClient = (v.client_name || "").trim().toLowerCase();
+    return visitClient === clientName ||
+      visitClient.includes(clientName) ||
+      clientName.includes(visitClient);
+  });
+
+  if (matchingVisits.length === 0) return;
+
+  // Mark matching visits as converted
+  for (const visit of matchingVisits) {
+    try {
+      await (admin as any)
+        .from("client_visits")
+        .update({
+          prospect_converted: true,
+          converted_project_id: projectId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", visit.id);
+    } catch {
+      // Columns may not exist yet (needs migration 064) — non-blocking
+    }
+  }
+
+  if (matchingVisits.length > 0) {
+    console.log(`[projects/create] Linked ${matchingVisits.length} prospect visit(s) to project ${projectId}`);
+  }
 }

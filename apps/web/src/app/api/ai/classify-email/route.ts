@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyEmail, type ProjectForClassification, classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { learnFromClassificationAction } from "@cantaia/core/emails";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
@@ -133,6 +134,20 @@ export async function POST(request: NextRequest) {
         is_processed: true,
       })
       .eq("id", email.id);
+
+    // Fire-and-forget: feed learning engine with auto-classification result
+    if (isAutoClassified && result.project_id && userData?.organization_id) {
+      learnFromClassificationAction({
+        supabase: adminClient,
+        organizationId: userData.organization_id,
+        senderEmail: email.sender_email,
+        subject: email.subject || "",
+        projectId: result.project_id,
+        action: "confirm",
+        emailId: email.id,
+        userId: user.id,
+      }).catch(() => {});
+    }
   } else if (result.match_type === "new_project") {
     await adminClient
       .from("email_records")

@@ -23,6 +23,22 @@ function normalizeUnit(unit: string | null): string {
   return UNIT_NORMALIZATIONS[trimmed] ?? trimmed;
 }
 
+// Map price source strings to numeric tiers (1-6) for analytics
+const SOURCE_TO_TIER: Record<string, number> = {
+  historique_interne: 1,
+  données_ingérées: 2,
+  fallback_textuel: 3,
+  benchmark_cantaia: 4,
+  referentiel_crb: 5,
+  prix_non_disponible: 6,
+  estimation_ia: 6,
+  non_estime: 6,
+};
+
+function sourceTier(source: string): number {
+  return SOURCE_TO_TIER[source] ?? 6;
+}
+
 // Trimestre courant (ex: "2025-Q1")
 function currentQuarter(): string {
   const now = new Date();
@@ -200,6 +216,7 @@ export async function POST(
                   prix_max: prix.max ?? 0,
                   confidence,
                   source: prix.source,
+                  source_tier: sourceTier(prix.source),
                   detail_source: prix.detail_source,
                   ajustements: prix.ajustements,
                 },
@@ -273,6 +290,8 @@ export async function POST(
                 prix_max: ai.prix_max ?? 0,
                 confidence: ai.confidence ?? 0.5,
                 source: "estimation_ia",
+                source_tier: 6,
+                detail_source: "Estimation IA (Claude Haiku)",
               });
             }
           }
@@ -296,6 +315,8 @@ export async function POST(
             prix_max: 0,
             confidence: 0,
             source: "non_estime",
+            source_tier: 6,
+            detail_source: "Prix non disponible",
           });
         }
       }

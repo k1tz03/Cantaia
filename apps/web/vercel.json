@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/aggregate-activity",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/sync-financials",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-intelligence",
+      "schedule": "30 3 * * *"
     }
   ]
 }

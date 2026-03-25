@@ -35,7 +35,7 @@ export async function PATCH(
 
     const { data: existingTask } = await (admin as any)
       .from("tasks")
-      .select("id, project_id")
+      .select("id, project_id, status, created_at")
       .eq("id", id)
       .maybeSingle();
 
@@ -112,6 +112,28 @@ export async function PATCH(
         { error: error.message || "Failed to update task" },
         { status: 500 }
       );
+    }
+
+    // Log status change to task_status_log (fire-and-forget, non-blocking)
+    const newStatus = body.status;
+    const previousStatus = existingTask.status;
+    if (newStatus && newStatus !== previousStatus) {
+      try {
+        const now = new Date();
+        const createdAt = existingTask.created_at ? new Date(existingTask.created_at) : now;
+        const durationDays = Math.round((now.getTime() - createdAt.getTime()) / 86400000);
+        await (admin as any).from("task_status_log").insert({
+          organization_id: userProfile.organization_id,
+          task_id: id,
+          previous_status: previousStatus || null,
+          new_status: newStatus,
+          changed_by: user.id,
+          changed_at: now.toISOString(),
+          duration_days: durationDays,
+        });
+      } catch (logErr) {
+        console.error("[Tasks PATCH] task_status_log insert failed (non-blocking):", logErr);
+      }
     }
 
     return NextResponse.json({ success: true, task });

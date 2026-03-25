@@ -186,6 +186,11 @@ export async function PATCH(
         console.error("[submissions/award] auto-calibration error:", err);
       });
 
+      // Fire-and-forget: compare budget_estimate vs awarded offer prices for per-item calibration
+      calibrateBudgetVsActual(admin, orgId, id, price_request_id).catch((err: unknown) => {
+        console.error("[submissions/award] budget-vs-actual calibration error:", err);
+      });
+
       return NextResponse.json({ success: true, awarded_request_id: price_request_id });
     }
 
@@ -193,6 +198,18 @@ export async function PATCH(
 
     if (!Array.isArray(items)) {
       return NextResponse.json({ error: "items must be an array" }, { status: 400 });
+    }
+
+    // ── Fetch old items BEFORE deletion (for correction tracking) ──
+    let oldItems: any[] = [];
+    try {
+      const { data: existingItems } = await (admin as any)
+        .from("submission_items")
+        .select("id, item_number, description, unit, quantity, cfc_code, material_group")
+        .eq("submission_id", id);
+      oldItems = existingItems || [];
+    } catch (fetchErr) {
+      console.error("[submissions/[id]] Failed to fetch old items for correction tracking:", fetchErr);
     }
 
     // Delete existing items
@@ -229,6 +246,50 @@ export async function PATCH(
       .from("submissions")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", id);
+
+    // ── Log corrections (fire-and-forget) ──
+    try {
+      const TRACKED_FIELDS = ["cfc_code", "description", "unit", "quantity", "material_group"] as const;
+      const corrections: any[] = [];
+
+      for (const newItem of items) {
+        const oldItem = oldItems.find(
+          (o: any) => o.item_number === (newItem.item_number || newItem.position_number)
+        );
+        if (!oldItem) continue; // New item, not a correction
+
+        for (const field of TRACKED_FIELDS) {
+          const oldVal = oldItem[field];
+          const newVal = newItem[field];
+          // Normalize for comparison: treat null/undefined/"" as equivalent
+          const oldNorm = oldVal != null && oldVal !== "" ? String(oldVal) : null;
+          const newNorm = newVal != null && newVal !== "" ? String(newVal) : null;
+          if (oldNorm !== newNorm) {
+            corrections.push({
+              organization_id: userProfile.organization_id,
+              submission_id: id,
+              item_id: oldItem.id,
+              field_name: field,
+              original_value: oldNorm,
+              corrected_value: newNorm,
+              corrected_by: user.id,
+            });
+          }
+        }
+      }
+
+      if (corrections.length > 0) {
+        (admin as any).from("submission_corrections").insert(corrections)
+          .then(() => {
+            console.log(`[submissions/[id]] Logged ${corrections.length} corrections`);
+          })
+          .catch((err: any) => {
+            console.error("[submissions/[id]] Failed to log corrections:", err?.message);
+          });
+      }
+    } catch (corrErr) {
+      console.error("[submissions/[id]] Correction tracking error:", corrErr);
+    }
 
     return NextResponse.json({
       success: true,
@@ -291,5 +352,104 @@ export async function DELETE(
   } catch (err: any) {
     console.error("[submissions/[id]] DELETE error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// ============================================================================
+// Budget vs Actual calibration: compare budget_estimate items against awarded offer prices
+// ============================================================================
+
+async function calibrateBudgetVsActual(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+  submissionId: string,
+  priceRequestId: string
+): Promise<void> {
+  // 1. Get the submission with budget estimate
+  const { data: submission } = await (admin as any)
+    .from("submissions")
+    .select("budget_estimate")
+    .eq("id", submissionId)
+    .maybeSingle();
+
+  const budgetEstimate = submission?.budget_estimate;
+  if (!budgetEstimate?.items || !Array.isArray(budgetEstimate.items)) return;
+
+  // 2. Get the awarded offer's line items (actual prices from supplier)
+  const { data: quotes } = await (admin as any)
+    .from("submission_quotes")
+    .select("id, items")
+    .eq("submission_id", submissionId)
+    .eq("price_request_id", priceRequestId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  // Fallback: try offer_line_items via supplier_offers
+  let actualItems: Array<{ item_number?: string; cfc_code?: string; unit_price?: number; description?: string }> = [];
+
+  if (quotes?.[0]?.items && Array.isArray(quotes[0].items)) {
+    actualItems = quotes[0].items;
+  } else {
+    // Try supplier_offers path
+    const { data: offers } = await (admin as any)
+      .from("supplier_offers")
+      .select("id")
+      .eq("price_request_id", priceRequestId)
+      .limit(1);
+
+    if (offers?.[0]) {
+      const { data: lineItems } = await (admin as any)
+        .from("offer_line_items")
+        .select("cfc_subcode, unit_price, normalized_description, supplier_description")
+        .eq("supplier_offer_id", offers[0].id);
+
+      actualItems = (lineItems || []).map((li: any) => ({
+        cfc_code: li.cfc_subcode,
+        unit_price: li.unit_price,
+        description: li.normalized_description || li.supplier_description,
+      }));
+    }
+  }
+
+  if (actualItems.length === 0) return;
+
+  // 3. Match budget items to actual items and insert calibrations
+  let inserted = 0;
+  for (const budgetItem of budgetEstimate.items) {
+    if (!budgetItem.unit_price_median || budgetItem.source === "prix_non_disponible") continue;
+
+    // Find matching actual item by item_number or CFC code
+    const actual = actualItems.find((a: any) =>
+      (a.item_number && budgetItem.item_number && a.item_number === budgetItem.item_number) ||
+      (a.cfc_code && budgetItem.cfc_code && a.cfc_code === budgetItem.cfc_code)
+    );
+
+    if (!actual?.unit_price || actual.unit_price <= 0) continue;
+
+    const estimatedPrice = budgetItem.unit_price_median;
+    const actualPrice = actual.unit_price;
+    const correctionCoefficient = actualPrice / estimatedPrice;
+
+    try {
+      await (admin as any)
+        .from("price_calibrations")
+        .insert({
+          org_id: orgId,
+          cfc_code: budgetItem.cfc_code || null,
+          estimated_price: estimatedPrice,
+          actual_price: actualPrice,
+          correction_coefficient: Math.round(correctionCoefficient * 10000) / 10000,
+          source: "submission_award",
+          description: budgetItem.description || null,
+          unit: budgetItem.unit || null,
+        });
+      inserted++;
+    } catch {
+      // price_calibrations table may not exist — non-blocking
+    }
+  }
+
+  if (inserted > 0) {
+    console.log(`[submissions/award] Inserted ${inserted} price calibrations for submission ${submissionId}`);
   }
 }

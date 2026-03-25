@@ -565,6 +565,20 @@ export async function POST(request: Request) {
             projectId: result.project_id,
             action: "confirm",
           });
+
+          // Very high confidence (>= 0.90): double-confirm to auto-promote the sender rule.
+          // This immediately reaches the times_confirmed >= 2 threshold in checkLocalRules,
+          // so next time this sender emails about this project, Claude is skipped entirely.
+          if (result.confidence >= 0.90) {
+            await learnFromClassificationAction({
+              supabase: adminClient,
+              organizationId: userOrg.organization_id,
+              senderEmail,
+              subject: email.subject,
+              projectId: result.project_id,
+              action: "confirm",
+            });
+          }
         } catch { /* learning must never block sync */ }
       }
 

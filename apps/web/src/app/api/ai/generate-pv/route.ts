@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildPVGeneratePrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
@@ -228,6 +229,19 @@ export async function POST(request: NextRequest) {
       .from("meetings")
       .update({ pv_content: pvContent as any, status: "review" } as any)
       .eq("id", meeting_id);
+
+    // Track API usage (fire-and-forget)
+    trackApiUsage({
+      supabase: admin,
+      userId: user.id,
+      organizationId: userProfile.organization_id,
+      actionType: "pv_generate",
+      apiProvider: "anthropic",
+      model: MODEL_FOR_TASK.pv_generation,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      metadata: { meeting_id },
+    }).catch(() => {});
 
     if (process.env.NODE_ENV === "development") console.log("[GeneratePV] Usage:", {
       action: "pv_generate",

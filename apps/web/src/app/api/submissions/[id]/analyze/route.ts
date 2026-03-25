@@ -11,7 +11,7 @@ const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (
 
 # FORMAT DE SORTIE
 JSON uniquement — aucun texte avant ou après.
-{"items":[{"item_number":"1.1","description":"...","unit":"m²","quantity":10,"cfc_code":"211","material_group":"Béton armé","product_name":"Sika 101"}]}
+{"items":[{"item_number":"1.1","description":"...","unit":"m²","quantity":10,"cfc_code":"211","material_group":"Béton armé","product_name":"Sika 101","confidence":85}]}
 
 # CHAMPS PAR POSTE
 - item_number: numéro de poste tel qu'il apparaît dans le document (ex: "1.1", "2.3.1", "401")
@@ -21,6 +21,7 @@ JSON uniquement — aucun texte avant ou après.
 - cfc_code: code CFC suisse estimé (voir table ci-dessous)
 - material_group: groupe de matériaux (voir liste ci-dessous)
 - product_name: nom de produit/marque spécifique si mentionné. null si générique.
+- confidence: score de confiance 0-100 pour cet item. 100 = données clairement lisibles et sans ambiguïté. 50 = interprétation incertaine. 0 = deviné. Facteurs: lisibilité du texte, ambiguïté du CFC, quantité explicite vs déduite.
 
 # NORMALISATION DES UNITÉS
 | Document        | Normalisé |
@@ -290,6 +291,11 @@ async function performAnalysis(id: string, submission: any) {
       material_group: item.material_group || "Divers",
       product_name: item.product_name || null,
       status: "pending",
+      metadata: {
+        ai_confidence: typeof item.confidence === "number" ? item.confidence : null,
+        extraction_model: "claude-haiku-4-5-20251001",
+        extracted_at: new Date().toISOString(),
+      },
     }));
 
     const { error: insertError } = await (admin.from("submission_items") as any).insert(rows);

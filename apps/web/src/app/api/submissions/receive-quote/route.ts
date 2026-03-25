@@ -79,10 +79,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update request status to "responded"
+    // Update request status to "responded" + track response time
+    const responseReceivedAt = new Date().toISOString();
+    let responseTimeDays: number | null = null;
+
+    if (priceRequest.sent_at) {
+      const sentMs = new Date(priceRequest.sent_at).getTime();
+      const receivedMs = new Date(responseReceivedAt).getTime();
+      responseTimeDays = Math.round(((receivedMs - sentMs) / (1000 * 60 * 60 * 24)) * 10) / 10; // 1 decimal
+    }
+
     await (admin as any)
       .from("submission_price_requests")
-      .update({ status: "responded" })
+      .update({
+        status: "responded",
+        response_received_at: responseReceivedAt,
+        response_time_days: responseTimeDays,
+      })
       .eq("id", priceRequest.id);
 
     // Recalculate supplier score after receiving a quote
@@ -109,6 +122,7 @@ export async function POST(request: NextRequest) {
       quotes_extracted: quotesToInsert.length,
       tracking_code,
       supplier: (priceRequest as any).suppliers?.company_name,
+      response_time_days: responseTimeDays,
     });
 
   } catch (err: any) {
