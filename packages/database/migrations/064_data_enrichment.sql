@@ -60,12 +60,18 @@ CREATE TABLE IF NOT EXISTS submission_corrections (
   organization_id UUID NOT NULL,
   submission_id UUID NOT NULL,
   item_id UUID,
-  field_name TEXT NOT NULL,
+  field_name TEXT,
   original_value TEXT,
   corrected_value TEXT,
   corrected_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure columns exist even if table was created by an earlier partial run
+ALTER TABLE submission_corrections ADD COLUMN IF NOT EXISTS field_name TEXT;
+ALTER TABLE submission_corrections ADD COLUMN IF NOT EXISTS original_value TEXT;
+ALTER TABLE submission_corrections ADD COLUMN IF NOT EXISTS corrected_value TEXT;
+ALTER TABLE submission_corrections ADD COLUMN IF NOT EXISTS corrected_by UUID;
 
 CREATE INDEX IF NOT EXISTS idx_submission_corrections_org
 ON submission_corrections (organization_id, submission_id);
