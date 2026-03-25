@@ -156,12 +156,20 @@ function relativeTime(iso: string | null): string {
   return `il y a ${days}j`;
 }
 
-function formatCHF(v: number): string {
-  return v.toFixed(2) + " CHF";
+function formatCHF(v: number | undefined | null): string {
+  return (v ?? 0).toFixed(2) + " CHF";
 }
 
-function formatPct(v: number): string {
-  return v.toFixed(1) + "%";
+function formatPct(v: number | undefined | null): string {
+  return (v ?? 0).toFixed(1) + "%";
+}
+
+function safeNum(v: number | undefined | null): number {
+  return v ?? 0;
+}
+
+function safeLoc(v: number | undefined | null): string {
+  return (v ?? 0).toLocaleString("fr-CH");
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +281,7 @@ export default function SuperAdminDataPipelinePage() {
   // -------------------------------------------------------------------------
 
   function renderHealth() {
-    if (!health || (health.total_points === 0 && health.ai_calls === 0)) return <EmptyState />;
+    if (!health || (safeNum(health.total_points) === 0 && safeNum(health.ai_calls) === 0)) return <EmptyState />;
     const breakdown = health.module_breakdown || [];
     const trend = health.daily_trend || [];
     const maxModule = Math.max(...breakdown.map((m) => m.period_count), 1);
@@ -281,10 +289,10 @@ export default function SuperAdminDataPipelinePage() {
       <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={Database} label="Total points" value={health.total_points.toLocaleString("fr-CH")} color="text-[#22C55E]" />
-          <KpiCard icon={TrendingUp} label="Points p\u00e9riode" value={health.period_points.toLocaleString("fr-CH")} color="text-[#F97316]" sub={period} />
-          <KpiCard icon={Sparkles} label="Appels IA" value={health.ai_calls.toLocaleString("fr-CH")} color="text-[#3B82F6]" sub={period} />
-          <KpiCard icon={Clock} label="File d'attente" value={health.queue_pending.toLocaleString("fr-CH")} color="text-[#F59E0B]" />
+          <KpiCard icon={Database} label="Total points" value={safeLoc(health.total_points)} color="text-[#22C55E]" />
+          <KpiCard icon={TrendingUp} label="Points période" value={safeLoc(health.period_points)} color="text-[#F97316]" sub={period} />
+          <KpiCard icon={Sparkles} label="Appels IA" value={safeLoc(health.ai_calls)} color="text-[#3B82F6]" sub={period} />
+          <KpiCard icon={Clock} label="File d'attente" value={safeLoc(health.queue_pending)} color="text-[#F59E0B]" />
         </div>
 
         {/* Module breakdown horizontal bars */}
@@ -348,10 +356,10 @@ export default function SuperAdminDataPipelinePage() {
       <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={CheckCircle2} label="Corrections" value={learning.total_corrections} color="text-[#22C55E]" />
-          <KpiCard icon={Zap} label="R\u00e8gles auto" value={learning.auto_rules} color="text-[#F97316]" />
+          <KpiCard icon={CheckCircle2} label="Corrections" value={safeNum(learning.total_corrections)} color="text-[#22C55E]" />
+          <KpiCard icon={Zap} label="Règles auto" value={safeNum(learning.auto_rules)} color="text-[#F97316]" />
           <KpiCard icon={ThumbsUp} label="Satisfaction chat" value={formatPct(learning.chat_satisfaction_pct)} color="text-[#3B82F6]" />
-          <KpiCard icon={Target} label="Pr\u00e9cision prix" value={formatPct(learning.price_precision_pct)} color="text-[#A855F7]" />
+          <KpiCard icon={Target} label="Précision prix" value={formatPct(learning.price_precision_pct)} color="text-[#A855F7]" />
         </div>
 
         {/* Email learning */}
@@ -423,8 +431,8 @@ export default function SuperAdminDataPipelinePage() {
                   {recentCalibrations.map((cal, i) => (
                     <tr key={i} className="border-b border-[#27272A]/50">
                       <td className="py-2 text-[#FAFAFA]">{cal.cfc_code}</td>
-                      <td className="py-2 text-right font-mono text-[#A1A1AA]">{cal.estimated.toFixed(2)}</td>
-                      <td className="py-2 text-right font-mono text-[#FAFAFA]">{cal.actual.toFixed(2)}</td>
+                      <td className="py-2 text-right font-mono text-[#A1A1AA]">{safeNum(cal.estimated).toFixed(2)}</td>
+                      <td className="py-2 text-right font-mono text-[#FAFAFA]">{safeNum(cal.actual).toFixed(2)}</td>
                       <td className="py-2 text-right">
                         <span
                           className={`font-mono ${
@@ -435,7 +443,7 @@ export default function SuperAdminDataPipelinePage() {
                               : "text-[#EF4444]"
                           }`}
                         >
-                          {cal.coefficient.toFixed(3)}
+                          {safeNum(cal.coefficient).toFixed(3)}
                         </span>
                       </td>
                       <td className="py-2 text-right text-[#71717A]">{relativeTime(cal.date)}</td>
@@ -490,9 +498,9 @@ export default function SuperAdminDataPipelinePage() {
                 </span>
               </div>
               <div className="mb-1 flex items-end gap-3">
-                <span className="text-2xl font-bold text-[#FAFAFA]">{mod.total.toLocaleString("fr-CH")}</span>
+                <span className="text-2xl font-bold text-[#FAFAFA]">{safeLoc(mod.total)}</span>
                 <span className="mb-0.5 text-xs font-medium text-[#F97316]">
-                  +{mod.period.toLocaleString("fr-CH")}
+                  +{safeLoc(mod.period)}
                 </span>
               </div>
               {/* Tiny sparkline */}
@@ -532,9 +540,9 @@ export default function SuperAdminDataPipelinePage() {
       <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={Target} label="Pr\u00e9cision prix" value={formatPct(quality.price_precision_pct)} color="text-[#22C55E]" />
+          <KpiCard icon={Target} label="Précision prix" value={formatPct(quality.price_precision_pct)} color="text-[#22C55E]" />
           <KpiCard icon={ShieldCheck} label="Confiance classif." value={formatPct(quality.classification_confidence_pct)} color="text-[#3B82F6]" />
-          <KpiCard icon={Scale} label="Coefficient moyen" value={quality.avg_coefficient.toFixed(3)} color="text-[#F97316]" />
+          <KpiCard icon={Scale} label="Coefficient moyen" value={safeNum(quality.avg_coefficient).toFixed(3)} color="text-[#F97316]" />
           <KpiCard icon={ThumbsUp} label="Satisfaction chat" value={formatPct(quality.chat_satisfaction_pct)} color="text-[#A855F7]" />
         </div>
 
@@ -612,12 +620,12 @@ export default function SuperAdminDataPipelinePage() {
       <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <KpiCard icon={Calculator} label="Co\u00fbt IA total" value={formatCHF(cost.total_ai_cost)} color="text-[#3B82F6]" sub={period} />
-          <KpiCard icon={Database} label="Points apprentissage" value={cost.total_learning_points.toLocaleString("fr-CH")} color="text-[#F97316]" sub={period} />
+          <KpiCard icon={Calculator} label="Coût IA total" value={formatCHF(safeNum(cost.total_ai_cost))} color="text-[#3B82F6]" sub={period} />
+          <KpiCard icon={Database} label="Points apprentissage" value={safeLoc(cost.total_learning_points)} color="text-[#F97316]" sub={period} />
           <KpiCard
             icon={Scale}
-            label="Co\u00fbt par point"
-            value={cost.cost_per_point > 0 ? formatCHF(cost.cost_per_point) : "N/A"}
+            label="Coût par point"
+            value={safeNum(cost.cost_per_point) > 0 ? formatCHF(cost.cost_per_point) : "N/A"}
             color="text-[#22C55E]"
           />
         </div>
