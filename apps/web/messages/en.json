@@ -3316,6 +3316,38 @@
       "chat": {
         "title": "AI Assistant",
         "description": "Ask questions about your projects. Claude knows your context."
+      },
+      "pv": {
+        "title": "Meeting Minutes",
+        "description": "Record meetings, transcribe audio and generate minutes with AI."
+      },
+      "plans": {
+        "title": "Plan Registry",
+        "description": "Centralize all plans, track versions and analyze content with AI."
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "description": "Manage your supplier database, compare scores and track interactions."
+      },
+      "pricing": {
+        "title": "Cantaia Pricing",
+        "description": "Import prices, analyze benchmarks and enrich your pricing database."
+      },
+      "portal": {
+        "title": "Field Portal",
+        "description": "Crew leaders log hours, machines and delivery notes on mobile."
+      },
+      "siteReports": {
+        "title": "Site Reports",
+        "description": "Centralize hours and delivery notes across all projects."
+      },
+      "briefing": {
+        "title": "AI Briefing",
+        "description": "Every morning, a personalized summary of your projects, tasks and deadlines."
+      },
+      "direction": {
+        "title": "Direction",
+        "description": "Financial view: invoiced, costs, margin, profitability per project."
       }
     },
     "celebration": {

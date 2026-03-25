@@ -150,7 +150,7 @@ export async function PATCH(request: Request) {
   const admin = createAdminClient();
 
   // Handle completion (backward compat — original PATCH behavior)
-  if (body.complete === true) {
+  if (body.complete === true || body.onboarding_completed === true) {
     const { error } = await (admin as any)
       .from("users")
       .update({ onboarding_completed: true })

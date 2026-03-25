@@ -216,7 +216,7 @@ export default function OnboardingPage() {
       await fetch("/api/user/onboarding", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ onboarding_completed: true }),
+        body: JSON.stringify({ complete: true }),
       });
     } catch {
       // Non-critical

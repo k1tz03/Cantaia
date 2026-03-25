@@ -3316,6 +3316,38 @@
       "chat": {
         "title": "Assistant IA",
         "description": "Posez vos questions sur vos projets. Claude connaît votre contexte."
+      },
+      "pv": {
+        "title": "PV de Chantier",
+        "description": "Enregistrez vos séances, transcrivez l'audio et générez des procès-verbaux avec l'IA."
+      },
+      "plans": {
+        "title": "Registre de Plans",
+        "description": "Centralisez tous vos plans, suivez les versions et analysez le contenu par IA."
+      },
+      "suppliers": {
+        "title": "Fournisseurs",
+        "description": "Gérez votre base fournisseurs, comparez les scores et suivez les interactions."
+      },
+      "pricing": {
+        "title": "Cantaia Prix",
+        "description": "Importez des prix, analysez les benchmarks et enrichissez votre base tarifaire."
+      },
+      "portal": {
+        "title": "Portail Terrain",
+        "description": "Vos chefs d'équipe saisissent heures, machines et bons de livraison sur mobile."
+      },
+      "siteReports": {
+        "title": "Rapports Chantier",
+        "description": "Centralisez les heures et bons de livraison de tous vos projets."
+      },
+      "briefing": {
+        "title": "Briefing IA",
+        "description": "Chaque matin, un résumé personnalisé de vos projets, tâches et deadlines."
+      },
+      "direction": {
+        "title": "Direction",
+        "description": "Vue financière : facturé, coûts, marge, rentabilité par projet."
       }
     },
     "celebration": {

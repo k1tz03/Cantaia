@@ -3316,6 +3316,38 @@
       "chat": {
         "title": "KI-Assistent",
         "description": "Stellen Sie Fragen zu Ihren Projekten. Claude kennt Ihren Kontext."
+      },
+      "pv": {
+        "title": "Sitzungsprotokolle",
+        "description": "Sitzungen aufnehmen, Audio transkribieren und Protokolle mit KI erstellen."
+      },
+      "plans": {
+        "title": "Planregister",
+        "description": "Alle Pläne zentralisieren, Versionen verfolgen und Inhalte mit KI analysieren."
+      },
+      "suppliers": {
+        "title": "Lieferanten",
+        "description": "Lieferantenbasis verwalten, Bewertungen vergleichen und Interaktionen verfolgen."
+      },
+      "pricing": {
+        "title": "Cantaia Preise",
+        "description": "Preise importieren, Benchmarks analysieren und Preisdatenbank anreichern."
+      },
+      "portal": {
+        "title": "Baustellenportal",
+        "description": "Teamleiter erfassen Stunden, Maschinen und Lieferscheine mobil."
+      },
+      "siteReports": {
+        "title": "Bauberichte",
+        "description": "Stunden und Lieferscheine aller Projekte zentralisieren."
+      },
+      "briefing": {
+        "title": "KI-Briefing",
+        "description": "Jeden Morgen eine personalisierte Zusammenfassung Ihrer Projekte und Aufgaben."
+      },
+      "direction": {
+        "title": "Geschäftsleitung",
+        "description": "Finanzübersicht: Rechnungen, Kosten, Marge, Rentabilität pro Projekt."
       }
     },
     "celebration": {
