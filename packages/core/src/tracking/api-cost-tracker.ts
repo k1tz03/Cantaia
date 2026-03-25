@@ -102,7 +102,9 @@ export async function trackApiUsage(params: TrackApiUsageParams): Promise<void> 
       } as any);
 
     if (error) {
-      console.error("[trackApiUsage] Insert error (non-blocking):", error.message);
+      console.error("[trackApiUsage] Insert error (non-blocking):", error.message, error.details, error.hint, error.code);
+    } else {
+      console.log("[trackApiUsage] OK:", params.actionType, "cost:", estimatedCostChf.toFixed(4), "CHF", "user:", params.userId?.substring(0, 8));
     }
   } catch (error) {
     console.error('[api-cost-tracker] Failed to track API usage:', {
