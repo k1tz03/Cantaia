@@ -42,17 +42,17 @@ ON mv_supplier_daily_metrics (organization_id, supplier_id);
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_labor_productivity AS
 SELECT
   p.organization_id,
-  sre.data->>'cfc_code' as cfc_code,
+  sre.work_description as work_type,
   COUNT(*) as entry_count,
-  AVG((sre.data->>'duration_hours')::numeric) as avg_hours_per_entry,
-  SUM((sre.data->>'duration_hours')::numeric) as total_hours,
+  AVG(sre.duration_hours) as avg_hours_per_entry,
+  SUM(sre.duration_hours) as total_hours,
   p.city as region
 FROM site_report_entries sre
 JOIN site_reports sr ON sr.id = sre.report_id
 JOIN projects p ON p.id = sr.project_id
 WHERE sre.entry_type = 'labor'
-AND sre.data->>'duration_hours' IS NOT NULL
-GROUP BY p.organization_id, sre.data->>'cfc_code', p.city;
+AND sre.duration_hours IS NOT NULL
+GROUP BY p.organization_id, sre.work_description, p.city;
 
 -- ── Phase 4: Submission corrections table (C1 learning data) ──
 CREATE TABLE IF NOT EXISTS submission_corrections (
