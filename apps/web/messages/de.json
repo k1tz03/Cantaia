@@ -3196,5 +3196,138 @@
     "unlock": "Entsperren",
     "noSubmission": "Keine Submission ausgewählt",
     "weather": "Wetter"
+  },
+  "onboarding": {
+    "progress": {
+      "stepOf": "Schritt {step} von {total}",
+      "skip": "Diesen Schritt überspringen",
+      "back": "Zurück",
+      "continue": "Weiter",
+      "later": "Später"
+    },
+    "welcome": {
+      "greeting": "Willkommen, {name}",
+      "greetingNoName": "Willkommen bei Cantaia",
+      "tagline": "KI-gestützte Baustellenverwaltung",
+      "subtitle": "Richten Sie Ihren Arbeitsbereich in wenigen Minuten ein",
+      "cta": "Meinen Arbeitsbereich einrichten"
+    },
+    "profile": {
+      "title": "Erzählen Sie uns von sich",
+      "subtitle": "Diese Informationen helfen uns, Ihre Erfahrung zu personalisieren",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "jobTitle": "Position",
+      "companyName": "Firmenname",
+      "teamSize": "Teamgrösse",
+      "projectTypes": "Projekttypen",
+      "jobs": {
+        "projectManager": "Projektleiter",
+        "technicalDirector": "Technischer Direktor",
+        "siteManager": "Bauleiter",
+        "engineer": "Ingenieur",
+        "architect": "Architekt",
+        "other": "Andere"
+      },
+      "sizes": {
+        "xs": "1-5",
+        "sm": "6-20",
+        "md": "21-50",
+        "lg": "51-200",
+        "xl": "200+"
+      },
+      "types": {
+        "residential": "Wohnbau",
+        "commercial": "Gewerbebau",
+        "infrastructure": "Infrastruktur",
+        "renovation": "Renovation",
+        "industrial": "Industriebau"
+      }
+    },
+    "email": {
+      "title": "Verbinden Sie Ihr E-Mail-Konto",
+      "subtitle": "Cantaia analysiert und klassifiziert Ihre E-Mails automatisch nach Baustelle",
+      "connectOutlook": "Outlook verbinden",
+      "connectGmail": "Gmail verbinden",
+      "connected": "Verbunden!",
+      "syncing": "Synchronisierung läuft...",
+      "emailsFound": "{count} E-Mails gefunden",
+      "skipNote": "Sie können Ihr E-Mail-Konto später in den Einstellungen verbinden",
+      "previewSubjects": {
+        "s1": "AW: Offerte Stahlbeton — Baustelle Malley",
+        "s2": "WG: Fassadenpläne V3 — Freigabe Architekt",
+        "s3": "Einladung Bausitzung Nr. 12",
+        "s4": "Offerte Elektroinstallation — Gebäude C"
+      }
+    },
+    "project": {
+      "title": "Erstellen Sie Ihr erstes Projekt",
+      "subtitle": "Ein Projekt bündelt E-Mails, Pläne, Submissionen und Aufgaben einer Baustelle",
+      "projectName": "Projektname",
+      "clientName": "Auftraggeber",
+      "city": "Stadt",
+      "projectType": "Projekttyp",
+      "color": "Farbe",
+      "skipNote": "Sie können später ein Projekt erstellen",
+      "placeholders": {
+        "p1": "Residenz Les Alpes",
+        "p2": "Erweiterung Hotel Beau-Rivage",
+        "p3": "Einkaufszentrum Rive Gauche",
+        "p4": "Renovation Dorfschule"
+      },
+      "cities": {
+        "lausanne": "Lausanne",
+        "geneve": "Genf",
+        "zurich": "Zürich",
+        "bern": "Bern",
+        "basel": "Basel",
+        "lucerne": "Luzern",
+        "sion": "Sitten",
+        "fribourg": "Freiburg",
+        "neuchatel": "Neuenburg",
+        "montreux": "Montreux",
+        "nyon": "Nyon",
+        "yverdon": "Yverdon-les-Bains",
+        "vevey": "Vevey",
+        "morges": "Morges",
+        "renens": "Renens",
+        "prilly": "Prilly",
+        "bienne": "Biel",
+        "thun": "Thun",
+        "winterthur": "Winterthur",
+        "stgallen": "St. Gallen"
+      }
+    },
+    "features": {
+      "title": "Entdecken Sie Cantaia",
+      "subtitle": "12 KI-gestützte Module für Ihre Baustellen",
+      "mail": {
+        "title": "Cantaia Mail",
+        "description": "Ihre E-Mails automatisch nach Baustelle sortiert. Antworten Sie mit einem Klick per KI."
+      },
+      "submissions": {
+        "title": "Submissionen",
+        "description": "Verwalten Sie Ihre Ausschreibungen, vergleichen Sie Lieferantenpreise und verfolgen Sie Anfragen."
+      },
+      "planning": {
+        "title": "KI-Planung",
+        "description": "Erstellen Sie ein Gantt-Diagramm aus Ihren Submissionen. A3-PDF-Export mit einem Klick."
+      },
+      "chat": {
+        "title": "KI-Assistent",
+        "description": "Stellen Sie Fragen zu Ihren Projekten. Claude kennt Ihren Kontext."
+      }
+    },
+    "celebration": {
+      "title": "Ihr Arbeitsbereich ist bereit!",
+      "subtitle": "Cantaia ist eingerichtet und bereit, Ihnen Zeit zu sparen",
+      "emailsImported": "{count} E-Mails importiert",
+      "noEmails": "0 E-Mails importiert",
+      "projectCreated": "1 Projekt erstellt",
+      "noProject": "0 Projekte erstellt",
+      "modulesActive": "12 aktive Module",
+      "trialDays": "14 Tage kostenlos testen",
+      "cta": "Cantaia starten"
+    }
   }
 }

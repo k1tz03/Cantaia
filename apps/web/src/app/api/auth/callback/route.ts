@@ -483,7 +483,7 @@ export async function GET(request: Request) {
                   last_name: lastName,
                   role: "project_manager",
                   preferred_language: locale,
-                  onboarding_completed: true,
+                  onboarding_completed: false,
                 } as any, { onConflict: "id" });
                 if (userError) {
                   console.error("[auth/callback] User creation error:", userError.message);
@@ -607,17 +607,24 @@ export async function GET(request: Request) {
         // Session is valid — ALWAYS redirect to app, NEVER to login
         // ────────────────────────────────────────────────────────────────
         let userLocale = locale;
+        let profile: { preferred_language?: string; onboarding_completed?: boolean } | null = null;
         try {
-          const { data: profile } = await (adminClient as any)
+          const { data: profileData } = await (adminClient as any)
             .from("users")
             .select("preferred_language, onboarding_completed")
             .eq("id", data.user.id)
             .maybeSingle();
+          profile = profileData;
           if (profile?.preferred_language) {
             userLocale = profile.preferred_language;
           }
         } catch {
           // Profile fetch failed — use default locale
+        }
+
+        // Redirect incomplete onboarding users
+        if (profile && profile.onboarding_completed === false) {
+          return NextResponse.redirect(`${origin}/${userLocale}/onboarding`);
         }
 
         // Default redirect: /action-board (post-login destination)

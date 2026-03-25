@@ -3196,5 +3196,138 @@
     "unlock": "Déverrouiller",
     "noSubmission": "Aucune soumission sélectionnée",
     "weather": "Météo"
+  },
+  "onboarding": {
+    "progress": {
+      "stepOf": "Étape {step} sur {total}",
+      "skip": "Passer cette étape",
+      "back": "Retour",
+      "continue": "Continuer",
+      "later": "Plus tard"
+    },
+    "welcome": {
+      "greeting": "Bienvenue, {name}",
+      "greetingNoName": "Bienvenue sur Cantaia",
+      "tagline": "L'IA au service du chantier",
+      "subtitle": "Configurez votre espace en quelques minutes",
+      "cta": "Configurer mon espace"
+    },
+    "profile": {
+      "title": "Parlez-nous de vous",
+      "subtitle": "Ces informations nous permettent de personnaliser votre expérience",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "jobTitle": "Poste",
+      "companyName": "Nom de l'entreprise",
+      "teamSize": "Taille de l'équipe",
+      "projectTypes": "Types de projets",
+      "jobs": {
+        "projectManager": "Chef de projet",
+        "technicalDirector": "Directeur technique",
+        "siteManager": "Conducteur de travaux",
+        "engineer": "Ingénieur",
+        "architect": "Architecte",
+        "other": "Autre"
+      },
+      "sizes": {
+        "xs": "1-5",
+        "sm": "6-20",
+        "md": "21-50",
+        "lg": "51-200",
+        "xl": "200+"
+      },
+      "types": {
+        "residential": "Résidentiel",
+        "commercial": "Commercial",
+        "infrastructure": "Infrastructure",
+        "renovation": "Rénovation",
+        "industrial": "Industriel"
+      }
+    },
+    "email": {
+      "title": "Connectez votre messagerie",
+      "subtitle": "Cantaia analyse et classe automatiquement vos emails par chantier",
+      "connectOutlook": "Connecter Outlook",
+      "connectGmail": "Connecter Gmail",
+      "connected": "Connecté !",
+      "syncing": "Synchronisation en cours...",
+      "emailsFound": "{count} emails trouvés",
+      "skipNote": "Vous pourrez connecter votre messagerie depuis les Paramètres",
+      "previewSubjects": {
+        "s1": "RE: Offre béton armé — Chantier Malley",
+        "s2": "TR: Plans façade V3 — Validation architecte",
+        "s3": "Convocation séance de chantier #12",
+        "s4": "Devis installation électrique — Bâtiment C"
+      }
+    },
+    "project": {
+      "title": "Créez votre premier projet",
+      "subtitle": "Un projet regroupe emails, plans, soumissions et tâches d'un chantier",
+      "projectName": "Nom du projet",
+      "clientName": "Client",
+      "city": "Ville",
+      "projectType": "Type de projet",
+      "color": "Couleur",
+      "skipNote": "Vous pourrez créer un projet plus tard",
+      "placeholders": {
+        "p1": "Résidence Les Alpes",
+        "p2": "Extension Hôtel Beau-Rivage",
+        "p3": "Centre Commercial Rive Gauche",
+        "p4": "Rénovation École du Village"
+      },
+      "cities": {
+        "lausanne": "Lausanne",
+        "geneve": "Genève",
+        "zurich": "Zurich",
+        "bern": "Berne",
+        "basel": "Bâle",
+        "lucerne": "Lucerne",
+        "sion": "Sion",
+        "fribourg": "Fribourg",
+        "neuchatel": "Neuchâtel",
+        "montreux": "Montreux",
+        "nyon": "Nyon",
+        "yverdon": "Yverdon-les-Bains",
+        "vevey": "Vevey",
+        "morges": "Morges",
+        "renens": "Renens",
+        "prilly": "Prilly",
+        "bienne": "Bienne",
+        "thun": "Thoune",
+        "winterthur": "Winterthour",
+        "stgallen": "Saint-Gall"
+      }
+    },
+    "features": {
+      "title": "Découvrez Cantaia",
+      "subtitle": "12 modules propulsés par l'IA pour gérer vos chantiers",
+      "mail": {
+        "title": "Cantaia Mail",
+        "description": "Vos emails classés automatiquement par chantier. Répondez en un clic avec l'IA."
+      },
+      "submissions": {
+        "title": "Soumissions",
+        "description": "Gérez vos appels d'offres, comparez les prix fournisseurs et suivez les demandes."
+      },
+      "planning": {
+        "title": "Planning IA",
+        "description": "Générez un Gantt chart depuis vos soumissions. Export PDF A3 en un clic."
+      },
+      "chat": {
+        "title": "Assistant IA",
+        "description": "Posez vos questions sur vos projets. Claude connaît votre contexte."
+      }
+    },
+    "celebration": {
+      "title": "Votre espace est prêt !",
+      "subtitle": "Cantaia est configuré et prêt à vous faire gagner du temps",
+      "emailsImported": "{count} emails importés",
+      "noEmails": "0 email importé",
+      "projectCreated": "1 projet créé",
+      "noProject": "0 projet créé",
+      "modulesActive": "12 modules actifs",
+      "trialDays": "14 jours d'essai gratuit",
+      "cta": "Lancer Cantaia"
+    }
   }
 }

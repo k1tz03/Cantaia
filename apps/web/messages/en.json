@@ -3196,5 +3196,138 @@
     "unlock": "Unlock",
     "noSubmission": "No submission selected",
     "weather": "Weather"
+  },
+  "onboarding": {
+    "progress": {
+      "stepOf": "Step {step} of {total}",
+      "skip": "Skip this step",
+      "back": "Back",
+      "continue": "Continue",
+      "later": "Later"
+    },
+    "welcome": {
+      "greeting": "Welcome, {name}",
+      "greetingNoName": "Welcome to Cantaia",
+      "tagline": "AI-powered construction management",
+      "subtitle": "Set up your workspace in a few minutes",
+      "cta": "Set up my workspace"
+    },
+    "profile": {
+      "title": "Tell us about yourself",
+      "subtitle": "This information helps us personalize your experience",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "jobTitle": "Job title",
+      "companyName": "Company name",
+      "teamSize": "Team size",
+      "projectTypes": "Project types",
+      "jobs": {
+        "projectManager": "Project Manager",
+        "technicalDirector": "Technical Director",
+        "siteManager": "Site Manager",
+        "engineer": "Engineer",
+        "architect": "Architect",
+        "other": "Other"
+      },
+      "sizes": {
+        "xs": "1-5",
+        "sm": "6-20",
+        "md": "21-50",
+        "lg": "51-200",
+        "xl": "200+"
+      },
+      "types": {
+        "residential": "Residential",
+        "commercial": "Commercial",
+        "infrastructure": "Infrastructure",
+        "renovation": "Renovation",
+        "industrial": "Industrial"
+      }
+    },
+    "email": {
+      "title": "Connect your email",
+      "subtitle": "Cantaia automatically sorts and classifies your emails by project",
+      "connectOutlook": "Connect Outlook",
+      "connectGmail": "Connect Gmail",
+      "connected": "Connected!",
+      "syncing": "Syncing...",
+      "emailsFound": "{count} emails found",
+      "skipNote": "You can connect your email later from Settings",
+      "previewSubjects": {
+        "s1": "RE: Reinforced concrete quote — Malley Site",
+        "s2": "FW: Facade plans V3 — Architect approval",
+        "s3": "Site meeting #12 invitation",
+        "s4": "Electrical installation quote — Building C"
+      }
+    },
+    "project": {
+      "title": "Create your first project",
+      "subtitle": "A project groups emails, plans, tenders and tasks for a construction site",
+      "projectName": "Project name",
+      "clientName": "Client",
+      "city": "City",
+      "projectType": "Project type",
+      "color": "Color",
+      "skipNote": "You can create a project later",
+      "placeholders": {
+        "p1": "Residence Les Alpes",
+        "p2": "Hotel Beau-Rivage Extension",
+        "p3": "Rive Gauche Shopping Center",
+        "p4": "Village School Renovation"
+      },
+      "cities": {
+        "lausanne": "Lausanne",
+        "geneve": "Geneva",
+        "zurich": "Zurich",
+        "bern": "Bern",
+        "basel": "Basel",
+        "lucerne": "Lucerne",
+        "sion": "Sion",
+        "fribourg": "Fribourg",
+        "neuchatel": "Neuchatel",
+        "montreux": "Montreux",
+        "nyon": "Nyon",
+        "yverdon": "Yverdon-les-Bains",
+        "vevey": "Vevey",
+        "morges": "Morges",
+        "renens": "Renens",
+        "prilly": "Prilly",
+        "bienne": "Biel",
+        "thun": "Thun",
+        "winterthur": "Winterthur",
+        "stgallen": "St. Gallen"
+      }
+    },
+    "features": {
+      "title": "Discover Cantaia",
+      "subtitle": "12 AI-powered modules to manage your construction sites",
+      "mail": {
+        "title": "Cantaia Mail",
+        "description": "Your emails automatically sorted by project. Reply in one click with AI."
+      },
+      "submissions": {
+        "title": "Tenders",
+        "description": "Manage your tenders, compare supplier prices and track requests."
+      },
+      "planning": {
+        "title": "AI Planning",
+        "description": "Generate a Gantt chart from your tenders. One-click A3 PDF export."
+      },
+      "chat": {
+        "title": "AI Assistant",
+        "description": "Ask questions about your projects. Claude knows your context."
+      }
+    },
+    "celebration": {
+      "title": "Your workspace is ready!",
+      "subtitle": "Cantaia is set up and ready to save you time",
+      "emailsImported": "{count} emails imported",
+      "noEmails": "0 emails imported",
+      "projectCreated": "1 project created",
+      "noProject": "0 projects created",
+      "modulesActive": "12 active modules",
+      "trialDays": "14-day free trial",
+      "cta": "Launch Cantaia"
+    }
   }
 }
