@@ -26,6 +26,7 @@ import {
   Sparkles,
   Inbox,
   Plus,
+  Settings,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -222,6 +223,7 @@ export default function MailPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"decisions" | "inbox">("decisions");
+  const [hasEmailConnection, setHasEmailConnection] = useState(true); // assume true until proven false
 
   // 2-panel: selected email
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
@@ -260,6 +262,7 @@ export default function MailPage() {
       setDecisionsToday(data.stats?.decisionsToday || data.stats?.processedToday || 0);
       setIsAloneInOrg(data.isAloneInOrg ?? true);
       setOrgMembers(data.orgMembers || []);
+      if (data.hasEmailConnection !== undefined) setHasEmailConnection(data.hasEmailConnection);
     } catch {
       router.replace("/dashboard");
     } finally {
@@ -495,6 +498,30 @@ export default function MailPage() {
         <div className="flex-shrink-0 px-5 py-2 bg-[#0F0F11] border-b border-[#1C1C1F]">
           <div className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[12px] text-emerald-400 flex items-center gap-2">
             <Check className="w-3.5 h-3.5" />{syncToast || summaryToast}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CONNECT EMAIL BANNER ═══ */}
+      {!hasEmailConnection && authorized && (
+        <div className="flex-shrink-0 px-5 py-3 bg-[#F97316]/5 border-b border-[#F97316]/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#F97316]/10 flex items-center justify-center">
+                <Mail className="w-4 h-4 text-[#F97316]" />
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-[#FAFAFA]">Connectez votre email pour commencer</p>
+                <p className="text-[11px] text-[#71717A]">Cantaia classera automatiquement vos emails par chantier et extraira les tâches</p>
+              </div>
+            </div>
+            <a
+              href={`/${locale}/settings?tab=outlook`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-white bg-[#F97316] rounded-lg hover:bg-[#EA580C] transition-colors"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Connecter Microsoft 365 / Gmail
+            </a>
           </div>
         </div>
       )}

@@ -165,11 +165,17 @@ export async function signInWithMicrosoftAction(options?: {
   const supabase = await createClient();
   const appUrl = await getAppUrl();
 
-  const scopes = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
+  // TWO-PHASE PERMISSIONS:
+  // - Login: minimal scopes that NEVER require admin consent → users can sign up immediately
+  // - Email integration (Settings): full scopes with Mail.* → may require admin consent
+  const LOGIN_SCOPES = "openid email profile User.Read";
+  const EMAIL_SCOPES = "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
 
   // When linking from Settings/Onboarding, use linkIdentity to attach Azure
   // to the CURRENT user (prevents creating a second auth user with a different ID)
+  // → Use FULL scopes (email integration flow)
   if (options?.linkToOrg) {
+    const scopes = EMAIL_SCOPES;
     // Get current user ID so the callback knows who initiated the connection
     // (critical when OAuth email differs from login email)
     const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -281,11 +287,11 @@ export async function signInWithMicrosoftAction(options?: {
     return { url: data.url };
   }
 
-  // Login page: full OAuth sign-in (creates or reuses Azure auth user)
+  // Login page: minimal scopes (NO Mail.*) → never triggers admin consent
   const callbackUrl = `${appUrl}/api/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "azure",
-    options: { scopes, redirectTo: callbackUrl },
+    options: { scopes: LOGIN_SCOPES, redirectTo: callbackUrl },
   });
 
   if (error) {
@@ -305,10 +311,16 @@ export async function signInWithGoogleAction(options?: {
   const supabase = await createClient();
   const appUrl = await getAppUrl();
 
-  const scopes = "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify";
+  // TWO-PHASE PERMISSIONS (same pattern as Microsoft):
+  // - Login: minimal scopes → no special consent needed
+  // - Email integration (Settings): full Gmail scopes
+  const GOOGLE_LOGIN_SCOPES = "openid profile email";
+  const GOOGLE_EMAIL_SCOPES = "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify";
 
   // When linking from Settings, use linkIdentity to attach Google to the CURRENT user
+  // → Use FULL scopes (email integration flow)
   if (options?.linkToOrg) {
+    const scopes = GOOGLE_EMAIL_SCOPES;
     // Pass current user ID so the callback can save tokens under the correct user
     // even when the OAuth email differs from the login email
     const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -359,14 +371,13 @@ export async function signInWithGoogleAction(options?: {
     return { url: data.url };
   }
 
-  // Login page: full OAuth sign-in
+  // Login page: minimal scopes (NO Gmail API) → standard Google consent only
   const callbackUrl = `${appUrl}/api/auth/callback`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      scopes,
+      scopes: GOOGLE_LOGIN_SCOPES,
       redirectTo: callbackUrl,
-      queryParams: { access_type: "offline", prompt: "consent" },
     },
   });
 

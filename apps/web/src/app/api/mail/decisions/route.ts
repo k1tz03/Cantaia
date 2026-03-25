@@ -207,9 +207,32 @@ export async function GET() {
 
     const isAloneInOrg = !orgMembers || orgMembers.length === 0;
 
+    // Check if user has an active email connection (needed for "Connect email" banner)
+    let hasEmailConnection = false;
+    try {
+      const { data: conn } = await (admin as any)
+        .from("email_connections")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+      hasEmailConnection = !!conn;
+      // Fallback: check legacy microsoft_access_token
+      if (!hasEmailConnection) {
+        const { data: legacyUser } = await (admin as any)
+          .from("users")
+          .select("microsoft_access_token")
+          .eq("id", user.id)
+          .maybeSingle();
+        hasEmailConnection = !!legacyUser?.microsoft_access_token;
+      }
+    } catch { /* table may not exist */ }
+
     return NextResponse.json({
       success: true,
       firstName: profile.first_name || "Utilisateur",
+      hasEmailConnection,
       isAloneInOrg,
       orgMembers: orgMembers || [],
       urgent,

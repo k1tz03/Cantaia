@@ -343,7 +343,10 @@ export async function GET(request: Request) {
 
           const providerTokenForExisting = data.session?.provider_token;
           const providerRefreshForExisting = data.session?.provider_refresh_token;
-          if (providerTokenForExisting && authProvider === "microsoft") {
+          // Only store Microsoft tokens if this is an email integration flow (linkOrgId present).
+          // Simple logins use minimal scopes (no Mail.*) — storing those tokens would overwrite
+          // valid mail-scoped tokens and break email sync.
+          if (providerTokenForExisting && authProvider === "microsoft" && linkOrgId) {
             let expiresIn = 3600;
             try {
               const parts = providerTokenForExisting.split(".");
@@ -527,64 +530,71 @@ export async function GET(request: Request) {
           const tokenExpiresAt = new Date();
           tokenExpiresAt.setSeconds(tokenExpiresAt.getSeconds() + expiresInSeconds);
 
-          // Store in legacy Microsoft columns (for backward compat)
-          if (authProvider === "microsoft") {
-            await adminClient
-              .from("users")
-              .update({
-                microsoft_access_token: providerToken,
-                microsoft_refresh_token: providerRefreshToken || null,
-                microsoft_token_expires_at: tokenExpiresAt.toISOString(),
-                outlook_sync_enabled: true,
-              })
-              .eq("id", data.user.id);
-          }
-
-          // Get user's organization
-          const { data: userOrg } = await adminClient
-            .from("users")
-            .select("organization_id")
-            .eq("id", data.user.id)
-            .maybeSingle();
-
-          // Upsert email_connection for this provider
-          if (userOrg?.organization_id) {
-            const scopes = authProvider === "microsoft"
-              ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
-              : authProvider === "google"
-                ? "openid profile email gmail.readonly gmail.send gmail.modify"
-                : null;
-
-            // Insert new connection first, then clean up old ones
-            const { data: newConn, error: connError } = await adminClient
-              .from("email_connections")
-              .insert({
-                user_id: data.user.id,
-                organization_id: userOrg.organization_id,
-                provider: authProvider as "microsoft" | "google" | "imap",
-                oauth_access_token: providerToken,
-                oauth_refresh_token: providerRefreshToken || null,
-                oauth_token_expires_at: tokenExpiresAt.toISOString(),
-                oauth_scopes: scopes,
-                email_address: data.user.email!,
-                display_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || null,
-                status: "active",
-              })
-              .select("id")
-              .single();
-
-            if (connError) {
-              console.error("[auth/callback] Email connection insert error:", connError.message);
-            } else if (newConn) {
-              // Only delete old connections after successful insert
+          // Only store mail tokens and create email_connection when this is an email
+          // integration flow (linkOrgId present). Simple logins use minimal scopes
+          // (no Mail.* / no Gmail API) — the token can't access mail anyway.
+          if (linkOrgId) {
+            // Store in legacy Microsoft columns (for backward compat)
+            if (authProvider === "microsoft") {
               await adminClient
-                .from("email_connections")
-                .delete()
-                .eq("user_id", data.user.id)
-                .neq("id", newConn.id);
-
-              if (process.env.NODE_ENV === "development") console.log("[auth/callback] Email connection created for:", authProvider);
+                .from("users")
+                .update({
+                  microsoft_access_token: providerToken,
+                  microsoft_refresh_token: providerRefreshToken || null,
+                  microsoft_token_expires_at: tokenExpiresAt.toISOString(),
+                  outlook_sync_enabled: true,
+                })
+                .eq("id", data.user.id);
             }
+
+            // Get user's organization
+            const { data: userOrg } = await adminClient
+              .from("users")
+              .select("organization_id")
+              .eq("id", data.user.id)
+              .maybeSingle();
+
+            // Upsert email_connection for this provider
+            if (userOrg?.organization_id) {
+              const scopes = authProvider === "microsoft"
+                ? "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read"
+                : authProvider === "google"
+                  ? "openid profile email gmail.readonly gmail.send gmail.modify"
+                  : null;
+
+              // Insert new connection first, then clean up old ones
+              const { data: newConn, error: connError } = await adminClient
+                .from("email_connections")
+                .insert({
+                  user_id: data.user.id,
+                  organization_id: userOrg.organization_id,
+                  provider: authProvider as "microsoft" | "google" | "imap",
+                  oauth_access_token: providerToken,
+                  oauth_refresh_token: providerRefreshToken || null,
+                  oauth_token_expires_at: tokenExpiresAt.toISOString(),
+                  oauth_scopes: scopes,
+                  email_address: data.user.email!,
+                  display_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || null,
+                  status: "active",
+                })
+                .select("id")
+                .single();
+
+              if (connError) {
+                console.error("[auth/callback] Email connection insert error:", connError.message);
+              } else if (newConn) {
+                // Only delete old connections after successful insert
+                await adminClient
+                  .from("email_connections")
+                  .delete()
+                  .eq("user_id", data.user.id)
+                  .neq("id", newConn.id);
+
+                if (process.env.NODE_ENV === "development") console.log("[auth/callback] Email connection created for:", authProvider);
+              }
+            }
+          } else {
+            console.log("[auth/callback] Simple login (no linkOrgId) — skipping mail token storage. User can connect email from Settings.");
           }
         }
         } catch (tokenErr) {
