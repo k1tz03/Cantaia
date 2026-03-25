@@ -31,7 +31,7 @@ SELECT
 FROM suppliers s
 LEFT JOIN price_requests pr ON pr.supplier_id = s.id
 LEFT JOIN supplier_offers so ON so.supplier_id = s.id AND so.price_request_id = pr.id
-LEFT JOIN offer_line_items oli ON oli.supplier_offer_id = so.id
+LEFT JOIN offer_line_items oli ON oli.offer_id = so.id
 GROUP BY s.organization_id, s.id, s.company_name;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_supplier_daily_org_supplier
