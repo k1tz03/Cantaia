@@ -97,8 +97,8 @@ FOR EACH ROW EXECUTE FUNCTION notify_submission_correction();
 
 -- ── Indexes for common intelligence queries ──
 CREATE INDEX IF NOT EXISTS idx_price_calibrations_source ON price_calibrations (source_estimation);
-CREATE INDEX IF NOT EXISTS idx_project_benchmarks_org ON project_benchmarks (organization_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_project_benchmarks_type ON project_benchmarks (project_type, region);
+CREATE INDEX IF NOT EXISTS idx_submission_corrections_field ON submission_corrections (organization_id, field_name);
 
 -- Note: To refresh materialized views, run:
 -- REFRESH MATERIALIZED VIEW CONCURRENTLY mv_supplier_daily_metrics;
