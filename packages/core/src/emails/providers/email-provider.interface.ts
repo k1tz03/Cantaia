@@ -33,6 +33,7 @@ export interface EmailAttachment {
 export interface EmailDraft {
   to: string[];
   cc?: string[];
+  bcc?: string[];
   subject: string;
   bodyHtml: string;
   attachments?: Array<{

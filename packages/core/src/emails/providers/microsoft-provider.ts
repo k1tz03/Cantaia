@@ -63,6 +63,7 @@ export class MicrosoftProvider implements EmailProvider {
           body: { contentType: "HTML", content: draft.bodyHtml },
           toRecipients: draft.to.map((addr) => ({ emailAddress: { address: addr } })),
           ccRecipients: (draft.cc || []).map((addr) => ({ emailAddress: { address: addr } })),
+          bccRecipients: (draft.bcc || []).map((addr) => ({ emailAddress: { address: addr } })),
         },
       }),
     });

@@ -190,6 +190,43 @@ html:not(.dark) {
   text-decoration: underline;
 }
 
+/* Dark email rendering — harmonizes HTML emails with dark theme */
+.email-content-dark {
+  color: #D4D4D8 !important;
+  background-color: transparent !important;
+}
+.email-content-dark * {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+.email-content-dark img {
+  color: unset !important;
+  background-color: unset !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+.email-content-dark a {
+  color: #60A5FA !important;
+}
+.email-content-dark table,
+.email-content-dark td,
+.email-content-dark th {
+  border-color: #3F3F46 !important;
+}
+.email-content-dark h1,
+.email-content-dark h2,
+.email-content-dark h3,
+.email-content-dark h4 {
+  color: #FAFAFA !important;
+}
+.email-content-dark font {
+  color: inherit !important;
+}
+.email-content-dark blockquote {
+  border-left-color: #3F3F46 !important;
+  color: #A1A1AA !important;
+}
+
 /* ========================================
    Cantaia Design System — Utility Classes
    ======================================== */

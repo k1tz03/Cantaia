@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: requiredError }, { status: 400 });
   }
 
-  const { to, cc, subject, body: emailBody, reply_to_id, forward_id } = body as {
+  const { to, cc, bcc, subject, body: emailBody, reply_to_id, forward_id } = body as {
     to: string[];
     cc?: string[];
+    bcc?: string[];
     subject: string;
     body: string;
     reply_to_id?: string;
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
       await provider.replyToEmail(connection as EmailConnectionConfig, reply_to_id, {
         to,
         cc,
+        bcc,
         subject,
         bodyHtml: emailBody,
       });
@@ -97,6 +99,7 @@ export async function POST(request: NextRequest) {
       await provider.sendEmail(connection as EmailConnectionConfig, {
         to,
         cc,
+        bcc,
         subject,
         bodyHtml: emailBody,
       });
@@ -105,6 +108,7 @@ export async function POST(request: NextRequest) {
       await provider.sendEmail(connection as EmailConnectionConfig, {
         to,
         cc,
+        bcc,
         subject,
         bodyHtml: emailBody,
       });

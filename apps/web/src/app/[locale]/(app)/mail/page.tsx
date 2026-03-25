@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Sparkles,
   Inbox,
+  Plus,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -229,9 +230,10 @@ export default function MailPage() {
   const [replyEmail, setReplyEmail] = useState<DecisionEmail | null>(null);
   const [delegateEmail, setDelegateEmail] = useState<DecisionEmail | null>(null);
   const [transferEmail, setTransferEmail] = useState<DecisionEmail | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   // FIX 5 — Lock body scroll when any popup is open
-  const anyPopupOpen = !!(replyEmail || delegateEmail || transferEmail);
+  const anyPopupOpen = !!(replyEmail || delegateEmail || transferEmail || composeOpen);
   useBodyScrollLock(anyPopupOpen);
 
   const { setActiveProject } = useActiveProject();
@@ -424,8 +426,17 @@ export default function MailPage() {
         {/* Center spacer */}
         <div className="flex-1" />
 
-        {/* Right: toggle + sync + summaries */}
+        {/* Right: compose + toggle + sync + summaries */}
         <div className="flex items-center gap-2">
+          {/* Compose new email button */}
+          <button
+            onClick={() => setComposeOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nouveau
+          </button>
+
           {/* Decisions / Inbox toggle */}
           <div className="flex items-center bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             <button
@@ -622,6 +633,14 @@ export default function MailPage() {
           }}
         />
       )}
+
+      {/* Compose Modal */}
+      {composeOpen && (
+        <ComposeModal
+          onClose={() => setComposeOpen(false)}
+          onSent={() => { setComposeOpen(false); fetchData(); }}
+        />
+      )}
     </div>
   );
 }
@@ -796,29 +815,80 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
 
   return (
     <>
+      {/* ── Subject + Meta (non-scrollable) ── */}
+      <div className="flex-shrink-0 px-6 pt-5 pb-3">
+        <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+          {email.subject}
+        </h2>
+        <div className="flex items-center gap-2 mt-2 text-[12px] text-[#71717A] flex-wrap">
+          <span>De: <strong className="text-[#D4D4D8]">{email.sender_name || email.sender_email}</strong></span>
+          <span className="text-[#3F3F46]">&middot;</span>
+          <span>{formatFullDate(email.received_at, locale)}</span>
+          {email.project_name && (
+            <>
+              <span className="text-[#3F3F46]">&middot;</span>
+              <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium">{email.project_name}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── ACTION BAR (top) ── */}
+      <div className="flex-shrink-0 px-5 py-2 border-b border-[#27272A] bg-[#18181B]/80 backdrop-blur-sm flex items-center gap-2">
+        {/* Primary CTA */}
+        {email.is_quote ? (
+          <>
+            <button onClick={onAccept} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
+              <ThumbsUp className="w-3.5 h-3.5" />{t("actions.accept")}
+            </button>
+            <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 rounded-lg transition-colors">
+              <MessageSquare className="w-3.5 h-3.5" />{t("actions.negotiate")}
+            </button>
+            <button onClick={onRefuse} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 rounded-lg transition-colors">
+              <ThumbsDown className="w-3.5 h-3.5" />{t("actions.refuse")}
+            </button>
+          </>
+        ) : (
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors">
+            <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
+          </button>
+        )}
+
+        {/* Secondary actions */}
+        {!email.is_quote && (
+          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
+            <RotateCcw className="w-3.5 h-3.5" />{"R\u00e9pondre"}
+          </button>
+        )}
+        <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
+          <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
+        </button>
+        <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
+          <ListTodo className="w-3.5 h-3.5" />{t("actions.createTask")}
+        </button>
+        {!isAloneInOrg && (
+          <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
+            <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
+          </button>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right-side actions */}
+        <button onClick={onSnooze} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-[#A1A1AA] bg-[#18181B] hover:bg-[#27272A] border border-[#27272A] rounded-lg transition-colors">
+          <AlarmClock className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-red-400 bg-[#18181B] hover:bg-red-500/10 border border-[#27272A] rounded-lg transition-colors">
+          <Archive className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {/* ── Subject + Meta ── */}
-        <div className="px-6 pt-6 pb-4">
-          <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
-            {email.subject}
-          </h2>
-          <div className="flex items-center gap-2 mt-2 text-[12px] text-[#71717A] flex-wrap">
-            <span>De: <strong className="text-[#D4D4D8]">{email.sender_name || email.sender_email}</strong></span>
-            <span className="text-[#3F3F46]">&middot;</span>
-            <span>{formatFullDate(email.received_at, locale)}</span>
-            {email.project_name && (
-              <>
-                <span className="text-[#3F3F46]">&middot;</span>
-                <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium">{email.project_name}</span>
-              </>
-            )}
-          </div>
-        </div>
-
         {/* ── AI Summary card ── */}
         {email.ai_summary && (
-          <div className="px-6 pb-4">
+          <div className="px-6 py-4">
             <div className="rounded-xl overflow-hidden border border-[#F97316]/15 bg-gradient-to-br from-[#1C1209] to-[#18130A]">
               <div className="px-4 py-3">
                 <div className="flex items-center gap-1.5 mb-2">
@@ -867,7 +937,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                 return (
                   <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
                     {isHtml ? (
-                      <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(mainMsg.body.content) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(mainMsg.body.content) }} />
                     ) : (
                       <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{mainMsg.body.content}</div>
                     )}
@@ -896,67 +966,13 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                   <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                 </div>
               ) : fallbackIsHtml ? (
-                <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
               ) : (
                 <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{fallbackBody}</div>
               )}
             </div>
           )}
         </div>
-
-        {/* Spacer for action bar */}
-        <div className="h-16" />
-      </div>
-
-      {/* ── ACTION BAR (sticky bottom) ── */}
-      <div className="flex-shrink-0 px-5 py-3 border-t border-[#1C1C1F] bg-[#18181B] flex items-center gap-2">
-        {/* Primary CTA */}
-        {email.is_quote ? (
-          <>
-            <button onClick={onAccept} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
-              <ThumbsUp className="w-3.5 h-3.5" />{t("actions.accept")}
-            </button>
-            <button onClick={onNegotiate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 rounded-lg transition-colors">
-              <MessageSquare className="w-3.5 h-3.5" />{t("actions.negotiate")}
-            </button>
-            <button onClick={onRefuse} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 rounded-lg transition-colors">
-              <ThumbsDown className="w-3.5 h-3.5" />{t("actions.refuse")}
-            </button>
-          </>
-        ) : (
-          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors">
-            <Send className="w-3.5 h-3.5" />{t("actions.replyWithAI")}
-          </button>
-        )}
-
-        {/* Secondary actions */}
-        {!email.is_quote && (
-          <button onClick={onReply} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-            <RotateCcw className="w-3.5 h-3.5" />{"R\u00e9pondre"}
-          </button>
-        )}
-        <button onClick={onTransfer} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-          <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
-        </button>
-        <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-          <ListTodo className="w-3.5 h-3.5" />{t("actions.createTask")}
-        </button>
-        {!isAloneInOrg && (
-          <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-            <Users className="w-3.5 h-3.5" />{t("actions.delegate")}
-          </button>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Right-side actions */}
-        <button onClick={onSnooze} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-[#A1A1AA] bg-[#18181B] hover:bg-[#27272A] border border-[#27272A] rounded-lg transition-colors">
-          <AlarmClock className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={onArchive} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#71717A] hover:text-red-400 bg-[#18181B] hover:bg-red-500/10 border border-[#27272A] rounded-lg transition-colors">
-          <Archive className="w-3.5 h-3.5" />
-        </button>
       </div>
     </>
   );
@@ -1039,7 +1055,7 @@ function ThreadView({ thread, currentUserEmail }: {
                 </div>
                 <div className="px-4 py-4">
                   {isHtml ? (
-                    <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4 email-content" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }} />
+                    <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }} />
                   ) : (
                     <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap">{msg.body.content}</div>
                   )}
@@ -1073,6 +1089,10 @@ function ReplyModal({ email, onClose, onDone }: {
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [tone, setTone] = useState<string>("formal");
+  const [replyLength, setReplyLength] = useState<string>("moyen");
+  const [hasGenerated, setHasGenerated] = useState(false);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const threadContextRef = useRef<string>("");
 
@@ -1103,9 +1123,13 @@ function ReplyModal({ email, onClose, onDone }: {
 
   const generateReply = useCallback(async () => {
     setReplyLoading(true);
+    setHasGenerated(true);
     try {
       const payload: Record<string, unknown> = { email_id: email.id };
       if (threadContextRef.current) payload.thread_context = threadContextRef.current;
+      if (instructions.trim()) payload.instructions = instructions.trim();
+      payload.tone = tone;
+      payload.length = replyLength;
       const res = await fetch("/api/ai/generate-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1117,11 +1141,7 @@ function ReplyModal({ email, onClose, onDone }: {
       }
     } catch { /* ignore */ }
     setReplyLoading(false);
-  }, [email.id]);
-
-  useEffect(() => {
-    if (!threadLoading) generateReply();
-  }, [threadLoading, generateReply]);
+  }, [email.id, instructions, tone, replyLength]);
 
   useEffect(() => {
     if (replyRef.current) {
@@ -1213,7 +1233,7 @@ function ReplyModal({ email, onClose, onDone }: {
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm max-w-none bg-white text-black rounded-lg p-4" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
                     ) : (
                       <div className="text-sm text-[#A1A1AA] whitespace-pre-wrap">{fallbackBody}</div>
                     )}
@@ -1248,12 +1268,66 @@ function ReplyModal({ email, onClose, onDone }: {
               </div>
 
               <div className="flex-1 min-h-0 overflow-y-auto p-4" onWheel={(e) => e.stopPropagation()}>
+                {/* AI Instructions panel */}
+                {!hasGenerated && (
+                  <div className="mb-4 p-4 rounded-xl border border-[#27272A] bg-[#0F0F11]">
+                    <div className="mb-3">
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Ton</label>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {[
+                          { key: "formal", label: "Formel" },
+                          { key: "casual", label: "D\u00e9contract\u00e9" },
+                          { key: "urgent", label: "Urgent" },
+                          { key: "empathique", label: "Empathique" },
+                        ].map((opt) => (
+                          <button key={opt.key} onClick={() => setTone(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${tone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Longueur</label>
+                      <div className="flex gap-1.5">
+                        {[
+                          { key: "court", label: "Court" },
+                          { key: "moyen", label: "Moyen" },
+                          { key: "detaille", label: "D\u00e9taill\u00e9" },
+                        ].map((opt) => (
+                          <button key={opt.key} onClick={() => setReplyLength(opt.key)} className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${replyLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-2 block">Instructions</label>
+                      <textarea
+                        value={instructions}
+                        onChange={(e) => setInstructions(e.target.value)}
+                        placeholder="Sur quel ton ? Que voulez-vous dire ? Ex: Dis-lui que le d\u00e9lai est repouss\u00e9 \u00e0 vendredi, ton amical"
+                        className="w-full h-20 p-2.5 text-[12px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                      />
+                    </div>
+                    <button
+                      onClick={generateReply}
+                      disabled={replyLoading}
+                      className="w-full py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {replyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      G\u00e9n\u00e9rer la r\u00e9ponse
+                    </button>
+                  </div>
+                )}
+
+                {/* AI Suggestion card */}
+                {hasGenerated && (
                 <div className="rounded-lg overflow-hidden border-l-[3px] border-l-[#F97316] bg-gradient-to-br from-[#1C1209] to-[#18130A] border border-[#F9731625]">
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs uppercase font-semibold tracking-wide text-[#F97316]">{t("replyModal.aiSuggestion")}</span>
                       {!replyLoading && (
-                        <button onClick={generateReply} className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#FB923C] transition-colors">
+                        <button onClick={() => setHasGenerated(false)} className="inline-flex items-center gap-1 text-xs text-[#F97316] hover:text-[#FB923C] transition-colors">
                           <RotateCcw className="w-3 h-3" />{t("replyModal.regenerate")}
                         </button>
                       )}
@@ -1273,6 +1347,7 @@ function ReplyModal({ email, onClose, onDone }: {
                     )}
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -1522,6 +1597,364 @@ function TransferModal({ email, onClose, onDone }: {
               </button>
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
                 {t("transferModal.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPOSE MODAL — New email with AI assist + project suggestion
+   ═══════════════════════════════════════════════════════════ */
+
+interface ContactSuggestion {
+  email: string;
+  name: string;
+  source: string;
+}
+
+function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [toEmails, setToEmails] = useState<string[]>([]);
+  const [toInput, setToInput] = useState("");
+  const [ccInput, setCcInput] = useState("");
+  const [bccInput, setBccInput] = useState("");
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [contacts, setContacts] = useState<ContactSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // AI assist
+  const [showAiAssist, setShowAiAssist] = useState(false);
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [aiTone, setAiTone] = useState("formal");
+  const [aiLength, setAiLength] = useState("moyen");
+  const [generating, setGenerating] = useState(false);
+
+  // Project suggestion
+  const [suggestedProject, setSuggestedProject] = useState<{ id: string; name: string } | null>(null);
+  const [confirmedProject, setConfirmedProject] = useState<string | null>(null);
+
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  // Escape to close
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  // Contact autocomplete
+  useEffect(() => {
+    if (toInput.length < 2) { setContacts([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/email/contacts?q=${encodeURIComponent(toInput)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setContacts(data.contacts || []);
+          setShowSuggestions(true);
+        }
+      } catch { /* ignore */ }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [toInput]);
+
+  // Project suggestion (when subject or recipients change)
+  useEffect(() => {
+    if (!subject && toEmails.length === 0) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/ai/suggest-project", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipients: toEmails, subject, body_preview: body.slice(0, 200) }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.project_id) setSuggestedProject({ id: data.project_id, name: data.project_name });
+        }
+      } catch { /* ignore */ }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [subject, toEmails, body]);
+
+  const addEmail = (email: string) => {
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed && !toEmails.includes(trimmed)) {
+      setToEmails([...toEmails, trimmed]);
+    }
+    setToInput("");
+    setShowSuggestions(false);
+  };
+
+  const removeEmail = (email: string) => {
+    setToEmails(toEmails.filter((e) => e !== email));
+  };
+
+  const handleToKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === "Enter" || e.key === "," || e.key === "Tab") && toInput.trim()) {
+      e.preventDefault();
+      addEmail(toInput);
+    }
+    if (e.key === "Backspace" && !toInput && toEmails.length > 0) {
+      setToEmails(toEmails.slice(0, -1));
+    }
+  };
+
+  const handleGenerateAI = async () => {
+    if (!aiInstructions.trim()) return;
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/ai/compose-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instructions: aiInstructions,
+          tone: aiTone,
+          length: aiLength,
+          recipients: toEmails,
+          subject_hint: subject || undefined,
+          project_id: confirmedProject || undefined,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.subject && !subject) setSubject(data.subject);
+        if (data.body) setBody(data.body);
+        setShowAiAssist(false);
+      }
+    } catch { /* ignore */ }
+    setGenerating(false);
+  };
+
+  const handleSend = async () => {
+    if (!toEmails.length || !subject.trim() || !body.trim()) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        to: toEmails,
+        subject,
+        body: body.replace(/\n/g, "<br>"),
+      };
+      if (ccInput.trim()) payload.cc = ccInput.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (bccInput.trim()) payload.bcc = bccInput.split(",").map((s: string) => s.trim()).filter(Boolean);
+
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSendError(data.error || "Erreur lors de l'envoi");
+        setSending(false);
+        return;
+      }
+      onSent();
+    } catch {
+      setSendError("Erreur réseau");
+    }
+    setSending(false);
+  };
+
+  const sourceLabel: Record<string, string> = { team: "Équipe", supplier: "Fournisseur", recent: "Récent" };
+  const sourceColor: Record<string, string> = { team: "text-[#3B82F6]", supplier: "text-[#10B981]", recent: "text-[#71717A]" };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
+        <div
+          className="bg-[#18181B] rounded-2xl shadow-2xl flex flex-col border border-[#27272A]"
+          style={{ width: "700px", maxWidth: "90vw", height: "85vh", maxHeight: "800px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-[#0F0F11] border-b border-[#27272A] rounded-t-2xl">
+            <h2 className="text-lg font-semibold text-[#FAFAFA]">Nouveau message</h2>
+            <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Recipients */}
+          <div className="flex-shrink-0 px-6 py-3 border-b border-[#27272A] space-y-2 bg-[#0F0F11]">
+            {/* To field */}
+            <div className="flex items-start gap-2 relative">
+              <span className="text-[12px] text-[#71717A] w-8 text-right pt-1.5">À :</span>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-1 p-1.5 border border-[#3F3F46] rounded-lg bg-[#18181B] min-h-[36px]">
+                  {toEmails.map((email) => (
+                    <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[#F97316]/10 text-[#F97316] rounded-md border border-[#F97316]/20">
+                      {email}
+                      <button onClick={() => removeEmail(email)} className="hover:text-white">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={toInput}
+                    onChange={(e) => setToInput(e.target.value)}
+                    onKeyDown={handleToKeyDown}
+                    onBlur={() => { if (toInput.trim()) addEmail(toInput); setTimeout(() => setShowSuggestions(false), 200); }}
+                    placeholder={toEmails.length ? "" : "Ajouter un destinataire..."}
+                    className="flex-1 min-w-[120px] bg-transparent text-[12px] text-[#FAFAFA] outline-none placeholder:text-[#52525B] py-0.5"
+                  />
+                </div>
+                {/* Autocomplete dropdown */}
+                {showSuggestions && contacts.length > 0 && (
+                  <div className="absolute left-10 right-0 top-full mt-1 bg-[#18181B] border border-[#27272A] rounded-lg shadow-xl z-10 max-h-40 overflow-y-auto">
+                    {contacts.map((c) => (
+                      <button
+                        key={c.email}
+                        onClick={() => addEmail(c.email)}
+                        className="w-full px-3 py-2 text-left hover:bg-[#27272A] transition-colors flex items-center gap-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] text-[#FAFAFA] truncate">{c.name}</div>
+                          <div className="text-[10px] text-[#52525B] truncate">{c.email}</div>
+                        </div>
+                        <span className={`text-[9px] font-medium ${sourceColor[c.source] || "text-[#52525B]"}`}>{sourceLabel[c.source] || c.source}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CC/BCC toggle */}
+            {showCcBcc ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-[#71717A] w-8 text-right">CC :</span>
+                  <input type="text" value={ccInput} onChange={(e) => setCcInput(e.target.value)} placeholder="CC..." className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-[#71717A] w-8 text-right">CCI :</span>
+                  <input type="text" value={bccInput} onChange={(e) => setBccInput(e.target.value)} placeholder="CCI..." className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]" />
+                </div>
+              </>
+            ) : (
+              <button onClick={() => setShowCcBcc(true)} className="text-[11px] text-[#F97316] hover:underline ml-10">
+                Ajouter CC / CCI
+              </button>
+            )}
+
+            {/* Subject */}
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-[#71717A] w-8 text-right">Objet :</span>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Objet de l'email..."
+                className="flex-1 px-2 py-1.5 border border-[#3F3F46] rounded-lg text-[12px] bg-[#18181B] text-[#FAFAFA] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+              />
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Rédigez votre message..."
+              className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
+            />
+          </div>
+
+          {/* AI Assist panel */}
+          <div className="flex-shrink-0 border-t border-[#27272A]">
+            <button
+              onClick={() => setShowAiAssist(!showAiAssist)}
+              className="w-full px-6 py-2.5 flex items-center gap-2 text-[12px] font-medium text-[#F97316] hover:bg-[#27272A]/30 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Assistance IA
+              <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${showAiAssist ? "rotate-180" : ""}`} />
+            </button>
+            {showAiAssist && (
+              <div className="px-6 pb-4 space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-1.5 block">Ton</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {[{ key: "formal", label: "Formel" }, { key: "casual", label: "Décontracté" }, { key: "urgent", label: "Urgent" }, { key: "empathique", label: "Empathique" }].map((opt) => (
+                        <button key={opt.key} onClick={() => setAiTone(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiTone === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase font-semibold tracking-wider text-[#52525B] mb-1.5 block">Longueur</label>
+                    <div className="flex gap-1.5">
+                      {[{ key: "court", label: "Court" }, { key: "moyen", label: "Moyen" }, { key: "detaille", label: "Détaillé" }].map((opt) => (
+                        <button key={opt.key} onClick={() => setAiLength(opt.key)} className={`px-2 py-1 text-[10px] rounded-lg border transition-colors ${aiLength === opt.key ? "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30" : "text-[#71717A] border-[#27272A] hover:border-[#3F3F46]"}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <textarea
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
+                  placeholder="Décrivez l'email que vous voulez écrire... Ex: Demande de confirmation du planning pour la semaine prochaine, ton amical"
+                  className="w-full h-16 p-2.5 text-[11px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#18181B] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+                />
+                <button
+                  onClick={handleGenerateAI}
+                  disabled={generating || !aiInstructions.trim()}
+                  className="w-full py-2 text-[12px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {generating ? "Génération..." : "Générer avec IA"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Project suggestion */}
+          {suggestedProject && !confirmedProject && (
+            <div className="flex-shrink-0 px-6 py-2.5 border-t border-[#27272A] bg-[#3B82F6]/5 flex items-center gap-3">
+              <span className="text-[11px] text-[#60A5FA]">
+                Cet email semble concerner <strong>{suggestedProject.name}</strong>
+              </span>
+              <button onClick={() => setConfirmedProject(suggestedProject.id)} className="text-[10px] px-2 py-0.5 bg-[#3B82F6]/10 text-[#60A5FA] border border-[#3B82F6]/20 rounded hover:bg-[#3B82F6]/20 transition-colors">
+                Confirmer
+              </button>
+              <button onClick={() => setSuggestedProject(null)} className="text-[10px] text-[#52525B] hover:text-[#71717A]">
+                Ignorer
+              </button>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-6 py-3 border-t border-[#27272A] bg-[#18181B] rounded-b-2xl">
+            {sendError && (
+              <div className="mb-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[12px] text-red-400 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />{sendError}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSend}
+                disabled={sending || !toEmails.length || !subject.trim() || !body.trim()}
+                className="inline-flex items-center gap-2 px-5 py-2 text-[13px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Envoyer
+              </button>
+              <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
+                Annuler
               </button>
             </div>
           </div>

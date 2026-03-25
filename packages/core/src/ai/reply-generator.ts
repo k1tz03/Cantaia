@@ -34,6 +34,12 @@ export interface ReplyResult {
   error?: string;
 }
 
+export interface ReplyInstructions {
+  tone?: "formal" | "casual" | "urgent" | "empathique";
+  length?: "court" | "moyen" | "detaille";
+  userInstructions?: string;
+}
+
 /** Detect whether an email is a forward based on subject and body patterns */
 function detectForward(subject: string, body: string): {
   isForward: boolean;
@@ -85,7 +91,8 @@ function detectForward(subject: string, body: string): {
 function buildReplyPrompt(
   email: EmailForReply,
   project: ReplyProjectContext | null,
-  user: ReplyUserProfile
+  user: ReplyUserProfile,
+  instructions?: ReplyInstructions
 ): string {
   const projectInfo = project
     ? `Projet : ${project.name} (${project.code || "N/A"})`
@@ -123,6 +130,30 @@ function buildReplyPrompt(
     en: "Reply in ENGLISH. Professional tone. Sign with:",
   };
 
+  const toneMap: Record<string, string> = {
+    formal: "Formel et professionnel, vouvoiement strict",
+    casual: "Cordial et décontracté, tout en restant professionnel",
+    urgent: "Urgent et direct, aller droit au but",
+    empathique: "Empathique et compréhensif, montrer de la considération",
+  };
+  const lengthMap: Record<string, string> = {
+    court: "Réponse courte, 2-3 phrases maximum",
+    moyen: "Réponse de longueur moyenne, 4-6 phrases",
+    detaille: "Réponse détaillée et complète, couvrant tous les points",
+  };
+
+  const instructionsBlock = [
+    instructions?.userInstructions
+      ? `\nINSTRUCTIONS SPÉCIFIQUES DE L'UTILISATEUR :\n${instructions.userInstructions}\n→ Intègre ces instructions dans ta réponse.`
+      : "",
+    instructions?.tone
+      ? `\nTON : ${toneMap[instructions.tone] || "Professionnel"}`
+      : "",
+    instructions?.length
+      ? `\nLONGUEUR : ${lengthMap[instructions.length] || "Adaptée"}`
+      : "",
+  ].join("");
+
   return `Tu es l'assistant IA de ${user.first_name} ${user.last_name}, ${user.role} chez ${user.company_name}.
 Tu rédiges une réponse professionnelle à un email reçu dans le contexte de la construction en Suisse.
 
@@ -147,6 +178,7 @@ Pour TOUS les autres emails, génère une réponse adaptée :
 - Demande d'action → "Bien noté. [engagement sur l'action]"
 - Offre/devis → "Merci pour votre offre. Je l'examine et vous reviens."
 - Problème → "Merci de nous avoir signalé. [action proposée]"
+${instructionsBlock}
 
 STYLE :
 - Ton professionnel construction suisse, concis et direct
@@ -166,6 +198,7 @@ export async function generateReply(
   email: EmailForReply,
   projectContext: ReplyProjectContext | null,
   userProfile: ReplyUserProfile,
+  instructions?: ReplyInstructions,
   model = MODEL_FOR_TASK.reply_generation,
   onUsage?: ApiUsageCallback
 ): Promise<ReplyResult> {
@@ -175,7 +208,8 @@ export async function generateReply(
     console.log(`[generateReply] Body length: preview=${email.body_preview.length}, full=${email.body_full?.length || 0}`);
   }
 
-  const prompt = buildReplyPrompt(email, projectContext, userProfile);
+  const prompt = buildReplyPrompt(email, projectContext, userProfile, instructions);
+  const maxTokens = instructions?.length === "detaille" ? 1200 : 600;
 
   try {
     if (process.env.NODE_ENV === "development") {
@@ -187,7 +221,7 @@ export async function generateReply(
     const response = await callAnthropicWithRetry(() =>
       client.messages.create({
         model,
-        max_tokens: 600,
+        max_tokens: maxTokens,
         messages: [
           {
             role: "user",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateReply, cleanEmailForAI, classifyAIError } from "@cantaia/core/ai";
+import { generateReply, cleanEmailForAI, classifyAIError, type ReplyInstructions } from "@cantaia/core/ai";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
@@ -122,6 +122,16 @@ export async function POST(request: NextRequest) {
     bodyFull = threadPrefix + (bodyFull || email.body_preview || "");
   }
 
+  // Extract optional reply instructions from request body
+  const replyInstructions: ReplyInstructions | undefined =
+    (body.tone || body.length || body.instructions)
+      ? {
+          tone: body.tone as ReplyInstructions["tone"],
+          length: body.length as ReplyInstructions["length"],
+          userInstructions: body.instructions as string | undefined,
+        }
+      : undefined;
+
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Calling generateReply for email "${email.subject}" (id: ${email.id})`);
   if (process.env.NODE_ENV === "development") console.log(`[generate-reply] Project: ${projectContext?.name || "none"}, Full body: ${bodyFull ? `${bodyFull.length} chars` : "NO"}, Has thread: ${!!body.thread_context}`);
 
@@ -145,6 +155,7 @@ export async function POST(request: NextRequest) {
       role: userProfile.role,
       company_name: companyName,
     },
+    replyInstructions,
     undefined,
     (usage) => {
       trackApiUsage({
