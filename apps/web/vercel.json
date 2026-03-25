@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/briefing",
       "schedule": "45 6 * * *"
+    },
+    {
+      "path": "/api/cron/aggregate-activity",
+      "schedule": "0 1 * * *"
     }
   ]
 }

@@ -8,10 +8,12 @@ import { OnboardingChecklist } from "@/components/app/OnboardingChecklist";
 import { OnboardingGuard } from "@/components/app/OnboardingGuard";
 import { TrialGuard } from "@/components/stripe/TrialGuard";
 import { AppHeader } from "@/components/app/AppHeader";
+import { ActivityTrackingProvider } from "@/components/providers/ActivityTrackingProvider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
+      <ActivityTrackingProvider>
       <BrandingProvider>
         <AppEmailProvider>
           <AppActiveProjectProvider>
@@ -31,6 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </AppActiveProjectProvider>
         </AppEmailProvider>
       </BrandingProvider>
+      </ActivityTrackingProvider>
     </AuthProvider>
   );
 }

@@ -19,6 +19,7 @@ import {
   ChevronRight,
   LifeBuoy,
   Bot,
+  Activity,
 } from "lucide-react";
 const superAdminNavItems = [
   { href: "/super-admin", icon: LayoutDashboard, labelKey: "dashboard" },
@@ -26,6 +27,7 @@ const superAdminNavItems = [
   { href: "/super-admin/users", icon: Users, labelKey: "allUsers" },
   { href: "/super-admin/billing", icon: CreditCard, labelKey: "billing" },
   { href: "/super-admin/metrics", icon: BarChart3, labelKey: "globalMetrics" },
+  { href: "/super-admin/user-analytics", icon: Activity, labelKey: "userAnalytics" },
   { href: "/super-admin/data-intelligence", icon: Brain, labelKey: "dataIntelligence" },
   { href: "/super-admin/ai-costs", icon: DollarSign, labelKey: "aiCosts" },
   { href: "/super-admin/operations", icon: Wrench, labelKey: "operations" },
