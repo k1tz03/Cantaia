@@ -11,6 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 type ActionType =
   | "overview"
+  | "general"
   | "feature-usage"
   | "per-org"
   | "per-user"
@@ -57,6 +58,8 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case "overview":
         return await handleOverview(admin, startDate, days);
+      case "general":
+        return await handleGeneral(admin, startDate, days);
       case "feature-usage":
         return await handleFeatureUsage(admin, startDate);
       case "per-org":
@@ -522,4 +525,267 @@ async function handleUserJourney(
   );
 
   return NextResponse.json({ user_id: userId, sessions });
+}
+
+// ---- GENERAL: Platform-wide statistics crossing ALL data sources ----
+
+async function handleGeneral(
+  admin: AdminClient,
+  startDate: string,
+  days: number
+) {
+  // Run all queries in parallel for speed
+  const [
+    usersResult,
+    projectsResult,
+    emailsResult,
+    tasksResult,
+    meetingsResult,
+    submissionsResult,
+    plansResult,
+    suppliersResult,
+    aiCallsResult,
+    aiCostResult,
+    orgsResult,
+    activityResult,
+    newUsersResult,
+    onboardedResult,
+  ] = await Promise.all([
+    // Total users
+    (admin as any).from("users").select("id", { count: "exact", head: true }),
+    // Total projects
+    admin.from("projects").select("id", { count: "exact", head: true }),
+    // Emails synced in period
+    (admin as any)
+      .from("email_records")
+      .select("id", { count: "exact", head: true })
+      .gte("received_at", startDate),
+    // Tasks created in period
+    (admin as any)
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // Meetings in period
+    (admin as any)
+      .from("meetings")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // Submissions in period
+    (admin as any)
+      .from("submissions")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // Plans uploaded in period
+    (admin as any)
+      .from("plan_registry")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // Total suppliers
+    admin.from("suppliers").select("id", { count: "exact", head: true }),
+    // AI calls in period
+    (admin as any)
+      .from("api_usage_logs")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // AI cost in period
+    (admin as any)
+      .from("api_usage_logs")
+      .select("estimated_cost_chf, action_type")
+      .gte("created_at", startDate),
+    // Total organizations
+    (admin as any)
+      .from("organizations")
+      .select("id, subscription_plan", { count: "exact", head: false }),
+    // Activity data (from user_activity_daily)
+    (admin as any)
+      .from("user_activity_daily")
+      .select("user_id, feature, page_views, feature_uses, total_duration_ms, session_count, stat_date")
+      .gte("stat_date", startDate),
+    // New users in period
+    (admin as any)
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startDate),
+    // Onboarded users
+    (admin as any)
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("onboarding_completed", true),
+  ]);
+
+  // --- Platform Growth ---
+  const totalUsers = usersResult.count || 0;
+  const newUsersInPeriod = newUsersResult.count || 0;
+  const onboardedUsers = onboardedResult.count || 0;
+  const onboardingRate = totalUsers > 0 ? Math.round((onboardedUsers / totalUsers) * 100) : 0;
+
+  // --- Active users from activity data ---
+  const activityRows = activityResult.data || [];
+  const activeUserIds = new Set<string>();
+  const dailyActiveMap = new Map<string, Set<string>>();
+  let totalPageViews = 0;
+  let totalFeatureUses = 0;
+  let totalDurationMs = 0;
+  let totalSessions = 0;
+
+  for (const r of activityRows) {
+    activeUserIds.add(r.user_id);
+    totalPageViews += r.page_views || 0;
+    totalFeatureUses += r.feature_uses || 0;
+    totalDurationMs += Number(r.total_duration_ms) || 0;
+    totalSessions += r.session_count || 0;
+    const day = r.stat_date;
+    if (!dailyActiveMap.has(day)) dailyActiveMap.set(day, new Set());
+    dailyActiveMap.get(day)!.add(r.user_id);
+  }
+
+  const activeUsersPeriod = activeUserIds.size;
+  const activeRate = totalUsers > 0 ? Math.round((activeUsersPeriod / totalUsers) * 100) : 0;
+  const avgDau = dailyActiveMap.size > 0
+    ? Math.round(Array.from(dailyActiveMap.values()).reduce((s, v) => s + v.size, 0) / dailyActiveMap.size)
+    : 0;
+
+  // --- Engagement segments ---
+  const userEventCounts = new Map<string, number>();
+  for (const r of activityRows) {
+    const prev = userEventCounts.get(r.user_id) || 0;
+    userEventCounts.set(r.user_id, prev + (r.page_views || 0) + (r.feature_uses || 0));
+  }
+  let powerUsers = 0;
+  let regularUsers = 0;
+  let casualUsers = 0;
+  for (const count of userEventCounts.values()) {
+    if (count > 100) powerUsers++;
+    else if (count > 20) regularUsers++;
+    else casualUsers++;
+  }
+  const inactiveUsers = totalUsers - activeUsersPeriod;
+
+  // --- Content volume ---
+  const contentVolume = {
+    emails_synced: emailsResult.count || 0,
+    tasks_created: tasksResult.count || 0,
+    meetings_created: meetingsResult.count || 0,
+    submissions_created: submissionsResult.count || 0,
+    plans_uploaded: plansResult.count || 0,
+    total_projects: projectsResult.count || 0,
+    total_suppliers: suppliersResult.count || 0,
+  };
+
+  // --- AI utilization ---
+  const aiCostRows = aiCostResult.data || [];
+  const totalAiCalls = aiCallsResult.count || 0;
+  let totalAiCostChf = 0;
+  const aiByAction = new Map<string, { calls: number; cost: number }>();
+  for (const r of aiCostRows) {
+    const cost = Number(r.estimated_cost_chf) || 0;
+    totalAiCostChf += cost;
+    const action = r.action_type || "unknown";
+    const prev = aiByAction.get(action) || { calls: 0, cost: 0 };
+    aiByAction.set(action, { calls: prev.calls + 1, cost: prev.cost + cost });
+  }
+  const aiBreakdown = Array.from(aiByAction.entries())
+    .map(([action, stats]) => ({ action, ...stats }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 10);
+
+  // --- Orgs breakdown ---
+  const orgsData = orgsResult.data || [];
+  const planDistribution: Record<string, number> = {};
+  for (const o of orgsData) {
+    const plan = o.subscription_plan || "trial";
+    planDistribution[plan] = (planDistribution[plan] || 0) + 1;
+  }
+
+  // --- Feature usage (from activity data) ---
+  const featureMap = new Map<string, { views: number; uses: number; users: Set<string> }>();
+  for (const r of activityRows) {
+    const f = r.feature || "other";
+    const prev = featureMap.get(f) || { views: 0, uses: 0, users: new Set<string>() };
+    prev.views += r.page_views || 0;
+    prev.uses += r.feature_uses || 0;
+    prev.users.add(r.user_id);
+    featureMap.set(f, prev);
+  }
+  const topFeatures = Array.from(featureMap.entries())
+    .map(([feature, stats]) => ({
+      feature,
+      page_views: stats.views,
+      feature_uses: stats.uses,
+      unique_users: stats.users.size,
+      total: stats.views + stats.uses,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 15);
+
+  // --- Daily trend for the period ---
+  const dailyTrend = Array.from(dailyActiveMap.entries())
+    .map(([date, users]) => {
+      let views = 0;
+      let uses = 0;
+      for (const r of activityRows) {
+        if (r.stat_date === date) {
+          views += r.page_views || 0;
+          uses += r.feature_uses || 0;
+        }
+      }
+      return { date, dau: users.size, page_views: views, feature_uses: uses };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // --- Hourly distribution (from raw events, last 7 days only for perf) ---
+  const recentDate = getStartDate(7);
+  const { data: hourlyRaw } = await (admin as any)
+    .from("usage_events")
+    .select("created_at")
+    .gte("created_at", recentDate)
+    .limit(5000);
+
+  const hourlyDist: number[] = new Array(24).fill(0);
+  for (const r of (hourlyRaw || [])) {
+    const hour = new Date(r.created_at).getUTCHours();
+    hourlyDist[hour]++;
+  }
+
+  return NextResponse.json({
+    // Platform growth
+    platform: {
+      total_users: totalUsers,
+      total_organizations: orgsResult.count || orgsData.length,
+      new_users_period: newUsersInPeriod,
+      onboarding_rate: onboardingRate,
+      active_users_period: activeUsersPeriod,
+      active_rate: activeRate,
+      avg_dau: avgDau,
+      plan_distribution: planDistribution,
+    },
+    // Engagement
+    engagement: {
+      power_users: powerUsers,
+      regular_users: regularUsers,
+      casual_users: casualUsers,
+      inactive_users: inactiveUsers,
+      avg_session_duration_min: totalSessions > 0 ? Math.round(totalDurationMs / totalSessions / 60000 * 10) / 10 : 0,
+      avg_pages_per_session: totalSessions > 0 ? Math.round(totalPageViews / totalSessions * 10) / 10 : 0,
+      total_sessions: totalSessions,
+      total_page_views: totalPageViews,
+    },
+    // Content volume
+    content: contentVolume,
+    // AI utilization
+    ai: {
+      total_calls: totalAiCalls,
+      total_cost_chf: Math.round(totalAiCostChf * 100) / 100,
+      avg_cost_per_call: totalAiCalls > 0 ? Math.round(totalAiCostChf / totalAiCalls * 1000) / 1000 : 0,
+      breakdown: aiBreakdown,
+    },
+    // Top features
+    top_features: topFeatures,
+    // Daily trend
+    daily_trend: dailyTrend,
+    // Hourly distribution
+    hourly_distribution: hourlyDist,
+    // Period info
+    period_days: days,
+  });
 }

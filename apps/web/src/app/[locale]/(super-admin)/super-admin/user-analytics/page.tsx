@@ -10,6 +10,12 @@ import {
   Zap,
   ChevronDown,
   ChevronRight,
+  Building2,
+  Mail,
+  Bot,
+  TrendingUp,
+  BarChart3,
+  FolderKanban,
 } from "lucide-react";
 import {
   AreaChart,
@@ -62,6 +68,48 @@ interface OrgActivity {
 interface AdoptionItem {
   feature: string;
   adoption_pct: number;
+}
+
+interface GeneralData {
+  platform: {
+    total_users: number;
+    total_organizations: number;
+    new_users_period: number;
+    onboarding_rate: number;
+    active_users_period: number;
+    active_rate: number;
+    avg_dau: number;
+    plan_distribution: Record<string, number>;
+  };
+  engagement: {
+    power_users: number;
+    regular_users: number;
+    casual_users: number;
+    inactive_users: number;
+    avg_session_duration_min: number;
+    avg_pages_per_session: number;
+    total_sessions: number;
+    total_page_views: number;
+  };
+  content: {
+    emails_synced: number;
+    tasks_created: number;
+    meetings_created: number;
+    submissions_created: number;
+    plans_uploaded: number;
+    total_projects: number;
+    total_suppliers: number;
+  };
+  ai: {
+    total_calls: number;
+    total_cost_chf: number;
+    avg_cost_per_call: number;
+    breakdown: Array<{ action: string; calls: number; cost: number }>;
+  };
+  top_features: Array<{ feature: string; page_views: number; feature_uses: number; unique_users: number; total: number }>;
+  daily_trend: Array<{ date: string; dau: number; page_views: number; feature_uses: number }>;
+  hourly_distribution: number[];
+  period_days: number;
 }
 
 interface SessionPage {
@@ -128,6 +176,7 @@ export default function SuperAdminUserAnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   // Data
+  const [general, setGeneral] = useState<GeneralData | null>(null);
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [featureUsage, setFeatureUsage] = useState<FeatureUsageItem[]>([]);
   const [trends, setTrends] = useState<TrendPoint[]>([]);
@@ -153,13 +202,15 @@ export default function SuperAdminUserAnalyticsPage() {
     setLoading(true);
     const base = "/api/super-admin/user-analytics";
     Promise.all([
+      fetch(`${base}?action=general&period=${period}`).then((r) => r.json()),
       fetch(`${base}?action=overview&period=${period}`).then((r) => r.json()),
       fetch(`${base}?action=feature-usage&period=${period}`).then((r) => r.json()),
       fetch(`${base}?action=trends&period=${period}`).then((r) => r.json()),
       fetch(`${base}?action=per-org&period=${period}`).then((r) => r.json()),
       fetch(`${base}?action=adoption&period=${period}`).then((r) => r.json()),
     ])
-      .then(([ov, fu, tr, po, ad]) => {
+      .then(([gen, ov, fu, tr, po, ad]) => {
+        setGeneral(gen || null);
         setOverview(ov?.data ?? null);
         setFeatureUsage(
           Array.isArray(fu?.data) ? fu.data.sort((a: FeatureUsageItem, b: FeatureUsageItem) => b.total - a.total) : []
@@ -288,8 +339,159 @@ export default function SuperAdminUserAnalyticsPage() {
         </div>
       </div>
 
+      {/* ================================================================= */}
+      {/* SECTION 0: Statistiques Générales Plateforme                     */}
+      {/* ================================================================= */}
+      {general && (
+        <div className="space-y-5">
+          {/* Row 1: Platform Growth KPIs */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+            {[
+              { label: "Utilisateurs", value: general.platform.total_users, icon: Users, color: "text-[#F97316]" },
+              { label: "Organisations", value: general.platform.total_organizations, icon: Building2, color: "text-[#3B82F6]" },
+              { label: "Nouveaux", value: `+${general.platform.new_users_period}`, icon: TrendingUp, color: "text-[#22C55E]", sub: `${period}` },
+              { label: "Taux actif", value: `${general.platform.active_rate}%`, icon: Activity, color: general.platform.active_rate > 50 ? "text-[#22C55E]" : "text-[#F59E0B]" },
+              { label: "Emails sync.", value: general.content.emails_synced.toLocaleString("fr-CH"), icon: Mail, color: "text-[#FAFAFA]" },
+              { label: "Tâches créées", value: general.content.tasks_created.toLocaleString("fr-CH"), icon: FolderKanban, color: "text-[#FAFAFA]" },
+              { label: "Appels IA", value: general.ai.total_calls.toLocaleString("fr-CH"), icon: Bot, color: "text-[#A855F7]" },
+              { label: "Coût IA", value: `${general.ai.total_cost_chf.toFixed(0)} CHF`, icon: BarChart3, color: "text-[#FAFAFA]" },
+            ].map((kpi) => (
+              <div key={kpi.label} className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <kpi.icon className="h-4 w-4 text-[#71717A]" />
+                  <span className="text-[10px] uppercase tracking-wider text-[#71717A]">{kpi.label}</span>
+                </div>
+                <p className={`text-lg font-bold ${kpi.color}`}>{kpi.value}</p>
+                {"sub" in kpi && kpi.sub && <p className="text-[10px] text-[#52525B]">{kpi.sub}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Row 2: Engagement + Content + AI in 3 columns */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Engagement Segments */}
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">Segments d&apos;engagement</h3>
+              <div className="space-y-2.5">
+                {[
+                  { label: "Power users (>100 events)", count: general.engagement.power_users, color: "bg-[#F97316]" },
+                  { label: "Réguliers (20-100)", count: general.engagement.regular_users, color: "bg-[#3B82F6]" },
+                  { label: "Occasionnels (<20)", count: general.engagement.casual_users, color: "bg-[#F59E0B]" },
+                  { label: "Inactifs", count: general.engagement.inactive_users, color: "bg-[#3F3F46]" },
+                ].map((seg) => {
+                  const total = general.platform.total_users || 1;
+                  const pct = Math.round((seg.count / total) * 100);
+                  return (
+                    <div key={seg.label}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[#A1A1AA]">{seg.label}</span>
+                        <span className="text-[#FAFAFA] font-medium">{seg.count} <span className="text-[#71717A]">({pct}%)</span></span>
+                      </div>
+                      <div className="mt-1 h-1.5 rounded-full bg-[#27272A]">
+                        <div className={`h-1.5 rounded-full ${seg.color}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content Volume */}
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">Volume de contenu <span className="text-[#71717A] font-normal">({period})</span></h3>
+              <div className="space-y-2">
+                {[
+                  { label: "Emails synchronisés", value: general.content.emails_synced },
+                  { label: "Tâches créées", value: general.content.tasks_created },
+                  { label: "Réunions / PV", value: general.content.meetings_created },
+                  { label: "Soumissions", value: general.content.submissions_created },
+                  { label: "Plans uploadés", value: general.content.plans_uploaded },
+                  { label: "Projets (total)", value: general.content.total_projects },
+                  { label: "Fournisseurs (total)", value: general.content.total_suppliers },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between text-xs">
+                    <span className="text-[#A1A1AA]">{item.label}</span>
+                    <span className="font-mono text-[#FAFAFA] font-medium">{item.value.toLocaleString("fr-CH")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* AI Breakdown */}
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">Utilisation IA <span className="text-[#71717A] font-normal">({period})</span></h3>
+              <div className="mb-3 flex items-center gap-4 text-xs">
+                <span className="text-[#A1A1AA]">{general.ai.total_calls} appels</span>
+                <span className="text-[#F97316] font-medium">{general.ai.total_cost_chf.toFixed(2)} CHF</span>
+                <span className="text-[#71717A]">~{general.ai.avg_cost_per_call.toFixed(3)} CHF/appel</span>
+              </div>
+              <div className="space-y-1.5">
+                {general.ai.breakdown.slice(0, 7).map((item) => {
+                  const maxCost = general.ai.breakdown[0]?.cost || 1;
+                  const pct = Math.round((item.cost / maxCost) * 100);
+                  return (
+                    <div key={item.action}>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#A1A1AA] truncate max-w-[140px]">{item.action.replace(/_/g, " ")}</span>
+                        <span className="text-[#FAFAFA] font-mono">{item.cost.toFixed(2)} CHF</span>
+                      </div>
+                      <div className="mt-0.5 h-1 rounded-full bg-[#27272A]">
+                        <div className="h-1 rounded-full bg-[#A855F7]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Plan Distribution + Hourly Distribution */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Plan Distribution */}
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">Distribution des plans</h3>
+              <div className="flex items-end gap-3 h-24">
+                {Object.entries(general.platform.plan_distribution).map(([plan, count]) => {
+                  const maxCount = Math.max(...Object.values(general.platform.plan_distribution), 1);
+                  const heightPct = Math.round((count / maxCount) * 100);
+                  const colors: Record<string, string> = { trial: "bg-[#71717A]", starter: "bg-[#3B82F6]", pro: "bg-[#F97316]", enterprise: "bg-[#A855F7]" };
+                  return (
+                    <div key={plan} className="flex flex-col items-center flex-1">
+                      <span className="text-xs font-bold text-[#FAFAFA] mb-1">{count}</span>
+                      <div className="w-full max-w-[40px] rounded-t-md" style={{ height: `${heightPct}%` }}>
+                        <div className={`w-full h-full rounded-t-md ${colors[plan] || "bg-[#3F3F46]"}`} />
+                      </div>
+                      <span className="text-[10px] text-[#71717A] mt-1 capitalize">{plan}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Hourly Distribution */}
+            <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-5">
+              <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">Activité par heure <span className="text-[#71717A] font-normal">(7j)</span></h3>
+              <ResponsiveContainer width="100%" height={80}>
+                <BarChart data={general.hourly_distribution.map((v, i) => ({ hour: `${i}h`, events: v }))}>
+                  <Bar dataKey="events" fill="#F97316" radius={[2, 2, 0, 0]} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#71717A" }} axisLine={false} tickLine={false} interval={2} />
+                  <Tooltip
+                    contentStyle={{ background: "#18181B", border: "1px solid #27272A", borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: "#A1A1AA" }}
+                    itemStyle={{ color: "#F97316" }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-[#27272A]" />
+        </div>
+      )}
+
       {/* ----------------------------------------------------------------- */}
-      {/* Section 1: KPI strip                                              */}
+      {/* Section 1: KPI strip (per-user activity)                         */}
       {/* ----------------------------------------------------------------- */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {[
