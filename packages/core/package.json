@@ -23,6 +23,7 @@
     "./suppliers": "./src/suppliers/index.ts",
     "./submissions": "./src/submissions/index.ts",
     "./emails": "./src/emails/index.ts",
+    "./emails/invite": "./src/emails/invite-email.ts",
     "./platform": "./src/platform/index.ts",
     "./visits": "./src/visits/index.ts",
     "./pricing": "./src/pricing/index.ts",

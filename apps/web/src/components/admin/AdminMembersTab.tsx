@@ -50,7 +50,6 @@ export default function AdminMembersTab() {
     message: "",
   });
   const [sending, setSending] = useState(false);
-  const [orgId, setOrgId] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -75,7 +74,6 @@ export default function AdminMembersTab() {
         setLoading(false);
         return;
       }
-      setOrgId(data.organization_id);
       setMaxUsers(data.max_users || 20);
       setMembers(data.members || []);
 
@@ -99,12 +97,15 @@ export default function AdminMembersTab() {
   async function handleSendInvite() {
     setSending(true);
     try {
-      const res = await fetch("/api/invites", {
+      const res = await fetch("/api/admin/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          organization_id: orgId,
-          ...inviteForm,
+          email: inviteForm.email,
+          first_name: inviteForm.first_name,
+          last_name: inviteForm.last_name,
+          role: inviteForm.role,
+          message: inviteForm.message,
         }),
       });
       if (res.ok) {
@@ -135,11 +136,10 @@ export default function AdminMembersTab() {
         .eq("id", invite.id);
 
       // Send new one
-      await fetch("/api/invites", {
+      await fetch("/api/admin/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          organization_id: orgId,
           email: invite.email,
           role: "member",
         }),

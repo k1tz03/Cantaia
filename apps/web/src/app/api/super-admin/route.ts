@@ -699,6 +699,22 @@ export async function POST(request: NextRequest) {
         console.error("[super-admin] Create invite error:", inviteError);
       } else {
         invite = inviteData;
+
+        // Send invite email via Resend (fire-and-forget)
+        if (process.env.RESEND_API_KEY) {
+          const { sendInviteEmail } = await import("@cantaia/core/emails/invite");
+          sendInviteEmail({
+            resendApiKey: process.env.RESEND_API_KEY,
+            inviteeEmail: invite_email,
+            inviterName: "Cantaia Admin",
+            organizationName: name,
+            subdomain,
+            role: "admin",
+            message: invite_message,
+            token,
+            locale: "fr",
+          }).catch((err: unknown) => console.error("[invite-email]", err));
+        }
       }
     }
 
@@ -793,6 +809,33 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Send invite email via Resend (fire-and-forget)
+    if (process.env.RESEND_API_KEY) {
+      // Fetch inviter profile and org info for the email
+      const { data: userProfile } = await (admin.from("users") as any)
+        .select("first_name, last_name, preferred_language")
+        .eq("id", userId)
+        .maybeSingle();
+      const { data: org } = await (admin.from("organizations") as any)
+        .select("name, subdomain")
+        .eq("id", organization_id)
+        .maybeSingle();
+
+      const { sendInviteEmail } = await import("@cantaia/core/emails/invite");
+      sendInviteEmail({
+        resendApiKey: process.env.RESEND_API_KEY,
+        inviteeEmail: email,
+        inviterName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ""}`.trim() : "Admin",
+        organizationName: org?.name || "Organisation",
+        subdomain: org?.subdomain,
+        role: role || "member",
+        message: message,
+        token,
+        locale: userProfile?.preferred_language || "fr",
+      }).catch((err: unknown) => console.error("[invite-email]", err));
+    }
+
     return NextResponse.json({ invite: data });
   }
 
