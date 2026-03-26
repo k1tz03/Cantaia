@@ -107,7 +107,7 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 20px", color: "#71717A", fontSize: 13 }}>
+      <div className="flex items-center justify-center px-5 py-20 text-[#71717A] text-[13px]">
         Chargement...
       </div>
     );
@@ -115,10 +115,10 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
 
   if (error || !ticket) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 20px" }}>
-        <AlertCircle style={{ width: 32, height: 32, color: "#EF4444", marginBottom: 8 }} />
-        <p style={{ color: "#71717A", fontSize: 14 }}>{error || "Ticket introuvable"}</p>
-        <Link href="/support" style={{ marginTop: 16, fontSize: 13, color: "#F97316", textDecoration: "none" }}>
+      <div className="flex flex-col items-center justify-center px-5 py-20">
+        <AlertCircle className="w-8 h-8 text-[#EF4444] mb-2" />
+        <p className="text-[#71717A] text-sm">{error || "Ticket introuvable"}</p>
+        <Link href="/support" className="mt-4 text-[13px] text-[#F97316] no-underline">
           {"\u2190"} Retour
         </Link>
       </div>
@@ -128,51 +128,28 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
   const isResolved = ticket.status === "resolved" || ticket.status === "closed";
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 48px)", background: "#0F0F11" }}>
+    <div className="flex bg-[#0F0F11]" style={{ height: "calc(100vh - 48px)" }}>
       {/* Thread panel (full width for user view) */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Detail header */}
-        <div style={{ padding: "14px 24px", borderBottom: "1px solid #27272A" }}>
+        <div className="px-6 py-3.5 border-b border-[#27272A]">
           <Link
             href="/support"
-            style={{
-              fontSize: 12,
-              color: "#71717A",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              marginBottom: 8,
-              textDecoration: "none",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#D4D4D8"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#71717A"; }}
+            className="text-xs text-[#71717A] cursor-pointer flex items-center gap-1 mb-2 no-underline hover:text-[#D4D4D8]"
           >
             {"\u2190"} {t("myTickets")}
           </Link>
-          <div
-            style={{
-              fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
-              fontSize: 16,
-              fontWeight: 700,
-              color: "#FAFAFA",
-            }}
-          >
+          <div className="font-display text-base font-bold text-[#FAFAFA]">
             {ticket.subject}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+          <div className="flex items-center gap-2 mt-1">
             <TicketCategoryBadge category={ticket.category} />
             <TicketStatusBadge status={ticket.status} />
             <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                display: "inline-block",
-                background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
-              }}
+              className="w-[7px] h-[7px] rounded-full inline-block"
+              style={{ background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }}
             />
-            <span style={{ fontSize: 11, color: "#71717A" }}>
+            <span className="text-[11px] text-[#71717A]">
               {formatDate(ticket.created_at)}
             </span>
           </div>
@@ -181,30 +158,19 @@ export default function SupportDetailPage({ params }: { params: Promise<{ id: st
         {/* Resolved banner */}
         {isResolved && (
           <div
+            className="flex items-center justify-between px-6 py-2.5 border-b"
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "10px 24px",
               background: "rgba(16, 185, 129, 0.06)",
-              borderBottom: "1px solid rgba(16, 185, 129, 0.15)",
+              borderBottomColor: "rgba(16, 185, 129, 0.15)",
             }}
           >
-            <div style={{ fontSize: 12, color: "#34D399", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="text-xs text-[#34D399] font-medium flex items-center gap-1.5">
               {"\u2705"} {ticket.status === "resolved" ? t("resolvedBanner") : t("closedBanner")}
             </div>
             {ticket.status === "resolved" && (
               <button
                 onClick={handleReopen}
-                style={{
-                  fontSize: 11,
-                  padding: "5px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #3F3F46",
-                  background: "#18181B",
-                  color: "#D4D4D8",
-                  cursor: "pointer",
-                }}
+                className="text-[11px] px-3 py-[5px] rounded-md border border-[#3F3F46] bg-[#18181B] text-[#D4D4D8] cursor-pointer"
               >
                 {t("reopen")}
               </button>

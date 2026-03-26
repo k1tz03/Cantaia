@@ -72,59 +72,31 @@ export default function SupportPage() {
   }
 
   return (
-    <div style={{ padding: "24px 28px", background: "#0F0F11", minHeight: "100%" }}>
+    <div className="px-7 py-6 bg-[#0F0F11] min-h-full">
       {/* Page header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      <div className="flex justify-between items-center mb-[18px]">
         <div>
-          <h1
-            style={{
-              fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
-              fontSize: 24,
-              fontWeight: 800,
-              color: "#FAFAFA",
-              margin: 0,
-            }}
-          >
+          <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA] m-0">
             {t("title")}
           </h1>
-          <p style={{ fontSize: 13, color: "#71717A", marginTop: 2 }}>
+          <p className="text-[13px] text-[#71717A] mt-0.5">
             {t("myTickets")}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          style={{
-            fontSize: 12,
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: "linear-gradient(135deg, #F97316, #EA580C)",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
+          className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium flex items-center gap-1.5"
         >
           + {t("newTicket")}
         </button>
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+      <div className="flex gap-2 mb-3.5">
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          style={{
-            background: "#18181B",
-            border: "1px solid #3F3F46",
-            borderRadius: 8,
-            padding: "7px 12px",
-            fontSize: 12,
-            color: "#D4D4D8",
-            outline: "none",
-          }}
+          className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
         >
           <option value="">Tous les statuts</option>
           <option value="open">{t("statusOpen")}</option>
@@ -135,15 +107,7 @@ export default function SupportPage() {
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
-          style={{
-            background: "#18181B",
-            border: "1px solid #3F3F46",
-            borderRadius: 8,
-            padding: "7px 12px",
-            fontSize: 12,
-            color: "#D4D4D8",
-            outline: "none",
-          }}
+          className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
         >
           <option value="">Toutes cat{"\u00E9"}gories</option>
           <option value="bug">{t("categoryBug")}</option>
@@ -155,27 +119,18 @@ export default function SupportPage() {
 
       {/* Content */}
       {loading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 20px", color: "#71717A", fontSize: 13 }}>
+        <div className="flex items-center justify-center px-5 py-20 text-[#71717A] text-[13px]">
           Chargement...
         </div>
       ) : tickets.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>🎫</div>
-          <div style={{ fontSize: 14, color: "#71717A", marginBottom: 16 }}>
+        <div className="flex flex-col items-center justify-center px-5 py-[60px] text-center">
+          <div className="text-[48px] mb-3 opacity-30">🎫</div>
+          <div className="text-sm text-[#71717A] mb-4">
             {t("emptyState")}
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            style={{
-              fontSize: 12,
-              padding: "8px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: "linear-gradient(135deg, #F97316, #EA580C)",
-              color: "white",
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
+            className="text-xs px-4 py-2 rounded-lg border-none bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium"
           >
             + {t("newTicket")}
           </button>
@@ -187,16 +142,7 @@ export default function SupportPage() {
               {["Sujet", "Cat\u00E9gorie", "Priorit\u00E9", "Statut", "Date", ""].map((h, i) => (
                 <th
                   key={i}
-                  style={{
-                    fontSize: 10,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#52525B",
-                    fontWeight: 600,
-                    padding: "8px 14px",
-                    textAlign: "left",
-                    borderBottom: "1px solid #27272A",
-                  }}
+                  className="text-[10px] uppercase tracking-[0.06em] text-[#52525B] font-semibold px-3.5 py-2 text-left border-b border-[#27272A]"
                 >
                   {h}
                 </th>
@@ -208,61 +154,37 @@ export default function SupportPage() {
               <tr
                 key={ticket.id}
                 onClick={() => router.push(`/support/${ticket.id}`)}
-                style={{ cursor: "pointer", transition: "background 0.1s" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#18181B"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                className="cursor-pointer transition-colors hover:bg-[#18181B]"
               >
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#D4D4D8", verticalAlign: "middle" }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "#FAFAFA" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
+                  <span className="text-[13px] font-medium text-[#FAFAFA]">
                     {ticket.subject}
                   </span>
-                  <span style={{ fontSize: 10, color: "#71717A", marginLeft: 6 }}>
+                  <span className="text-[10px] text-[#71717A] ml-1.5">
                     ({ticket.message_count})
                   </span>
                   {hasUnread(ticket) && (
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "#3B82F6",
-                        display: "inline-block",
-                        marginLeft: 6,
-                      }}
-                    />
+                    <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block ml-1.5" />
                   )}
                 </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
                   <TicketCategoryBadge category={ticket.category} />
                 </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
                   <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      display: "inline-block",
-                      background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium,
-                    }}
+                    className="w-[7px] h-[7px] rounded-full inline-block"
+                    style={{ background: PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.medium }}
                   />
                 </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
                   <TicketStatusBadge status={ticket.status} />
                 </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", fontSize: 12, color: "#71717A", verticalAlign: "middle" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] text-xs text-[#71717A] align-middle">
                   {formatDate(ticket.created_at)}
                 </td>
-                <td style={{ padding: "12px 14px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
+                <td className="px-3.5 py-3 border-b border-[#1C1C1F] align-middle">
                   {hasUnread(ticket) && (
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "#3B82F6",
-                        display: "inline-block",
-                      }}
-                    />
+                    <span className="w-[7px] h-[7px] rounded-full bg-[#3B82F6] inline-block" />
                   )}
                 </td>
               </tr>

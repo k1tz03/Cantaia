@@ -323,10 +323,10 @@ export default function SuppliersPage() {
   // Loading state
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-          <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#F97316" }} />
-          <p style={{ fontSize: "14px", color: "#71717A" }}>Chargement des fournisseurs...</p>
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[#F97316]" />
+          <p className="text-sm text-[#71717A]">Chargement des fournisseurs...</p>
         </div>
       </div>
     );
@@ -334,33 +334,33 @@ export default function SuppliersPage() {
 
   return (
     <>
-      <div style={{ flex: 1, overflowY: "auto", background: "#0F0F11", padding: "24px 28px" }}>
+      <div className="flex-1 overflow-y-auto bg-[#0F0F11] px-7 py-6">
         {/* Page header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h1 style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#FAFAFA", margin: 0 }}>
+            <h1 className="font-display text-2xl font-extrabold text-[#FAFAFA] m-0">
               Fournisseurs
             </h1>
-            <p style={{ fontSize: "13px", color: "#71717A", marginTop: "2px" }}>
+            <p className="text-[13px] text-[#71717A] mt-0.5">
               {filtered.length} fournisseurs et prestataires
             </p>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div className="flex gap-2">
             <button
               onClick={() => setAiSearchOpen(true)}
-              style={{ fontSize: "12px", padding: "8px 16px", borderRadius: "8px", border: "1px solid #3F3F46", background: "#18181B", color: "#D4D4D8", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: "6px" }}
+              className="text-xs px-4 py-2 rounded-lg border border-[#3F3F46] bg-[#18181B] text-[#D4D4D8] cursor-pointer font-medium flex items-center gap-1.5"
             >
               <span>&#10024;</span> Recherche IA
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              style={{ fontSize: "12px", padding: "8px 16px", borderRadius: "8px", border: "1px solid #3F3F46", background: "#18181B", color: "#D4D4D8", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: "6px" }}
+              className="text-xs px-4 py-2 rounded-lg border border-[#3F3F46] bg-[#18181B] text-[#D4D4D8] cursor-pointer font-medium flex items-center gap-1.5"
             >
               <span>&#128229;</span> Importer CSV
             </button>
             <button
               onClick={handleAddNew}
-              style={{ fontSize: "12px", padding: "8px 16px", borderRadius: "8px", border: "1px solid transparent", background: "linear-gradient(135deg, #F97316, #EA580C)", color: "white", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: "6px" }}
+              className="text-xs px-4 py-2 rounded-lg border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer font-medium flex items-center gap-1.5"
             >
               + Ajouter
             </button>
@@ -369,43 +369,43 @@ export default function SuppliersPage() {
 
         {/* Error banner */}
         {fetchError && (
-          <div style={{ marginBottom: "14px", borderRadius: "8px", background: "rgba(239,68,68,0.1)", padding: "10px 16px", fontSize: "13px", color: "#F87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+          <div className="mb-3.5 rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-[#F87171] border border-red-500/20">
             {fetchError}
           </div>
         )}
 
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "16px" }}>
-          <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: "10px", padding: "12px 14px" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#FAFAFA" }}>
+        <div className="grid grid-cols-4 gap-2.5 mb-4">
+          <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
+            <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.total}
             </div>
-            <div style={{ fontSize: "10px", color: "#71717A", marginTop: "2px" }}>Total fournisseurs</div>
+            <div className="text-[10px] text-[#71717A] mt-0.5">Total fournisseurs</div>
           </div>
-          <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: "10px", padding: "12px 14px" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#34D399" }}>
+          <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
+            <div className="font-display text-2xl font-extrabold text-[#34D399]">
               {kpis.avgResponseRate}%
             </div>
-            <div style={{ fontSize: "10px", color: "#71717A", marginTop: "2px" }}>Taux de reponse moyen</div>
+            <div className="text-[10px] text-[#71717A] mt-0.5">Taux de reponse moyen</div>
           </div>
-          <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: "10px", padding: "12px 14px" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#FAFAFA" }}>
+          <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
+            <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.activeCount}
             </div>
-            <div style={{ fontSize: "10px", color: "#71717A", marginTop: "2px" }}>Fournisseurs actifs</div>
+            <div className="text-[10px] text-[#71717A] mt-0.5">Fournisseurs actifs</div>
           </div>
-          <div style={{ background: "#18181B", border: "1px solid #27272A", borderRadius: "10px", padding: "12px 14px" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "24px", fontWeight: 800, color: "#FAFAFA" }}>
+          <div className="bg-[#18181B] border border-[#27272A] rounded-[10px] px-3.5 py-3">
+            <div className="font-display text-2xl font-extrabold text-[#FAFAFA]">
               {kpis.totalOffers}
             </div>
-            <div style={{ fontSize: "10px", color: "#71717A", marginTop: "2px" }}>Offres recues</div>
+            <div className="text-[10px] text-[#71717A] mt-0.5">Offres recues</div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+        <div className="flex items-center gap-2 mb-3.5">
           {/* Type toggle */}
-          <div style={{ display: "flex", background: "#18181B", border: "1px solid #3F3F46", borderRadius: "8px", padding: "3px" }}>
+          <div className="flex bg-[#18181B] border border-[#3F3F46] rounded-lg p-[3px]">
             {[
               { value: "", label: "Tous" },
               { value: "fournisseur", label: "Fournisseurs" },
@@ -414,16 +414,11 @@ export default function SuppliersPage() {
               <button
                 key={opt.value}
                 onClick={() => setFilterType(opt.value)}
-                style={{
-                  fontSize: "12px",
-                  padding: "5px 14px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: filterType === opt.value ? "#27272A" : "transparent",
-                  color: filterType === opt.value ? "#FAFAFA" : "#71717A",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
+                className={`text-xs px-3.5 py-[5px] rounded-md border-none cursor-pointer font-medium ${
+                  filterType === opt.value
+                    ? "bg-[#27272A] text-[#FAFAFA]"
+                    : "bg-transparent text-[#71717A]"
+                }`}
               >
                 {opt.label}
               </button>
@@ -436,25 +431,14 @@ export default function SuppliersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="&#128269; Rechercher par nom, email, specialite..."
-            style={{
-              background: "#18181B",
-              border: "1px solid #3F3F46",
-              borderRadius: "8px",
-              padding: "7px 14px",
-              fontSize: "12px",
-              color: "#D4D4D8",
-              flex: 1,
-              outline: "none",
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "#F97316"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "#3F3F46"; }}
+            className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3.5 py-[7px] text-xs text-[#D4D4D8] flex-1 outline-none focus:border-[#F97316]"
           />
 
           {/* Specialty filter */}
           <select
             value={filterSpecialty}
             onChange={(e) => setFilterSpecialty(e.target.value)}
-            style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "#D4D4D8", outline: "none" }}
+            className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
           >
             <option value="">Toutes specialites</option>
             {allSpecialties.map((sp) => (
@@ -466,7 +450,7 @@ export default function SuppliersPage() {
           <select
             value={filterZone}
             onChange={(e) => setFilterZone(e.target.value)}
-            style={{ background: "#18181B", border: "1px solid #3F3F46", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "#D4D4D8", outline: "none" }}
+            className="bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-[7px] text-xs text-[#D4D4D8] outline-none"
           >
             <option value="">Toutes zones</option>
             {allZones.map((z) => (
@@ -485,12 +469,12 @@ export default function SuppliersPage() {
               action={{ label: "Ajouter un fournisseur", onClick: handleAddNew }}
             />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 0", textAlign: "center" }}>
-              <div style={{ height: "64px", width: "64px", borderRadius: "50%", background: "#27272A", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
-                <Building2 className="h-8 w-8" style={{ color: "#71717A" }} />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-16 w-16 rounded-full bg-[#27272A] flex items-center justify-center mb-4">
+                <Building2 className="h-8 w-8 text-[#71717A]" />
               </div>
-              <h3 style={{ fontSize: "18px", fontWeight: 500, color: "#FAFAFA", marginBottom: "4px" }}>Aucun resultat</h3>
-              <p style={{ fontSize: "14px", color: "#71717A", maxWidth: "360px" }}>Modifiez vos filtres pour afficher des fournisseurs.</p>
+              <h3 className="text-lg font-medium text-[#FAFAFA] mb-1">Aucun resultat</h3>
+              <p className="text-sm text-[#71717A] max-w-[360px]">Modifiez vos filtres pour afficher des fournisseurs.</p>
             </div>
           )
         ) : (
@@ -500,16 +484,7 @@ export default function SuppliersPage() {
                 {["Entreprise", "Type", "Specialites", "Codes CFC", "Score", "Taux rep.", "Statut"].map((h) => (
                   <th
                     key={h}
-                    style={{
-                      fontSize: "10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      color: "#52525B",
-                      fontWeight: 600,
-                      padding: "8px 12px",
-                      textAlign: "left",
-                      borderBottom: "1px solid #27272A",
-                    }}
+                    className="text-[10px] uppercase tracking-[0.06em] text-[#52525B] font-semibold px-3 py-2 text-left border-b border-[#27272A]"
                   >
                     {h}
                   </th>
@@ -530,28 +505,20 @@ export default function SuppliersPage() {
                   <tr
                     key={supplier.id}
                     onClick={() => setSelectedSupplier(supplier.id === selectedSupplier ? null : supplier.id)}
-                    style={{
-                      cursor: "pointer",
-                      transition: "background 0.1s",
-                      background: isSelected ? "rgba(249,115,22,0.08)" : undefined,
-                    }}
-                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "#18181B"; }}
-                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = ""; }}
+                    className={`cursor-pointer transition-colors ${isSelected ? "bg-[#F97316]/[0.08]" : "hover:bg-[#18181B]"}`}
                   >
                     {/* Entreprise */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", color: "#D4D4D8", verticalAlign: "middle" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{
-                          width: "36px", height: "36px", borderRadius: "8px",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "11px", color: "white", fontWeight: 600, flexShrink: 0,
-                          background: avatarBg,
-                        }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] text-white font-semibold shrink-0"
+                          style={{ background: avatarBg }}
+                        >
                           {getInitials(supplier.company_name)}
                         </div>
                         <div>
-                          <div style={{ fontSize: "13px", fontWeight: 600, color: "#FAFAFA" }}>{supplier.company_name}</div>
-                          <div style={{ fontSize: "10px", color: "#71717A" }}>
+                          <div className="text-[13px] font-semibold text-[#FAFAFA]">{supplier.company_name}</div>
+                          <div className="text-[10px] text-[#71717A]">
                             {supplier.contact_name}{supplier.contact_name && supplier.email ? " \u00B7 " : ""}{supplier.email || ""}
                           </div>
                         </div>
@@ -559,81 +526,80 @@ export default function SuppliersPage() {
                     </td>
 
                     {/* Type */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", verticalAlign: "middle" }}>
-                      <span style={{
-                        fontSize: "9px", padding: "2px 7px", borderRadius: "4px", fontWeight: 600,
-                        background: sType === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
-                        color: sType === "fournisseur" ? "#34D399" : "#60A5FA",
-                      }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
+                      <span
+                        className="text-[9px] px-[7px] py-[2px] rounded font-semibold"
+                        style={{
+                          background: sType === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
+                          color: sType === "fournisseur" ? "#34D399" : "#60A5FA",
+                        }}
+                      >
                         {sType === "fournisseur" ? "Fournisseur" : "Prestataire"}
                       </span>
                     </td>
 
                     {/* Specialites */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", verticalAlign: "middle" }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
                       {supplier.specialties.slice(0, 2).map((sp) => (
                         <span
                           key={sp}
-                          style={{
-                            fontSize: "9px", padding: "2px 6px", borderRadius: "3px",
-                            background: "#27272A", color: "#A1A1AA",
-                            marginRight: "3px", display: "inline-block", marginBottom: "2px",
-                          }}
+                          className="text-[9px] px-1.5 py-[2px] rounded-[3px] bg-[#27272A] text-[#A1A1AA] mr-[3px] inline-block mb-[2px]"
                         >
                           {getSpecialtyLabel(sp)}
                         </span>
                       ))}
                       {supplier.specialties.length > 2 && (
-                        <span style={{ fontSize: "9px", color: "#52525B" }}>+{supplier.specialties.length - 2}</span>
+                        <span className="text-[9px] text-[#52525B]">+{supplier.specialties.length - 2}</span>
                       )}
                     </td>
 
                     {/* Codes CFC */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", verticalAlign: "middle" }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle">
                       {(supplier.cfc_codes || []).slice(0, 3).map((code) => (
                         <span
                           key={code}
+                          className="text-[9px] px-1.5 py-[2px] rounded-[3px] mr-[3px] inline-block"
                           style={{
-                            fontSize: "9px", padding: "2px 6px", borderRadius: "3px",
-                            background: "rgba(59,130,246,0.07)", color: "#60A5FA",
-                            marginRight: "3px", display: "inline-block",
+                            background: "rgba(59,130,246,0.07)",
+                            color: "#60A5FA",
                           }}
                         >
                           {code}
                         </span>
                       ))}
                       {(supplier.cfc_codes || []).length > 3 && (
-                        <span style={{ fontSize: "9px", color: "#52525B" }}>+{supplier.cfc_codes.length - 3}</span>
+                        <span className="text-[9px] text-[#52525B]">+{supplier.cfc_codes.length - 3}</span>
                       )}
                     </td>
 
                     {/* Score */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", verticalAlign: "middle" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{
-                          fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
-                          fontSize: "14px", fontWeight: 700, color: scoreColor,
-                        }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] align-middle">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="font-display text-sm font-bold"
+                          style={{ color: scoreColor }}
+                        >
                           {score}
                         </span>
-                        <div style={{ width: "50px", height: "4px", background: "#27272A", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: "2px", width: `${score}%`, background: scoreColor }} />
+                        <div className="w-[50px] h-1 bg-[#27272A] rounded-sm overflow-hidden">
+                          <div className="h-full rounded-sm" style={{ width: `${score}%`, background: scoreColor }} />
                         </div>
                       </div>
                     </td>
 
                     {/* Taux rep. */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", verticalAlign: "middle", color: rateColor, fontWeight: 600 }}>
+                    <td
+                      className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs align-middle font-semibold"
+                      style={{ color: rateColor }}
+                    >
                       {rate}%
                     </td>
 
                     {/* Statut */}
-                    <td style={{ padding: "10px 12px", borderBottom: "1px solid #1C1C1F", fontSize: "12px", color: "#D4D4D8", verticalAlign: "middle" }}>
+                    <td className="px-3 py-2.5 border-b border-[#1C1C1F] text-xs text-[#D4D4D8] align-middle">
                       <span
-                        style={{
-                          display: "inline-block", width: "7px", height: "7px", borderRadius: "50%",
-                          background: getStatusDotColor(supplier.status), marginRight: "4px", verticalAlign: "middle",
-                        }}
+                        className="inline-block w-[7px] h-[7px] rounded-full mr-1 align-middle"
+                        style={{ background: getStatusDotColor(supplier.status) }}
                       />
                       {getStatusLabel(supplier.status)}
                     </td>
@@ -647,119 +613,102 @@ export default function SuppliersPage() {
 
       {/* ====== DETAIL PANEL ====== */}
       {selected && (
-        <div style={{
-          position: "fixed", top: 0, right: 0, width: "420px", height: "100vh",
-          background: "#18181B", borderLeft: "1px solid #27272A", zIndex: 20,
-          overflowY: "auto", boxShadow: "-8px 0 32px rgba(0,0,0,0.5)",
-        }}>
+        <div className="fixed top-0 right-0 w-[420px] h-screen bg-[#18181B] border-l border-[#27272A] z-20 overflow-y-auto shadow-[-8px_0_32px_rgba(0,0,0,0.5)]">
           {/* Detail header */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A", display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+          <div className="px-5 py-4 border-b border-[#27272A] flex justify-between items-start">
             <div>
-              <div style={{
-                width: "48px", height: "48px", borderRadius: "10px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "16px", color: "white", fontWeight: 700, marginBottom: "8px",
-                background: getAvatarColor(selected.company_name),
-              }}>
+              <div
+                className="w-12 h-12 rounded-[10px] flex items-center justify-center text-base text-white font-bold mb-2"
+                style={{ background: getAvatarColor(selected.company_name) }}
+              >
                 {getInitials(selected.company_name)}
               </div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "18px", fontWeight: 700, color: "#FAFAFA" }}>
+              <div className="font-display text-lg font-bold text-[#FAFAFA]">
                 {selected.company_name}
               </div>
-              <div style={{ marginTop: "4px" }}>
-                <span style={{
-                  fontSize: "9px", padding: "2px 7px", borderRadius: "4px", fontWeight: 600,
-                  background: (selected.supplier_type || "fournisseur") === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
-                  color: (selected.supplier_type || "fournisseur") === "fournisseur" ? "#34D399" : "#60A5FA",
-                }}>
+              <div className="mt-1">
+                <span
+                  className="text-[9px] px-[7px] py-[2px] rounded font-semibold"
+                  style={{
+                    background: (selected.supplier_type || "fournisseur") === "fournisseur" ? "rgba(16,185,129,0.09)" : "rgba(59,130,246,0.09)",
+                    color: (selected.supplier_type || "fournisseur") === "fournisseur" ? "#34D399" : "#60A5FA",
+                  }}
+                >
                   {(selected.supplier_type || "fournisseur") === "fournisseur" ? "Fournisseur" : "Prestataire"}
                 </span>
               </div>
             </div>
-            <div style={{ display: "flex", gap: "6px" }}>
+            <div className="flex gap-1.5">
               <button
                 onClick={() => handleEdit(selected)}
-                style={{
-                  width: "28px", height: "28px", borderRadius: "6px", background: "#27272A",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "#A1A1AA", fontSize: "14px", border: "none",
-                }}
+                className="w-7 h-7 rounded-md bg-[#27272A] flex items-center justify-center cursor-pointer text-[#A1A1AA] text-sm border-none"
                 title="Modifier"
               >
-                <Pencil style={{ width: "14px", height: "14px" }} />
+                <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => handleDelete(selected)}
                 disabled={deleting}
-                style={{
-                  width: "28px", height: "28px", borderRadius: "6px", background: "#27272A",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "#A1A1AA", fontSize: "14px", border: "none",
-                  opacity: deleting ? 0.5 : 1,
-                }}
+                className="w-7 h-7 rounded-md bg-[#27272A] flex items-center justify-center cursor-pointer text-[#A1A1AA] text-sm border-none"
+                style={{ opacity: deleting ? 0.5 : 1 }}
                 title="Supprimer"
               >
-                <Trash2 style={{ width: "14px", height: "14px" }} />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setSelectedSupplier(null)}
-                style={{
-                  width: "28px", height: "28px", borderRadius: "6px", background: "#27272A",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "#A1A1AA", fontSize: "14px", border: "none",
-                }}
+                className="w-7 h-7 rounded-md bg-[#27272A] flex items-center justify-center cursor-pointer text-[#A1A1AA] text-sm border-none"
               >
-                <X style={{ width: "14px", height: "14px" }} />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           {/* Enrichment result banner */}
           {enrichResult && (
-            <div style={{ margin: "12px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: "8px", background: "rgba(249,115,22,0.1)", padding: "8px 12px", fontSize: "12px", color: "#F97316" }}>
+            <div className="mx-5 mt-3 flex items-center justify-between rounded-lg bg-[#F97316]/10 px-3 py-2 text-xs text-[#F97316]">
               <span>{enrichResult}</span>
               <button
                 onClick={() => setEnrichResult(null)}
-                style={{ marginLeft: "8px", background: "none", border: "none", cursor: "pointer", color: "#F97316", padding: "2px" }}
+                className="ml-2 bg-transparent border-none cursor-pointer text-[#F97316] p-0.5"
               >
-                <X style={{ width: "12px", height: "12px" }} />
+                <X className="w-3 h-3" />
               </button>
             </div>
           )}
 
           {/* Score section */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-            <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+          <div className="px-5 py-4 border-b border-[#27272A]">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
               Score global
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif",
-                fontSize: "42px", fontWeight: 800, lineHeight: 1,
-                color: getScoreColor(Math.round(selected.overall_score || 0)),
-              }}>
+            <div className="flex items-center gap-3">
+              <div
+                className="font-display text-[42px] font-extrabold leading-none"
+                style={{ color: getScoreColor(Math.round(selected.overall_score || 0)) }}
+              >
                 {Math.round(selected.overall_score || 0)}
               </div>
               <div>
-                <div style={{ fontSize: "12px", color: "#71717A" }}>/100</div>
-                <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "16px", fontWeight: 700, color: "#FAFAFA" }}>
+                <div className="text-xs text-[#71717A]">/100</div>
+                <div className="flex gap-4 mt-2">
+                  <div className="text-center">
+                    <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {Math.round(selected.response_rate || 0)}%
                     </div>
-                    <div style={{ fontSize: "9px", color: "#52525B" }}>Taux reponse</div>
+                    <div className="text-[9px] text-[#52525B]">Taux reponse</div>
                   </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "16px", fontWeight: 700, color: "#FAFAFA" }}>
+                  <div className="text-center">
+                    <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {selected.avg_response_days || 0}j
                     </div>
-                    <div style={{ fontSize: "9px", color: "#52525B" }}>Delai moyen</div>
+                    <div className="text-[9px] text-[#52525B]">Delai moyen</div>
                   </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display), sans-serif", fontSize: "16px", fontWeight: 700, color: "#FAFAFA" }}>
+                  <div className="text-center">
+                    <div className="font-display text-base font-bold text-[#FAFAFA]">
                       {selected.total_offers_received || 0}
                     </div>
-                    <div style={{ fontSize: "9px", color: "#52525B" }}>Offres</div>
+                    <div className="text-[9px] text-[#52525B]">Offres</div>
                   </div>
                 </div>
               </div>
@@ -768,31 +717,27 @@ export default function SuppliersPage() {
             <button
               onClick={() => handleRecalculateScore(selected.id)}
               disabled={recalculating}
-              style={{
-                marginTop: "8px", background: "none", border: "none", cursor: "pointer",
-                color: "#52525B", fontSize: "10px", display: "flex", alignItems: "center", gap: "4px",
-                opacity: recalculating ? 0.5 : 1,
-              }}
+              className="mt-2 bg-transparent border-none cursor-pointer text-[#52525B] text-[10px] flex items-center gap-1"
+              style={{ opacity: recalculating ? 0.5 : 1 }}
             >
-              <RefreshCw style={{ width: "10px", height: "10px" }} className={recalculating ? "animate-spin" : ""} />
+              <RefreshCw className={`w-2.5 h-2.5 ${recalculating ? "animate-spin" : ""}`} />
               Recalculer
             </button>
           </div>
 
           {/* Alerts */}
           {historyAlerts.length > 0 && (
-            <div style={{ padding: "12px 20px 0" }}>
+            <div className="px-5 pt-3">
               {historyAlerts.map((alert, idx) => (
                 <div
                   key={idx}
+                  className="flex items-start gap-2 rounded-md px-2.5 py-2 text-[11px] mb-1.5"
                   style={{
-                    display: "flex", alignItems: "start", gap: "8px", borderRadius: "6px",
-                    padding: "8px 10px", fontSize: "11px", marginBottom: "6px",
                     background: alert.severity === "warning" ? "rgba(245,158,11,0.1)" : "rgba(249,115,22,0.1)",
                     color: alert.severity === "warning" ? "#FBBF24" : "#F97316",
                   }}
                 >
-                  <AlertTriangle style={{ width: "12px", height: "12px", flexShrink: 0, marginTop: "1px" }} />
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-[1px]" />
                   <span>{alert.message}</span>
                 </div>
               ))}
@@ -800,42 +745,42 @@ export default function SuppliersPage() {
           )}
 
           {/* Contact section */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-            <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+          <div className="px-5 py-4 border-b border-[#27272A]">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
               Contact
             </div>
             {selected.contact_name && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0" }}>
-                <span style={{ fontSize: "14px", width: "20px", textAlign: "center" }}>&#128100;</span>
-                <span style={{ fontSize: "12px", color: "#D4D4D8" }}>{selected.contact_name}</span>
+              <div className="flex items-center gap-2 py-[5px]">
+                <span className="text-sm w-5 text-center">&#128100;</span>
+                <span className="text-xs text-[#D4D4D8]">{selected.contact_name}</span>
               </div>
             )}
             {selected.email && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0" }}>
-                <span style={{ fontSize: "14px", width: "20px", textAlign: "center" }}>&#128231;</span>
-                <a href={`mailto:${selected.email}`} style={{ fontSize: "12px", color: "#F97316", textDecoration: "none" }}>
+              <div className="flex items-center gap-2 py-[5px]">
+                <span className="text-sm w-5 text-center">&#128231;</span>
+                <a href={`mailto:${selected.email}`} className="text-xs text-[#F97316] no-underline">
                   {selected.email}
                 </a>
               </div>
             )}
             {selected.phone && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0" }}>
-                <span style={{ fontSize: "14px", width: "20px", textAlign: "center" }}>&#128222;</span>
-                <span style={{ fontSize: "12px", color: "#D4D4D8" }}>{selected.phone}</span>
+              <div className="flex items-center gap-2 py-[5px]">
+                <span className="text-sm w-5 text-center">&#128222;</span>
+                <span className="text-xs text-[#D4D4D8]">{selected.phone}</span>
               </div>
             )}
             {(selected.address || selected.city) && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0" }}>
-                <span style={{ fontSize: "14px", width: "20px", textAlign: "center" }}>&#128205;</span>
-                <span style={{ fontSize: "12px", color: "#D4D4D8" }}>
+              <div className="flex items-center gap-2 py-[5px]">
+                <span className="text-sm w-5 text-center">&#128205;</span>
+                <span className="text-xs text-[#D4D4D8]">
                   {selected.address}{selected.address && selected.city ? ", " : ""}{selected.postal_code ? selected.postal_code + " " : ""}{selected.city}
                 </span>
               </div>
             )}
             {selected.website && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0" }}>
-                <Globe style={{ width: "14px", height: "14px", color: "#71717A", flexShrink: 0 }} />
-                <a href={selected.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", color: "#F97316", textDecoration: "none" }}>
+              <div className="flex items-center gap-2 py-[5px]">
+                <Globe className="w-3.5 h-3.5 text-[#71717A] shrink-0" />
+                <a href={selected.website} target="_blank" rel="noopener noreferrer" className="text-xs text-[#F97316] no-underline">
                   {selected.website}
                 </a>
               </div>
@@ -843,24 +788,28 @@ export default function SuppliersPage() {
           </div>
 
           {/* Specialties + CFC */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-            <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+          <div className="px-5 py-4 border-b border-[#27272A]">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
               Specialites
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            <div className="flex flex-wrap gap-1">
               {selected.specialties.map((sp) => (
-                <span key={sp} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", background: "#27272A", color: "#D4D4D8" }}>
+                <span key={sp} className="text-[10px] px-2 py-[3px] rounded-[5px] bg-[#27272A] text-[#D4D4D8]">
                   {getSpecialtyLabel(sp)}
                 </span>
               ))}
             </div>
             {(selected.cfc_codes || []).length > 0 && (
-              <div style={{ marginTop: "8px" }}>
-                <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "4px" }}>
+              <div className="mt-2">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-1">
                   Codes CFC
                 </div>
                 {selected.cfc_codes.map((code) => (
-                  <span key={code} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", background: "rgba(59,130,246,0.07)", color: "#60A5FA", fontWeight: 500, marginRight: "4px", display: "inline-block" }}>
+                  <span
+                    key={code}
+                    className="text-[10px] px-2 py-[3px] rounded-[5px] font-medium mr-1 inline-block"
+                    style={{ background: "rgba(59,130,246,0.07)", color: "#60A5FA" }}
+                  >
                     {code}
                   </span>
                 ))}
@@ -870,13 +819,17 @@ export default function SuppliersPage() {
 
           {/* Certifications */}
           {selected.certifications.length > 0 && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-              <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+            <div className="px-5 py-4 border-b border-[#27272A]">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
                 Certifications
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+              <div className="flex flex-wrap gap-1">
                 {selected.certifications.map((cert) => (
-                  <span key={cert} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", background: "rgba(16,185,129,0.1)", color: "#34D399", fontWeight: 500 }}>
+                  <span
+                    key={cert}
+                    className="text-[10px] px-2 py-[3px] rounded-[5px] font-medium"
+                    style={{ background: "rgba(16,185,129,0.1)", color: "#34D399" }}
+                  >
                     {cert}
                   </span>
                 ))}
@@ -886,8 +839,8 @@ export default function SuppliersPage() {
 
           {/* Price history chart */}
           {priceTrend.length >= 3 && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-              <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+            <div className="px-5 py-4 border-b border-[#27272A]">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
                 Evolution des prix
               </div>
               <SupplierPriceChart data={priceTrend} />
@@ -895,27 +848,29 @@ export default function SuppliersPage() {
           )}
 
           {/* Interactions timeline */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-            <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+          <div className="px-5 py-4 border-b border-[#27272A]">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
               Interactions recentes
             </div>
             {historyLoading ? (
-              <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                <Loader2 className="animate-spin" style={{ width: "20px", height: "20px", color: "#71717A" }} />
+              <div className="flex justify-center py-4">
+                <Loader2 className="animate-spin w-5 h-5 text-[#71717A]" />
               </div>
             ) : historyItems.length > 0 ? (
               <>
                 {historyItems.slice(0, 5).map((item, idx) => {
                   const projectName = (item.meta as Record<string, unknown>)?.project_name as string | undefined;
                   return (
-                    <div key={item.id || idx} style={{ display: "flex", gap: "8px", padding: "6px 0", borderBottom: idx < Math.min(historyItems.length, 5) - 1 ? "1px solid #27272A" : "none" }}>
-                      <div style={{
-                        width: "6px", height: "6px", borderRadius: "50%", marginTop: "5px", flexShrink: 0,
-                        background: item.type === "offer" ? "#34D399" : item.type === "request" ? "#3B82F6" : "#F59E0B",
-                      }} />
+                    <div key={item.id || idx} className={`flex gap-2 py-1.5 ${idx < Math.min(historyItems.length, 5) - 1 ? "border-b border-[#27272A]" : ""}`}>
+                      <div
+                        className="w-1.5 h-1.5 rounded-full mt-[5px] shrink-0"
+                        style={{
+                          background: item.type === "offer" ? "#34D399" : item.type === "request" ? "#3B82F6" : "#F59E0B",
+                        }}
+                      />
                       <div>
-                        <div style={{ fontSize: "11px", color: "#D4D4D8" }}>{item.description}</div>
-                        <div style={{ fontSize: "10px", color: "#52525B" }}>
+                        <div className="text-[11px] text-[#D4D4D8]">{item.description}</div>
+                        <div className="text-[10px] text-[#52525B]">
                           {projectName}{projectName && item.date ? " \u00B7 " : ""}
                           {item.date ? new Date(item.date).toLocaleDateString("fr-CH") : ""}
                         </div>
@@ -937,48 +892,39 @@ export default function SuppliersPage() {
                         .catch(() => {})
                         .finally(() => setHistoryLoading(false));
                     }}
-                    style={{ fontSize: "10px", color: "#F97316", background: "none", border: "none", cursor: "pointer", marginTop: "6px", padding: 0 }}
+                    className="text-[10px] text-[#F97316] bg-transparent border-none cursor-pointer mt-1.5 p-0"
                   >
                     Voir plus...
                   </button>
                 )}
               </>
             ) : (
-              <p style={{ fontSize: "11px", color: "#52525B", padding: "8px 0" }}>Aucune interaction</p>
+              <p className="text-[11px] text-[#52525B] py-2">Aucune interaction</p>
             )}
           </div>
 
           {/* Notes */}
           {selected.notes && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272A" }}>
-              <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525B", fontWeight: 600, marginBottom: "10px" }}>
+            <div className="px-5 py-4 border-b border-[#27272A]">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-[#52525B] font-semibold mb-2.5">
                 Notes
               </div>
-              <p style={{ fontSize: "12px", color: "#A1A1AA", lineHeight: "1.5" }}>{selected.notes}</p>
+              <p className="text-xs text-[#A1A1AA] leading-relaxed">{selected.notes}</p>
             </div>
           )}
 
           {/* Action buttons */}
-          <div style={{ padding: "16px 20px", display: "flex", gap: "8px" }}>
+          <div className="px-5 py-4 flex gap-2">
             {selected.email && (
               <a
                 href={`mailto:${selected.email}`}
-                style={{
-                  flex: 1, fontSize: "11px", padding: "8px", borderRadius: "7px",
-                  border: "1px solid transparent", background: "linear-gradient(135deg, #F97316, #EA580C)",
-                  color: "white", cursor: "pointer", textAlign: "center", fontWeight: 500,
-                  textDecoration: "none", display: "block",
-                }}
+                className="flex-1 text-[11px] py-2 rounded-[7px] border border-transparent bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white cursor-pointer text-center font-medium no-underline block"
               >
                 &#128231; Contacter
               </a>
             )}
             <button
-              style={{
-                flex: 1, fontSize: "11px", padding: "8px", borderRadius: "7px",
-                border: "1px solid #3F3F46", background: "#27272A",
-                color: "#D4D4D8", cursor: "pointer", textAlign: "center", fontWeight: 500,
-              }}
+              className="flex-1 text-[11px] py-2 rounded-[7px] border border-[#3F3F46] bg-[#27272A] text-[#D4D4D8] cursor-pointer text-center font-medium"
               onClick={() => {
                 // Navigate to submissions or trigger price request flow
               }}
@@ -988,12 +934,8 @@ export default function SuppliersPage() {
             <button
               onClick={() => handleEnrich(selected)}
               disabled={enriching}
-              style={{
-                flex: 1, fontSize: "11px", padding: "8px", borderRadius: "7px",
-                border: "1px solid #3F3F46", background: "#27272A",
-                color: "#D4D4D8", cursor: "pointer", textAlign: "center", fontWeight: 500,
-                opacity: enriching ? 0.5 : 1,
-              }}
+              className="flex-1 text-[11px] py-2 rounded-[7px] border border-[#3F3F46] bg-[#27272A] text-[#D4D4D8] cursor-pointer text-center font-medium"
+              style={{ opacity: enriching ? 0.5 : 1 }}
             >
               {enriching ? "..." : "\u2728 Enrichir IA"}
             </button>
