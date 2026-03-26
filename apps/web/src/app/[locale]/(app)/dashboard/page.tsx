@@ -663,19 +663,8 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
-                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
-                    <span>{t("briefingUrgent")}</span>
-                  </div>
-                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
-                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
-                    <span>{t("briefingFehlmann")}</span>
-                  </div>
-                  <div className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
-                    <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />
-                    <span>{t("briefingMeeting")}</span>
-                  </div>
+                <div className="text-[12px] text-[#71717A] italic leading-snug">
+                  {t("briefingEmpty")}
                 </div>
               )}
               <Link

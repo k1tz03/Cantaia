@@ -377,6 +377,7 @@
     "briefingUrgent": "3 urgent actions require your attention today",
     "briefingFehlmann": "Architect Fehlmann has been waiting for your feedback on B2 plans for 3 days",
     "briefingMeeting": "Site meeting #9 tomorrow at 2pm — Résidence Les Cèdres",
+    "briefingEmpty": "Your AI briefing will be available tomorrow morning. Sync your emails to enrich the content.",
     "briefingChape": "CFC 271 lot (Screed) has 2 unprocessed emails for 5 days",
     "openPanel": "Open side panel",
     "closePanel": "Close side panel",
