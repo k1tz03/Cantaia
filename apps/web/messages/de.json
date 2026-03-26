@@ -3211,6 +3211,25 @@
     "noSubmission": "Keine Submission ausgewählt",
     "weather": "Wetter"
   },
+  "siteReports": {
+    "share": {
+      "title": "Freigabe-Link",
+      "description": "Teilen Sie einen Link mit Ihren Assistentinnen, um die Bauberichte ohne Anmeldung einzusehen.",
+      "generate": "Freigabe-Link erstellen",
+      "regenerate": "Link erneuern",
+      "copy": "Link kopieren",
+      "copied": "Kopiert!",
+      "revoke": "Link widerrufen",
+      "revokeConfirm": "Sind Sie sicher? Personen mit dem Link verlieren den Zugriff.",
+      "expiresOn": "Läuft ab am {date}",
+      "expired": "Dieser Link ist abgelaufen. Bitten Sie Ihren Administrator, einen neuen zu erstellen.",
+      "revoked": "Dieser Link wurde widerrufen. Kontaktieren Sie Ihren Administrator.",
+      "invalid": "Ungültiger Link",
+      "publicTitle": "Bauberichte",
+      "poweredBy": "Bereitgestellt von Cantaia",
+      "tryFree": "Kostenlos testen"
+    }
+  },
   "onboarding": {
     "progress": {
       "stepOf": "Schritt {step} von {total}",

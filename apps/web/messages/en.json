@@ -3211,6 +3211,25 @@
     "noSubmission": "No submission selected",
     "weather": "Weather"
   },
+  "siteReports": {
+    "share": {
+      "title": "Share link",
+      "description": "Share a link with your assistants to view site reports without logging in.",
+      "generate": "Generate a share link",
+      "regenerate": "Regenerate link",
+      "copy": "Copy link",
+      "copied": "Copied!",
+      "revoke": "Revoke link",
+      "revokeConfirm": "Are you sure? People with the link will lose access.",
+      "expiresOn": "Expires on {date}",
+      "expired": "This link has expired. Ask your administrator to generate a new one.",
+      "revoked": "This link has been revoked. Contact your administrator.",
+      "invalid": "Invalid link",
+      "publicTitle": "Site reports",
+      "poweredBy": "Powered by Cantaia",
+      "tryFree": "Free trial"
+    }
+  },
   "onboarding": {
     "progress": {
       "stepOf": "Step {step} of {total}",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Clock, FileText, Download, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Clock, FileText, Download, ChevronLeft, ChevronRight, Loader2, Link2, Copy, Check, RefreshCw, Trash2 } from "lucide-react";
 
 function getMonday(date: Date): string {
   const d = new Date(date);
@@ -38,6 +38,7 @@ function getDayDates(mondayStr: string): string[] {
 
 export default function SiteReportsPage() {
   const t = useTranslations("portal");
+  const tShare = useTranslations("siteReports.share");
   const [activeTab, setActiveTab] = useState<"hours" | "notes">("hours");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [projectFilter, setProjectFilter] = useState("");
@@ -47,6 +48,83 @@ export default function SiteReportsPage() {
   const [hoursData, setHoursData] = useState<any>(null);
   const [notesData, setNotesData] = useState<any>(null);
   const [exporting, setExporting] = useState(false);
+
+  // Share link state
+  const [userRole, setUserRole] = useState<string>("");
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareExpiresAt, setShareExpiresAt] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [loadingShare, setLoadingShare] = useState(false);
+
+  const canShare =
+    ["admin", "director", "project_manager"].includes(userRole) || isSuperadmin;
+
+  // Fetch user profile + existing share link on mount
+  useEffect(() => {
+    async function loadShareInfo() {
+      try {
+        const [profileRes, shareRes] = await Promise.all([
+          fetch("/api/user/profile"),
+          fetch("/api/site-reports/share"),
+        ]);
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          setUserRole(profile.role || "");
+          setIsSuperadmin(profile.is_superadmin || false);
+        }
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          if (shareData.url) {
+            setShareUrl(shareData.url);
+            setShareExpiresAt(shareData.expires_at || null);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    loadShareInfo();
+  }, []);
+
+  async function handleGenerateShare() {
+    setLoadingShare(true);
+    try {
+      const res = await fetch("/api/site-reports/share", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setShareUrl(data.url);
+        setShareExpiresAt(data.expires_at || null);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingShare(false);
+    }
+  }
+
+  async function handleRevokeShare() {
+    if (!confirm(tShare("revokeConfirm"))) return;
+    setLoadingShare(true);
+    try {
+      const res = await fetch("/api/site-reports/share", { method: "DELETE" });
+      if (res.ok) {
+        setShareUrl(null);
+        setShareExpiresAt(null);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingShare(false);
+    }
+  }
+
+  function handleCopyLink() {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   async function fetchData() {
     setLoading(true);
@@ -129,6 +207,92 @@ export default function SiteReportsPage() {
           </button>
         </div>
       </div>
+
+      {/* Share link section — visible only for admin/director/PM/superadmin */}
+      {canShare && (
+        <div className="mb-4 rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <div className="flex items-start gap-3">
+            <Link2 className="h-5 w-5 text-[#F97316] mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">{tShare("title")}</h3>
+
+              {!shareUrl ? (
+                <>
+                  <p className="text-sm text-[#A1A1AA] mt-1">{tShare("description")}</p>
+                  <button
+                    onClick={handleGenerateShare}
+                    disabled={loadingShare}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
+                  >
+                    {loadingShare ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2 className="h-4 w-4" />
+                    )}
+                    {tShare("generate")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 min-w-0 rounded bg-[#0F0F11] border border-[#27272A] px-3 py-2">
+                      <span className="text-sm font-mono text-[#A1A1AA] block truncate">
+                        {shareUrl}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleCopyLink}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#27272A] px-3 py-2 text-sm font-medium text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 text-[#10B981]" />
+                          {tShare("copied")}
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          {tShare("copy")}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-[#71717A]">
+                      {shareExpiresAt &&
+                        tShare("expiresOn", {
+                          date: new Date(shareExpiresAt).toLocaleDateString("fr-CH", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          }),
+                        })}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleGenerateShare}
+                        disabled={loadingShare}
+                        className="inline-flex items-center gap-1 text-xs text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${loadingShare ? "animate-spin" : ""}`} />
+                        {tShare("regenerate")}
+                      </button>
+                      <button
+                        onClick={handleRevokeShare}
+                        disabled={loadingShare}
+                        className="inline-flex items-center gap-1 text-xs text-[#EF4444] hover:text-[#F87171] transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {tShare("revoke")}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-4 flex gap-1 rounded-lg bg-[#27272A] p-1 w-fit">

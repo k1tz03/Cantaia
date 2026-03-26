@@ -3211,6 +3211,25 @@
     "noSubmission": "Aucune soumission sélectionnée",
     "weather": "Météo"
   },
+  "siteReports": {
+    "share": {
+      "title": "Lien de partage",
+      "description": "Partagez un lien avec vos assistantes pour consulter les rapports de chantier sans connexion.",
+      "generate": "Générer un lien de partage",
+      "regenerate": "Régénérer le lien",
+      "copy": "Copier le lien",
+      "copied": "Copié !",
+      "revoke": "Révoquer le lien",
+      "revokeConfirm": "Êtes-vous sûr ? Les personnes ayant le lien n'y auront plus accès.",
+      "expiresOn": "Expire le {date}",
+      "expired": "Ce lien a expiré. Demandez à votre administrateur d'en générer un nouveau.",
+      "revoked": "Ce lien a été révoqué. Contactez votre administrateur.",
+      "invalid": "Lien invalide",
+      "publicTitle": "Rapports de chantier",
+      "poweredBy": "Propulsé par Cantaia",
+      "tryFree": "Essai gratuit"
+    }
+  },
   "onboarding": {
     "progress": {
       "stepOf": "Étape {step} sur {total}",
