@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import dynamic from "next/dynamic";
 import {
   Mail,
   CheckCircle2,
@@ -30,6 +31,8 @@ import {
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
+
+const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -611,8 +614,15 @@ export default function MailPage() {
               onRefuse={() => dismissCard(selectedEmail.id, "refuse")}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
+            <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+              <ParticleCanvas
+                particleCount={15}
+                opacity={[0.03, 0.12]}
+                showConnections={false}
+                mouseGravity={0.00002}
+                className="pointer-events-none absolute inset-0 z-0"
+              />
+              <div className="text-center relative z-[1]">
                 <Mail className="w-10 h-10 text-[#27272A] mx-auto mb-3" />
                 <p className="text-[13px] text-[#52525B]">Selectionnez un email pour voir son contenu</p>
               </div>

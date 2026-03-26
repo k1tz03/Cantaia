@@ -4,6 +4,9 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import dynamic from "next/dynamic";
+
+const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 40 },
@@ -204,12 +207,14 @@ export function HeroSection() {
         }}
       />
 
-      {/* Orbiting particles */}
-      <div className="absolute top-1/2 left-1/2 w-0 h-0 pointer-events-none">
-        <div className="absolute w-1 h-1 rounded-full bg-[#F97316] opacity-25" style={{ animation: "orbitSlow 22s linear infinite" }} />
-        <div className="absolute w-[3px] h-[3px] rounded-full bg-[#F97316] opacity-15" style={{ animation: "orbitSlow 28s linear infinite reverse" }} />
-        <div className="absolute w-[5px] h-[5px] rounded-full bg-[#F97316] opacity-10" style={{ animation: "orbitSlow 35s linear infinite" }} />
-      </div>
+      {/* Interactive particle canvas */}
+      <ParticleCanvas
+        particleCount={40}
+        opacity={[0.1, 0.4]}
+        showConnections={true}
+        mouseGravity={0.0008}
+        className="pointer-events-none absolute inset-0 z-[1]"
+      />
 
       {/* Content */}
       <div className="relative z-[2] max-w-[800px] text-center">

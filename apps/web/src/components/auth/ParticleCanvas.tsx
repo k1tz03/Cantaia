@@ -15,16 +15,32 @@ interface Particle {
   gravity: number;
 }
 
-const PARTICLE_COUNT = 35;
+const DEFAULT_PARTICLE_COUNT = 35;
 const CONNECTION_DISTANCE = 120;
-const COLORS = [
+const DEFAULT_COLORS = [
   "rgba(249,115,22,",  // orange
   "rgba(234,88,12,",   // orange-dark
   "rgba(251,146,60,",  // orange-light
   "rgba(59,130,246,",  // blue (rare)
 ];
 
-export function ParticleCanvas() {
+export interface ParticleCanvasProps {
+  particleCount?: number;
+  opacity?: [number, number];
+  showConnections?: boolean;
+  mouseGravity?: number;
+  colors?: string[];
+  className?: string;
+}
+
+export function ParticleCanvas({
+  particleCount = DEFAULT_PARTICLE_COUNT,
+  opacity: opacityRange = [0.1, 0.5],
+  showConnections = true,
+  mouseGravity = 0.00008,
+  colors = DEFAULT_COLORS,
+  className,
+}: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
@@ -52,20 +68,24 @@ export function ParticleCanvas() {
     canvas.width = parent.offsetWidth;
     canvas.height = parent.offsetHeight;
 
+    const [opMin, opMax] = opacityRange;
+    const opRange = opMax - opMin;
+
     // Create particles
     const particles: Particle[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    for (let i = 0; i < particleCount; i++) {
+      const blueThreshold = Math.floor(particleCount * 0.85);
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
         r: Math.random() * 3 + 1,
         vx: (Math.random() - 0.5) * 0.3,
         vy: -Math.random() * 0.4 - 0.1,
-        opacity: Math.random() * 0.5 + 0.1,
-        color: COLORS[i < 30 ? Math.floor(Math.random() * 3) : 3],
+        opacity: Math.random() * opRange + opMin,
+        color: colors[i < blueThreshold ? Math.floor(Math.random() * Math.min(3, colors.length)) : Math.min(3, colors.length - 1)],
         pulse: Math.random() * Math.PI * 2,
         pulseSpeed: Math.random() * 0.02 + 0.01,
-        gravity: Math.random() * 0.00008 + 0.00002,
+        gravity: Math.random() * mouseGravity + mouseGravity * 0.25,
       });
     }
     particlesRef.current = particles;
@@ -133,19 +153,21 @@ export function ParticleCanvas() {
       }
 
       // Draw connections between nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < CONNECTION_DISTANCE) {
-            const alpha = (1 - dist / CONNECTION_DISTANCE) * 0.06;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(249,115,22,${alpha})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+      if (showConnections) {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < CONNECTION_DISTANCE) {
+              const alpha = (1 - dist / CONNECTION_DISTANCE) * 0.06;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(249,115,22,${alpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
           }
         }
       }
@@ -160,12 +182,16 @@ export function ParticleCanvas() {
       parent.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
     };
-  }, [handleResize]);
+  }, [handleResize, particleCount, opacityRange, showConnections, mouseGravity, colors]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none absolute inset-0 z-[1]"
+      className={className || "pointer-events-none absolute inset-0 z-[1]"}
     />
   );
 }
+
+// Default export for dynamic imports
+export default ParticleCanvas;
+

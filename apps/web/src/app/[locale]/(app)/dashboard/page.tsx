@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import {
@@ -24,6 +25,8 @@ import {
   HardHat,
 } from "lucide-react";
 import { DashboardOrgView } from "@/components/app/DashboardOrgView";
+
+const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
 
 /* ---- types ---- */
 interface TaskItem {
@@ -290,8 +293,15 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0F0F11]">
-      <div className="p-4 sm:p-6 lg:px-8 max-w-[1400px] mx-auto space-y-5">
+    <div className="min-h-screen bg-[#0F0F11] relative overflow-hidden">
+      <ParticleCanvas
+        particleCount={20}
+        opacity={[0.03, 0.15]}
+        showConnections={false}
+        mouseGravity={0.00003}
+        className="pointer-events-none absolute inset-0 z-0"
+      />
+      <div className="relative z-[1] p-4 sm:p-6 lg:px-8 max-w-[1400px] mx-auto space-y-5">
 
         {/* ===== GREETING ROW ===== */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
