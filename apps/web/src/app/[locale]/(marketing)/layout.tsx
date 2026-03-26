@@ -1,5 +1,6 @@
 import { MarketingHeader } from "@/components/marketing/Header";
 import { MarketingFooter } from "@/components/marketing/Footer";
+import { ForceDarkMode } from "./force-dark";
 
 const organizationJsonLd = {
   "@context": "https://schema.org",
@@ -29,6 +30,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="dark flex min-h-screen flex-col bg-[#0F0F11]">
+      <ForceDarkMode />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
