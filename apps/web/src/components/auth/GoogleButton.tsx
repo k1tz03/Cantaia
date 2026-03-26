@@ -5,7 +5,11 @@ import { signInWithGoogleAction } from "@/app/[locale]/(auth)/actions";
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 
-export function GoogleButton() {
+interface GoogleButtonProps {
+  label?: string;
+}
+
+export function GoogleButton({ label }: GoogleButtonProps) {
   const t = useTranslations("auth");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +31,12 @@ export function GoogleButton() {
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#27272A] bg-[#18181B] text-sm font-medium text-[#FAFAFA] transition-all hover:border-[#F97316]/30 hover:bg-[#1C1C1F] hover:shadow-[0_0_0_1px_rgba(249,115,22,0.08)] disabled:opacity-50"
       >
         {isPending ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
         ) : (
-          <svg className="h-5 w-5" viewBox="0 0 24 24">
+          <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
               fill="#4285F4"
@@ -51,10 +55,10 @@ export function GoogleButton() {
             />
           </svg>
         )}
-        {t("loginWithGoogle")}
+        {label || t("loginWithGoogle")}
       </button>
       {error && (
-        <p className="mt-2 text-center text-sm text-red-500">{error}</p>
+        <p className="mt-2 text-center text-sm text-[#EF4444]">{error}</p>
       )}
     </div>
   );

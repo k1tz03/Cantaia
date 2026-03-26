@@ -14,30 +14,28 @@ export default function LoginPage() {
   const error = searchParams.get("error");
 
   return (
-    <AuthCard title={t("login")}>
+    <AuthCard title={t("login")} subtitle={t("subtitle")}>
       {/* Show callback errors */}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="mb-4 flex items-center gap-2 rounded-[10px] border border-[#EF4444]/30 bg-[#EF4444]/10 p-3 text-sm text-[#EF4444]">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <span>Erreur d&apos;authentification : {decodeURIComponent(error)}</span>
         </div>
       )}
 
       {/* OAuth providers */}
-      <div className="space-y-3">
+      <div className="mb-6 flex flex-col gap-3">
         <MicrosoftButton />
         <GoogleButton />
       </div>
 
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-slate-200" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-slate-400">
-            {t("orContinueWith")}
-          </span>
-        </div>
+      {/* Divider */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="h-px flex-1 bg-[#27272A]" />
+        <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#71717A]">
+          {t("orContinueWith")}
+        </span>
+        <div className="h-px flex-1 bg-[#27272A]" />
       </div>
 
       <LoginForm />

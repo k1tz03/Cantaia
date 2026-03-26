@@ -272,7 +272,17 @@
     "passwordsMismatch": "Les mots de passe ne correspondent pas.",
     "joiningOrg": "Vous rejoignez",
     "inviteExpired": "Cette invitation a expiré ou n'est plus valide.",
-    "inviteLoading": "Vérification de l'invitation..."
+    "inviteLoading": "Vérification de l'invitation...",
+    "subtitle": "Connectez-vous à votre espace chantier",
+    "registerSubtitle": "Commencez à optimiser vos chantiers avec l'IA",
+    "signupWithMicrosoft": "S'inscrire avec Microsoft",
+    "signupWithGoogle": "S'inscrire avec Google",
+    "startFreeTrial": "Commencer l'essai gratuit",
+    "trialInfo": "14 jours d'essai · Sans carte bancaire · Annulation en un clic",
+    "trustAes": "Chiffré AES-256",
+    "trustSwiss": "Conçu en Suisse",
+    "trustEurope": "Hébergé en Europe",
+    "resetPassword": "Réinitialiser le mot de passe"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -3373,18 +3383,57 @@
     "next": "Suivant",
     "finish": "Terminer",
     "skip": "Passer le tour",
-    "mail": { "title": "Cantaia Mail", "description": "Vos emails sont classés automatiquement par projet. L'IA détecte les urgences et propose des réponses." },
-    "mailBuckets": { "title": "Triage intelligent", "description": "Les emails sont triés en 3 catégories : Urgents (action requise), Cette semaine et Infos. Traitez les urgences en priorité." },
-    "mailDetail": { "title": "Lecture et actions", "description": "Cliquez sur un email pour le lire. L'IA génère un résumé, propose des réponses et peut extraire des tâches." },
-    "dashboard": { "title": "Tableau de bord", "description": "Vue d'ensemble de vos projets : KPIs, tâches en cours, emails non traités et briefing IA quotidien." },
-    "tasks": { "title": "Tâches", "description": "Toutes vos tâches extraites des emails ou créées manuellement. Vue Kanban avec drag & drop entre colonnes." },
-    "projects": { "title": "Projets", "description": "Chaque projet regroupe emails, plans, soumissions, tâches et plannings. Créez un projet par chantier." },
-    "submissions": { "title": "Soumissions", "description": "Gérez vos appels d'offres : importez un Excel, l'IA extrait les postes, envoyez des demandes de prix aux fournisseurs." },
-    "suppliers": { "title": "Fournisseurs", "description": "Votre base fournisseurs avec scores de fiabilité, historique des prix et temps de réponse." },
-    "plans": { "title": "Plans", "description": "Registre centralisé de vos plans. Détection automatique depuis les emails et analyse IA du contenu." },
-    "chat": { "title": "Assistant IA", "description": "Posez vos questions sur vos projets. Claude connaît votre contexte, vos emails et vos documents." },
-    "search": { "title": "Recherche rapide", "description": "Appuyez sur Ctrl+K (ou Cmd+K) pour rechercher n'importe quelle page, projet ou fonctionnalité." },
-    "support": { "title": "Support", "description": "Besoin d'aide ? Créez un ticket de support. Notre équipe vous répond rapidement." },
-    "completion": { "title": "C'est parti !", "description": "Vous êtes prêt à utiliser Cantaia. Explorez à votre rythme ! Vous pouvez relancer ce tour depuis les Paramètres." }
+    "mail": {
+      "title": "Cantaia Mail",
+      "description": "Vos emails sont classés automatiquement par projet. L'IA détecte les urgences et propose des réponses."
+    },
+    "mailBuckets": {
+      "title": "Triage intelligent",
+      "description": "Les emails sont triés en 3 catégories : Urgents (action requise), Cette semaine et Infos. Traitez les urgences en priorité."
+    },
+    "mailDetail": {
+      "title": "Lecture et actions",
+      "description": "Cliquez sur un email pour le lire. L'IA génère un résumé, propose des réponses et peut extraire des tâches."
+    },
+    "dashboard": {
+      "title": "Tableau de bord",
+      "description": "Vue d'ensemble de vos projets : KPIs, tâches en cours, emails non traités et briefing IA quotidien."
+    },
+    "tasks": {
+      "title": "Tâches",
+      "description": "Toutes vos tâches extraites des emails ou créées manuellement. Vue Kanban avec drag & drop entre colonnes."
+    },
+    "projects": {
+      "title": "Projets",
+      "description": "Chaque projet regroupe emails, plans, soumissions, tâches et plannings. Créez un projet par chantier."
+    },
+    "submissions": {
+      "title": "Soumissions",
+      "description": "Gérez vos appels d'offres : importez un Excel, l'IA extrait les postes, envoyez des demandes de prix aux fournisseurs."
+    },
+    "suppliers": {
+      "title": "Fournisseurs",
+      "description": "Votre base fournisseurs avec scores de fiabilité, historique des prix et temps de réponse."
+    },
+    "plans": {
+      "title": "Plans",
+      "description": "Registre centralisé de vos plans. Détection automatique depuis les emails et analyse IA du contenu."
+    },
+    "chat": {
+      "title": "Assistant IA",
+      "description": "Posez vos questions sur vos projets. Claude connaît votre contexte, vos emails et vos documents."
+    },
+    "search": {
+      "title": "Recherche rapide",
+      "description": "Appuyez sur Ctrl+K (ou Cmd+K) pour rechercher n'importe quelle page, projet ou fonctionnalité."
+    },
+    "support": {
+      "title": "Support",
+      "description": "Besoin d'aide ? Créez un ticket de support. Notre équipe vous répond rapidement."
+    },
+    "completion": {
+      "title": "C'est parti !",
+      "description": "Vous êtes prêt à utiliser Cantaia. Explorez à votre rythme ! Vous pouvez relancer ce tour depuis les Paramètres."
+    }
   }
 }
