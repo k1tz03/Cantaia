@@ -111,7 +111,7 @@ interface PlanAlertsBannerProps {
   crossPlan?: CrossPlanData;
 }
 
-export function PlanAlertsBanner({ alerts = mockPlanAlerts, maxAlerts = 3, compact = false, crossPlan }: PlanAlertsBannerProps) {
+export function PlanAlertsBanner({ alerts = [], maxAlerts = 3, compact = false, crossPlan }: PlanAlertsBannerProps) {
   const t = useTranslations("plans");
 
   const criticals = alerts.filter((a) => a.severity === "critical");
