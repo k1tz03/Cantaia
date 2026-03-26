@@ -3264,6 +3264,8 @@
       "title": "Erstellen Sie Ihr erstes Projekt",
       "subtitle": "Ein Projekt bündelt E-Mails, Pläne, Submissionen und Aufgaben einer Baustelle",
       "projectName": "Projektname",
+      "code": "Interne Referenz",
+      "codePlaceholder": "z.B. 9250497",
       "clientName": "Auftraggeber",
       "city": "Stadt",
       "projectType": "Projekttyp",
@@ -3361,5 +3363,24 @@
       "trialDays": "14 Tage kostenlos testen",
       "cta": "Cantaia starten"
     }
+  },
+  "tour": {
+    "prev": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "skip": "Tour überspringen",
+    "mail": { "title": "Cantaia Mail", "description": "Ihre E-Mails werden automatisch nach Projekt klassifiziert. KI erkennt Dringlichkeiten und schlägt Antworten vor." },
+    "mailBuckets": { "title": "Intelligente Sortierung", "description": "E-Mails werden in 3 Kategorien sortiert: Dringend, Diese Woche und Info." },
+    "mailDetail": { "title": "Lesen und handeln", "description": "Klicken Sie auf eine E-Mail. KI erstellt eine Zusammenfassung und schlägt Aktionen vor." },
+    "dashboard": { "title": "Dashboard", "description": "Überblick über Ihre Projekte: KPIs, laufende Aufgaben, unbearbeitete E-Mails und tägliches KI-Briefing." },
+    "tasks": { "title": "Aufgaben", "description": "Alle Aufgaben aus E-Mails extrahiert oder manuell erstellt. Kanban-Ansicht mit Drag & Drop." },
+    "projects": { "title": "Projekte", "description": "Jedes Projekt bündelt E-Mails, Pläne, Submissionen und Aufgaben. Ein Projekt pro Baustelle." },
+    "submissions": { "title": "Submissionen", "description": "Verwalten Sie Ausschreibungen: Excel importieren, KI extrahiert Positionen, Preisanfragen versenden." },
+    "suppliers": { "title": "Lieferanten", "description": "Ihre Lieferantenbasis mit Zuverlässigkeitsbewertungen und Preishistorie." },
+    "plans": { "title": "Pläne", "description": "Zentrales Planregister. Automatische Erkennung aus E-Mails und KI-Inhaltsanalyse." },
+    "chat": { "title": "KI-Assistent", "description": "Stellen Sie Fragen zu Ihren Projekten. Claude kennt Ihren Kontext und Ihre Dokumente." },
+    "search": { "title": "Schnellsuche", "description": "Drücken Sie Ctrl+K für die Suche nach Seiten, Projekten oder Funktionen." },
+    "support": { "title": "Support", "description": "Brauchen Sie Hilfe? Erstellen Sie ein Support-Ticket." },
+    "completion": { "title": "Los geht's!", "description": "Sie sind bereit für Cantaia. Erkunden Sie in Ihrem eigenen Tempo! Tour über Einstellungen neu starten." }
   }
 }

@@ -540,7 +540,7 @@ export default function MailPage() {
       <div className="flex-1 flex min-h-0">
         {/* ── LEFT PANEL: Email list ── */}
         <div className="w-[420px] flex-shrink-0 border-r border-[#1C1C1F] flex flex-col min-h-0 bg-[#0F0F11]">
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" data-tour="mail-buckets">
             {/* Urgent bucket */}
             {filteredUrgent.length > 0 && (
               <EmailBucket
@@ -594,7 +594,7 @@ export default function MailPage() {
         </div>
 
         {/* ── RIGHT PANEL: Email detail ── */}
-        <div className="flex-1 flex flex-col min-h-0 bg-[#0F0F11]">
+        <div className="flex-1 flex flex-col min-h-0 bg-[#0F0F11]" data-tour="mail-detail">
           {selectedEmail ? (
             <EmailDetailPanel
               email={selectedEmail}

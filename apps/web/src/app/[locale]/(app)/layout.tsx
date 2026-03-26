@@ -9,6 +9,7 @@ import { OnboardingGuard } from "@/components/app/OnboardingGuard";
 import { TrialGuard } from "@/components/stripe/TrialGuard";
 import { AppHeader } from "@/components/app/AppHeader";
 import { ActivityTrackingProvider } from "@/components/providers/ActivityTrackingProvider";
+import { TourOverlay } from "@/components/tour/TourOverlay";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <CommandPalette />
             <OnboardingChecklist />
+            <TourOverlay />
           </AppActiveProjectProvider>
         </AppEmailProvider>
       </BrandingProvider>

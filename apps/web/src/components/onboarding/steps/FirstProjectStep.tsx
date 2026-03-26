@@ -15,6 +15,7 @@ import {
 interface FirstProjectStepProps {
   onContinue: (project: {
     name: string;
+    code: string;
     client: string;
     city: string;
     type: string;
@@ -73,6 +74,7 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
   const tProgress = useTranslations("onboarding.progress");
 
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [client, setClient] = useState("");
   const [city, setCity] = useState("");
   const [type, setType] = useState("");
@@ -89,8 +91,8 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
 
   const handleSubmit = useCallback(() => {
     if (!name.trim()) return;
-    onContinue({ name: name.trim(), client: client.trim(), city: city.trim(), type, color });
-  }, [name, client, city, type, color, onContinue]);
+    onContinue({ name: name.trim(), code: code.trim(), client: client.trim(), city: city.trim(), type, color });
+  }, [name, code, client, city, type, color, onContinue]);
 
   const inputClass =
     "w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-2.5 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors";
@@ -140,6 +142,20 @@ export function FirstProjectStep({ onContinue, onSkip }: FirstProjectStepProps) 
               </div>
             )}
           </div>
+        </div>
+
+        {/* Internal reference */}
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
+            {t("code")}
+          </label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder={t("codePlaceholder")}
+            className={inputClass}
+          />
         </div>
 
         {/* Client */}

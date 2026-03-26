@@ -140,6 +140,7 @@ export function AppHeader() {
           tabIndex={0}
           onClick={openCommandPalette}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openCommandPalette(); }}
+          data-tour="header-search"
           className="hidden md:flex items-center gap-2 bg-[#18181B] border border-[#3F3F46] rounded-lg px-3 py-1.5 w-[200px] cursor-pointer hover:border-[#52525B] transition-colors"
         >
           <Search className="h-3.5 w-3.5 text-[#71717A]" />

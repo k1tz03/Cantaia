@@ -46,6 +46,7 @@ interface NavItem {
   badgeColor?: "orange" | "red";
   badgeLabelKey?: string;
   group?: string;
+  dataTour?: string;
 }
 
 export function Sidebar() {
@@ -96,23 +97,23 @@ export function Sidebar() {
 
   // Section: QUOTIDIEN
   const dailyItems: NavItem[] = [
-    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, badgeColor: "orange" },
-    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
-    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", dataTour: "nav-dashboard" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, badgeColor: "orange", dataTour: "nav-mail" },
+    { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", dataTour: "nav-briefing" },
+    { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", dataTour: "nav-tasks" },
   ];
 
   // Section: RÉFÉRENTIELS
   const referenceItems: NavItem[] = [
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", dataTour: "nav-suppliers" },
+    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active", dataTour: "nav-plans" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
-    { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active" },
+    { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active", dataTour: "nav-chat" },
   ];
 
   const bottomItems: NavItem[] = [
-    { href: "/support", labelKey: "support", icon: LifeBuoy, status: "active", badge: supportUnread > 0 ? String(supportUnread) : undefined, badgeColor: "orange" },
-    { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
+    { href: "/support", labelKey: "support", icon: LifeBuoy, status: "active", badge: supportUnread > 0 ? String(supportUnread) : undefined, badgeColor: "orange", dataTour: "nav-support" },
+    { href: "/settings", labelKey: "settings", icon: Settings, status: "active", dataTour: "nav-settings" },
   ];
 
   const userName = user?.user_metadata?.first_name || t("user");
@@ -164,6 +165,7 @@ export function Sidebar() {
       <li key={item.href}>
         <Link
           href={item.href}
+          data-tour={item.dataTour}
           className={cn(
             "flex items-center gap-3 rounded-[7px] px-[10px] py-[6px] text-[13px] font-medium transition-colors duration-150",
             active
@@ -207,6 +209,7 @@ export function Sidebar() {
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active" },
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
+    { href: "/submissions", labelKey: "submissions", icon: ClipboardList, status: "active", dataTour: "nav-submissions" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "active" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
@@ -277,7 +280,7 @@ export function Sidebar() {
           <div className="h-px bg-[#27272A] mx-[10px] my-[5px]" />
 
           {/* PROJET ACTIF */}
-          <div>
+          <div data-tour="nav-projects">
             <ActiveProjectSection collapsed={collapsed} />
           </div>
 

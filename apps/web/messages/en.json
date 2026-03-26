@@ -3264,6 +3264,8 @@
       "title": "Create your first project",
       "subtitle": "A project groups emails, plans, tenders and tasks for a construction site",
       "projectName": "Project name",
+      "code": "Internal reference",
+      "codePlaceholder": "e.g. 9250497",
       "clientName": "Client",
       "city": "City",
       "projectType": "Project type",
@@ -3361,5 +3363,24 @@
       "trialDays": "14-day free trial",
       "cta": "Launch Cantaia"
     }
+  },
+  "tour": {
+    "prev": "Prev",
+    "next": "Next",
+    "finish": "Finish",
+    "skip": "Skip tour",
+    "mail": { "title": "Cantaia Mail", "description": "Your emails are automatically classified by project. AI detects urgencies and suggests replies." },
+    "mailBuckets": { "title": "Smart triage", "description": "Emails are sorted into 3 categories: Urgent (action required), This week and Info. Handle urgencies first." },
+    "mailDetail": { "title": "Read and act", "description": "Click an email to read it. AI generates a summary, suggests replies and can extract tasks." },
+    "dashboard": { "title": "Dashboard", "description": "Overview of your projects: KPIs, ongoing tasks, unprocessed emails and daily AI briefing." },
+    "tasks": { "title": "Tasks", "description": "All your tasks extracted from emails or created manually. Kanban view with drag & drop between columns." },
+    "projects": { "title": "Projects", "description": "Each project groups emails, plans, submissions, tasks and schedules. Create one project per site." },
+    "submissions": { "title": "Tenders", "description": "Manage RFQs: import an Excel, AI extracts items, send price requests to suppliers." },
+    "suppliers": { "title": "Suppliers", "description": "Your supplier database with reliability scores, price history and response times." },
+    "plans": { "title": "Plans", "description": "Centralized plan registry. Automatic detection from emails and AI content analysis." },
+    "chat": { "title": "AI Assistant", "description": "Ask questions about your projects. Claude knows your context, emails and documents." },
+    "search": { "title": "Quick search", "description": "Press Ctrl+K (or Cmd+K) to search any page, project or feature." },
+    "support": { "title": "Support", "description": "Need help? Create a support ticket. Our team responds quickly." },
+    "completion": { "title": "Let's go!", "description": "You're ready to use Cantaia. Explore at your own pace! You can restart this tour from Settings." }
   }
 }

@@ -182,6 +182,7 @@ export default function OnboardingPage() {
   const handleProjectContinue = useCallback(
     async (project: {
       name: string;
+      code: string;
       client: string;
       city: string;
       type: string;
@@ -193,6 +194,7 @@ export default function OnboardingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: project.name,
+            code: project.code || undefined,
             client_name: project.client || null,
             city: project.city || null,
             color: project.color,
