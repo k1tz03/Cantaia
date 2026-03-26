@@ -88,6 +88,12 @@ html:not(.dark) {
   .bg-\[\#27272A\] { background-color: #F4F4F5 !important; }
   .bg-\[\#3F3F46\] { background-color: #E4E4E7 !important; }
 
+  /* Hover backgrounds */
+  .hover\:bg-\[\#27272A\]:hover { background-color: #E4E4E7 !important; }
+  .hover\:bg-\[\#27272A\]\/50:hover { background-color: rgba(228,228,231,0.5) !important; }
+  .hover\:bg-\[\#18181B\]:hover { background-color: #F4F4F5 !important; }
+  .hover\:bg-\[\#3F3F46\]:hover { background-color: #D4D4D8 !important; }
+
   /* Backgrounds with opacity */
   .bg-\[\#0F0F11\]\/95 { background-color: rgba(250,250,250,0.95) !important; }
   .bg-\[\#09090B\]\/95 { background-color: rgba(244,244,245,0.95) !important; }
