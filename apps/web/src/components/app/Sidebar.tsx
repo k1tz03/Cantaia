@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { useBranding } from "@/components/providers/BrandingProvider";
 import { ThemeToggle } from "./ThemeToggle";
 import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -60,7 +59,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
-  useBranding(); // keep hook active for context
   const emailCtx = useEmailContextSafe();
   const unreadEmailCount = emailCtx?.unreadCount || 0;
 

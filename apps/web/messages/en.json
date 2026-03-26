@@ -269,7 +269,10 @@
     "backToLogin": "Back to login",
     "termsAgreement": "By signing up, you agree to our terms of service.",
     "passwordMinLength": "Password must be at least 8 characters.",
-    "passwordsMismatch": "Passwords do not match."
+    "passwordsMismatch": "Passwords do not match.",
+    "joiningOrg": "You are joining",
+    "inviteExpired": "This invitation has expired or is no longer valid.",
+    "inviteLoading": "Verifying invitation..."
   },
   "dashboard": {
     "title": "Dashboard",

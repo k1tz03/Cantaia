@@ -6,22 +6,40 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@cantaia/core/models";
 import { registerAction } from "@/app/[locale]/(auth)/actions";
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Building2, AlertTriangle } from "lucide-react";
+
+interface InviteData {
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  organization: {
+    id: string;
+    name: string;
+    display_name?: string;
+  };
+}
 
 export function RegisterForm() {
   const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const prefillEmail = searchParams.get("email") || "";
+  const inviteToken = searchParams.get("invite_token") || "";
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [inviteData, setInviteData] = useState<InviteData | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(!!inviteToken);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -30,6 +48,47 @@ export function RegisterForm() {
       role: "project_manager",
     },
   });
+
+  // Validate invite token on mount
+  useEffect(() => {
+    if (!inviteToken) return;
+
+    async function validateInvite() {
+      try {
+        const res = await fetch(`/api/invites?token=${encodeURIComponent(inviteToken)}`);
+        const data = await res.json();
+
+        if (data.valid && data.invite) {
+          const invite = data.invite;
+          setInviteData({
+            email: invite.email,
+            first_name: invite.first_name || "",
+            last_name: invite.last_name || "",
+            role: invite.role || "project_manager",
+            organization: invite.organization,
+          });
+
+          // Pre-fill form fields
+          if (invite.email) setValue("email", invite.email);
+          if (invite.first_name) setValue("first_name", invite.first_name);
+          if (invite.last_name) setValue("last_name", invite.last_name);
+          if (invite.role) setValue("role", invite.role);
+          // Set company_name to org name to satisfy Zod validation (field is hidden)
+          if (invite.organization?.name) {
+            setValue("company_name", invite.organization.name);
+          }
+        } else {
+          setInviteError(data.reason || "invalid");
+        }
+      } catch {
+        setInviteError("network");
+      } finally {
+        setInviteLoading(false);
+      }
+    }
+
+    validateInvite();
+  }, [inviteToken, setValue]);
 
   const onSubmit = (data: RegisterInput) => {
     setServerError(null);
@@ -41,6 +100,7 @@ export function RegisterForm() {
         last_name: data.last_name,
         company_name: data.company_name,
         role: data.role,
+        invite_token: inviteToken || undefined,
       });
       if (result.error) {
         setServerError(result.error);
@@ -68,8 +128,38 @@ export function RegisterForm() {
     );
   }
 
+  if (inviteLoading) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
+        <p className="text-sm text-[#A1A1AA]">{t("inviteLoading")}</p>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Invite banner */}
+      {inviteData && (
+        <div className="flex items-center gap-3 rounded-lg border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3">
+          <Building2 className="h-5 w-5 shrink-0 text-[#22C55E]" />
+          <p className="text-sm text-[#22C55E]">
+            {t("joiningOrg")}{" "}
+            <span className="font-semibold">
+              {inviteData.organization.display_name || inviteData.organization.name}
+            </span>
+          </p>
+        </div>
+      )}
+
+      {/* Invite error banner */}
+      {inviteError && (
+        <div className="flex items-center gap-3 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-[#F59E0B]" />
+          <p className="text-sm text-[#F59E0B]">{t("inviteExpired")}</p>
+        </div>
+      )}
+
       {serverError && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
           {serverError}
@@ -119,26 +209,29 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <div>
-        <label
-          htmlFor="company_name"
-          className="block text-sm font-medium text-[#374151]"
-        >
-          {t("companyName")}
-        </label>
-        <input
-          {...register("company_name")}
-          type="text"
-          id="company_name"
-          autoComplete="organization"
-          className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
-        />
-        {errors.company_name && (
-          <p className="mt-1 text-xs text-red-500">
-            {errors.company_name.message}
-          </p>
-        )}
-      </div>
+      {/* Hide company name field when joining via invite */}
+      {!inviteData && (
+        <div>
+          <label
+            htmlFor="company_name"
+            className="block text-sm font-medium text-[#374151]"
+          >
+            {t("companyName")}
+          </label>
+          <input
+            {...register("company_name")}
+            type="text"
+            id="company_name"
+            autoComplete="organization"
+            className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
+          />
+          {errors.company_name && (
+            <p className="mt-1 text-xs text-red-500">
+              {errors.company_name.message}
+            </p>
+          )}
+        </div>
+      )}
 
       <div>
         <label
@@ -174,7 +267,8 @@ export function RegisterForm() {
           type="email"
           id="reg-email"
           autoComplete="email"
-          className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
+          readOnly={!!inviteData}
+          className={`mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200 ${inviteData ? "bg-[#27272A]/10 cursor-not-allowed" : ""}`}
         />
         {errors.email && (
           <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
@@ -228,7 +322,7 @@ export function RegisterForm() {
           type="password"
           id="confirmPassword"
           autoComplete="new-password"
-          className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
+          className="mt-1 block w-full rounded-lg border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-blue-200"
         />
         {errors.confirmPassword && (
           <p className="mt-1 text-xs text-red-500">

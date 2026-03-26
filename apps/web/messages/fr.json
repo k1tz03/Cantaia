@@ -269,7 +269,10 @@
     "backToLogin": "Retour à la connexion",
     "termsAgreement": "En vous inscrivant, vous acceptez nos conditions d'utilisation.",
     "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères.",
-    "passwordsMismatch": "Les mots de passe ne correspondent pas."
+    "passwordsMismatch": "Les mots de passe ne correspondent pas.",
+    "joiningOrg": "Vous rejoignez",
+    "inviteExpired": "Cette invitation a expiré ou n'est plus valide.",
+    "inviteLoading": "Vérification de l'invitation..."
   },
   "dashboard": {
     "title": "Tableau de bord",

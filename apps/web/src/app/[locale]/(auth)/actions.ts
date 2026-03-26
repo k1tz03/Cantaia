@@ -72,9 +72,34 @@ export async function registerAction(formData: {
   last_name: string;
   company_name: string;
   role: "project_manager" | "site_manager" | "foreman";
+  invite_token?: string;
 }): Promise<AuthResult> {
   const supabase = await createClient();
   const locale = await getLocale();
+  const adminClient = createAdminClient();
+
+  // If invite_token is provided, validate it before creating the auth user
+  let validInvite: {
+    id: string;
+    organization_id: string;
+    role: string;
+    first_name?: string;
+    last_name?: string;
+  } | null = null;
+
+  if (formData.invite_token) {
+    const { data: invite } = await (adminClient as any)
+      .from("organization_invites")
+      .select("id, organization_id, role, first_name, last_name, status, expires_at")
+      .eq("token", formData.invite_token)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (invite && new Date(invite.expires_at) > new Date()) {
+      validInvite = invite;
+    }
+    // If invite is invalid/expired, proceed with normal registration (create new org)
+  }
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: formData.email,
@@ -92,41 +117,68 @@ export async function registerAction(formData: {
   }
 
   if (authData.user) {
-    const adminClient = createAdminClient();
+    if (validInvite) {
+      // Invite flow: join existing organization, do NOT create a new org
+      const inviteRole = validInvite.role === "admin" ? "admin" : (formData.role || "project_manager");
 
-    // Create organization
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS);
+      const { error: userError } = await adminClient.from("users").upsert({
+        id: authData.user.id,
+        organization_id: validInvite.organization_id,
+        email: formData.email,
+        first_name: validInvite.first_name || formData.first_name,
+        last_name: validInvite.last_name || formData.last_name,
+        role: inviteRole,
+        preferred_language: locale as "fr" | "en" | "de",
+        onboarding_completed: true, // Invited users skip onboarding
+      }, { onConflict: "id" });
 
-    const { data: org, error: orgError } = await adminClient
-      .from("organizations")
-      .insert({
-        name: formData.company_name,
-        subscription_plan: "trial",
-        trial_ends_at: trialEndsAt.toISOString(),
-        max_users: 3,
-        max_projects: 5,
-      })
-      .select()
-      .single();
+      if (userError) {
+        return { error: userError.message };
+      }
 
-    if (orgError) {
-      return { error: orgError.message };
-    }
+      // Mark invite as accepted
+      await (adminClient as any)
+        .from("organization_invites")
+        .update({
+          status: "accepted",
+          accepted_at: new Date().toISOString(),
+        })
+        .eq("id", validInvite.id);
+    } else {
+      // Normal flow: create a new organization
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS);
 
-    // Create user row (upsert to handle race conditions with auth callback)
-    const { error: userError } = await adminClient.from("users").upsert({
-      id: authData.user.id,
-      organization_id: org.id,
-      email: formData.email,
-      first_name: formData.first_name,
-      last_name: formData.last_name,
-      role: formData.role,
-      preferred_language: locale as "fr" | "en" | "de",
-    }, { onConflict: "id" });
+      const { data: org, error: orgError } = await adminClient
+        .from("organizations")
+        .insert({
+          name: formData.company_name,
+          subscription_plan: "trial",
+          trial_ends_at: trialEndsAt.toISOString(),
+          max_users: 3,
+          max_projects: 5,
+        })
+        .select()
+        .single();
 
-    if (userError) {
-      return { error: userError.message };
+      if (orgError) {
+        return { error: orgError.message };
+      }
+
+      // Create user row (upsert to handle race conditions with auth callback)
+      const { error: userError } = await adminClient.from("users").upsert({
+        id: authData.user.id,
+        organization_id: org.id,
+        email: formData.email,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        role: formData.role,
+        preferred_language: locale as "fr" | "en" | "de",
+      }, { onConflict: "id" });
+
+      if (userError) {
+        return { error: userError.message };
+      }
     }
   }
 
