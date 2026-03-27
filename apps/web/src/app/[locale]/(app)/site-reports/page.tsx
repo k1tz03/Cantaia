@@ -60,31 +60,28 @@ export default function SiteReportsPage() {
   const canShare =
     ["admin", "director", "project_manager"].includes(userRole) || isSuperadmin;
 
-  // Fetch user profile + existing share link on mount
+  // Fetch user profile + existing share link on mount (separate to avoid one blocking the other)
   useEffect(() => {
-    async function loadShareInfo() {
-      try {
-        const [profileRes, shareRes] = await Promise.all([
-          fetch("/api/user/profile"),
-          fetch("/api/site-reports/share"),
-        ]);
-        if (profileRes.ok) {
-          const profile = await profileRes.json();
+    // 1. Profile — determines if share section is visible
+    fetch("/api/user/profile")
+      .then(r => r.ok ? r.json() : null)
+      .then(profile => {
+        if (profile) {
           setUserRole(profile.role || "");
-          setIsSuperadmin(profile.is_superadmin || false);
+          setIsSuperadmin(profile.is_superadmin === true);
         }
-        if (shareRes.ok) {
-          const shareData = await shareRes.json();
-          if (shareData.url) {
-            setShareUrl(shareData.url);
-            setShareExpiresAt(shareData.expires_at || null);
-          }
+      })
+      .catch(() => {});
+    // 2. Share link — independent, may fail if migration 066 not applied
+    fetch("/api/site-reports/share")
+      .then(r => r.ok ? r.json() : null)
+      .then(shareData => {
+        if (shareData?.url) {
+          setShareUrl(shareData.url);
+          setShareExpiresAt(shareData.expires_at || null);
         }
-      } catch {
-        /* ignore */
-      }
-    }
-    loadShareInfo();
+      })
+      .catch(() => {});
   }, []);
 
   async function handleGenerateShare() {
