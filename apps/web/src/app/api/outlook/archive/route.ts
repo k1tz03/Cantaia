@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseBody } from "@/lib/api/parse-body";
+import { getAppUrl } from "@/lib/env";
 
 // Redirect to the new /api/outlook/move-email endpoint
 // Kept for backwards compatibility
@@ -18,8 +19,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Forward to move-email with folder_name derived from project
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const moveResponse = await fetch(`${appUrl}/api/outlook/move-email`, {
+  const moveResponse = await fetch(`${getAppUrl()}/api/outlook/move-email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

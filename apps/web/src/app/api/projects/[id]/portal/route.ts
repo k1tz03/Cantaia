@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 import { generatePin, generateSalt, hashPin } from "@/lib/portal/auth";
 
 export async function GET(
@@ -45,7 +46,7 @@ export async function GET(
       portal_submission_id: project.portal_submission_id || null,
       submissions: submissions || [],
       report_count: reportCount || 0,
-      portal_url: `${(process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/portal/${id}`,
+      portal_url: `${getAppUrl()}/portal/${id}`,
     });
   } catch (error) {
     console.error("[Portal Config] GET error:", error);

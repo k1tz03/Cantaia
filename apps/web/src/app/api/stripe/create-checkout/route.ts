@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 import Stripe from "stripe";
 
 function getStripe() {
@@ -68,15 +69,13 @@ export async function POST(request: NextRequest) {
         .eq("id", profile.organization_id);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io";
-
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       currency: "chf",
       line_items: [{ price: PRICE_IDS[plan as keyof typeof PRICE_IDS], quantity: 1 }],
-      success_url: `${appUrl}/fr/admin?tab=subscription&success=true`,
-      cancel_url: `${appUrl}/fr/admin?tab=subscription&canceled=true`,
+      success_url: `${getAppUrl()}/fr/admin?tab=subscription&success=true`,
+      cancel_url: `${getAppUrl()}/fr/admin?tab=subscription&canceled=true`,
       metadata: {
         organization_id: profile.organization_id,
         plan,

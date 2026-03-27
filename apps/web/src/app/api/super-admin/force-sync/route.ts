@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,8 +35,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.ch";
-    const syncResponse = await fetch(`${appUrl}/api/outlook/sync`, {
+    const syncResponse = await fetch(`${getAppUrl()}/api/outlook/sync`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: targetUserId, forceSync: true }),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 
 const CRON_ROUTES: Record<string, string> = {
   briefing: "/api/cron/briefing",
@@ -51,9 +52,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.ch";
     const cronPath = CRON_ROUTES[cronName];
-    const cronResponse = await fetch(`${appUrl}${cronPath}`, {
+    const cronResponse = await fetch(`${getAppUrl()}${cronPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

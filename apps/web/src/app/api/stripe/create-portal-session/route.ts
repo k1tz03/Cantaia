@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 import Stripe from "stripe";
 
 function getStripe() {
@@ -38,11 +39,9 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: "No Stripe customer" }, { status: 400 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io";
-
     const session = await getStripe().billingPortal.sessions.create({
       customer: org.stripe_customer_id,
-      return_url: `${appUrl}/fr/admin?tab=subscription`,
+      return_url: `${getAppUrl()}/fr/admin?tab=subscription`,
     });
 
     return NextResponse.json({ url: session.url });
