@@ -39,3 +39,11 @@ function validateEnv() {
 
 /** Validated environment variables. Throws at startup if invalid. */
 export const env = validateEnv();
+
+/**
+ * Returns the canonical app URL (https://cantaia.io), stripped of trailing slashes.
+ * Use this everywhere instead of reading NEXT_PUBLIC_APP_URL directly.
+ */
+export function getAppUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io").replace(/\/+$/, "");
+}
