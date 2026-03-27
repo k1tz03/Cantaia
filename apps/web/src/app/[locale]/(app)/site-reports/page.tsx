@@ -65,10 +65,11 @@ export default function SiteReportsPage() {
     // 1. Profile — determines if share section is visible
     fetch("/api/user/profile")
       .then(r => r.ok ? r.json() : null)
-      .then(profile => {
-        if (profile) {
-          setUserRole(profile.role || "");
-          setIsSuperadmin(profile.is_superadmin === true);
+      .then(data => {
+        const p = data?.profile || data;
+        if (p) {
+          setUserRole(p.role || "");
+          setIsSuperadmin(p.is_superadmin === true);
         }
       })
       .catch(() => {});
