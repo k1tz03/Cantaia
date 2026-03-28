@@ -34,7 +34,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": ["msi", "nsis"]
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   },
   "plugins": {
     "updater": {
