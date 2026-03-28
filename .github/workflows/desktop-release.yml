@@ -78,3 +78,6 @@ jobs:
           prerelease: false
           projectPath: apps/desktop
           includeUpdaterJson: true
+          # pnpm-lock.yaml est à la racine du monorepo → tauri-action ne détecte pas pnpm
+          # On force l'utilisation de pnpm pour éviter "Missing script: tauri"
+          tauriScript: pnpm tauri
