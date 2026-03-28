@@ -5,6 +5,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // Lint is handled separately in CI (pnpm lint) — not during next build
+    ignoreDuringBuilds: true,
+  },
   transpilePackages: ["@cantaia/ui", "@cantaia/core", "@cantaia/database"],
   serverExternalPackages: ["ffmpeg-static", "pdf-parse", "pdfjs-dist"],
   images: {
