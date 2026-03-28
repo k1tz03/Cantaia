@@ -104,13 +104,13 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 
     let icon = app
         .default_window_icon()
-        .ok_or("Icône introuvable — exécutez `pnpm tauri icon` pour générer les icônes")?
+        .ok_or_else(|| anyhow::anyhow!("Icône introuvable — exécutez `pnpm tauri icon` pour générer les icônes"))?
         .clone();
 
     TrayIconBuilder::new()
         .icon(icon)
         .menu(&menu)
-        .menu_on_left_click(false)
+        .show_menu_on_left_click(false)
         .tooltip("Cantaia — Gestion de chantier")
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main_window(app),
