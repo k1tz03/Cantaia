@@ -16,6 +16,14 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  # Déclenchement manuel depuis l'UI GitHub (Actions → Desktop Release → Run workflow)
+  # Utile pour tester sans pousser un tag de release
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: "Créer comme Release draft (pas publiée)"
+        type: boolean
+        default: true
 
 jobs:
   build-windows:
@@ -57,8 +65,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Cantaia ${{ github.ref_name }}"
+          tagName: ${{ github.event_name == 'push' && github.ref_name || format('dev-{0}', github.sha) }}
+          releaseName: ${{ github.event_name == 'push' && format('Cantaia {0}', github.ref_name) || format('Cantaia dev build ({0})', github.sha) }}
           releaseBody: |
             ## Cantaia Desktop ${{ github.ref_name }}
 
@@ -67,7 +75,7 @@ jobs:
 
             ### Mise à jour automatique
             Si vous avez déjà Cantaia installé, la mise à jour sera proposée automatiquement au prochain démarrage.
-          releaseDraft: false
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
           prerelease: false
           projectPath: apps/desktop
           includeUpdaterJson: true
