@@ -56,6 +56,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Génération des icônes Tauri depuis un carré orange 1024×1024 (brand color #F97316)
+      # PowerShell + System.Drawing.Common sont toujours disponibles sur windows-latest
+      - name: Generate Tauri icons
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $size = 1024
+          $bmp = [System.Drawing.Bitmap]::new($size, $size)
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+          # Fond orange brand Cantaia (#F97316)
+          $g.Clear([System.Drawing.Color]::FromArgb(255, 249, 115, 22))
+          # Lettre "C" blanche centrée
+          $font = [System.Drawing.Font]::new("Arial", 560, [System.Drawing.FontStyle]::Bold)
+          $brush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
+          $fmt = [System.Drawing.StringFormat]::new()
+          $fmt.Alignment = [System.Drawing.StringAlignment]::Center
+          $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
+          $g.DrawString("C", $font, $brush, [System.Drawing.RectangleF]::new(0, 0, $size, $size), $fmt)
+          $g.Dispose()
+          $bmp.Save("apps\desktop\icon-source.png")
+          $bmp.Dispose()
+          # Générer toutes les variantes d'icônes (32x32, 128x128, icon.ico, icon.icns…)
+          cd apps/desktop && pnpm exec tauri icon icon-source.png
+
       # Build Tauri + créer le GitHub Release automatiquement
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
