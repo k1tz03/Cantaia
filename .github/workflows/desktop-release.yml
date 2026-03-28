@@ -30,6 +30,8 @@ jobs:
     name: Build Windows (MSI + NSIS)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write   # requis pour créer/modifier un GitHub Release
 
     steps:
       - name: Checkout
