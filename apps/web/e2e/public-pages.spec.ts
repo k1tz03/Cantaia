@@ -122,7 +122,7 @@ test.describe("Public pages", () => {
 
     // OG title
     const ogTitle = page.locator('meta[property="og:title"]');
-    const ogTitleContent = await ogTitle.getAttribute("content").catch(() => null);
+    await ogTitle.getAttribute("content").catch(() => null);
     // og:title may or may not exist depending on config, so just check title exists
     expect(title).toBeTruthy();
   });

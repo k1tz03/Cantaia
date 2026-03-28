@@ -69,11 +69,6 @@ test.describe("Submissions — Detail page", () => {
     await page.goto("/fr/submissions", { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForTimeout(3000);
 
-    // Find submission links in the list
-    const submissionLinks = page.locator("a[href*='/submissions/']").filter({
-      has: page.locator(":not([href*='/new'])"),
-    });
-
     // Filter out the "new" link
     const allLinks = page.locator("a[href*='/submissions/']");
     let targetLink = null;
