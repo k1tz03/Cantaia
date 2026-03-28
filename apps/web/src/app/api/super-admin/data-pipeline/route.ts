@@ -39,7 +39,6 @@ function getStartDate(days: number): string {
   return d.toISOString().split("T")[0];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = any;
 
 export async function GET(request: NextRequest) {
@@ -132,8 +131,8 @@ async function safeSelect(
   table: string,
   columns: string,
   startDate?: string,
-  extra?: (q: any) => any // eslint-disable-line @typescript-eslint/no-explicit-any
-): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  extra?: (q: any) => any
+): Promise<any[]> {
   try {
     let query = (admin as any).from(table).select(columns);
     if (startDate) {
@@ -287,7 +286,7 @@ async function handleLearningProgress(admin: AdminClient, startDate: string) {
       .order("created_at", { ascending: false })
       .limit(10);
     if (recent) {
-      priceRecent = recent.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+      priceRecent = recent.map((r: any) => ({
         cfc_code: r.cfc_code || "",
         ecart_pct: Number(r.ecart_pct) || 0,
         coefficient: Number(r.coefficient) || 0,

@@ -7,7 +7,6 @@
  */
 
 // Use pre-bundled lamejs with proper module.exports (webpack-compatible)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const lame = require("./lame.min.js");
 
 const TARGET_SAMPLE_RATE = 16000;

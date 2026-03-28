@@ -575,7 +575,6 @@ function VisiteDocumentComponent({ data }: { data: VisiteData }) {
 export async function generateVisitePdf(data: VisiteData): Promise<ArrayBuffer> {
   const element = React.createElement(VisiteDocumentComponent, { data });
   // pdf() is typed for top-level <Document> elements; our component renders one, cast to bypass
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buf: Buffer = await (pdf as any)(element).toBuffer();
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 }

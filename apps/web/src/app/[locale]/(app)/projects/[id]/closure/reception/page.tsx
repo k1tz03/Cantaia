@@ -118,7 +118,6 @@ export default function ReceptionFormPage() {
 
   const updateLot = (index: number, field: string, value: string | number) => {
     const updated = [...lots];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (updated[index] as any)[field] = value;
     setLots(updated);
   };
@@ -136,7 +135,6 @@ export default function ReceptionFormPage() {
 
   const updateReserve = (lotIndex: number, reserveIndex: number, field: string, value: string) => {
     const updated = [...lots];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (updated[lotIndex].reserves[reserveIndex] as any)[field] = value;
     setLots(updated);
   };

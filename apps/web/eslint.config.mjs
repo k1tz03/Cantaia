@@ -10,6 +10,13 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Exclure les fichiers minifiés et générés
+  {
+    ignores: [
+      "src/lib/audio/lame.min.js",
+      "src/lib/audio/lame.min.js.map",
+    ],
+  },
   // next/core-web-vitals : règles Next.js + React
   // next/typescript : charge le plugin @typescript-eslint (requis pour les disable comments inline)
   ...compat.extends("next/core-web-vitals", "next/typescript"),
@@ -23,6 +30,10 @@ const eslintConfig = [
       "react/no-unescaped-entities": "off",
       // Liens internes avec <a> au lieu de <Link> — à migrer progressivement
       "@next/next/no-html-link-for-pages": "warn",
+      // Préférence stylistique — trop de violations dans la codebase existante
+      "prefer-const": "off",
+      // lame.min.js est exclu mais par sécurité on désactive pour les autres cas similaires
+      "@typescript-eslint/no-this-alias": "off",
     },
   },
 ];

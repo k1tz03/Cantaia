@@ -17,7 +17,6 @@ export const STATUS_COLORS: Record<SubmissionStatus, string> = {
   archived: "bg-gray-100 text-gray-500",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type TranslateFn = (key: string, values?: any) => string;
 
 export function formatCHF(amount: number): string {

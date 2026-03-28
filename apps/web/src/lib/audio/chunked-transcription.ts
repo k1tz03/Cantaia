@@ -34,7 +34,6 @@ export interface ChunkedTranscriptionResult {
 function findFfmpeg(): string | null {
   // 1. Try ffmpeg-static
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const staticPath = require("ffmpeg-static");
     if (staticPath && existsSync(staticPath)) {
       execFileSync(staticPath, ["-version"], {
