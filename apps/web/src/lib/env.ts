@@ -26,6 +26,8 @@ const clientSchema = z.object({
 export type ServerEnv = z.infer<typeof serverSchema>;
 export type ClientEnv = z.infer<typeof clientSchema>;
 
+let _env: ServerEnv | ClientEnv | null = null;
+
 function validateEnv() {
   if (typeof window !== "undefined") {
     return clientSchema.parse({
@@ -37,8 +39,13 @@ function validateEnv() {
   return serverSchema.parse(process.env);
 }
 
-/** Validated environment variables. Throws at startup if invalid. */
-export const env = validateEnv();
+/** Validated environment variables. Lazy — only validates on first access. */
+export const env = new Proxy({} as ServerEnv & ClientEnv, {
+  get(_target, prop) {
+    if (!_env) _env = validateEnv();
+    return (_env as Record<string, unknown>)[prop as string];
+  },
+});
 
 /**
  * Returns the canonical app URL (https://cantaia.io), stripped of trailing slashes.
