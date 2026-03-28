@@ -25,6 +25,7 @@ export default function robots(): MetadataRoute.Robots {
           "/*/visits",
           "/*/cantaia-prix",
           "/*/onboarding",
+          "/*/site-reports",
           "/*/rapports",
         ],
       },
