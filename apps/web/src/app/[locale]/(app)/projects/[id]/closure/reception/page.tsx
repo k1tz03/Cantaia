@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -29,6 +29,65 @@ export default function ReceptionFormPage() {
 
   const { project, loading: projectLoading } = useProject(params.id as string);
 
+  // All hooks before early returns
+  const [receptionType, setReceptionType] = useState<"provisional" | "partial" | "final">("provisional");
+  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [receptionLocation, setReceptionLocation] = useState("");
+  const [participants, setParticipants] = useState<ReceptionParticipant[]>([]);
+  const [lots, setLots] = useState<(LotReception & { reserves: ReserveForm[] })[]>([]);
+  const [generalNotes, setGeneralNotes] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [showNewParticipant, setShowNewParticipant] = useState(false);
+  const [newParticipant, setNewParticipant] = useState<ReceptionParticipant>({
+    name: "", role: "", company: "", present: true, signed: false,
+  });
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize state values that depend on loaded project
+  useEffect(() => {
+    if (project && !initialized) {
+      const meetings: { meeting_date: string; participants?: { name: string; role: string; company: string }[] }[] = [];
+      const projectLots: { id: string; project_id: string; name: string; cfc_code: string; contractor_name?: string; budget_soumission?: number }[] = [];
+
+      const lastMeeting = [...meetings].sort(
+        (a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()
+      )[0];
+
+      setReceptionLocation(
+        project.address ? `${String(project.address)}, ${String(project.city || "")}` : String(project.city || "")
+      );
+
+      setParticipants(
+        lastMeeting?.participants?.map((p) => ({
+          name: p.name,
+          role: p.role,
+          company: p.company,
+          present: true,
+          signed: false,
+        })) || [
+          { name: "", role: "Direction des travaux", company: "", present: true, signed: false },
+          { name: "", role: "Maître d'ouvrage", company: "", present: true, signed: false },
+        ]
+      );
+
+      setLots(
+        projectLots.map((lot) => ({
+          lot_id: lot.id,
+          lot_name: lot.name,
+          cfc_code: lot.cfc_code,
+          company: lot.contractor_name || "",
+          contract_amount: lot.budget_soumission || 0,
+          final_amount: lot.budget_soumission || 0,
+          status: "accepted" as const,
+          notes: "",
+          reserves: [],
+        }))
+      );
+
+      setInitialized(true);
+    }
+  }, [project, initialized]);
+
   if (projectLoading) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
@@ -44,55 +103,6 @@ export default function ReceptionFormPage() {
       </div>
     );
   }
-
-  const meetings: { meeting_date: string; participants?: { name: string; role: string; company: string }[] }[] = [];
-  const projectLots: { id: string; project_id: string; name: string; cfc_code: string; contractor_name?: string; budget_soumission?: number }[] = [];
-
-  // Get participants from last meeting
-  const lastMeeting = [...meetings].sort(
-    (a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()
-  )[0];
-
-  const [receptionType, setReceptionType] = useState<"provisional" | "partial" | "final">("provisional");
-  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split("T")[0]);
-  const [receptionLocation, setReceptionLocation] = useState(
-    project.address ? `${String(project.address)}, ${String(project.city || "")}` : String(project.city || "")
-  );
-
-  const initialParticipants: ReceptionParticipant[] = lastMeeting?.participants?.map((p) => ({
-    name: p.name,
-    role: p.role,
-    company: p.company,
-    present: true,
-    signed: false,
-  })) || [
-    { name: "", role: "Direction des travaux", company: "", present: true, signed: false },
-    { name: "", role: "Maître d'ouvrage", company: "", present: true, signed: false },
-  ];
-
-  const [participants, setParticipants] = useState<ReceptionParticipant[]>(initialParticipants);
-
-  const initialLots: (LotReception & { reserves: ReserveForm[] })[] = projectLots.map((lot) => ({
-    lot_id: lot.id,
-    lot_name: lot.name,
-    cfc_code: lot.cfc_code,
-    company: lot.contractor_name || "",
-    contract_amount: lot.budget_soumission || 0,
-    final_amount: lot.budget_soumission || 0,
-    status: "accepted" as const,
-    notes: "",
-    reserves: [],
-  }));
-
-  const [lots, setLots] = useState(initialLots);
-  const [generalNotes, setGeneralNotes] = useState("");
-  const [generating, setGenerating] = useState(false);
-
-  // New participant form
-  const [showNewParticipant, setShowNewParticipant] = useState(false);
-  const [newParticipant, setNewParticipant] = useState<ReceptionParticipant>({
-    name: "", role: "", company: "", present: true, signed: false,
-  });
 
   const addParticipant = () => {
     if (newParticipant.name.trim()) {

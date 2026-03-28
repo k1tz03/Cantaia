@@ -29,22 +29,6 @@ export default function UploadSignedPVPage() {
   const [uploaded, setUploaded] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  if (projectLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center p-6">
-        <Loader2 className="h-6 w-6 animate-spin text-brand" />
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex h-96 items-center justify-center p-6">
-        <p className="text-[#71717A]">{t("projectNotFound")}</p>
-      </div>
-    );
-  }
-
   const acceptedTypes = ["application/pdf", "image/jpeg", "image/png"];
   const maxSize = 20 * 1024 * 1024; // 20 MB
   const minSize = 10 * 1024; // 10 KB (not empty)
@@ -72,7 +56,7 @@ export default function UploadSignedPVPage() {
     } else {
       setPreview(null);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -80,6 +64,22 @@ export default function UploadSignedPVPage() {
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   }, [handleFile]);
+
+  if (projectLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center p-6">
+        <Loader2 className="h-6 w-6 animate-spin text-brand" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex h-96 items-center justify-center p-6">
+        <p className="text-[#71717A]">{t("projectNotFound")}</p>
+      </div>
+    );
+  }
 
   const handleUpload = async () => {
     if (!file) return;

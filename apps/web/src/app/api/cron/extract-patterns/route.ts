@@ -22,18 +22,18 @@ export async function POST(request: NextRequest) {
   try {
     const currentWeek = `${new Date().getFullYear()}-W${String(getWeekNumber(new Date())).padStart(2, "0")}`;
 
-    for (const module of modules) {
+    for (const moduleName of modules) {
       try {
         let patternsUpdated = 0;
 
         // 1. Compute quality metrics for this module
-        const metrics = await computeModuleMetrics(admin, module, currentWeek);
+        const metrics = await computeModuleMetrics(admin, moduleName, currentWeek);
 
         // 2. Store metrics in ai_quality_metrics
         for (const metric of metrics) {
           await (admin as any).from("ai_quality_metrics").upsert(
             {
-              module,
+              module: moduleName,
               metric_type: metric.type,
               value: metric.value,
               period: currentWeek,
@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Extract patterns from corrections data
-        const patterns = await extractModulePatterns(admin, module);
+        const patterns = await extractModulePatterns(admin, moduleName);
         for (const pattern of patterns) {
           const { error } = await (admin as any).from("pattern_library").upsert(
             {
-              module,
+              module: moduleName,
               pattern_type: pattern.type,
               pattern_data: pattern.data,
               confidence: pattern.confidence,
@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
           if (!error) patternsUpdated++;
         }
 
-        results.push({ module, patterns_updated: patternsUpdated });
+        results.push({ module: moduleName, patterns_updated: patternsUpdated });
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : "Unknown";
-        console.error(`[cron/patterns] Error for module ${module}:`, errMsg);
-        results.push({ module, patterns_updated: 0, error: errMsg });
+        console.error(`[cron/patterns] Error for module ${moduleName}:`, errMsg);
+        results.push({ module: moduleName, patterns_updated: 0, error: errMsg });
       }
     }
 
