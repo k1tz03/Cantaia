@@ -17,6 +17,11 @@
     },
     "clean": {
       "cache": false
+    },
+    "@cantaia/desktop#build": {
+      "dependsOn": [],
+      "cache": false,
+      "outputs": ["src-tauri/target/release/bundle/**"]
     }
   }
 }

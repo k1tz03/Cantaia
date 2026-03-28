@@ -1,0 +1,73 @@
+# Cantaia Desktop — Build & Release automatique
+#
+# Déclenché sur chaque tag vX.Y.Z poussé sur le repo.
+# Produit : MSI + NSIS Windows + update.json pour l'auto-updater Tauri.
+#
+# Prérequis GitHub Secrets :
+#   TAURI_SIGNING_PRIVATE_KEY        — clé privée de signature (base64)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — mot de passe de la clé
+#
+# Pour générer la clé de signature (une seule fois) :
+#   pnpm tauri signer generate -w ~/.tauri/cantaia.key
+
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  build-windows:
+    name: Build Windows (MSI + NSIS)
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Rust stable toolchain
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: true
+
+      # pnpm + Node
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build Tauri + créer le GitHub Release automatiquement
+      - name: Build & Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Cantaia ${{ github.ref_name }}"
+          releaseBody: |
+            ## Cantaia Desktop ${{ github.ref_name }}
+
+            ### Installation
+            Téléchargez le fichier `.msi` (installeur Windows) ou `.exe` (NSIS) ci-dessous.
+
+            ### Mise à jour automatique
+            Si vous avez déjà Cantaia installé, la mise à jour sera proposée automatiquement au prochain démarrage.
+          releaseDraft: false
+          prerelease: false
+          projectPath: apps/desktop
+          includeUpdaterJson: true

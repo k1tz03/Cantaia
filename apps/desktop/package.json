@@ -2,12 +2,22 @@
   "name": "@cantaia/desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "Cantaia desktop app (Tauri) — Full setup in Step 9",
+  "description": "Application desktop Cantaia (Tauri v2 — Windows)",
   "scripts": {
-    "dev": "echo 'Tauri dev requires Rust toolchain — see Step 9'",
-    "build": "echo 'Tauri build requires Rust toolchain — see Step 9'"
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:debug": "tauri build --debug"
   },
   "dependencies": {
-    "@cantaia/ui": "workspace:*"
+    "@cantaia/ui": "workspace:*",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-notification": "^2",
+    "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-shell": "^2",
+    "@tauri-apps/plugin-updater": "^2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
   }
 }

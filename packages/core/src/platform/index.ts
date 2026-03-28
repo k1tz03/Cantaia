@@ -10,10 +10,9 @@
  */
 export function isTauriDesktop(): boolean {
   if (typeof window === "undefined") return false;
-  return !!(
-    (window as Record<string, unknown>).__TAURI__ ||
-    (window as Record<string, unknown>).__TAURI_INTERNALS__
-  );
+  // Cast via unknown to safely access Tauri globals injected at runtime
+  const w = window as unknown as Record<string, unknown>;
+  return !!(w.__TAURI__ || w.__TAURI_INTERNALS__);
 }
 
 /**
