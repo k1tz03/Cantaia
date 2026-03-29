@@ -9,6 +9,8 @@ import { TrialGuard } from "@/components/stripe/TrialGuard";
 import { AppHeader } from "@/components/app/AppHeader";
 import { ActivityTrackingProvider } from "@/components/providers/ActivityTrackingProvider";
 import { TourOverlay } from "@/components/tour/TourOverlay";
+import { UpdateBanner } from "@/components/app/UpdateBanner";
+import { EmailNotificationWatcher } from "@/components/app/EmailNotificationWatcher";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +22,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <TrialGuard />
             <div className="flex flex-col h-screen bg-[#0F0F11]">
               <AppHeader />
+              {/* Bandeau mise à jour — visible si nouvelle version détectée */}
+              <UpdateBanner />
               <div className="flex flex-1 overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 overflow-auto pb-20 lg:pb-0 bg-[#0F0F11]">
@@ -30,6 +34,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <CommandPalette />
             <OnboardingChecklist />
             <TourOverlay />
+            {/* Watcher emails — toasts + notifications OS */}
+            <EmailNotificationWatcher />
           </AppActiveProjectProvider>
         </AppEmailProvider>
       </ActivityTrackingProvider>

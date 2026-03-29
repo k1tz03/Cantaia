@@ -16,6 +16,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_process::AppHandleExt;
 use tauri_plugin_updater::UpdaterExt;
 
 // ─── Commandes Tauri (invokeables depuis le frontend JS) ─────────────────────
@@ -44,10 +45,29 @@ async fn save_file(
     }
 }
 
-/// Vérifie manuellement les mises à jour et notifie si disponible.
+/// Résultat d'une vérification de mise à jour.
+#[derive(serde::Serialize)]
+struct UpdateCheckResult {
+    available: bool,
+    version: Option<String>,
+}
+
+/// Vérifie les mises à jour. Retourne `{ available, version }` pour l'UI.
 #[tauri::command]
-async fn check_for_updates(app: AppHandle) -> Result<bool, String> {
-    do_check_updates(&app).await.map_err(|e| e.to_string())
+async fn check_for_updates(app: AppHandle) -> Result<UpdateCheckResult, String> {
+    do_check_updates_info(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Télécharge et installe la mise à jour, émet des événements de progression.
+/// Le frontend écoute `update:progress` (0-100) et `update:complete`.
+/// L'app se relance automatiquement après installation.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    do_install_update(&app)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Retourne la version actuelle de l'application.
@@ -58,36 +78,64 @@ fn get_app_version(app: AppHandle) -> String {
 
 // ─── Logique de mise à jour ──────────────────────────────────────────────────
 
-async fn do_check_updates(
+async fn do_check_updates_info(
     app: &AppHandle,
-) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<UpdateCheckResult, Box<dyn std::error::Error + Send + Sync>> {
     // Si la pubkey n'est pas configurée (dev sans clé), l'updater retourne une erreur
     let updater = match app.updater() {
         Ok(u) => u,
-        Err(_) => return Ok(false), // Pas de pubkey configurée
+        Err(_) => return Ok(UpdateCheckResult { available: false, version: None }),
     };
 
     match updater.check().await? {
         Some(update) => {
             let version = update.version.clone();
+            // Notification OS discrète
             let _ = app
                 .notification()
                 .builder()
                 .title("Mise à jour disponible")
-                .body(&format!(
-                    "Cantaia {} est disponible. Téléchargez la mise à jour depuis le menu.",
-                    version
-                ))
+                .body(&format!("Cantaia {} est disponible.", version))
                 .show();
-            Ok(true)
+            Ok(UpdateCheckResult { available: true, version: Some(version) })
         }
-        None => Ok(false),
+        None => Ok(UpdateCheckResult { available: false, version: None }),
     }
+}
+
+async fn do_install_update(
+    app: &AppHandle,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let updater = app.updater()
+        .map_err(|_| anyhow::anyhow!("Updater non disponible (pubkey manquante ?)"))?;
+
+    let update = updater.check().await?
+        .ok_or_else(|| anyhow::anyhow!("Aucune mise à jour disponible"))?;
+
+    let app_progress = app.clone();
+    update.download_and_install(
+        move |downloaded, total| {
+            let pct = match total {
+                Some(t) if t > 0 => (downloaded as f64 / t as f64 * 100.0) as u32,
+                _ => 0,
+            };
+            let _ = app_progress.emit("update:progress", pct);
+        },
+        || {},
+    ).await?;
+
+    let _ = app.emit("update:complete", ());
+
+    // Petite pause pour que le frontend reçoive l'événement avant le redémarrage
+    std::thread::sleep(std::time::Duration::from_millis(800));
+    app.restart();
+
+    Ok(())
 }
 
 fn check_updates_on_startup(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let _ = do_check_updates(&app).await;
+        let _ = do_check_updates_info(&app).await;
     });
 }
 
@@ -158,6 +206,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             save_file,
             check_for_updates,
+            install_update,
             get_app_version,
         ])
         .setup(|app| {

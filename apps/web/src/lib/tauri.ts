@@ -96,17 +96,47 @@ export async function getDesktopVersion(): Promise<string | null> {
 // ─── Vérification des mises à jour ───────────────────────────────────────────
 
 /**
- * Déclenche une vérification manuelle des mises à jour.
- * Affiche une notification système si une mise à jour est disponible.
- * No-op dans le navigateur.
+ * Vérifie les mises à jour et retourne `{ available, version }`.
+ * Retourne `{ available: false, version: null }` dans le navigateur.
  */
-export async function checkForDesktopUpdates(): Promise<boolean> {
-  if (!isTauriDesktop()) return false;
+export async function checkForDesktopUpdatesInfo(): Promise<{
+  available: boolean;
+  version: string | null;
+}> {
+  if (!isTauriDesktop()) return { available: false, version: null };
 
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<boolean>("check_for_updates");
+    return await invoke<{ available: boolean; version: string | null }>(
+      "check_for_updates"
+    );
   } catch {
-    return false;
+    return { available: false, version: null };
   }
+}
+
+/**
+ * Lance le téléchargement + installation de la mise à jour.
+ * Le Rust émet des événements `update:progress` (0-100) et `update:complete`,
+ * puis appelle `app.restart()` automatiquement.
+ * No-op dans le navigateur.
+ */
+export async function installDesktopUpdate(): Promise<void> {
+  if (!isTauriDesktop()) return;
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("install_update");
+  } catch (e) {
+    console.warn("[Tauri] install_update failed", e);
+    throw e;
+  }
+}
+
+/**
+ * @deprecated Utiliser checkForDesktopUpdatesInfo() à la place.
+ */
+export async function checkForDesktopUpdates(): Promise<boolean> {
+  const info = await checkForDesktopUpdatesInfo();
+  return info.available;
 }
