@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
@@ -204,14 +204,23 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }).eq("id", id);
 
-    // Run analysis synchronously — more reliable than after() which can be silently
-    // dropped in some Vercel configurations. With parallel Vision batches the analysis
-    // completes in ~80-150s, well within maxDuration=300s.
-    // The client does fire-and-forget on this endpoint and polls DB separately,
-    // so the response latency here doesn't block the UI.
-    await performAnalysis(id, submission);
+    // Return 202 immediately — analysis runs inside after() which keeps the Vercel
+    // function alive until it completes (up to maxDuration=300s) even though the
+    // HTTP response has already been sent. The client is fire-and-forget and polls
+    // analysis_status in the DB, so it never waits for this response anyway.
+    //
+    // Why after() matters here:
+    //   • Without after(), a synchronous analysis holds the HTTP connection open for
+    //     ~180s. If Vercel's infrastructure decides to recycle the request context
+    //     (e.g. due to idle detection or memory pressure), the function is killed
+    //     mid-analysis without any chance to write the error to the DB.
+    //   • after() decouples execution from the HTTP lifecycle: the 202 closes the
+    //     connection immediately and after() gets a dedicated budget up to maxDuration.
+    after(async () => {
+      await performAnalysis(id, submission);
+    });
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({ success: true }, { status: 202 });
 
   } catch (err: any) {
     console.error("[analyze] Fatal error:", err);
@@ -339,9 +348,18 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 
 // ── PDF Vision helpers ──────────────────────────────────────
 
-// Max pages per Claude Vision call to stay under the 200k token limit
-// ~1500 tokens/page for scanned PDFs → 20 pages ≈ 30k tokens (smaller = faster per call)
-const VISION_PAGES_PER_BATCH = 20;
+// Max pages per Claude Vision call.
+// 10 pages keeps each sub-PDF under ~15 MB for typical construction scans,
+// well within Anthropic's 32 MB inline-base64 limit, and halves peak memory
+// compared to 20-page batches. Trade-off: ceil(133/10)=14 batches vs 7,
+// but at 5 groups-of-3 × ~30s/group ≈ 150s — comfortably within 300s.
+const VISION_PAGES_PER_BATCH = 10;
+
+// PDFs larger than this threshold are almost certainly scanned images — skip pdfjs
+// text extraction entirely (it would return < 100 meaningful chars anyway) and go
+// straight to Vision. This avoids loading the full PDF twice into memory:
+// pdfjs + pdf-lib simultaneously on a 100 MB file = ~500 MB peak → OOM risk.
+const SKIP_PDFJS_THRESHOLD_BYTES = 2 * 1024 * 1024; // 2 MB
 
 /** Process a large PDF by splitting it into batches and running Claude Vision on each.
  *
@@ -482,38 +500,46 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   }
 
   // ── Step 2: Try pdfjs-dist (fast, free — works on text-based PDFs) ──
-  // Same approach as /api/chat/upload which is proven in Vercel serverless
+  // Skip entirely for large files: a construction soumission > 2 MB is almost
+  // certainly a scanned image PDF (pdfjs would return < 100 meaningful chars anyway).
+  // Skipping pdfjs on large files saves 100–300 MB of peak memory because pdfjs
+  // and pdf-lib would otherwise both hold the full PDF in memory simultaneously.
   let pdfText = "";
   let totalPages = 0;
-  try {
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
-    const doc = await loadingTask.promise;
-    totalPages = doc.numPages;
-    const textParts: string[] = [];
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      // Filter items that have actual alphanumeric content
-      const pageText = content.items
-        .map((item: any) => ("str" in item ? item.str : ""))
-        .join(" ")
-        .trim();
-      if (pageText.length > 0) textParts.push(pageText);
-    }
-    pdfText = textParts.join("\n");
-    // Count actual meaningful characters (alphanumeric, not just whitespace)
-    const meaningfulChars = (pdfText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœÀÂÄÉÈÊËÎÏÔÖÙÛÜÇÆŒ]/g) || []).length;
-    console.log(`[ANALYZE] pdfjs: ${pdfText.length} chars, ${meaningfulChars} meaningful, ${totalPages} pages`);
 
-    // If pdfjs got real text content, use it directly (no API cost, no token limits)
-    if (meaningfulChars >= 100) {
-      console.log(`[ANALYZE] Using pdfjs text (${meaningfulChars} meaningful chars)`);
-      return pdfText;
+  if (buffer.length <= SKIP_PDFJS_THRESHOLD_BYTES) {
+    try {
+      const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
+      const doc = await loadingTask.promise;
+      totalPages = doc.numPages;
+      const textParts: string[] = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        // Filter items that have actual alphanumeric content
+        const pageText = content.items
+          .map((item: any) => ("str" in item ? item.str : ""))
+          .join(" ")
+          .trim();
+        if (pageText.length > 0) textParts.push(pageText);
+      }
+      pdfText = textParts.join("\n");
+      // Count actual meaningful characters (alphanumeric, not just whitespace)
+      const meaningfulChars = (pdfText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœÀÂÄÉÈÊËÎÏÔÖÙÛÜÇÆŒ]/g) || []).length;
+      console.log(`[ANALYZE] pdfjs: ${pdfText.length} chars, ${meaningfulChars} meaningful, ${totalPages} pages`);
+
+      // If pdfjs got real text content, use it directly (no API cost, no token limits)
+      if (meaningfulChars >= 100) {
+        console.log(`[ANALYZE] Using pdfjs text (${meaningfulChars} meaningful chars)`);
+        return pdfText;
+      }
+      console.log(`[ANALYZE] pdfjs text insufficient (${meaningfulChars} meaningful chars) — scanned PDF, using Vision`);
+    } catch (pdfErr: any) {
+      console.warn("[ANALYZE] pdfjs extraction failed:", pdfErr.message);
     }
-    console.log(`[ANALYZE] pdfjs text insufficient (${meaningfulChars} meaningful chars) — scanned PDF, using Vision`);
-  } catch (pdfErr: any) {
-    console.warn("[ANALYZE] pdfjs extraction failed:", pdfErr.message);
+  } else {
+    console.log(`[ANALYZE] Large PDF (${(buffer.length / 1024 / 1024).toFixed(1)} MB) — skipping pdfjs, going straight to Vision`);
   }
 
   // ── Step 3: Claude Vision — process in batches of 20 pages to stay under 200k token limit ──
