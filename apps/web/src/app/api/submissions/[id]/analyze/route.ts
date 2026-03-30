@@ -343,33 +343,84 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 // ~1500 tokens/page for scanned PDFs → 20 pages ≈ 30k tokens (smaller = faster per call)
 const VISION_PAGES_PER_BATCH = 20;
 
-/** Extract all batch sub-PDFs from an already-loaded PDFDocument (pdf-lib).
- *  Caller must load the source document ONCE and pass it here — never load per-batch.
- *  Returns an array of Buffers in page order, one per batch.
+/** Process a large PDF by splitting it into batches and running Claude Vision on each.
+ *
+ *  Strategy: load the source PDF ONCE, extract batch sub-PDFs sequentially (CPU-bound, fast),
+ *  then fire Vision API calls in groups of MAX_CONCURRENT (I/O-bound).
+ *
+ *  Why groups instead of all-parallel:
+ *    • Reduces peak base64-string memory: 3 × 25 MB instead of N × 25 MB
+ *    • Guards against hitting Anthropic's per-minute rate limit on concurrent requests
+ *    • Worst-case timing: ceil(N/3) groups × ~75 s/group — well within 300 s for ≤ 200 pages
+ *
+ *  Why NOT load PDF per-batch inside Promise.all:
+ *    • That was the original bug: N parallel PDFDocument.load() calls on a large scanned PDF
+ *      consumed N × PDF_size of memory simultaneously → OOM → Vercel process killed silently
  */
-async function extractAllBatches(
+async function processLargePdf(
   pdfBytes: Buffer,
-  totalPages: number,
+  pagesHint: number,           // page count from pdfjs (may differ from pdf-lib's count)
   pagesPerBatch: number,
-): Promise<Buffer[]> {
+  client: any,
+): Promise<string> {
+  const MAX_CONCURRENT = 3;
+
   const { PDFDocument } = await import("pdf-lib");
   const srcDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  const batchCount = Math.ceil(totalPages / pagesPerBatch);
-  console.log(`[ANALYZE] pdf-lib loaded ${srcDoc.getPageCount()} pages, extracting ${batchCount} batches sequentially...`);
-
-  const buffers: Buffer[] = [];
-  for (let i = 0; i < batchCount; i++) {
-    const startPage = i * pagesPerBatch;
-    const endPage = Math.min(startPage + pagesPerBatch - 1, totalPages - 1);
-    const newDoc = await PDFDocument.create();
-    const indices = Array.from({ length: endPage - startPage + 1 }, (_, j) => startPage + j);
-    const copied = await newDoc.copyPages(srcDoc, indices);
-    copied.forEach(p => newDoc.addPage(p));
-    const batchBuf = Buffer.from(await newDoc.save());
-    buffers.push(batchBuf);
-    console.log(`[ANALYZE] Batch ${i + 1}/${batchCount} (pages ${startPage + 1}-${endPage + 1}): ${(batchBuf.length / 1024).toFixed(0)} KB`);
+  // Use pdf-lib's authoritative page count — pdfjs may count differently
+  const totalPages = srcDoc.getPageCount();
+  if (totalPages !== pagesHint) {
+    console.warn(`[ANALYZE] Page count mismatch: pdfjs=${pagesHint}, pdf-lib=${totalPages} — using pdf-lib`);
   }
-  return buffers;
+
+  const batchCount = Math.ceil(totalPages / pagesPerBatch);
+  console.log(`[ANALYZE] Large PDF: ${totalPages} pages → ${batchCount} batches × ${pagesPerBatch}, groups of ${MAX_CONCURRENT}`);
+
+  const orderedResults: string[] = new Array(batchCount).fill("");
+
+  for (let groupStart = 0; groupStart < batchCount; groupStart += MAX_CONCURRENT) {
+    const groupEnd = Math.min(groupStart + MAX_CONCURRENT, batchCount);
+
+    // ── Phase A: extract this group's sub-PDFs sequentially (single srcDoc, CPU-bound) ──
+    const groupBatches: { idx: number; buf: Buffer; label: string }[] = [];
+    for (let i = groupStart; i < groupEnd; i++) {
+      const startPage = i * pagesPerBatch;
+      const endPage = Math.min(startPage + pagesPerBatch - 1, totalPages - 1);
+      const newDoc = await PDFDocument.create();
+      const indices = Array.from({ length: endPage - startPage + 1 }, (_, j) => startPage + j);
+      const copied = await newDoc.copyPages(srcDoc, indices);
+      copied.forEach(p => newDoc.addPage(p));
+      const buf = Buffer.from(await newDoc.save());
+      const label = `batch ${i + 1}/${batchCount} (pages ${startPage + 1}–${endPage + 1})`;
+      groupBatches.push({ idx: i, buf, label });
+      console.log(`[ANALYZE] Extracted ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+    }
+
+    // ── Phase B: fire this group's Vision calls in parallel (I/O-bound) ──
+    await Promise.all(groupBatches.map(async ({ idx, buf, label }) => {
+      try {
+        const batchText = await claudeVisionOnPdfBuffer(client, buf, label);
+        console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
+        orderedResults[idx] = batchText;
+      } catch (batchErr: any) {
+        console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message, batchErr.status ?? "");
+        // Leave orderedResults[idx] = "" — partial text is better than nothing
+      }
+    }));
+
+    console.log(`[ANALYZE] Group ${Math.floor(groupStart / MAX_CONCURRENT) + 1}/${Math.ceil(batchCount / MAX_CONCURRENT)} complete`);
+  }
+
+  const combined = orderedResults.filter(t => t.length > 0).join("\n\n");
+  if (combined.length < 20) {
+    throw new Error(
+      `Impossible d'extraire le texte de ce PDF (${totalPages} pages, ${batchCount} batches). ` +
+      "Le document est peut-être protégé par mot de passe, corrompu, ou composé d'images sans couche texte."
+    );
+  }
+
+  console.log(`[ANALYZE] Vision batching complete: ${combined.length} chars from ${batchCount} batches`);
+  return combined;
 }
 
 /** Call Claude Vision on a single PDF buffer (base64) and return extracted text */
@@ -507,59 +558,9 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     }
   }
 
-  // Large PDF — two-phase approach that loads the source PDF exactly ONCE:
-  //
-  //   Phase A (sequential, CPU-bound): load source PDF once via pdf-lib, copy each batch's
-  //     pages into a separate sub-PDF.  Doing this in parallel would parse the full buffer
-  //     N times simultaneously → OOM for large scanned PDFs (133 pages ≈ 50–150 MB buffer
-  //     × 7 parallel loads = up to 1 GB of memory just for PDF parsing, crashing the fn).
-  //
-  //   Phase B (parallel, I/O-bound): fire all Vision API calls concurrently.  This is pure
-  //     network I/O — no more PDF parsing — so N parallel calls are safe and fast.
-  //
-  //   Net timing: Phase A ~5-10s sequential + Phase B ~60-90s parallel ≈ 70-100s total
-  //   (vs old: 7 × OOM crash = never completes)
-
-  const batchCount = Math.ceil(totalPages / VISION_PAGES_PER_BATCH);
-  console.log(`[ANALYZE] Large PDF: ${batchCount} batches × ${VISION_PAGES_PER_BATCH} pages — load once + Vision parallel`);
-
-  // Phase A: extract all batch sub-PDFs from a single PDFDocument load
-  let batchBuffers: Buffer[];
-  try {
-    batchBuffers = await extractAllBatches(buffer, totalPages, VISION_PAGES_PER_BATCH);
-  } catch (extractErr: any) {
-    console.error("[ANALYZE] pdf-lib batch extraction failed:", extractErr.message);
-    throw new Error(`Impossible de découper le PDF en batches : ${extractErr.message}`);
-  }
-
-  // Phase B: fire all Vision calls in parallel (results pre-allocated to maintain order)
-  const orderedResults: string[] = new Array(batchCount).fill("");
-  await Promise.all(batchBuffers.map(async (batchBuf, batchIdx) => {
-    const startPage = batchIdx * VISION_PAGES_PER_BATCH;
-    const endPage = Math.min(startPage + VISION_PAGES_PER_BATCH - 1, totalPages - 1);
-    const label = `batch ${batchIdx + 1}/${batchCount} (pages ${startPage + 1}-${endPage + 1})`;
-    try {
-      const batchText = await claudeVisionOnPdfBuffer(client, batchBuf, label);
-      console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
-      orderedResults[batchIdx] = batchText;
-    } catch (batchErr: any) {
-      console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message);
-      // Leave orderedResults[batchIdx] = "" — partial text is better than nothing
-    }
-  }));
-
-  const textParts = orderedResults.filter(t => t.length > 0);
-
-  const combined = textParts.join("\n\n");
-  if (combined.length < 20) {
-    throw new Error(
-      `Impossible d'extraire le texte de ce PDF (${totalPages} pages). ` +
-      "Le document est peut-être protégé par mot de passe, corrompu, ou entièrement composé d'images sans couche texte."
-    );
-  }
-
-  console.log(`[ANALYZE] Vision batching complete: ${combined.length} chars from ${batchCount} batches`);
-  return combined;
+  // Large PDF: delegate to processLargePdf which loads the source document once,
+  // extracts batch sub-PDFs sequentially, and fires Vision calls in groups of 3.
+  return processLargePdf(buffer, totalPages, VISION_PAGES_PER_BATCH, client);
 }
 
 async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
