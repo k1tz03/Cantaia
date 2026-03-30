@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ProjectOption {
@@ -18,6 +19,9 @@ interface ProjectOption {
   code: string | null;
   status: string;
 }
+
+// Upload steps for user feedback
+type UploadStep = "idle" | "getting-url" | "uploading" | "creating" | "done";
 
 export default function NewSubmissionPage() {
   const router = useRouter();
@@ -32,6 +36,7 @@ export default function NewSubmissionPage() {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadStep, setUploadStep] = useState<UploadStep>("idle");
   const [error, setError] = useState<string | null>(null);
   const [createNewProject, setCreateNewProject] = useState(false);
 
@@ -57,8 +62,8 @@ export default function NewSubmissionPage() {
       setError("Format non supporté. Utilisez PDF, XLSX ou XLS.");
       return;
     }
-    if (f.size > 20 * 1024 * 1024) {
-      setError("Fichier trop volumineux (20 Mo max).");
+    if (f.size > 50 * 1024 * 1024) {
+      setError("Fichier trop volumineux (50 Mo max).");
       return;
     }
     setFile(f);
@@ -72,6 +77,25 @@ export default function NewSubmissionPage() {
     if (f) handleFile(f);
   }, [handleFile]);
 
+  // ── Safe JSON parser: checks res.ok BEFORE calling res.json() ──
+  async function safeJson(res: Response): Promise<any> {
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      const isEntityTooLarge =
+        res.status === 413 || text.toLowerCase().includes("entity too large");
+      if (isEntityTooLarge) {
+        throw new Error(
+          `Fichier trop volumineux pour le serveur (${(file?.size ? (file.size / 1024 / 1024).toFixed(1) : "?") } Mo). Réessayez — l'upload direct est maintenant activé.`
+        );
+      }
+      throw new Error(
+        text.replace(/^\s*(<!DOCTYPE|<html)/i, "").slice(0, 200) ||
+          `Erreur serveur (${res.status})`
+      );
+    }
+    return res.json();
+  }
+
   const handleSubmit = useCallback(async () => {
     if (!file) return;
     if (!projectId && !newProjectName) {
@@ -82,29 +106,60 @@ export default function NewSubmissionPage() {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      const fileType = ext === "pdf" ? "pdf" : "excel";
+
+      // ── Step 1: Get a Supabase signed upload URL ──
+      setUploadStep("getting-url");
+      const urlParams = new URLSearchParams({ filename: file.name });
+      if (projectId) urlParams.set("project_id", projectId);
+
+      const urlRes = await fetch(`/api/submissions/upload-url?${urlParams}`);
+      const urlJson = await safeJson(urlRes);
+
+      // ── Step 2: Upload file DIRECTLY to Supabase Storage (bypasses Vercel) ──
+      setUploadStep("uploading");
+      const uploadRes = await fetch(urlJson.signed_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => "");
+        throw new Error(`Échec de l'upload vers le stockage (${uploadRes.status}): ${errText.slice(0, 200)}`);
+      }
+
+      // ── Step 3: Create submission record in DB (tiny JSON, no binary) ──
+      setUploadStep("creating");
+      const body: Record<string, string> = {
+        storage_path: urlJson.storage_path,
+        file_name: file.name,
+        file_type: fileType,
+      };
       if (projectId) {
-        formData.append("project_id", projectId);
+        body.project_id = projectId;
       } else {
-        formData.append("project_name", newProjectName);
-        if (clientName) formData.append("client_name", clientName);
-        if (city) formData.append("city", city);
+        body.project_name = newProjectName;
+        if (clientName) body.client_name = clientName;
+        if (city) body.city = city;
       }
 
       const res = await fetch("/api/submissions", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await safeJson(res);
+      if (!json.success) {
         throw new Error(json.error || "Erreur lors de la création");
       }
 
+      setUploadStep("done");
       const submissionId = json.submission.id;
 
-      // Trigger analysis in background
+      // Trigger analysis in background (fire-and-forget — polling handles status)
       fetch(`/api/submissions/${submissionId}/analyze`, { method: "POST" }).catch(() => {});
 
       // Redirect to detail page
@@ -112,10 +167,21 @@ export default function NewSubmissionPage() {
     } catch (err: any) {
       setError(err.message || "Erreur inattendue");
       setSubmitting(false);
+      setUploadStep("idle");
     }
   }, [file, projectId, newProjectName, clientName, city, router]);
 
+  // Human-readable step labels
+  const stepLabel: Record<UploadStep, string> = {
+    idle: "Importer et analyser",
+    "getting-url": "Préparation...",
+    uploading: "Envoi du fichier...",
+    creating: "Création de la soumission...",
+    done: "Redirection...",
+  };
+
   const isValid = file && (projectId || newProjectName);
+  const isLargeFile = file && file.size > 4 * 1024 * 1024;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto overflow-auto h-full">
@@ -130,9 +196,15 @@ export default function NewSubmissionPage() {
       <div className="space-y-6">
         {/* Error */}
         {error && (
-          <div className="bg-red-500/10 border border-red-200 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
-            {error}
-            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 float-right">&times;</button>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-400 flex-1">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-300 text-lg leading-none"
+            >
+              &times;
+            </button>
           </div>
         )}
 
@@ -249,7 +321,15 @@ export default function NewSubmissionPage() {
               </div>
               <p className="text-sm font-medium text-[#FAFAFA]">{file.name}</p>
               <p className="text-xs text-[#71717A] mt-1">{(file.size / 1024).toFixed(0)} KB</p>
+              {/* Warning for large files */}
+              {isLargeFile && (
+                <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Fichier volumineux — l&apos;envoi peut prendre quelques secondes
+                </p>
+              )}
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
@@ -268,10 +348,47 @@ export default function NewSubmissionPage() {
               <p className="text-sm font-medium text-[#FAFAFA]">
                 Glissez un descriptif ici ou cliquez pour parcourir
               </p>
-              <p className="text-xs text-[#71717A] mt-1">PDF, XLSX, XLS — 20 Mo max</p>
+              <p className="text-xs text-[#71717A] mt-1">PDF, XLSX, XLS — 50 Mo max</p>
             </div>
           )}
         </div>
+
+        {/* Upload progress indicator */}
+        {submitting && uploadStep !== "idle" && (
+          <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Loader2 className="h-4 w-4 animate-spin text-[#F97316]" />
+              <p className="text-sm font-medium text-[#FAFAFA]">{stepLabel[uploadStep]}</p>
+            </div>
+            {/* Step progress dots */}
+            <div className="flex items-center gap-2">
+              {(["getting-url", "uploading", "creating"] as const).map((step, i) => {
+                const stepOrder = ["getting-url", "uploading", "creating", "done"];
+                const currentIdx = stepOrder.indexOf(uploadStep);
+                const thisIdx = stepOrder.indexOf(step);
+                const isDone = currentIdx > thisIdx;
+                const isActive = currentIdx === thisIdx;
+                return (
+                  <div key={step} className="flex items-center gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        isDone ? "bg-green-500" :
+                        isActive ? "bg-[#F97316] animate-pulse" :
+                        "bg-[#27272A]"
+                      }`}
+                    />
+                    {i < 2 && <div className="w-6 h-px bg-[#27272A]" />}
+                  </div>
+                );
+              })}
+              <span className="text-xs text-[#71717A] ml-2">
+                {uploadStep === "getting-url" && "Préparation de l'espace de stockage"}
+                {uploadStep === "uploading" && "Envoi direct vers Supabase"}
+                {uploadStep === "creating" && "Enregistrement en base de données"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Submit */}
         <div className="flex justify-end gap-3">
@@ -282,12 +399,13 @@ export default function NewSubmissionPage() {
             Annuler
           </Link>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={!isValid || submitting}
             className="px-6 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? "Envoi..." : "Importer et analyser"}
+            {submitting ? stepLabel[uploadStep] : "Importer et analyser"}
           </button>
         </div>
       </div>

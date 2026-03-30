@@ -283,15 +283,15 @@ async function performAnalysis(id: string, submission: any) {
     const rows = items.map((item: any) => ({
       submission_id: id,
       project_id: submission.project_id,
-      item_number: item.item_number || null,
+      item_number: item.item_number || null,      // migration 067 column
       description: item.description || "",
       unit: item.unit || null,
       quantity: item.quantity ?? null,
-      cfc_code: item.cfc_code || null,
-      material_group: item.material_group || "Divers",
+      cfc_subcode: item.cfc_code || null,         // cfc_code from AI → maps to existing cfc_subcode column
+      material_group: item.material_group || "Divers", // migration 067 column
       product_name: item.product_name || null,
-      status: "pending",
-      metadata: {
+      status: "pending",                          // migration 067 column
+      metadata: {                                 // migration 067 column (JSONB)
         ai_confidence: typeof item.confidence === "number" ? item.confidence : null,
         extraction_model: "claude-haiku-4-5-20251001",
         extracted_at: new Date().toISOString(),
