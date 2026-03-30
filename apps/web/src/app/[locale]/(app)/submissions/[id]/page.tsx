@@ -297,11 +297,30 @@ export default function SubmissionDetailPage() {
       const { totalChunks, pageCount } = prep as { totalChunks: number; pageCount: number };
 
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const chunkRes = await fetch(`/api/submissions/${id}/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chunkIndex, totalChunks, pageCount }),
-        });
+        // 58s client-side timeout — fires just before Vercel's 60s maxDuration limit.
+        // Without this, a hung connection gives no feedback; with it we get a clear error.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 58_000);
+
+        let chunkRes: Response;
+        try {
+          chunkRes = await fetch(`/api/submissions/${id}/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chunkIndex, totalChunks, pageCount }),
+            signal: controller.signal,
+          });
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          if (fetchErr.name === "AbortError") {
+            throw new Error(
+              `La partie ${chunkIndex + 1}/${totalChunks} a dépassé 58s. ` +
+              `Vérifiez les logs Vercel ou réessayez.`
+            );
+          }
+          throw fetchErr;
+        }
+        clearTimeout(timeoutId);
 
         if (!chunkRes.ok) {
           const err = await chunkRes.json().catch(() => ({ error: `HTTP ${chunkRes.status}` }));

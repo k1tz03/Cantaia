@@ -373,18 +373,21 @@ async function handlePrepare(
     console.log(`[PREPARE] Large PDF (${(buffer.length / 1024 / 1024).toFixed(1)} MB) — skipping pdfjs, using Vision chunking`);
   }
 
-  // ── Scanned PDF: count pages, return chunk plan to client ──
-  let pageCount = 0;
+  // ── Scanned PDF: count pages, pre-extract mini-PDFs, return chunk plan ──
+  // We keep srcDoc alive after the try-catch so we can reuse it for pre-extraction.
+  let srcDoc: any;
+  let PDFDocumentCls: any;
   try {
-    const { PDFDocument } = await import("pdf-lib");
-    const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    pageCount = srcDoc.getPageCount();
+    const pdfLib = await import("pdf-lib");
+    PDFDocumentCls = pdfLib.PDFDocument;
+    srcDoc = await PDFDocumentCls.load(buffer, { ignoreEncryption: true });
   } catch (e: any) {
     const msg = `Impossible d'ouvrir le PDF: ${e.message}`;
     await setAnalysisError(admin, id, msg);
     return NextResponse.json({ error: msg }, { status: 422 });
   }
 
+  const pageCount: number = srcDoc.getPageCount();
   if (pageCount === 0) {
     await setAnalysisError(admin, id, "Le PDF est vide (0 pages)");
     return NextResponse.json({ error: "PDF vide" }, { status: 422 });
@@ -392,6 +395,37 @@ async function handlePrepare(
 
   const totalChunks = Math.ceil(pageCount / PAGES_PER_CHUNK);
   console.log(`[PREPARE] Scanned PDF: ${pageCount} pages → ${totalChunks} chunks of ${PAGES_PER_CHUNK} pages`);
+
+  // Pre-extract each chunk as a mini-PDF and upload while the full PDF is already
+  // in memory. Each CHUNK call then downloads only ~2-3 MB instead of the full PDF,
+  // and pdf-lib.load() takes ~1s instead of ~10-15s — saving ~12s per chunk.
+  console.time("[PREPARE] chunk pre-extraction");
+  for (let ci = 0; ci < totalChunks; ci++) {
+    const cStart = ci * PAGES_PER_CHUNK;
+    const cEnd = Math.min(cStart + PAGES_PER_CHUNK - 1, pageCount - 1);
+    try {
+      const chunkDoc = await PDFDocumentCls.create();
+      const indices = Array.from({ length: cEnd - cStart + 1 }, (_: unknown, j: number) => cStart + j);
+      const copied = await chunkDoc.copyPages(srcDoc, indices);
+      copied.forEach((p: any) => chunkDoc.addPage(p));
+      const chunkBuf = Buffer.from(await chunkDoc.save());
+      const { error: uploadError } = await admin.storage
+        .from("submissions")
+        .upload(`chunks/${id}/chunk_${ci}.pdf`, chunkBuf, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+      if (uploadError) {
+        console.warn(`[PREPARE] chunk_${ci}.pdf upload failed: ${uploadError.message} — chunks will fall back to full PDF`);
+      } else {
+        console.log(`[PREPARE] chunk_${ci}.pdf: ${(chunkBuf.length / 1024).toFixed(0)} KB (pages ${cStart + 1}–${cEnd + 1})`);
+      }
+    } catch (e: any) {
+      console.warn(`[PREPARE] chunk_${ci}.pdf extraction failed: ${e.message} — chunks will fall back to full PDF`);
+    }
+  }
+  console.timeEnd("[PREPARE] chunk pre-extraction");
+
   return NextResponse.json({ success: true, done: false, totalChunks, pageCount });
 }
 
@@ -420,35 +454,61 @@ async function handleChunk(
   console.time(`[CHUNK ${chunkIndex + 1}/${totalChunks}]`);
 
   try {
-    // Download full PDF
-    const { data: pdfData, error: pdfError } = await admin.storage.from("submissions").download(fileUrl);
-    if (pdfError || !pdfData) {
-      const msg = `Erreur download (chunk ${chunkIndex + 1}/${totalChunks}): ${pdfError?.message}`;
-      await setAnalysisError(admin, id, msg).catch(() => {});
-      return NextResponse.json({ error: msg }, { status: 500 });
-    }
-    const buffer = Buffer.from(await pdfData.arrayBuffer());
-
-    // Load source PDF once, extract Vision batches directly from it
+    // ── Download PDF: mini-PDF fast path, full PDF fallback ──────────────
+    // PREPARE pre-extracted each chunk as a tiny PDF (10 pages, ~2-3 MB).
+    // Downloading the mini-PDF saves ~12s vs re-downloading + parsing the full file.
     const { PDFDocument } = await import("pdf-lib");
-    const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
     const chunkPageCount = endPage - startPage + 1;
     const visionBatchCount = Math.ceil(chunkPageCount / VISION_PAGES_PER_BATCH);
-
-    // Build all Vision batch buffers (sequential extraction, single srcDoc load)
     const batchBuffers: { buf: Buffer; label: string }[] = [];
-    for (let b = 0; b < visionBatchCount; b++) {
-      const bStart = startPage + b * VISION_PAGES_PER_BATCH;
-      const bEnd = Math.min(bStart + VISION_PAGES_PER_BATCH - 1, endPage);
-      const subDoc = await PDFDocument.create();
-      const indices = Array.from({ length: bEnd - bStart + 1 }, (_, j) => bStart + j);
-      const copied = await subDoc.copyPages(srcDoc, indices);
-      copied.forEach((p) => subDoc.addPage(p));
-      const buf = Buffer.from(await subDoc.save());
-      const label = `chunk ${chunkIndex + 1}/${totalChunks} batch ${b + 1}/${visionBatchCount} (pages ${bStart + 1}–${bEnd + 1})`;
-      batchBuffers.push({ buf, label });
-      console.log(`[CHUNK] Extracted ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+
+    const miniPdfPath = `chunks/${id}/chunk_${chunkIndex}.pdf`;
+    const { data: miniData } = await admin.storage.from("submissions").download(miniPdfPath);
+
+    if (miniData) {
+      // Fast path: mini-PDF was pre-extracted by PREPARE (pages are 0-indexed within it)
+      console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Using mini-PDF (fast path)`);
+      const miniBuf = Buffer.from(await miniData.arrayBuffer());
+      const srcDoc = await PDFDocument.load(miniBuf, { ignoreEncryption: true });
+
+      for (let b = 0; b < visionBatchCount; b++) {
+        const bStart = b * VISION_PAGES_PER_BATCH;  // 0-based within mini-PDF
+        const bEnd = Math.min(bStart + VISION_PAGES_PER_BATCH - 1, chunkPageCount - 1);
+        const subDoc = await PDFDocument.create();
+        const indices = Array.from({ length: bEnd - bStart + 1 }, (_: unknown, j: number) => bStart + j);
+        const copied = await subDoc.copyPages(srcDoc, indices);
+        copied.forEach((p: any) => subDoc.addPage(p));
+        const buf = Buffer.from(await subDoc.save());
+        const absStart = startPage + b * VISION_PAGES_PER_BATCH;
+        const absEnd = Math.min(absStart + VISION_PAGES_PER_BATCH - 1, endPage);
+        const label = `chunk ${chunkIndex + 1}/${totalChunks} batch ${b + 1}/${visionBatchCount} (pages ${absStart + 1}–${absEnd + 1})`;
+        batchBuffers.push({ buf, label });
+        console.log(`[CHUNK] mini batch ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+      }
+    } else {
+      // Fallback: PREPARE didn't upload mini-PDFs — download the full PDF instead
+      console.warn(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Mini-PDF not found — falling back to full PDF`);
+      const { data: pdfData, error: pdfError } = await admin.storage.from("submissions").download(fileUrl);
+      if (pdfError || !pdfData) {
+        const msg = `Erreur download (chunk ${chunkIndex + 1}/${totalChunks}): ${pdfError?.message}`;
+        await setAnalysisError(admin, id, msg).catch(() => {});
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+      const buffer = Buffer.from(await pdfData.arrayBuffer());
+      const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+
+      for (let b = 0; b < visionBatchCount; b++) {
+        const bStart = startPage + b * VISION_PAGES_PER_BATCH;
+        const bEnd = Math.min(bStart + VISION_PAGES_PER_BATCH - 1, endPage);
+        const subDoc = await PDFDocument.create();
+        const indices = Array.from({ length: bEnd - bStart + 1 }, (_: unknown, j: number) => bStart + j);
+        const copied = await subDoc.copyPages(srcDoc, indices);
+        copied.forEach((p: any) => subDoc.addPage(p));
+        const buf = Buffer.from(await subDoc.save());
+        const label = `chunk ${chunkIndex + 1}/${totalChunks} batch ${b + 1}/${visionBatchCount} (pages ${bStart + 1}–${bEnd + 1})`;
+        batchBuffers.push({ buf, label });
+        console.log(`[CHUNK] full-PDF batch ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+      }
     }
 
     // Initialize Anthropic client (50s timeout — leaves buffer within 60s maxDuration)
@@ -513,6 +573,15 @@ async function handleChunk(
         updated_at: new Date().toISOString(),
       }).eq("id", id);
       console.log(`[CHUNK] All chunks complete for submission ${id}`);
+
+      // Clean up pre-extracted mini-PDFs (best-effort, don't fail analysis if this errors)
+      const chunkPaths = Array.from(
+        { length: totalChunks },
+        (_: unknown, ci: number) => `chunks/${id}/chunk_${ci}.pdf`
+      );
+      admin.storage.from("submissions").remove(chunkPaths).catch((e: any) =>
+        console.warn(`[CHUNK] Mini-PDF cleanup failed (non-fatal): ${e?.message}`)
+      );
     }
 
     console.timeEnd(`[CHUNK ${chunkIndex + 1}/${totalChunks}]`);
