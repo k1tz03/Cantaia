@@ -396,10 +396,15 @@ async function handlePrepare(
   const totalChunks = Math.ceil(pageCount / PAGES_PER_CHUNK);
   console.log(`[PREPARE] Scanned PDF: ${pageCount} pages → ${totalChunks} chunks of ${PAGES_PER_CHUNK} pages`);
 
-  // Pre-extract each chunk as a mini-PDF and upload while the full PDF is already
-  // in memory. Each CHUNK call then downloads only ~2-3 MB instead of the full PDF,
-  // and pdf-lib.load() takes ~1s instead of ~10-15s — saving ~12s per chunk.
+  // Pre-extract each chunk as a mini-PDF and upload while the full PDF is in memory.
+  // Each CHUNK then downloads only ~2-3 MB instead of ~15 MB, saving ~12s per chunk.
+  //
+  // KEY FIX: fire each upload as a background Promise while extraction continues.
+  // Sequential extraction (single srcDoc, ~16s) now OVERLAPS with uploads (~2s parallel)
+  // instead of stacking sequentially (which would add ~16s and cause a 504 on PREPARE).
+  // Total PREPARE time: ~36s instead of ~52s.
   console.time("[PREPARE] chunk pre-extraction");
+  const uploadPromises: Promise<void>[] = [];
   for (let ci = 0; ci < totalChunks; ci++) {
     const cStart = ci * PAGES_PER_CHUNK;
     const cEnd = Math.min(cStart + PAGES_PER_CHUNK - 1, pageCount - 1);
@@ -409,21 +414,30 @@ async function handlePrepare(
       const copied = await chunkDoc.copyPages(srcDoc, indices);
       copied.forEach((p: any) => chunkDoc.addPage(p));
       const chunkBuf = Buffer.from(await chunkDoc.save());
-      const { error: uploadError } = await admin.storage
-        .from("submissions")
-        .upload(`chunks/${id}/chunk_${ci}.pdf`, chunkBuf, {
+      const path = `chunks/${id}/chunk_${ci}.pdf`;
+      const sizeKb = (chunkBuf.length / 1024).toFixed(0);
+      console.log(`[PREPARE] chunk_${ci}.pdf extracted: ${sizeKb} KB (pages ${cStart + 1}–${cEnd + 1}), uploading…`);
+      // Fire-and-forget upload — runs in parallel while we extract the next chunk
+      uploadPromises.push(
+        admin.storage.from("submissions").upload(path, chunkBuf, {
           contentType: "application/pdf",
           upsert: true,
-        });
-      if (uploadError) {
-        console.warn(`[PREPARE] chunk_${ci}.pdf upload failed: ${uploadError.message} — chunks will fall back to full PDF`);
-      } else {
-        console.log(`[PREPARE] chunk_${ci}.pdf: ${(chunkBuf.length / 1024).toFixed(0)} KB (pages ${cStart + 1}–${cEnd + 1})`);
-      }
+        }).then(({ error }) => {
+          if (error) {
+            console.warn(`[PREPARE] chunk_${ci}.pdf upload failed: ${error.message} — CHUNK will fall back to full PDF`);
+          } else {
+            console.log(`[PREPARE] chunk_${ci}.pdf uploaded ✓`);
+          }
+        }).catch((e: any) => {
+          console.warn(`[PREPARE] chunk_${ci}.pdf upload threw: ${e.message}`);
+        })
+      );
     } catch (e: any) {
-      console.warn(`[PREPARE] chunk_${ci}.pdf extraction failed: ${e.message} — chunks will fall back to full PDF`);
+      console.warn(`[PREPARE] chunk_${ci}.pdf extraction failed: ${e.message} — CHUNK will fall back to full PDF`);
     }
   }
+  // Wait for all in-flight uploads before returning (so CHUNKs can immediately read them)
+  await Promise.allSettled(uploadPromises);
   console.timeEnd("[PREPARE] chunk pre-extraction");
 
   return NextResponse.json({ success: true, done: false, totalChunks, pageCount });
