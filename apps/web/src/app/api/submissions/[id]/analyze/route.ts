@@ -339,6 +339,57 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 
 // ── File extraction helpers ─────────────────────────────────
 
+// ── PDF Vision helpers ──────────────────────────────────────
+
+// Max pages per Claude Vision call to stay under the 200k token limit
+// ~1500 tokens/page for scanned PDFs → 30 pages ≈ 45k tokens (well under limit)
+const VISION_PAGES_PER_BATCH = 30;
+
+/** Extract a subset of pages from a PDF buffer using pdf-lib (pure JS, no native deps) */
+async function extractPageRange(pdfBytes: Buffer, startPage: number, endPage: number): Promise<Buffer> {
+  const { PDFDocument } = await import("pdf-lib");
+  const srcDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const newDoc = await PDFDocument.create();
+  const totalPages = srcDoc.getPageCount();
+  const end = Math.min(endPage, totalPages - 1);
+  const indices = Array.from({ length: end - startPage + 1 }, (_, i) => startPage + i);
+  const copied = await newDoc.copyPages(srcDoc, indices);
+  copied.forEach(p => newDoc.addPage(p));
+  return Buffer.from(await newDoc.save());
+}
+
+/** Call Claude Vision on a single PDF buffer (base64) and return extracted text */
+async function claudeVisionOnPdfBuffer(
+  client: any,
+  pdfBuffer: Buffer,
+  batchLabel: string
+): Promise<string> {
+  const base64 = pdfBuffer.toString("base64");
+  console.log(`[ANALYZE] Claude Vision ${batchLabel}: ${(pdfBuffer.length / 1024).toFixed(0)} KB`);
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 16000,
+    messages: [{
+      role: "user",
+      content: [
+        {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
+        } as any,
+        {
+          type: "text",
+          text: "Extrais TOUT le texte de ce document PDF de construction/soumission. Retourne le texte brut complet et fidèle avec : numéros de poste, descriptions complètes, unités, quantités. Conserve la structure et l'ordre du document. Ne résume rien, copie le texte intégralement.",
+        },
+      ],
+    }],
+  });
+
+  return (response.content[0] as any)?.text || "";
+}
+
+// ── Main PDF extraction ─────────────────────────────────────
+
 async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
   // ── Step 1: Download file from storage ──
   console.time("[ANALYZE] storage download");
@@ -356,9 +407,7 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     throw new Error(`Erreur de téléchargement du fichier PDF : ${error.message} (path: ${fileUrl})`);
   }
 
-  if (!data) {
-    throw new Error(`Le fichier PDF est vide ou inaccessible (path: ${fileUrl})`);
-  }
+  if (!data) throw new Error(`Le fichier PDF est vide ou inaccessible (path: ${fileUrl})`);
 
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
@@ -367,33 +416,43 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     throw new Error(`Le fichier PDF est trop petit (${buffer.length} bytes) — fichier corrompu ou vide`);
   }
 
-  // ── Step 2a: Try pdfjs-dist first (fast, free, works for text-based PDFs) ──
-  // Same library used successfully in /api/chat/upload — declared serverExternalPackages in next.config.ts
+  // ── Step 2: Try pdfjs-dist (fast, free — works on text-based PDFs) ──
+  // Same approach as /api/chat/upload which is proven in Vercel serverless
   let pdfText = "";
+  let totalPages = 0;
   try {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
     const doc = await loadingTask.promise;
+    totalPages = doc.numPages;
     const textParts: string[] = [];
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
-      if (pageText.trim()) textParts.push(pageText);
+      // Filter items that have actual alphanumeric content
+      const pageText = content.items
+        .map((item: any) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .trim();
+      if (pageText.length > 0) textParts.push(pageText);
     }
     pdfText = textParts.join("\n");
-    console.log(`[ANALYZE] pdfjs extracted: ${pdfText.length} chars from ${doc.numPages} pages`);
+    // Count actual meaningful characters (alphanumeric, not just whitespace)
+    const meaningfulChars = (pdfText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœÀÂÄÉÈÊËÎÏÔÖÙÛÜÇÆŒ]/g) || []).length;
+    console.log(`[ANALYZE] pdfjs: ${pdfText.length} chars, ${meaningfulChars} meaningful, ${totalPages} pages`);
+
+    // If pdfjs got real text content, use it directly (no API cost, no token limits)
+    if (meaningfulChars >= 100) {
+      console.log(`[ANALYZE] Using pdfjs text (${meaningfulChars} meaningful chars)`);
+      return pdfText;
+    }
+    console.log(`[ANALYZE] pdfjs text insufficient (${meaningfulChars} meaningful chars) — scanned PDF, using Vision`);
   } catch (pdfErr: any) {
-    console.warn("[ANALYZE] pdfjs extraction failed, will try Claude Vision:", pdfErr.message);
+    console.warn("[ANALYZE] pdfjs extraction failed:", pdfErr.message);
   }
 
-  // If pdfjs got meaningful text, use it directly (no API cost, faster)
-  if (pdfText.length >= 200) {
-    return pdfText;
-  }
-
-  // ── Step 2b: Fallback — Claude Vision (for scanned/image PDFs with little/no embedded text) ──
-  console.log(`[ANALYZE] pdfjs text too short (${pdfText.length} chars), falling back to Claude Vision`);
+  // ── Step 3: Claude Vision — process in batches of 30 pages to stay under 200k token limit ──
+  // pdf-lib (pure JS) lets us extract page subsets without native dependencies
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY non configurée");
 
@@ -401,57 +460,71 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
   const Anthropic = (AnthropicModule as any).default || AnthropicModule;
   const client = new Anthropic({ apiKey, timeout: 120_000 });
 
-  // Claude Vision document block has a 32 MB limit; warn if close
-  const base64 = buffer.toString("base64");
-  const base64SizeMB = (base64.length / 1024 / 1024).toFixed(1);
-  console.log(`[ANALYZE] Sending PDF to Claude Vision: ${base64SizeMB} MB base64`);
+  // Get total page count from pdf-lib if pdfjs didn't tell us
+  if (totalPages === 0) {
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      totalPages = srcDoc.getPageCount();
+    } catch {
+      // If we can't even open it, just try sending the whole thing
+      totalPages = 1;
+    }
+  }
 
-  if (buffer.length > 28 * 1024 * 1024) {
+  console.log(`[ANALYZE] Vision batching: ${totalPages} pages, ${VISION_PAGES_PER_BATCH} per batch`);
+
+  // If small enough to send whole, send directly (avoid pdf-lib overhead)
+  if (totalPages <= VISION_PAGES_PER_BATCH) {
+    try {
+      const text = await claudeVisionOnPdfBuffer(client, buffer, `full PDF (${totalPages} pages)`);
+      if (text.length < 20) {
+        throw new Error(
+          "Le PDF ne contient pas de texte exploitable — " +
+          "le document est peut-être une image scannée sans OCR, ou protégé par mot de passe."
+        );
+      }
+      return text;
+    } catch (e: any) {
+      if (e.message?.startsWith("Le PDF")) throw e;
+      console.error("[ANALYZE] Claude Vision single-batch error:", e.message, e.status);
+      const statusMsg = e.status ? ` (HTTP ${e.status})` : "";
+      throw new Error(`Erreur lors de la lecture du PDF par l'IA${statusMsg} : ${e.message}`);
+    }
+  }
+
+  // Large PDF: split into batches using pdf-lib, process sequentially
+  // (Sequential to avoid rate limits — each batch is a separate API call)
+  const batchCount = Math.ceil(totalPages / VISION_PAGES_PER_BATCH);
+  console.log(`[ANALYZE] Large PDF: splitting into ${batchCount} batches of ${VISION_PAGES_PER_BATCH} pages`);
+
+  const textParts: string[] = [];
+  for (let batchIdx = 0; batchIdx < batchCount; batchIdx++) {
+    const startPage = batchIdx * VISION_PAGES_PER_BATCH;       // 0-indexed for pdf-lib
+    const endPage = Math.min(startPage + VISION_PAGES_PER_BATCH - 1, totalPages - 1);
+    const label = `batch ${batchIdx + 1}/${batchCount} (pages ${startPage + 1}-${endPage + 1})`;
+
+    try {
+      const batchBuffer = await extractPageRange(buffer, startPage, endPage);
+      const batchText = await claudeVisionOnPdfBuffer(client, batchBuffer, label);
+      if (batchText.length > 0) textParts.push(batchText);
+      console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
+    } catch (batchErr: any) {
+      console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message);
+      // Continue with other batches even if one fails — partial result is better than nothing
+    }
+  }
+
+  const combined = textParts.join("\n\n");
+  if (combined.length < 20) {
     throw new Error(
-      `Le fichier PDF est trop volumineux pour l'extraction IA (${(buffer.length / 1024 / 1024).toFixed(1)} MB, max ~28 MB). ` +
-      `Essayez de compresser le PDF ou de l'exporter en plusieurs fichiers.`
+      `Impossible d'extraire le texte de ce PDF (${totalPages} pages). ` +
+      "Le document est peut-être protégé par mot de passe, corrompu, ou entièrement composé d'images sans couche texte."
     );
   }
 
-  try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 16000,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: base64 },
-          } as any,
-          {
-            type: "text",
-            text: "Extrais TOUT le texte de ce document PDF de construction/soumission. Retourne le texte brut complet et fidèle avec : numéros de poste, descriptions complètes, unités, quantités. Conserve la structure et l'ordre du document. Ne résume rien, copie le texte intégralement.",
-          },
-        ],
-      }],
-    });
-
-    const text = (response.content[0] as any)?.text || "";
-    console.log(`[ANALYZE] Claude Vision extraction: ${text.length} chars`);
-
-    if (!text || text.length < 20) {
-      throw new Error(
-        "Le PDF ne contient pas de texte exploitable — " +
-        "le document est peut-être une image scannée sans OCR, ou protégé par mot de passe."
-      );
-    }
-
-    return text;
-  } catch (e: any) {
-    // Re-throw specific errors as-is
-    if (e.message?.startsWith("Le PDF") || e.message?.startsWith("Fichier") || e.message?.startsWith("Erreur") || e.message?.startsWith("Le fichier")) {
-      throw e;
-    }
-    console.error("[ANALYZE] Claude Vision error:", e.message, e.status);
-    const statusMsg = e.status ? ` (HTTP ${e.status})` : "";
-    throw new Error(`Erreur lors de la lecture du PDF par l'IA${statusMsg} : ${e.message}`);
-  }
+  console.log(`[ANALYZE] Vision batching complete: ${combined.length} chars from ${batchCount} batches`);
+  return combined;
 }
 
 async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
