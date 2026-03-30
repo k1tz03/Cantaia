@@ -257,11 +257,17 @@ export default function SubmissionDetailPage() {
   // ── Client-driven chunked analysis orchestrator ───────────────────────────────
   // Each server call processes ≤10 pages in ~35s (safe under Vercel's 60s limit).
   // The client drives the loop so that no single HTTP request needs to run 150-300s.
+  //
+  // IMPORTANT: Do NOT update analysis_status to "analyzing" here — that would
+  // trigger the polling useEffect which would overwrite the UI state after 2s
+  // (the DB still shows "error" until PREPARE completes). We only clear analysis_error
+  // to hide the red banner; the orange progress banner is controlled by `analyzing`.
   const handleReanalyze = async () => {
-    if (!submission) return;
+    if (!submission || analyzing) return;
     setAnalyzing(true);
     setAnalysisProgress(0);
-    setSubmission({ ...submission, analysis_status: "analyzing", analysis_error: null });
+    // Clear error message without changing status (avoids triggering polling useEffect)
+    setSubmission(prev => prev ? { ...prev, analysis_error: null } : prev);
 
     try {
       // ── Step 1: PREPARE — clear items, fast-path Excel/text PDFs, or get chunk plan ──
@@ -402,7 +408,8 @@ export default function SubmissionDetailPage() {
             {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
               <button
                 onClick={handleReanalyze}
-                className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#71717A] flex items-center gap-1.5"
+                disabled={analyzing}
+                className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#71717A] flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="h-3 w-3" />
                 Ré-analyser
