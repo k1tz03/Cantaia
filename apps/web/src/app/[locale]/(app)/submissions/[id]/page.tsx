@@ -158,6 +158,7 @@ export default function SubmissionDetailPage() {
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0); // 0-100, for chunked scanned PDFs
   const [suppliers, setSuppliers] = useState<any[]>([]);
 
   const { setActiveProject } = useActiveProject();
@@ -253,12 +254,80 @@ export default function SubmissionDetailPage() {
     return () => clearInterval(interval);
   }, [submission?.analysis_status, id]);
 
-  const handleReanalyze = () => {
+  // ── Client-driven chunked analysis orchestrator ───────────────────────────────
+  // Each server call processes ≤10 pages in ~35s (safe under Vercel's 60s limit).
+  // The client drives the loop so that no single HTTP request needs to run 150-300s.
+  const handleReanalyze = async () => {
     if (!submission) return;
     setAnalyzing(true);
+    setAnalysisProgress(0);
     setSubmission({ ...submission, analysis_status: "analyzing", analysis_error: null });
-    // Fire-and-forget: backend returns 202 immediately, polling handles status
-    fetch(`/api/submissions/${id}/analyze`, { method: "POST" }).catch(() => {});
+
+    try {
+      // ── Step 1: PREPARE — clear items, fast-path Excel/text PDFs, or get chunk plan ──
+      const prepRes = await fetch(`/api/submissions/${id}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (!prepRes.ok) {
+        const err = await prepRes.json().catch(() => ({ error: `HTTP ${prepRes.status}` }));
+        throw new Error(err.error || `Erreur de préparation (HTTP ${prepRes.status})`);
+      }
+
+      const prep = await prepRes.json();
+
+      if (prep.done) {
+        // Excel or text-based PDF: analysis is already complete
+        setAnalysisProgress(100);
+        await fetchData();
+        setAnalyzing(false);
+        setAnalysisProgress(0);
+        return;
+      }
+
+      // ── Step 2: CHUNKS — iterate over scanned PDF page ranges ──
+      const { totalChunks, pageCount } = prep as { totalChunks: number; pageCount: number };
+
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const chunkRes = await fetch(`/api/submissions/${id}/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chunkIndex, totalChunks, pageCount }),
+        });
+
+        if (!chunkRes.ok) {
+          const err = await chunkRes.json().catch(() => ({ error: `HTTP ${chunkRes.status}` }));
+          throw new Error(err.error || `Erreur partie ${chunkIndex + 1}/${totalChunks} (HTTP ${chunkRes.status})`);
+        }
+
+        const chunk = await chunkRes.json();
+        setAnalysisProgress(chunk.progress ?? Math.round((chunkIndex + 1) / totalChunks * 100));
+
+        if (chunk.done) {
+          await fetchData();
+          setAnalyzing(false);
+          setAnalysisProgress(0);
+          return;
+        }
+      }
+
+      // All chunks sent but last chunk didn't return done — reload anyway
+      await fetchData();
+      setAnalyzing(false);
+      setAnalysisProgress(0);
+
+    } catch (err: any) {
+      console.error("[handleReanalyze]", err);
+      setAnalyzing(false);
+      setAnalysisProgress(0);
+      setSubmission((prev) =>
+        prev
+          ? { ...prev, analysis_status: "error", analysis_error: err.message || "Erreur lors de l'analyse" }
+          : prev
+      );
+    }
   };
 
   if (loading) {
@@ -371,12 +440,29 @@ export default function SubmissionDetailPage() {
 
       {/* Analysis in progress */}
       {analyzing && (
-        <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4 flex items-center gap-3">
-          <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-[#FAFAFA]">Analyse IA en cours...</p>
-            <p className="text-xs text-[#F97316]">Extraction des postes du descriptif</p>
+        <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[#FAFAFA]">Analyse IA en cours...</p>
+              <p className="text-xs text-[#F97316]">
+                {analysisProgress > 0
+                  ? `Extraction des postes — ${analysisProgress}% (pages scannées, traitement par lot)`
+                  : "Extraction des postes du descriptif"}
+              </p>
+            </div>
+            {analysisProgress > 0 && (
+              <span className="text-xs font-mono text-[#F97316] shrink-0">{analysisProgress}%</span>
+            )}
           </div>
+          {analysisProgress > 0 && (
+            <div className="mt-2 h-1.5 bg-[#27272A] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#F97316] rounded-full transition-all duration-500"
+                style={{ width: `${analysisProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
