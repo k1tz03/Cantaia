@@ -342,8 +342,8 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 // ── PDF Vision helpers ──────────────────────────────────────
 
 // Max pages per Claude Vision call to stay under the 200k token limit
-// ~1500 tokens/page for scanned PDFs → 30 pages ≈ 45k tokens (well under limit)
-const VISION_PAGES_PER_BATCH = 30;
+// ~1500 tokens/page for scanned PDFs → 20 pages ≈ 30k tokens (smaller = faster per call)
+const VISION_PAGES_PER_BATCH = 20;
 
 /** Extract a subset of pages from a PDF buffer using pdf-lib (pure JS, no native deps) */
 async function extractPageRange(pdfBytes: Buffer, startPage: number, endPage: number): Promise<Buffer> {
@@ -451,7 +451,7 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     console.warn("[ANALYZE] pdfjs extraction failed:", pdfErr.message);
   }
 
-  // ── Step 3: Claude Vision — process in batches of 30 pages to stay under 200k token limit ──
+  // ── Step 3: Claude Vision — process in batches of 20 pages to stay under 200k token limit ──
   // pdf-lib (pure JS) lets us extract page subsets without native dependencies
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY non configurée");
@@ -493,45 +493,32 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     }
   }
 
-  // Large PDF: split into batches using pdf-lib, process in parallel groups of 3
-  // Sequential: 5 batches × ~60s = ~300s → timeout.
-  // Parallel (3 at a time): ceil(5/3) = 2 rounds × ~60s = ~120s → safely within maxDuration.
-  const PARALLEL_BATCHES = 3;
+  // Large PDF: split into batches, fire ALL batches simultaneously with Promise.all.
+  // This gives O(max_batch_time) instead of O(rounds × batch_time):
+  //   Groups-of-3 for 7 batches = 3 rounds × ~60s = ~180s
+  //   Full parallel for 7 batches = 1 round × ~60s = ~60s   ← used here
   const batchCount = Math.ceil(totalPages / VISION_PAGES_PER_BATCH);
-  console.log(`[ANALYZE] Large PDF: ${batchCount} batches of ${VISION_PAGES_PER_BATCH} pages, ${PARALLEL_BATCHES} concurrent`);
+  console.log(`[ANALYZE] Large PDF: ${batchCount} batches of ${VISION_PAGES_PER_BATCH} pages, all parallel`);
 
-  // Build batch descriptors (0-indexed for pdf-lib)
-  const batchDescriptors = Array.from({ length: batchCount }, (_, batchIdx) => ({
-    batchIdx,
-    startPage: batchIdx * VISION_PAGES_PER_BATCH,
-    endPage: Math.min((batchIdx + 1) * VISION_PAGES_PER_BATCH - 1, totalPages - 1),
-  }));
-
-  // Results array keeps batches in document order regardless of completion order
+  // Results array pre-sized to maintain document order regardless of completion order
   const orderedResults: string[] = new Array(batchCount).fill("");
 
-  for (let i = 0; i < batchCount; i += PARALLEL_BATCHES) {
-    const group = batchDescriptors.slice(i, i + PARALLEL_BATCHES);
-    const groupResults = await Promise.all(
-      group.map(async ({ batchIdx, startPage, endPage }) => {
-        const label = `batch ${batchIdx + 1}/${batchCount} (pages ${startPage + 1}-${endPage + 1})`;
-        try {
-          const batchBuffer = await extractPageRange(buffer, startPage, endPage);
-          const batchText = await claudeVisionOnPdfBuffer(client, batchBuffer, label);
-          console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
-          return { batchIdx, text: batchText };
-        } catch (batchErr: any) {
-          console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message);
-          // Continue — partial result is better than nothing
-          return { batchIdx, text: "" };
-        }
-      })
-    );
-    // Store results at their correct positions
-    for (const { batchIdx, text } of groupResults) {
-      orderedResults[batchIdx] = text;
-    }
-  }
+  await Promise.all(
+    Array.from({ length: batchCount }, async (_, batchIdx) => {
+      const startPage = batchIdx * VISION_PAGES_PER_BATCH;
+      const endPage = Math.min(startPage + VISION_PAGES_PER_BATCH - 1, totalPages - 1);
+      const label = `batch ${batchIdx + 1}/${batchCount} (pages ${startPage + 1}-${endPage + 1})`;
+      try {
+        const batchBuffer = await extractPageRange(buffer, startPage, endPage);
+        const batchText = await claudeVisionOnPdfBuffer(client, batchBuffer, label);
+        console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
+        orderedResults[batchIdx] = batchText;
+      } catch (batchErr: any) {
+        console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message);
+        // Leave orderedResults[batchIdx] = "" — partial text is better than nothing
+      }
+    })
+  );
 
   const textParts = orderedResults.filter(t => t.length > 0);
 
