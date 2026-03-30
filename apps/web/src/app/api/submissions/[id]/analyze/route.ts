@@ -261,7 +261,10 @@ async function performAnalysis(id: string, submission: any) {
 
     if (!textContent || textContent.length < 50) {
       console.error("[ANALYZE] Document empty or too short", { id, fileUrl, textLength: textContent?.length ?? 0 });
-      await setAnalysisError(admin, id, "Document vide ou illisible — impossible d'extraire le texte du document");
+      await setAnalysisError(admin, id,
+        `Document vide ou illisible — le texte extrait est trop court (${textContent?.length ?? 0} caractères). ` +
+        `Vérifiez que le fichier contient bien du texte (pas une image scannée sans OCR) et re-uploadez si nécessaire.`
+      );
       return;
     }
 
@@ -337,27 +340,82 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 // ── File extraction helpers ─────────────────────────────────
 
 async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileUrl: string): Promise<string> {
+  // ── Step 1: Download file from storage ──
   console.time("[ANALYZE] storage download");
   const { data, error } = await admin.storage.from("submissions").download(fileUrl);
   console.timeEnd("[ANALYZE] storage download");
+
   if (error) {
-    console.error("[ANALYZE] PDF download failed:", { fileUrl, error: error.message });
-    return "";
+    console.error("[ANALYZE] PDF download failed:", { fileUrl, error: error.message, errorName: error.name });
+    const isNotFound = error.message?.toLowerCase().includes("not found") || error.message?.includes("404");
+    if (isNotFound) {
+      throw new Error(
+        `Fichier introuvable dans le stockage — veuillez supprimer cette soumission et re-télécharger le fichier. (path: ${fileUrl})`
+      );
+    }
+    throw new Error(`Erreur de téléchargement du fichier PDF : ${error.message} (path: ${fileUrl})`);
   }
-  if (!data) return "";
+
+  if (!data) {
+    throw new Error(`Le fichier PDF est vide ou inaccessible (path: ${fileUrl})`);
+  }
+
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] PDF buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
 
-  // Use Claude directly to read PDF — most reliable method for serverless
-  // Works with both text PDFs and scanned PDFs
-  const base64 = buffer.toString("base64");
-  try {
-    const AnthropicModule = await import("@anthropic-ai/sdk");
-    const Anthropic = (AnthropicModule as any).default || AnthropicModule;
-    const client = new Anthropic();
+  if (buffer.length < 100) {
+    throw new Error(`Le fichier PDF est trop petit (${buffer.length} bytes) — fichier corrompu ou vide`);
+  }
 
+  // ── Step 2a: Try pdfjs-dist first (fast, free, works for text-based PDFs) ──
+  // Same library used successfully in /api/chat/upload — declared serverExternalPackages in next.config.ts
+  let pdfText = "";
+  try {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
+    const doc = await loadingTask.promise;
+    const textParts: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
+      if (pageText.trim()) textParts.push(pageText);
+    }
+    pdfText = textParts.join("\n");
+    console.log(`[ANALYZE] pdfjs extracted: ${pdfText.length} chars from ${doc.numPages} pages`);
+  } catch (pdfErr: any) {
+    console.warn("[ANALYZE] pdfjs extraction failed, will try Claude Vision:", pdfErr.message);
+  }
+
+  // If pdfjs got meaningful text, use it directly (no API cost, faster)
+  if (pdfText.length >= 200) {
+    return pdfText;
+  }
+
+  // ── Step 2b: Fallback — Claude Vision (for scanned/image PDFs with little/no embedded text) ──
+  console.log(`[ANALYZE] pdfjs text too short (${pdfText.length} chars), falling back to Claude Vision`);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY non configurée");
+
+  const AnthropicModule = await import("@anthropic-ai/sdk");
+  const Anthropic = (AnthropicModule as any).default || AnthropicModule;
+  const client = new Anthropic({ apiKey, timeout: 120_000 });
+
+  // Claude Vision document block has a 32 MB limit; warn if close
+  const base64 = buffer.toString("base64");
+  const base64SizeMB = (base64.length / 1024 / 1024).toFixed(1);
+  console.log(`[ANALYZE] Sending PDF to Claude Vision: ${base64SizeMB} MB base64`);
+
+  if (buffer.length > 28 * 1024 * 1024) {
+    throw new Error(
+      `Le fichier PDF est trop volumineux pour l'extraction IA (${(buffer.length / 1024 / 1024).toFixed(1)} MB, max ~28 MB). ` +
+      `Essayez de compresser le PDF ou de l'exporter en plusieurs fichiers.`
+    );
+  }
+
+  try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 16000,
       messages: [{
         role: "user",
@@ -375,11 +433,24 @@ async function extractPdfText(admin: ReturnType<typeof createAdminClient>, fileU
     });
 
     const text = (response.content[0] as any)?.text || "";
-    console.log(`[ANALYZE] Claude PDF extraction: ${text.length} chars`);
+    console.log(`[ANALYZE] Claude Vision extraction: ${text.length} chars`);
+
+    if (!text || text.length < 20) {
+      throw new Error(
+        "Le PDF ne contient pas de texte exploitable — " +
+        "le document est peut-être une image scannée sans OCR, ou protégé par mot de passe."
+      );
+    }
+
     return text;
   } catch (e: any) {
-    console.error("[ANALYZE] Claude PDF extraction error:", e.message);
-    return "";
+    // Re-throw specific errors as-is
+    if (e.message?.startsWith("Le PDF") || e.message?.startsWith("Fichier") || e.message?.startsWith("Erreur") || e.message?.startsWith("Le fichier")) {
+      throw e;
+    }
+    console.error("[ANALYZE] Claude Vision error:", e.message, e.status);
+    const statusMsg = e.status ? ` (HTTP ${e.status})` : "";
+    throw new Error(`Erreur lors de la lecture du PDF par l'IA${statusMsg} : ${e.message}`);
   }
 }
 
@@ -387,11 +458,22 @@ async function extractExcelText(admin: ReturnType<typeof createAdminClient>, fil
   console.time("[ANALYZE] storage download");
   const { data, error } = await admin.storage.from("submissions").download(fileUrl);
   console.timeEnd("[ANALYZE] storage download");
+
   if (error) {
     console.error("[ANALYZE] Excel download failed:", { fileUrl, error: error.message });
-    return "";
+    const isNotFound = error.message?.toLowerCase().includes("not found") || error.message?.includes("404");
+    if (isNotFound) {
+      throw new Error(
+        `Fichier introuvable dans le stockage — le document a peut-être été uploadé avant la configuration du bucket. ` +
+        `Veuillez supprimer cette soumission et re-télécharger le fichier. (path: ${fileUrl})`
+      );
+    }
+    throw new Error(`Erreur de téléchargement du fichier Excel : ${error.message} (path: ${fileUrl})`);
   }
-  if (!data) return "";
+
+  if (!data) {
+    throw new Error(`Le fichier Excel est vide ou inaccessible (path: ${fileUrl})`);
+  }
 
   const buffer = Buffer.from(await data.arrayBuffer());
   console.log(`[ANALYZE] Excel buffer: ${(buffer.length / 1024).toFixed(1)} KB`);
