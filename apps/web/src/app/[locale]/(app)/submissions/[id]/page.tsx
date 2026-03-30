@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { formatCHF } from "@/lib/format";
@@ -159,6 +159,9 @@ export default function SubmissionDetailPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0); // 0-100, for chunked scanned PDFs
+  // Mutex: true while handleReanalyze owns the analysis loop.
+  // Prevents the polling useEffect from interfering (overwriting "error" back to "analyzing").
+  const reanalyzeActiveRef = useRef(false);
   const [suppliers, setSuppliers] = useState<any[]>([]);
 
   const { setActiveProject } = useActiveProject();
@@ -204,12 +207,25 @@ export default function SubmissionDetailPage() {
       .catch(() => {});
   }, []);
 
-  // Poll during analysis — with 5min client-side timeout matching server maxDuration
+  // Poll during analysis — only active when the page loads with a stale "analyzing"/"pending"
+  // DB state (i.e. a previous run was killed server-side before it could update the status).
+  //
+  // MUTEX: If reanalyzeActiveRef.current is true, handleReanalyze is running its own loop.
+  // We must yield immediately — do NOT setAnalyzing(true) or overwrite submission state.
+  // The banner is driven by `analyzing` state (handleReanalyze) OR by
+  // `submission.analysis_status === "analyzing"` (stale-state page load), see JSX below.
   useEffect(() => {
+    // Yield to handleReanalyze if it has taken over
+    if (reanalyzeActiveRef.current) return;
     if (!submission || (submission.analysis_status !== "analyzing" && submission.analysis_status !== "pending")) return;
-    setAnalyzing(true);
+
+    // NOTE: We do NOT call setAnalyzing(true) here.
+    // The banner condition below handles stale-state display without touching `analyzing`.
     const startTime = Date.now();
     const interval = setInterval(async () => {
+      // Bail out immediately if handleReanalyze started while we were waiting
+      if (reanalyzeActiveRef.current) { clearInterval(interval); return; }
+
       // Client-side 300s timeout (matches server maxDuration=300)
       if (Date.now() - startTime > 300_000) {
         // Check server one last time before declaring timeout
@@ -223,12 +239,10 @@ export default function SubmissionDetailPage() {
             setQuotes(json.quotes || []);
             const groups = new Set<string>((json.items || []).map((i: SubmissionItem) => i.material_group));
             setExpandedGroups(groups);
-            setAnalyzing(false);
             clearInterval(interval);
             return;
           }
         } catch {}
-        setAnalyzing(false);
         setSubmission((prev) =>
           prev ? { ...prev, analysis_status: "error", analysis_error: "L'analyse a pris trop de temps. Cliquez sur « Ré-analyser » pour réessayer." } : prev
         );
@@ -239,6 +253,8 @@ export default function SubmissionDetailPage() {
         const res = await fetch(`/api/submissions/${id}`);
         const json = await res.json();
         if (!json.success) return;
+        // Only update if handleReanalyze hasn't taken over in the meantime
+        if (reanalyzeActiveRef.current) { clearInterval(interval); return; }
         setSubmission(json.submission);
         if (json.submission.analysis_status === "done" || json.submission.analysis_status === "error") {
           setItems(json.items || []);
@@ -246,7 +262,6 @@ export default function SubmissionDetailPage() {
           setQuotes(json.quotes || []);
           const groups = new Set<string>((json.items || []).map((i: SubmissionItem) => i.material_group));
           setExpandedGroups(groups);
-          setAnalyzing(false);
           clearInterval(interval);
         }
       } catch {}
@@ -264,6 +279,9 @@ export default function SubmissionDetailPage() {
   // to hide the red banner; the orange progress banner is controlled by `analyzing`.
   const handleReanalyze = async () => {
     if (!submission || analyzing) return;
+    // Claim the mutex BEFORE setAnalyzing so the polling useEffect yields
+    // immediately on its next dep-change re-run or interval tick.
+    reanalyzeActiveRef.current = true;
     setAnalyzing(true);
     setAnalysisProgress(0);
     // Clear error message without changing status (avoids triggering polling useEffect)
@@ -352,6 +370,10 @@ export default function SubmissionDetailPage() {
           ? { ...prev, analysis_status: "error", analysis_error: err.message || "Erreur lors de l'analyse" }
           : prev
       );
+    } finally {
+      // Always release the mutex — even if an unhandled exception occurs.
+      // The polling useEffect is now free to resume if the status is still "analyzing".
+      reanalyzeActiveRef.current = false;
     }
   };
 
@@ -464,8 +486,9 @@ export default function SubmissionDetailPage() {
         </div>
       </div>
 
-      {/* Analysis in progress */}
-      {analyzing && (
+      {/* Analysis in progress — shown either when handleReanalyze is running (analyzing=true)
+           OR when the page loaded with a stale "analyzing" DB state from a killed server run */}
+      {(analyzing || submission?.analysis_status === "analyzing") && (
         <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
