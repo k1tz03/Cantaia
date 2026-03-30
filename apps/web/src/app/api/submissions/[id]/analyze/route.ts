@@ -217,7 +217,22 @@ export async function POST(
     //   • after() decouples execution from the HTTP lifecycle: the 202 closes the
     //     connection immediately and after() gets a dedicated budget up to maxDuration.
     after(async () => {
-      await performAnalysis(id, submission);
+      // Double-safety wrapper: performAnalysis has its own try/catch but if something
+      // escapes (e.g. after() itself swallows the rejection), this outer wrapper
+      // guarantees the DB is NEVER left stuck at "analyzing".
+      try {
+        await performAnalysis(id, submission);
+      } catch (afterErr: any) {
+        console.error("[after] Uncaught error from performAnalysis:", afterErr?.message);
+        try {
+          const adminFallback = createAdminClient();
+          await (adminFallback as any).from("submissions").update({
+            analysis_status: "error",
+            analysis_error: `Erreur inattendue: ${afterErr?.message || "Analyse échouée"}`,
+            updated_at: new Date().toISOString(),
+          }).eq("id", id);
+        } catch { /* best effort */ }
+      }
     });
 
     return NextResponse.json({ success: true }, { status: 202 });
@@ -240,6 +255,27 @@ export async function POST(
 
 async function performAnalysis(id: string, submission: any) {
   const admin = createAdminClient();
+
+  // Watchdog: force-write an error to DB after 250s so the DB is NEVER stuck at
+  // "analyzing" indefinitely. The 300s maxDuration hard-kills the Vercel function,
+  // so we give ourselves a 50s buffer to write the error before the process dies.
+  // This makes "L'analyse a pris trop de temps" physically impossible — the DB
+  // will always end up in either "done" or "error" state within 300s.
+  const watchdog = setTimeout(async () => {
+    console.error(`[ANALYZE] Watchdog triggered after 250s for submission ${id} — forcing error state`);
+    try {
+      const adminWatchdog = createAdminClient();
+      await (adminWatchdog as any).from("submissions").update({
+        analysis_status: "error",
+        analysis_error:
+          "L'analyse a dépassé le délai maximum (250s). " +
+          "Le document est peut-être trop volumineux ou complexe. " +
+          "Essayez de découper le document en sections plus courtes.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+    } catch { /* best effort — process is about to be killed anyway */ }
+  }, 250_000);
+
   try {
     console.time("[ANALYZE] total");
 
@@ -333,6 +369,10 @@ async function performAnalysis(id: string, submission: any) {
       ? "Erreur de parsing — l'IA n'a pas retourné un format exploitable. Réessayez."
       : (err.message || "Analysis failed");
     await setAnalysisError(admin, id, userMessage).catch(() => {});
+  } finally {
+    // Always cancel the watchdog — if we reached here (success or caught error),
+    // the DB is already in a terminal state and the watchdog must not fire again.
+    clearTimeout(watchdog);
   }
 }
 
@@ -401,7 +441,15 @@ async function processLargePdf(
   // so the user (and developer) can see the real Anthropic error instead of the generic fallback.
   const batchErrors: string[] = [];
 
+  // Early bail-out flag: set when a batch fails with a fatal API error (credit balance,
+  // auth, model capability). No point running the remaining 10+ batches if batch 1
+  // already tells us the API key is out of credits or the model is unsupported.
+  let fatalBatchError: Error | null = null;
+
   for (let groupStart = 0; groupStart < batchCount; groupStart += MAX_CONCURRENT) {
+    // Check before starting each group — if a previous group hit a fatal error, stop immediately.
+    if (fatalBatchError) throw fatalBatchError;
+
     const groupEnd = Math.min(groupStart + MAX_CONCURRENT, batchCount);
 
     // ── Phase A: extract this group's sub-PDFs sequentially (single srcDoc, CPU-bound) ──
@@ -429,9 +477,36 @@ async function processLargePdf(
         const errDetail = `${label}: ${batchErr.message}${batchErr.status ? ` (HTTP ${batchErr.status})` : ""}`;
         console.error(`[ANALYZE] Vision error — ${errDetail}`);
         batchErrors.push(errDetail);
+
+        // Detect fatal errors that will affect ALL subsequent batches.
+        // No point burning time (and money) on 14 more batches if the API key
+        // is out of credits, the key is invalid, or the model doesn't support PDFs.
+        const msg = (batchErr.message || "").toLowerCase();
+        const isFatal =
+          batchErr.status === 400 ||   // billing / bad request (includes "credit balance too low")
+          batchErr.status === 401 ||   // auth error
+          batchErr.status === 403 ||   // permission denied
+          msg.includes("credit") ||
+          msg.includes("billing") ||
+          msg.includes("unauthorized") ||
+          msg.includes("invalid x-api-key") ||
+          msg.includes("not supported") ||
+          msg.includes("does not support");
+
+        if (isFatal && !fatalBatchError) {
+          fatalBatchError = new Error(
+            `Erreur API Anthropic fatale (${label}): ${batchErr.message}` +
+            (batchErr.status ? ` — HTTP ${batchErr.status}` : "")
+          );
+          console.error("[ANALYZE] Fatal batch error — aborting remaining groups:", fatalBatchError.message);
+        }
         // Leave orderedResults[idx] = "" — partial text is better than nothing
       }
     }));
+
+    // Check after the group completes — if this group hit a fatal error, throw now
+    // instead of waiting for the next group-start check.
+    if (fatalBatchError) throw fatalBatchError;
 
     console.log(`[ANALYZE] Group ${Math.floor(groupStart / MAX_CONCURRENT) + 1}/${Math.ceil(batchCount / MAX_CONCURRENT)} complete`);
   }
@@ -459,11 +534,12 @@ async function claudeVisionOnPdfBuffer(
   const base64 = pdfBuffer.toString("base64");
   console.log(`[ANALYZE] Claude Vision ${batchLabel}: ${(pdfBuffer.length / 1024).toFixed(0)} KB`);
 
-  // Haiku is used for OCR/text extraction — it is 12× cheaper than Sonnet and
-  // equally capable for verbatim text extraction from scanned PDFs.
-  // Sonnet is reserved for the final semantic analysis step (analyzeWithClaude).
+  // Sonnet is required for Vision + PDF document source — Haiku does NOT support
+  // the `type:"document"` source block in the Messages API (as of 2026-03). Using
+  // Haiku causes a silent failure (no error thrown, empty response) which makes
+  // all batches return "" and the analysis appear to time out from the client's POV.
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 8192,
     messages: [{
       role: "user",
