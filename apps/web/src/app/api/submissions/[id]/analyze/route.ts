@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
@@ -205,15 +204,14 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }).eq("id", id);
 
-    // Schedule the analysis to run AFTER the response is sent.
-    // This ensures the client gets an immediate 202 response.
-    // The function stays alive for up to maxDuration (300s).
-    after(async () => {
-      await performAnalysis(id, submission);
-    });
+    // Run analysis synchronously — more reliable than after() which can be silently
+    // dropped in some Vercel configurations. With parallel Vision batches the analysis
+    // completes in ~80-150s, well within maxDuration=300s.
+    // The client does fire-and-forget on this endpoint and polls DB separately,
+    // so the response latency here doesn't block the UI.
+    await performAnalysis(id, submission);
 
-    // Return immediately — client should poll GET /api/submissions/[id] for status
-    return NextResponse.json({ status: "analyzing" }, { status: 202 });
+    return NextResponse.json({ success: true }, { status: 200 });
 
   } catch (err: any) {
     console.error("[analyze] Fatal error:", err);
