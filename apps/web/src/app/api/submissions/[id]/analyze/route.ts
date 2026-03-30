@@ -459,9 +459,12 @@ async function claudeVisionOnPdfBuffer(
   const base64 = pdfBuffer.toString("base64");
   console.log(`[ANALYZE] Claude Vision ${batchLabel}: ${(pdfBuffer.length / 1024).toFixed(0)} KB`);
 
+  // Haiku is used for OCR/text extraction — it is 12× cheaper than Sonnet and
+  // equally capable for verbatim text extraction from scanned PDFs.
+  // Sonnet is reserved for the final semantic analysis step (analyzeWithClaude).
   const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 16000,
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 8192,
     messages: [{
       role: "user",
       content: [
