@@ -349,11 +349,13 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
 // ── PDF Vision helpers ──────────────────────────────────────
 
 // Max pages per Claude Vision call.
-// 10 pages keeps each sub-PDF under ~15 MB for typical construction scans,
-// well within Anthropic's 32 MB inline-base64 limit, and halves peak memory
-// compared to 20-page batches. Trade-off: ceil(133/10)=14 batches vs 7,
-// but at 5 groups-of-3 × ~30s/group ≈ 150s — comfortably within 300s.
-const VISION_PAGES_PER_BATCH = 10;
+// 5 pages per batch: a 74-page scanned PDF at ~150 MB total → ~10 MB per 5-page sub-PDF
+// → ~13 MB base64, safely under Anthropic's 32 MB inline-base64 limit.
+// 10-page batches (previous value) were pushing 18–36 MB base64 for heavy scans,
+// which caused Anthropic to return 413/overload errors (silently caught → empty text
+// for every batch → combined text < 20 chars → final "Impossible d'extraire" error).
+// Trade-off: ceil(74/5)=15 batches in 5 groups-of-3 × ~20s/group ≈ 100s — well within 300s.
+const VISION_PAGES_PER_BATCH = 5;
 
 // PDFs larger than this threshold are almost certainly scanned images — skip pdfjs
 // text extraction entirely (it would return < 100 meaningful chars anyway) and go
@@ -395,6 +397,9 @@ async function processLargePdf(
   console.log(`[ANALYZE] Large PDF: ${totalPages} pages → ${batchCount} batches × ${pagesPerBatch}, groups of ${MAX_CONCURRENT}`);
 
   const orderedResults: string[] = new Array(batchCount).fill("");
+  // Collect errors from individual batches — shown in the final error message if all batches fail,
+  // so the user (and developer) can see the real Anthropic error instead of the generic fallback.
+  const batchErrors: string[] = [];
 
   for (let groupStart = 0; groupStart < batchCount; groupStart += MAX_CONCURRENT) {
     const groupEnd = Math.min(groupStart + MAX_CONCURRENT, batchCount);
@@ -411,7 +416,7 @@ async function processLargePdf(
       const buf = Buffer.from(await newDoc.save());
       const label = `batch ${i + 1}/${batchCount} (pages ${startPage + 1}–${endPage + 1})`;
       groupBatches.push({ idx: i, buf, label });
-      console.log(`[ANALYZE] Extracted ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+      console.log(`[ANALYZE] Extracted ${label}: ${(buf.length / 1024).toFixed(0)} KB (base64: ~${((buf.length * 4) / 3 / 1024).toFixed(0)} KB)`);
     }
 
     // ── Phase B: fire this group's Vision calls in parallel (I/O-bound) ──
@@ -421,7 +426,9 @@ async function processLargePdf(
         console.log(`[ANALYZE] ${label}: ${batchText.length} chars extracted`);
         orderedResults[idx] = batchText;
       } catch (batchErr: any) {
-        console.error(`[ANALYZE] Vision error on ${label}:`, batchErr.message, batchErr.status ?? "");
+        const errDetail = `${label}: ${batchErr.message}${batchErr.status ? ` (HTTP ${batchErr.status})` : ""}`;
+        console.error(`[ANALYZE] Vision error — ${errDetail}`);
+        batchErrors.push(errDetail);
         // Leave orderedResults[idx] = "" — partial text is better than nothing
       }
     }));
@@ -431,8 +438,10 @@ async function processLargePdf(
 
   const combined = orderedResults.filter(t => t.length > 0).join("\n\n");
   if (combined.length < 20) {
+    // Surface the first batch error so the user sees the real cause, not the generic fallback.
+    const firstErr = batchErrors[0] ? ` Erreur Vision: ${batchErrors[0]}` : "";
     throw new Error(
-      `Impossible d'extraire le texte de ce PDF (${totalPages} pages, ${batchCount} batches). ` +
+      `Impossible d'extraire le texte de ce PDF (${totalPages} pages, ${batchCount} batches).${firstErr} ` +
       "Le document est peut-être protégé par mot de passe, corrompu, ou composé d'images sans couche texte."
     );
   }
