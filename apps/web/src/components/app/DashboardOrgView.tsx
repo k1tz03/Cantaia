@@ -579,7 +579,26 @@ export function DashboardOrgView() {
         if (!r.ok) throw new Error("Failed");
         return r.json();
       })
-      .then((data) => setFinStats(data))
+      .then((data) => {
+        // API returns { projects, aggregates: {...} } — flatten for component use
+        const agg = data.aggregates || {};
+        setFinStats({
+          total_invoiced: agg.total_invoiced ?? 0,
+          total_costs: agg.total_costs ?? 0,
+          total_margin: agg.total_margin ?? 0,
+          avg_margin_pct: agg.avg_margin_pct ?? 0,
+          projects: (data.projects || []).map((p: Record<string, unknown>) => ({
+            project_id: p.project_id || p.id || "",
+            project_name: p.project_name || p.name || "",
+            invoiced_amount: p.invoiced_amount ?? 0,
+            purchase_costs: p.purchase_costs ?? 0,
+            margin: p.margin ?? 0,
+            margin_pct: p.margin_pct ?? 0,
+            total_labor_hours: p.total_labor_hours,
+            hours_per_thousand: p.hours_per_thousand,
+          })),
+        });
+      })
       .catch(() => setFinStats(null))
       .finally(() => setFinLoading(false));
   }, []);
