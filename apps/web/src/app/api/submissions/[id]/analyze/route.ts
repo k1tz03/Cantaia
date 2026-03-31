@@ -530,10 +530,16 @@ async function handleChunk(
     const Anthropic = (AnthropicModule as any).default || AnthropicModule;
     const client = new Anthropic({ apiKey, timeout: 50_000 });
 
-    // Run all Vision batches in parallel (max 2 for a 10-page chunk)
-    const visionTexts = await Promise.all(
+    // ── Single-pass Vision+JSON extraction ──────────────────────────────────
+    // PREVIOUS approach: Vision → raw text, then Haiku → JSON  (~25s Vision + ~10s Haiku = ~35s)
+    // NEW approach:      Vision → JSON directly                  (~28s Vision,  0s Haiku  = ~28s)
+    //
+    // Running batches in parallel (2 for a 10-page chunk) and merging items.
+    // Each batch directly outputs structured items using ANALYSIS_PROMPT as system context,
+    // eliminating the second API round-trip that was pushing total time past 58s.
+    const batchResults = await Promise.all(
       batchBuffers.map(({ buf, label }) =>
-        claudeVisionOnPdfBuffer(client, buf, label).catch((err: any) => {
+        claudeVisionExtractItems(client, buf, label).catch((err: any) => {
           console.error(`[CHUNK] Vision failed for ${label}:`, err.message);
           // Fatal API errors: abort immediately to avoid burning time + credits
           const msg = (err.message || "").toLowerCase();
@@ -544,17 +550,17 @@ async function handleChunk(
           ) {
             throw err;
           }
-          return ""; // Non-fatal: skip this batch, continue with others
+          return [] as any[]; // Non-fatal: skip this batch, continue with others
         })
       )
     );
 
-    const visionText = visionTexts.filter((t) => t.length > 0).join("\n\n");
-    console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Vision: ${visionText.length} chars`);
+    const items: any[] = batchResults.flat();
+    console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Vision+JSON: ${items.length} items`);
 
-    if (visionText.length < 20) {
+    if (items.length === 0) {
       // Blank or unreadable pages — skip silently
-      console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] No text — skipping (blank pages)`);
+      console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] No items — skipping (blank/unreadable pages)`);
       if (isLastChunk) {
         await (admin as any).from("submissions").update({
           analysis_status: "done",
@@ -570,10 +576,6 @@ async function handleChunk(
         progress: Math.round((chunkIndex + 1) / totalChunks * 100),
       });
     }
-
-    // Analyze extracted Vision text with Claude
-    const items = await analyzeWithClaude(visionText);
-    console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Claude: ${items.length} items`);
 
     // Append items (items were cleared in prepare step — each chunk appends its share)
     if (items.length > 0) {
@@ -657,38 +659,55 @@ async function setAnalysisError(admin: ReturnType<typeof createAdminClient>, id:
   }).eq("id", id);
 }
 
-/** Call Claude Vision on a PDF buffer (base64) and return extracted text.
+/** Call Claude Vision on a PDF buffer and extract structured items directly as JSON.
  *
- * Uses Sonnet — Haiku does NOT support the type:"document" source block in
- * the Messages API. Using Haiku causes silent failures (empty response).
+ * SINGLE-PASS approach: Vision reads the PDF AND outputs structured items in one call,
+ * eliminating the separate Haiku text→JSON pass (~10s saved per chunk).
+ *
+ * Uses Sonnet — Haiku does NOT support the type:"document" source block.
+ * ANALYSIS_PROMPT is sent as a cached system message (cache_control:"ephemeral")
+ * so it doesn't add latency on repeated calls within the same session.
  */
-async function claudeVisionOnPdfBuffer(
+async function claudeVisionExtractItems(
   client: any,
   pdfBuffer: Buffer,
   batchLabel: string
-): Promise<string> {
+): Promise<any[]> {
   const base64 = pdfBuffer.toString("base64");
   console.log(`[VISION] ${batchLabel}: ${(pdfBuffer.length / 1024).toFixed(0)} KB → ${(base64.length / 1024).toFixed(0)} KB base64`);
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: 8192,
-    messages: [{
-      role: "user",
-      content: [
-        {
-          type: "document",
-          source: { type: "base64", media_type: "application/pdf", data: base64 },
-        } as any,
-        {
-          type: "text",
-          text: "Extrais TOUT le texte de ce document PDF de construction/soumission. Retourne le texte brut complet et fidèle avec : numéros de poste, descriptions complètes, unités, quantités. Conserve la structure et l'ordre du document. Ne résume rien, copie le texte intégralement.",
-        },
-      ],
-    }],
+    max_tokens: 16384,
+    system: [
+      { type: "text", text: ANALYSIS_PROMPT, cache_control: { type: "ephemeral" } },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: base64 },
+          } as any,
+          {
+            type: "text",
+            text: "Extrais tous les postes de ce descriptif de soumission et retourne-les directement au format JSON demandé. Sois exhaustif — ne saute aucun poste.",
+          },
+        ],
+      },
+      // Assistant prefill forces JSON output without any preamble
+      {
+        role: "assistant",
+        content: '{"items": [',
+      },
+    ],
   });
 
-  return (response.content[0] as any)?.text || "";
+  const textBlock = response.content.find((c: any) => c.type === "text");
+  const raw = '{"items": [' + ((textBlock as any)?.text || "");
+  console.log(`[VISION] ${batchLabel}: stop=${response.stop_reason} raw=${raw.length} chars`);
+  return parseJsonResponse(raw);
 }
 
 // ── Excel text extraction ─────────────────────────────────────
