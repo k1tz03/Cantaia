@@ -59,6 +59,7 @@ export default function CreateOrganizationPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [subdomainStatus, setSubdomainStatus] = useState<
     "idle" | "checking" | "available" | "taken" | "reserved" | "invalid"
   >("idle");
@@ -173,6 +174,7 @@ export default function CreateOrganizationPage() {
 
   async function handleCreate() {
     setCreating(true);
+    setCreateError(null);
     try {
       const res = await fetch("/api/super-admin", {
         method: "POST",
@@ -183,11 +185,19 @@ export default function CreateOrganizationPage() {
         }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setCreateError(data.error || `Erreur serveur (${res.status})`);
+        console.error("[create-org] API error:", res.status, data);
+        return;
+      }
       if (data.organization) {
         router.push(`/super-admin/organizations/${data.organization.id}`);
+      } else {
+        setCreateError("Réponse inattendue du serveur — organisation non créée.");
       }
     } catch (err) {
       console.error("Create org failed:", err);
+      setCreateError(err instanceof Error ? err.message : "Erreur réseau — veuillez réessayer.");
     } finally {
       setCreating(false);
     }
@@ -555,6 +565,14 @@ export default function CreateOrganizationPage() {
                   placeholder={`Bonjour, votre espace Cantaia est pret !\nConnectez-vous sur ${form.subdomain}.cantaia.io pour commencer.`}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Error banner */}
+          {createError && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+              <p className="text-sm text-red-300">{createError}</p>
             </div>
           )}
 

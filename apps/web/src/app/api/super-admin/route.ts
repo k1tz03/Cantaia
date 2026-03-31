@@ -647,27 +647,30 @@ export async function POST(request: NextRequest) {
       ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    // Create organization
+    // Create organization — build payload with only safe columns
+    // Some columns may not exist in all environments (display_name, phone, website, branding, notes, created_by)
+    const orgPayload: Record<string, unknown> = {
+      name,
+      address: address || null,
+      city: city || "",
+      country: country || "CH",
+      subdomain,
+      subscription_plan: subscriptionPlan,
+      max_users: max_users || 5,
+      max_projects: max_projects || 10,
+      trial_ends_at: trialEndsAt,
+    };
+    // Add optional columns that may exist depending on migrations applied
+    if (display_name) orgPayload.display_name = display_name;
+    if (phone) orgPayload.phone = phone;
+    if (website) orgPayload.website = website;
+    if (notes) orgPayload.notes = notes;
+    // status and plan columns added by migration 056
+    orgPayload.status = orgStatus;
+    orgPayload.plan = subscriptionPlan;
+
     const { data: org, error: orgError } = await (admin.from("organizations") as any)
-      .insert({
-        name,
-        display_name: display_name || null,
-        address: address || null,
-        city: city || "",
-        country: country || "CH",
-        phone: phone || null,
-        website: website || null,
-        subdomain,
-        status: orgStatus,
-        plan: subscriptionPlan,
-        subscription_plan: subscriptionPlan,
-        max_users: max_users || 5,
-        max_projects: max_projects || 10,
-        trial_ends_at: trialEndsAt,
-        branding: branding || {},
-        notes: notes || null,
-        created_by: userId,
-      })
+      .insert(orgPayload)
       .select()
       .single();
 
@@ -679,42 +682,47 @@ export async function POST(request: NextRequest) {
     // Create invite for first admin if email provided
     let invite = null;
     if (invite_email) {
-      const token = crypto.randomBytes(32).toString("hex");
-      const { data: inviteData, error: inviteError } = await (admin.from("organization_invites") as any)
-        .insert({
-          organization_id: org.id,
-          email: invite_email,
-          first_name: invite_first_name || null,
-          last_name: invite_last_name || null,
-          role: "admin",
-          job_title: invite_job_title || null,
-          token,
-          message: invite_message || null,
-          invited_by: userId,
-        })
-        .select()
-        .single();
-
-      if (inviteError) {
-        console.error("[super-admin] Create invite error:", inviteError);
-      } else {
-        invite = inviteData;
-
-        // Send invite email via Resend (fire-and-forget)
-        if (process.env.RESEND_API_KEY) {
-          const { sendInviteEmail } = await import("@cantaia/core/emails/invite");
-          sendInviteEmail({
-            resendApiKey: process.env.RESEND_API_KEY,
-            inviteeEmail: invite_email,
-            inviterName: "Cantaia Admin",
-            organizationName: name,
-            subdomain,
+      try {
+        const token = crypto.randomBytes(32).toString("hex");
+        const { data: inviteData, error: inviteError } = await (admin.from("organization_invites") as any)
+          .insert({
+            organization_id: org.id,
+            email: invite_email,
+            first_name: invite_first_name || null,
+            last_name: invite_last_name || null,
             role: "admin",
-            message: invite_message,
+            job_title: invite_job_title || null,
             token,
-            locale: "fr",
-          }).catch((err: unknown) => console.error("[invite-email]", err));
+            message: invite_message || null,
+            invited_by: userId,
+          })
+          .select()
+          .single();
+
+        if (inviteError) {
+          console.error("[super-admin] Create invite error:", inviteError);
+        } else {
+          invite = inviteData;
+
+          // Send invite email via Resend (fire-and-forget)
+          if (process.env.RESEND_API_KEY) {
+            const { sendInviteEmail } = await import("@cantaia/core/emails/invite");
+            sendInviteEmail({
+              resendApiKey: process.env.RESEND_API_KEY,
+              inviteeEmail: invite_email,
+              inviterName: "Cantaia Admin",
+              organizationName: name,
+              subdomain,
+              role: "admin",
+              message: invite_message,
+              token,
+              locale: "fr",
+            }).catch((err: unknown) => console.error("[invite-email]", err));
+          }
         }
+      } catch (inviteErr) {
+        // organization_invites table may not exist — org is still created successfully
+        console.warn("[super-admin] Invite creation failed (table may not exist):", inviteErr);
       }
     }
 
