@@ -19,7 +19,6 @@ import {
   ChevronRight,
   LogOut,
   Shield,
-  TrendingUp,
   LayoutDashboard,
   Mail,
   Truck,
@@ -104,7 +103,6 @@ export function Sidebar() {
   // Section: RÉFÉRENTIELS
   const referenceItems: NavItem[] = [
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", dataTour: "nav-suppliers" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "coming_soon", dataTour: "nav-plans" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active", dataTour: "nav-chat" },
   ];
@@ -209,7 +207,6 @@ export function Sidebar() {
     { href: "/projects", labelKey: "projects", icon: FolderKanban, status: "active" },
     { href: "/submissions", labelKey: "submissions", icon: ClipboardList, status: "active", dataTour: "nav-submissions" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
-    { href: "/cantaia-prix", labelKey: "cantaiaPrix", icon: TrendingUp, status: "coming_soon" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     ...((isManager || isSuperAdmin) ? [
       { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
