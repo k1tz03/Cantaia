@@ -33,9 +33,8 @@ const PAGES_PER_CHUNK = 5;
 // safely under Anthropic's 32 MB inline-base64 limit.
 const VISION_PAGES_PER_BATCH = 5;
 
-// Always try pdfjs text extraction first (even on large PDFs).
+// pdfjs is now tried on ALL PDFs regardless of size (no threshold).
 // Fall through to Vision chunking only if pdfjs finds < 100 meaningful chars (truly scanned).
-const SKIP_PDFJS_THRESHOLD_BYTES = Infinity; // effectively disabled — kept for reference
 
 const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (normes CFC/NPK). Extrais TOUS les postes du document fourni.
 
