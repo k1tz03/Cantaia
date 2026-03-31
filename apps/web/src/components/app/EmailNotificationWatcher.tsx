@@ -66,7 +66,7 @@ export function EmailNotificationWatcher() {
       const preview = (email.body_preview as string) || "";
 
       // Notification navigateur (visible si onglet en arrière-plan)
-      sendBrowserEmailNotification(sender, subject, preview);
+      sendBrowserEmailNotification(sender, subject, preview, email.id);
 
       // Notification OS native (Tauri desktop seulement)
       showDesktopNotification(`📧 ${sender}`, subject).catch(() => {});

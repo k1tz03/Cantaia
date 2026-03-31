@@ -179,7 +179,7 @@ export function EmailToastStack({ toasts, onDismiss }: Props) {
             onDismiss={() => onDismiss(toast.id)}
             onOpen={() => {
               onDismiss(toast.id);
-              router.push(`/${locale}/mail`);
+              router.push(`/${locale}/mail?emailId=${toast.id}`);
             }}
           />
         ))}

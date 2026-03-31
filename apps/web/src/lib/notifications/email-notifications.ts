@@ -46,7 +46,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
 export function sendBrowserEmailNotification(
   senderName: string,
   subject: string,
-  preview?: string
+  preview?: string,
+  emailId?: string
 ): void {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
@@ -62,10 +63,13 @@ export function sendBrowserEmailNotification(
       silent: false,
     });
 
-    // Clic → focus sur l'onglet Cantaia + navigation vers /mail
+    // Clic → focus sur l'onglet Cantaia + navigation vers le mail
     notif.onclick = () => {
       window.focus();
       notif.close();
+      // Navigate to the specific email in the mail page
+      const mailPath = emailId ? `/mail?emailId=${emailId}` : "/mail";
+      window.location.href = mailPath;
     };
 
     // Auto-fermeture après 6s

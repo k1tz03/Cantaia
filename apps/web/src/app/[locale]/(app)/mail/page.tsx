@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import dynamic from "next/dynamic";
 import {
@@ -208,6 +208,7 @@ function getClassificationColor(classification: string): string {
 
 export default function MailPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("mail.decisions");
   const locale = useLocale();
   const [loading, setLoading] = useState(true);
@@ -401,9 +402,23 @@ export default function MailPage() {
   const allEmails = [...filteredUrgent, ...filteredThisWeek, ...filteredInfo];
   const selectedEmail = allEmails.find((e) => e.id === selectedEmailId) || null;
 
-  // Auto-select first email if none selected
-  if (!selectedEmailId && allEmails.length > 0) {
-    // Use a microtask to avoid setting state during render
+  // Select email from URL param (?emailId=xxx) — from notification click
+  const urlEmailId = searchParams.get("emailId");
+
+  // When urlEmailId changes (notification clicked while already on /mail), select that email
+  useEffect(() => {
+    if (!urlEmailId || allEmails.length === 0) return;
+    const target = allEmails.find((e) => e.id === urlEmailId);
+    if (target) {
+      setSelectedEmailId(target.id);
+      if (target.project_id) setActiveProject(target.project_id);
+    }
+    // Clean up URL param
+    router.replace(`/${locale}/mail`, { scroll: false });
+  }, [urlEmailId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-select first email if none selected (initial load, no URL param)
+  if (!selectedEmailId && !urlEmailId && allEmails.length > 0) {
     queueMicrotask(() => {
       setSelectedEmailId(allEmails[0].id);
       if (allEmails[0].project_id) setActiveProject(allEmails[0].project_id);
