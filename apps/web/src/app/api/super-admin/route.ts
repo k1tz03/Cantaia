@@ -616,7 +616,7 @@ export async function POST(request: NextRequest) {
   if (action === "create-organization") {
     const {
       name, display_name, address, city, country, phone, website,
-      subdomain, plan, max_users, max_projects, branding, notes,
+      subdomain, plan, max_users, max_projects, notes,
       invite_email, invite_first_name, invite_last_name, invite_job_title, invite_message,
     } = body;
 
