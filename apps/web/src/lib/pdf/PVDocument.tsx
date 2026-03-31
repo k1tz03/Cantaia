@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Document, Page, View, Text, StyleSheet, pdf,
+  Document, Page, View, Text, StyleSheet, renderToBuffer,
 } from '@react-pdf/renderer';
 import { C, FONT, SIZE } from './theme';
 
@@ -593,14 +593,17 @@ export async function generatePVPdf(
   pv: PVData,
   projectName: string,
   code: string,
-): Promise<ArrayBuffer> {
+): Promise<Buffer> {
   const meta = {
     projectName,
     code,
     filename: `PV_${(projectName || 'Projet').replace(/\s/g, '_')}_Seance${pv.header?.meeting_number ?? ''}`,
   };
   const element = React.createElement(PVDocumentComponent, { pv, meta });
-  // pdf() is typed for top-level <Document> elements; our component renders one, cast to bypass
-  const buf: Buffer = await (pdf as any)(element).toBuffer();
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+  // renderToBuffer is the stable server-side API (pdf().toBuffer() returns undefined in serverless)
+  const buf = await (renderToBuffer as any)(element);
+  if (!buf || buf.length === 0) {
+    throw new Error("PDF generation returned empty buffer");
+  }
+  return buf;
 }
