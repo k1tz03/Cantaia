@@ -515,10 +515,10 @@ async function handleChunk(
       }
     }
 
-    // Initialize Anthropic client (50s timeout — leaves buffer within 60s maxDuration)
+    // Initialize Anthropic client (90s timeout — safe within maxDuration=300)
     const AnthropicModule = await import("@anthropic-ai/sdk");
     const Anthropic = (AnthropicModule as any).default || AnthropicModule;
-    const client = new Anthropic({ apiKey, timeout: 50_000 });
+    const client = new Anthropic({ apiKey, timeout: 90_000 });
 
     // ── Single-pass Vision+JSON extraction ──────────────────────────────────
     // One Vision call per chunk (5 pages = 1 batch).

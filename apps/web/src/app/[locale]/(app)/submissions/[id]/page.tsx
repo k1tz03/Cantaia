@@ -315,10 +315,11 @@ export default function SubmissionDetailPage() {
       const { totalChunks, pageCount } = prep as { totalChunks: number; pageCount: number };
 
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        // 58s client-side timeout — fires just before Vercel's 60s maxDuration limit.
-        // Without this, a hung connection gives no feedback; with it we get a clear error.
+        // 120s client-side timeout — generous buffer for Vision on dense pages.
+        // Server maxDuration=300, Anthropic SDK timeout=90s. Client timeout > SDK timeout
+        // ensures server returns an error response rather than client aborting prematurely.
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 58_000);
+        const timeoutId = setTimeout(() => controller.abort(), 120_000);
 
         let chunkRes: Response;
         try {
@@ -332,7 +333,7 @@ export default function SubmissionDetailPage() {
           clearTimeout(timeoutId);
           if (fetchErr.name === "AbortError") {
             throw new Error(
-              `La partie ${chunkIndex + 1}/${totalChunks} a dépassé 58s. ` +
+              `La partie ${chunkIndex + 1}/${totalChunks} a dépassé 120s. ` +
               `Vérifiez les logs Vercel ou réessayez.`
             );
           }
