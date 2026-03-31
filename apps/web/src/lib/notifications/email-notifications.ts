@@ -48,7 +48,7 @@ export function sendBrowserEmailNotification(
   subject: string,
   preview?: string
 ): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
 
   // Pas de notification doublée si l'onglet est actif et en focus

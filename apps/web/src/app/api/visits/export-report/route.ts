@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       .eq("id", visit_id);
 
     const fileName = `Rapport-Visite-${clientSlug}-${dateStr}.pdf`;
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

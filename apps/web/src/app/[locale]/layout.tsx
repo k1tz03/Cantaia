@@ -131,7 +131,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} translate="no" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} ${plusJakarta.variable} font-sans antialiased`}
       >
