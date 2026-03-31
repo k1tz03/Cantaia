@@ -647,8 +647,8 @@ export async function POST(request: NextRequest) {
       ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    // Create organization — try full payload first, fallback to minimal if columns are missing
-    const basePayload: Record<string, unknown> = {
+    // Create organization — adaptive insert: try all fields, auto-strip missing columns
+    const orgPayload: Record<string, unknown> = {
       name,
       address: address || null,
       city: city || "",
@@ -658,35 +658,37 @@ export async function POST(request: NextRequest) {
       max_users: max_users || 5,
       max_projects: max_projects || 10,
       trial_ends_at: trialEndsAt,
+      status: orgStatus,
+      plan: subscriptionPlan,
     };
+    if (display_name) orgPayload.display_name = display_name;
+    if (phone) orgPayload.phone = phone;
+    if (website) orgPayload.website = website;
+    if (notes) orgPayload.notes = notes;
 
-    // Optional columns that may not exist in the DB schema
-    const optionalFields: Record<string, unknown> = {};
-    if (display_name) optionalFields.display_name = display_name;
-    if (phone) optionalFields.phone = phone;
-    if (website) optionalFields.website = website;
-    if (notes) optionalFields.notes = notes;
-    optionalFields.status = orgStatus;
-    optionalFields.plan = subscriptionPlan;
-
-    // Try with all fields first; if a column doesn't exist, retry with just the base payload
+    // Adaptive retry loop: if a column doesn't exist, remove it and retry
     let org: Record<string, unknown> | null = null;
     let orgError: { message: string } | null = null;
+    const MAX_RETRIES = 10;
 
-    const fullPayload = { ...basePayload, ...optionalFields };
-    const result1 = await (admin.from("organizations") as any)
-      .insert(fullPayload).select().single();
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const result = await (admin.from("organizations") as any)
+        .insert(orgPayload).select().single();
 
-    if (result1.error && result1.error.message?.includes("column")) {
-      // Column missing — retry with minimal payload
-      console.warn("[super-admin] Full insert failed, retrying minimal:", result1.error.message);
-      const result2 = await (admin.from("organizations") as any)
-        .insert(basePayload).select().single();
-      org = result2.data;
-      orgError = result2.error;
-    } else {
-      org = result1.data;
-      orgError = result1.error;
+      if (result.error && result.error.message?.includes("column")) {
+        // Parse the missing column name from the error message
+        const match = result.error.message.match(/Could not find the '(\w+)' column/);
+        if (match && match[1]) {
+          const missingCol = match[1];
+          console.warn(`[super-admin] Column '${missingCol}' missing in organizations table, retrying without it (attempt ${attempt + 1})`);
+          delete orgPayload[missingCol];
+          continue;
+        }
+      }
+
+      org = result.data;
+      orgError = result.error;
+      break;
     }
 
     if (orgError || !org) {
