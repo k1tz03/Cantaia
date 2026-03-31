@@ -469,39 +469,29 @@ async function handleChunk(
 
   try {
     // ── Download PDF: mini-PDF fast path, full PDF fallback ──────────────
-    // PREPARE pre-extracted each chunk as a tiny PDF (10 pages, ~2-3 MB).
-    // Downloading the mini-PDF saves ~12s vs re-downloading + parsing the full file.
-    const { PDFDocument } = await import("pdf-lib");
+    // PREPARE pre-extracted each chunk as a mini-PDF (PAGES_PER_CHUNK pages).
+    // Fast path: use mini-PDF directly — NO pdf-lib needed, saves ~6s per chunk.
+    // Fallback: download full PDF + split with pdf-lib (slower but works if upload failed).
     const chunkPageCount = endPage - startPage + 1;
-    const visionBatchCount = Math.ceil(chunkPageCount / VISION_PAGES_PER_BATCH);
     const batchBuffers: { buf: Buffer; label: string }[] = [];
 
     const miniPdfPath = `chunks/${id}/chunk_${chunkIndex}.pdf`;
     const { data: miniData } = await admin.storage.from("submissions").download(miniPdfPath);
 
     if (miniData) {
-      // Fast path: mini-PDF was pre-extracted by PREPARE (pages are 0-indexed within it)
-      console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Using mini-PDF (fast path)`);
+      // Fast path: PREPARE already extracted exactly these pages as a mini-PDF.
+      // With PAGES_PER_CHUNK == VISION_PAGES_PER_BATCH (both 5), the mini-PDF IS the
+      // Vision batch — send it directly without any pdf-lib load/copy/save cycle.
       const miniBuf = Buffer.from(await miniData.arrayBuffer());
-      const srcDoc = await PDFDocument.load(miniBuf, { ignoreEncryption: true });
-
-      for (let b = 0; b < visionBatchCount; b++) {
-        const bStart = b * VISION_PAGES_PER_BATCH;  // 0-based within mini-PDF
-        const bEnd = Math.min(bStart + VISION_PAGES_PER_BATCH - 1, chunkPageCount - 1);
-        const subDoc = await PDFDocument.create();
-        const indices = Array.from({ length: bEnd - bStart + 1 }, (_: unknown, j: number) => bStart + j);
-        const copied = await subDoc.copyPages(srcDoc, indices);
-        copied.forEach((p: any) => subDoc.addPage(p));
-        const buf = Buffer.from(await subDoc.save());
-        const absStart = startPage + b * VISION_PAGES_PER_BATCH;
-        const absEnd = Math.min(absStart + VISION_PAGES_PER_BATCH - 1, endPage);
-        const label = `chunk ${chunkIndex + 1}/${totalChunks} batch ${b + 1}/${visionBatchCount} (pages ${absStart + 1}–${absEnd + 1})`;
-        batchBuffers.push({ buf, label });
-        console.log(`[CHUNK] mini batch ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
-      }
+      const absEnd = Math.min(startPage + chunkPageCount - 1, pageCount - 1);
+      const label = `chunk ${chunkIndex + 1}/${totalChunks} (pages ${startPage + 1}–${absEnd + 1})`;
+      batchBuffers.push({ buf: miniBuf, label });
+      console.log(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Mini-PDF direct (${chunkPageCount} pages, ${(miniBuf.length / 1024).toFixed(0)} KB, no pdf-lib)`);
     } else {
-      // Fallback: PREPARE didn't upload mini-PDFs — download the full PDF instead
+      // Fallback: PREPARE didn't upload mini-PDFs — download the full PDF and split
       console.warn(`[CHUNK ${chunkIndex + 1}/${totalChunks}] Mini-PDF not found — falling back to full PDF`);
+      const { PDFDocument } = await import("pdf-lib");
+      const visionBatchCount = Math.ceil(chunkPageCount / VISION_PAGES_PER_BATCH);
       const { data: pdfData, error: pdfError } = await admin.storage.from("submissions").download(fileUrl);
       if (pdfError || !pdfData) {
         const msg = `Erreur download (chunk ${chunkIndex + 1}/${totalChunks}): ${pdfError?.message}`;
@@ -521,7 +511,7 @@ async function handleChunk(
         const buf = Buffer.from(await subDoc.save());
         const label = `chunk ${chunkIndex + 1}/${totalChunks} batch ${b + 1}/${visionBatchCount} (pages ${bStart + 1}–${bEnd + 1})`;
         batchBuffers.push({ buf, label });
-        console.log(`[CHUNK] full-PDF batch ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
+        console.log(`[CHUNK] fallback batch ${label}: ${(buf.length / 1024).toFixed(0)} KB`);
       }
     }
 
