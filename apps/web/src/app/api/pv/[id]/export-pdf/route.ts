@@ -67,10 +67,13 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (error) {
-    console.error("[ExportPDF] Error:", error);
+  } catch (error: any) {
+    const msg = error?.message || String(error);
+    const stack = (error?.stack || "").split("\n").slice(0, 5).join("\n");
+    console.error("[ExportPDF] Error:", msg);
+    console.error("[ExportPDF] Stack:", stack);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: `Erreur génération PDF: ${msg}` },
       { status: 500 }
     );
   }
