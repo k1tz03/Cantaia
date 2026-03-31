@@ -13,20 +13,20 @@ import { checkUsageLimit } from "@cantaia/config/plan-features";
 //     • For scanned PDFs: counts pages, returns {done:false, totalChunks, pageCount}
 //
 //  2. CHUNK ({chunkIndex, totalChunks, pageCount}):
-//     • Downloads the PDF, extracts pages [chunkIndex*10 .. (chunkIndex+1)*10-1]
-//     • Runs Claude Vision on those pages (2 batches of 5 in parallel)
-//     • Analyzes with Claude and appends items to DB
-//     • Last chunk sets status = "done"
+//     • Downloads the mini-PDF pre-extracted by PREPARE (5 pages, ~1 MB)
+//     • Runs one Claude Vision call on those 5 pages (~25s)
+//     • Appends items to DB; last chunk sets status = "done"
 //
-// Each request completes in ~30-45s, safely under 60s (Vercel Hobby limit).
+// Each request completes in ~37s, safely under 58s client timeout / 60s Vercel limit.
 // The client orchestrates the loop and shows a progress bar.
 // No after(), no watchdog, no 300s dependency.
 //
 export const maxDuration = 60;
 
 // Pages processed per chunk call.
-// 10 pages → 2 Vision batches of 5 in parallel → ~20s Vision + ~15s overhead ≈ 35s per chunk.
-const PAGES_PER_CHUNK = 10;
+// 5 pages → 1 Vision batch (no parallelism needed) → ~25s Vision + ~12s overhead ≈ 37s per chunk.
+// Previously 10 pages (2 batches in parallel) exceeded the 58s client timeout in practice.
+const PAGES_PER_CHUNK = 5;
 
 // Pages per single Claude Vision call.
 // 5 pages: a scanned A4 page ≈ 2 MB → 5 pages ≈ 10 MB PDF → ~13 MB base64,
@@ -531,12 +531,10 @@ async function handleChunk(
     const client = new Anthropic({ apiKey, timeout: 50_000 });
 
     // ── Single-pass Vision+JSON extraction ──────────────────────────────────
-    // PREVIOUS approach: Vision → raw text, then Haiku → JSON  (~25s Vision + ~10s Haiku = ~35s)
-    // NEW approach:      Vision → JSON directly                  (~28s Vision,  0s Haiku  = ~28s)
-    //
-    // Running batches in parallel (2 for a 10-page chunk) and merging items.
-    // Each batch directly outputs structured items using ANALYSIS_PROMPT as system context,
-    // eliminating the second API round-trip that was pushing total time past 58s.
+    // One Vision call per chunk (5 pages = 1 batch).
+    // Vision → JSON directly (~25s), no second Haiku round-trip.
+    // With PAGES_PER_CHUNK=5 there is always exactly 1 batch, so Promise.all
+    // is equivalent to a single call — kept for the fallback full-PDF path.
     const batchResults = await Promise.all(
       batchBuffers.map(({ buf, label }) =>
         claudeVisionExtractItems(client, buf, label).catch((err: any) => {
