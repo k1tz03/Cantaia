@@ -179,7 +179,9 @@ export function EmailToastStack({ toasts, onDismiss }: Props) {
             onDismiss={() => onDismiss(toast.id)}
             onOpen={() => {
               onDismiss(toast.id);
-              router.push(`/${locale}/mail?emailId=${toast.id}`);
+              // Bulk summary toasts (id starts with "bulk-") navigate to /mail without emailId
+              const isBulk = toast.id.startsWith("bulk-");
+              router.push(isBulk ? `/${locale}/mail` : `/${locale}/mail?emailId=${toast.id}`);
             }}
           />
         ))}

@@ -407,7 +407,13 @@ export default function MailPage() {
 
   // When urlEmailId changes (notification clicked while already on /mail), select that email
   useEffect(() => {
-    if (!urlEmailId || allEmails.length === 0) return;
+    if (!urlEmailId) return;
+    // Bulk summary IDs (from bulk sync notification) are not real emails — just clean the URL
+    if (urlEmailId.startsWith("bulk-")) {
+      router.replace(`/${locale}/mail`, { scroll: false });
+      return;
+    }
+    if (allEmails.length === 0) return;
     const target = allEmails.find((e) => e.id === urlEmailId);
     if (target) {
       setSelectedEmailId(target.id);
