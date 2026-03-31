@@ -11,7 +11,6 @@ import {
   Map,
   FileSpreadsheet,
   Truck,
-  TrendingUp,
   FileText,
   MessageSquare,
   Settings,
@@ -46,7 +45,8 @@ export function CommandPalette() {
       { id: "plans", label: t("plans"), icon: Map, href: `/${locale}/plans`, section: "Navigation", keywords: ["plan", "dessin", "zeichnung"] },
       { id: "submissions", label: t("submissions"), icon: FileSpreadsheet, href: `/${locale}/submissions`, section: "Navigation", keywords: ["soumission", "submission", "offre"] },
       { id: "suppliers", label: t("suppliers"), icon: Truck, href: `/${locale}/suppliers`, section: "Navigation", keywords: ["fournisseur", "lieferant", "entreprise"] },
-      { id: "cantaia-prix", label: t("cantaiaPrix"), icon: TrendingUp, href: `/${locale}/cantaia-prix`, section: "Navigation", keywords: ["prix", "preis", "chiffrage", "estimation"] },
+      // Cantaia Prix hidden — feature not yet ready for production, DB enrichment continues in background
+      // { id: "cantaia-prix", label: t("cantaiaPrix"), icon: TrendingUp, href: `/${locale}/cantaia-prix`, section: "Navigation", keywords: ["prix", "preis", "chiffrage", "estimation"] },
       { id: "pv", label: t("pv"), icon: FileText, href: `/${locale}/pv-chantier`, section: "Navigation", keywords: ["protocole", "protokoll", "procès-verbal", "sitzung"] },
       { id: "chat", label: t("chat"), icon: MessageSquare, href: `/${locale}/chat`, section: "Navigation", keywords: ["chat", "assistant", "jm", "ia", "ai"] },
       { id: "settings", label: t("settings"), icon: Settings, href: `/${locale}/settings`, section: "Navigation", keywords: ["paramètre", "einstellung", "configuration"] },

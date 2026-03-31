@@ -10,6 +10,9 @@ import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
 import { checkLocalRules, detectSpamNewsletter, determineArchivePath, getEmailProvider, isTokenExpired, type ArchiveEmailInput, type EmailConnectionConfig } from "@cantaia/core/emails";
 import type { ArchiveStructure, ArchiveFilenameFormat } from "@cantaia/database";
 
+// Allow up to 5 minutes for bulk syncs (500+ emails with classification pipeline)
+export const maxDuration = 300;
+
 /** Strip HTML tags from email body for AI classification */
 function stripHtml(html: string): string {
   return html
