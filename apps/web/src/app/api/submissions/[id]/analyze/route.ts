@@ -21,7 +21,7 @@ import { checkUsageLimit } from "@cantaia/config/plan-features";
 // The client orchestrates the loop and shows a progress bar.
 // No after(), no watchdog, no 300s dependency.
 //
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Pages processed per chunk call.
 // 5 pages → 1 Vision batch (no parallelism needed) → ~25s Vision + ~12s overhead ≈ 37s per chunk.
@@ -33,8 +33,9 @@ const PAGES_PER_CHUNK = 5;
 // safely under Anthropic's 32 MB inline-base64 limit.
 const VISION_PAGES_PER_BATCH = 5;
 
-// PDFs > 2 MB are almost certainly scanned images — skip pdfjs text extraction.
-const SKIP_PDFJS_THRESHOLD_BYTES = 2 * 1024 * 1024;
+// Always try pdfjs text extraction first (even on large PDFs).
+// Fall through to Vision chunking only if pdfjs finds < 100 meaningful chars (truly scanned).
+const SKIP_PDFJS_THRESHOLD_BYTES = Infinity; // effectively disabled — kept for reference
 
 const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (normes CFC/NPK). Extrais TOUS les postes du document fourni.
 
@@ -329,48 +330,47 @@ async function handlePrepare(
     return NextResponse.json({ error: msg }, { status: 422 });
   }
 
-  // ── Try pdfjs on small PDFs (text-based: fast, no Vision cost) ──
-  if (buffer.length <= SKIP_PDFJS_THRESHOLD_BYTES) {
-    try {
-      const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-      const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
-      const doc = await loadingTask.promise;
-      const textParts: string[] = [];
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item: any) => (item as any).str || "")
-          .join(" ")
-          .trim();
-        if (pageText.length > 0) textParts.push(pageText);
-      }
-      const pdfText = textParts.join("\n");
-      const meaningfulChars = (pdfText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœÀÂÄÉÈÊËÎÏÔÖÙÛÜÇÆŒ]/g) || []).length;
-      console.log(`[PREPARE] pdfjs: ${pdfText.length} chars, ${meaningfulChars} meaningful`);
-
-      if (meaningfulChars >= 100) {
-        // Text-based PDF: full analysis here (~20s total)
-        const items = await analyzeWithClaude(pdfText);
-        if (!items || items.length === 0) {
-          await setAnalysisError(admin, id, "Aucun poste détecté dans le document");
-          return NextResponse.json({ error: "Aucun poste détecté" }, { status: 422 });
-        }
-        await saveItems(admin, id, submission.project_id, items);
-        await (admin as any).from("submissions").update({
-          analysis_status: "done",
-          analysis_error: null,
-          updated_at: new Date().toISOString(),
-        }).eq("id", id);
-        console.log(`[PREPARE] Text PDF done: ${items.length} items`);
-        return NextResponse.json({ success: true, done: true, itemsCount: items.length });
-      }
-      console.log(`[PREPARE] pdfjs insufficient (${meaningfulChars} meaningful chars) — scanned PDF, switching to Vision chunking`);
-    } catch (e: any) {
-      console.warn("[PREPARE] pdfjs failed:", e.message);
+  // ── Try pdfjs on ALL PDFs first (text-based: fast, no Vision cost) ──
+  // Even large PDFs (>2 MB) can be native-text (e.g. exported from CAD/Excel).
+  // pdfjs extraction takes ~2-10s; analyzeWithClaude (Haiku) ~20-35s → done in PREPARE.
+  // Fall through to Vision chunking only if pdfjs finds < 100 meaningful chars (truly scanned).
+  try {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer) });
+    const doc = await loadingTask.promise;
+    const textParts: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item: any) => (item as any).str || "")
+        .join(" ")
+        .trim();
+      if (pageText.length > 0) textParts.push(pageText);
     }
-  } else {
-    console.log(`[PREPARE] Large PDF (${(buffer.length / 1024 / 1024).toFixed(1)} MB) — skipping pdfjs, using Vision chunking`);
+    const pdfText = textParts.join("\n");
+    const meaningfulChars = (pdfText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœÀÂÄÉÈÊËÎÏÔÖÙÛÜÇÆŒ]/g) || []).length;
+    console.log(`[PREPARE] pdfjs: ${pdfText.length} chars, ${meaningfulChars} meaningful`);
+
+    if (meaningfulChars >= 100) {
+      // Text-based PDF: full analysis here (~20-35s total, well within maxDuration=300)
+      const items = await analyzeWithClaude(pdfText);
+      if (!items || items.length === 0) {
+        await setAnalysisError(admin, id, "Aucun poste détecté dans le document");
+        return NextResponse.json({ error: "Aucun poste détecté" }, { status: 422 });
+      }
+      await saveItems(admin, id, submission.project_id, items);
+      await (admin as any).from("submissions").update({
+        analysis_status: "done",
+        analysis_error: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+      console.log(`[PREPARE] Text PDF done: ${items.length} items`);
+      return NextResponse.json({ success: true, done: true, itemsCount: items.length });
+    }
+    console.log(`[PREPARE] pdfjs insufficient (${meaningfulChars} meaningful chars) — scanned PDF, switching to Vision chunking`);
+  } catch (e: any) {
+    console.warn("[PREPARE] pdfjs failed:", e.message);
   }
 
   // ── Scanned PDF: count pages, pre-extract mini-PDFs, return chunk plan ──
