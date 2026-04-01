@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   CheckCircle,
@@ -33,9 +34,53 @@ export default function ProjectClosurePage() {
   const t = useTranslations("closure");
   const [completing, setCompleting] = useState(false);
 
-  const { project, loading: projectLoading } = useProject(params.id as string);
+  const projectId = params.id as string;
+  const { project, loading: projectLoading } = useProject(projectId);
 
-  if (projectLoading) {
+  // Real data from Supabase
+  const [tasks, setTasks] = useState<{ id: string; status: string }[]>([]);
+  const [meetings, setMeetings] = useState<{ id: string; meeting_date: string; meeting_number?: number; status: string }[]>([]);
+  const [projectEmails, setProjectEmails] = useState<{ classification?: string }[]>([]);
+  const [reception, setReception] = useState<{ id: string; pv_document_url?: string | null; pv_signed_url?: string | null } | null>(null);
+  const [closureDocs, setClosureDocs] = useState<{ id: string }[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  const fetchClosureData = useCallback(async () => {
+    if (!projectId) return;
+    setDataLoading(true);
+    try {
+      const supabase = createClient();
+
+      const [tasksRes, meetingsRes, emailsRes, receptionRes, docsRes] = await Promise.all([
+        // Tasks for this project
+        supabase.from("tasks").select("id, status").eq("project_id", projectId),
+        // Meetings for this project
+        supabase.from("meetings").select("id, meeting_date, meeting_number, status").eq("project_id", projectId),
+        // Emails for this project
+        supabase.from("email_records").select("classification").eq("project_id", projectId),
+        // Reception record
+        (supabase as any).from("project_receptions").select("id, pv_document_url, pv_signed_url, status").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        // Closure documents
+        (supabase as any).from("closure_documents").select("id").eq("project_id", projectId),
+      ]);
+
+      setTasks(tasksRes.data || []);
+      setMeetings(meetingsRes.data || []);
+      setProjectEmails(emailsRes.data || []);
+      setReception(receptionRes.data || null);
+      setClosureDocs(docsRes.data || []);
+    } catch (err) {
+      console.warn("[Closure] Failed to fetch closure data:", err);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchClosureData();
+  }, [fetchClosureData]);
+
+  if (projectLoading || dataLoading) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
         <Loader2 className="h-6 w-6 animate-spin text-brand" />
@@ -50,12 +95,6 @@ export default function ProjectClosurePage() {
       </div>
     );
   }
-
-  const tasks: { id: string; status: string }[] = [];
-  const meetings: { id: string; meeting_date: string; meeting_number?: number; status: string }[] = [];
-  const projectEmails: { classification?: string }[] = [];
-  const reception = null as { id: string; pv_document_url?: string | null; pv_signed_url?: string | null } | null;
-  const closureDocs: unknown[] = [];
 
   // Step 1: All tasks closed or cancelled
   const openTasks = tasks.filter(
@@ -166,14 +205,28 @@ export default function ProjectClosurePage() {
   const completedSteps = steps.filter((s) => s.status === "completed").length;
   const canComplete = step1Complete && step2Complete && step3Complete && step4Complete && step5Complete;
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     setCompleting(true);
-    // Mock: update project status to completed
-    console.log("[Closure] Completing project:", project.id);
-    setTimeout(() => {
-      setCompleting(false);
+    try {
+      const supabase = createClient();
+      const now = new Date().toISOString();
+      await (supabase as any)
+        .from("projects")
+        .update({ status: "completed", closed_at: now })
+        .eq("id", project.id);
+      // Also update reception status to "signed" if it exists
+      if (reception?.id) {
+        await (supabase as any)
+          .from("project_receptions")
+          .update({ status: "signed" })
+          .eq("id", reception.id);
+      }
       router.push(`/projects/${project.id}`);
-    }, 1500);
+    } catch (err) {
+      console.error("[Closure] Failed to complete project:", err);
+    } finally {
+      setCompleting(false);
+    }
   };
 
   return (

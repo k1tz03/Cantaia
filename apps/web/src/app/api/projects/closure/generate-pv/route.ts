@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import {
   Document,
@@ -530,6 +531,67 @@ export async function POST(request: NextRequest) {
     const uint8 = new Uint8Array(buffer);
 
     const fileName = `PVR-${body.project_code || "PROJ"}-001.docx`;
+
+    // ── Save reception record to DB (best-effort, non-blocking) ──
+    try {
+      const admin = createAdminClient();
+      const { data: profile } = await admin
+        .from("users")
+        .select("organization_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.organization_id) {
+        // Upload DOCX to storage
+        const storagePath = `closure/${profile.organization_id}/${body.project_id}/${fileName}`;
+        await admin.storage.from("audio").upload(storagePath, uint8, {
+          contentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          upsert: true,
+        });
+        const { data: urlData } = admin.storage
+          .from("audio")
+          .getPublicUrl(storagePath);
+
+        // Calculate guarantee dates
+        const receptionDate = new Date(body.reception_date);
+        const g2y = new Date(receptionDate);
+        g2y.setFullYear(g2y.getFullYear() + 2);
+        const g5y = new Date(receptionDate);
+        g5y.setFullYear(g5y.getFullYear() + 5);
+
+        // Delete any existing reception for this project (regeneration)
+        await (admin as any)
+          .from("project_receptions")
+          .delete()
+          .eq("project_id", body.project_id);
+
+        // Insert new reception record
+        await (admin as any).from("project_receptions").insert({
+          project_id: body.project_id,
+          organization_id: profile.organization_id,
+          reception_type: body.reception_type || "provisional",
+          reception_date: body.reception_date,
+          reception_location: body.reception_location || "",
+          status: "completed",
+          participants: body.participants || [],
+          pv_document_url: urlData?.publicUrl || storagePath,
+          lots_reception: body.lots || [],
+          guarantee_2y_end: g2y.toISOString().split("T")[0],
+          guarantee_5y_end: g5y.toISOString().split("T")[0],
+          general_notes: body.general_notes || "",
+          created_by: user.id,
+        });
+
+        console.log(
+          "[ClosureGeneratePV] Reception record saved for project:",
+          body.project_id
+        );
+      }
+    } catch (dbErr) {
+      // Non-fatal: PV was generated and will be downloaded, DB save is best-effort
+      console.warn("[ClosureGeneratePV] DB save failed (non-fatal):", dbErr);
+    }
 
     return new NextResponse(uint8, {
       status: 200,

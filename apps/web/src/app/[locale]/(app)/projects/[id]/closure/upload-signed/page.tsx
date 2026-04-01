@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   Upload,
@@ -13,6 +14,7 @@ import {
   Loader2,
   CheckCircle,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function UploadSignedPVPage() {
@@ -28,6 +30,30 @@ export default function UploadSignedPVPage() {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [receptionId, setReceptionId] = useState<string | null>(null);
+
+  const projectId = params.id as string;
+
+  // Fetch existing reception record to get the ID
+  useEffect(() => {
+    async function fetchReception() {
+      try {
+        const supabase = createClient();
+        const { data } = await (supabase as any)
+          .from("project_receptions")
+          .select("id")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) setReceptionId(data.id);
+      } catch (err) {
+        console.warn("[UploadSignedPV] Failed to fetch reception:", err);
+      }
+    }
+    fetchReception();
+  }, [projectId]);
 
   const acceptedTypes = ["application/pdf", "image/jpeg", "image/png"];
   const maxSize = 20 * 1024 * 1024; // 20 MB
@@ -84,11 +110,65 @@ export default function UploadSignedPVPage() {
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
+    setUploadError(null);
 
     try {
-      // Mock upload — in production, POST to /api/projects/[id]/closure/upload-signed-pv
-      console.log("[UploadSignedPV] Uploading:", file.name, file.size, "bytes");
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const supabase = createClient();
+
+      // Get user profile for org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+
+      const { data: profile } = await (supabase as any)
+        .from("users")
+        .select("organization_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const orgId = (profile as any)?.organization_id || "unknown";
+
+      // Sanitize filename
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `closure/${orgId}/${projectId}/signed_${Date.now()}_${safeName}`;
+
+      // Upload to Supabase Storage (bucket "audio" — shared closure bucket)
+      const { error: uploadErr } = await supabase.storage
+        .from("audio")
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadErr) throw new Error(`Upload échoué: ${uploadErr.message}`);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from("audio").getPublicUrl(storagePath);
+      const signedUrl = urlData?.publicUrl || storagePath;
+
+      // Update the project_receptions record
+      if (receptionId) {
+        await (supabase as any)
+          .from("project_receptions")
+          .update({
+            pv_signed_url: signedUrl,
+            pv_signed_at: new Date().toISOString(),
+            status: "signed",
+          })
+          .eq("id", receptionId);
+      } else {
+        // No reception record found — create one (fallback, shouldn't happen normally)
+        await (supabase as any)
+          .from("project_receptions")
+          .insert({
+            project_id: projectId,
+            organization_id: orgId,
+            reception_type: "provisional",
+            reception_date: new Date().toISOString().split("T")[0],
+            status: "signed",
+            pv_signed_url: signedUrl,
+            pv_signed_at: new Date().toISOString(),
+          });
+      }
 
       setUploaded(true);
       setTimeout(() => {
@@ -96,6 +176,7 @@ export default function UploadSignedPVPage() {
       }, 1500);
     } catch (error) {
       console.error("[UploadSignedPV] Error:", error);
+      setUploadError(error instanceof Error ? error.message : "Erreur lors de l'upload");
     } finally {
       setUploading(false);
     }
@@ -123,6 +204,14 @@ export default function UploadSignedPVPage() {
         <p className="text-sm text-[#71717A]">
           {t("step5Description")}
         </p>
+
+        {/* Error banner */}
+        {uploadError && (
+          <div className="mt-6 rounded-md border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-400">{uploadError}</p>
+          </div>
+        )}
 
         {/* Success state */}
         {uploaded && (
