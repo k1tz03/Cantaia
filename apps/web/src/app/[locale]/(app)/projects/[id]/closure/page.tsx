@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
@@ -37,8 +37,12 @@ export default function ProjectClosurePage() {
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiveReady, setArchiveReady] = useState(false);
 
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
   const { project, loading: projectLoading } = useProject(projectId);
+
+  // Cache-bust param from reception page navigation (forces fresh fetch)
+  const refreshTrigger = searchParams.get("t") || "";
 
   // Real data from Supabase
   const [tasks, setTasks] = useState<{ id: string; status: string }[]>([]);
@@ -56,7 +60,11 @@ export default function ProjectClosurePage() {
     setFetchError(null);
     try {
       // Use server-side API route (admin client, bypasses RLS, handles missing tables)
-      const res = await fetch(`/api/projects/${projectId}/closure/data`);
+      // Add cache-busting to prevent stale responses
+      const cacheBust = refreshTrigger || Date.now();
+      const res = await fetch(`/api/projects/${projectId}/closure/data?_=${cacheBust}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         if (res.status === 401) {
           console.warn("[Closure] Unauthorized — redirecting to login");
@@ -65,6 +73,11 @@ export default function ProjectClosurePage() {
         throw new Error(`API returned ${res.status}`);
       }
       const data = await res.json();
+
+      console.log("[Closure] Fetched data:", {
+        reception: data.reception ? { id: data.reception.id, pv_document_url: data.reception.pv_document_url } : null,
+        _meta: data._meta,
+      });
 
       setTasks(data.tasks || []);
       setMeetings(data.meetings || []);
@@ -77,7 +90,7 @@ export default function ProjectClosurePage() {
     } finally {
       setDataLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, refreshTrigger]);
 
   useEffect(() => {
     fetchClosureData();

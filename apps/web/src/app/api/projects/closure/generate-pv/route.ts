@@ -544,13 +544,32 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (profile?.organization_id) {
-        // Upload DOCX to storage
+        // Upload DOCX to storage — check for errors
         const storagePath = `closure/${profile.organization_id}/${body.project_id}/${fileName}`;
-        await admin.storage.from("audio").upload(storagePath, uint8, {
+        const { error: uploadError } = await admin.storage.from("audio").upload(storagePath, uint8, {
           contentType:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           upsert: true,
         });
+
+        if (uploadError) {
+          console.error("[ClosureGeneratePV] Storage upload failed:", uploadError.message);
+          // Try alternative path without orgId subfolder
+          const altPath = `closure/${body.project_id}/${fileName}`;
+          const { error: altError } = await admin.storage.from("audio").upload(altPath, uint8, {
+            contentType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            upsert: true,
+          });
+          if (altError) {
+            console.error("[ClosureGeneratePV] Alt storage upload also failed:", altError.message);
+          } else {
+            console.log("[ClosureGeneratePV] Alt storage upload succeeded at:", altPath);
+          }
+        } else {
+          console.log("[ClosureGeneratePV] Storage upload succeeded at:", storagePath);
+        }
+
         const { data: urlData } = admin.storage
           .from("audio")
           .getPublicUrl(storagePath);
@@ -608,7 +627,7 @@ export async function POST(request: NextRequest) {
       dbSaveError = dbErr?.message || "Unknown DB error";
     }
 
-    // Return DOCX file with a custom header indicating DB save status
+    // Return DOCX file with custom headers indicating save status
     const response = new NextResponse(uint8, {
       status: 200,
       headers: {
@@ -616,6 +635,12 @@ export async function POST(request: NextRequest) {
         "Content-Disposition": `attachment; filename="${fileName}"`,
         "X-DB-Save-Status": dbSaveSuccess ? "ok" : "failed",
         "X-DB-Save-Error": dbSaveError || "",
+        "X-Reception-Data": JSON.stringify({
+          project_id: body.project_id,
+          reception_type: body.reception_type || "provisional",
+          reception_date: body.reception_date,
+          db_saved: dbSaveSuccess,
+        }),
       },
     });
     return response;

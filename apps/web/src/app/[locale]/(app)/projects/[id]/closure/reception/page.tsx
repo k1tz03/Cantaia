@@ -170,18 +170,34 @@ export default function ReceptionFormPage() {
       });
 
       if (response.ok) {
+        // Read headers BEFORE consuming body
+        const dbStatus = response.headers.get("X-DB-Save-Status");
+
         const blob = await response.blob();
         const { saveFileWithDialog } = await import("@/lib/tauri");
         await saveFileWithDialog(`PVR-${project.code || "PROJ"}-001.docx`, blob);
 
-        // Check if DB save succeeded (header from API)
-        const dbStatus = response.headers.get("X-DB-Save-Status");
-        if (dbStatus === "failed") {
-          console.warn("[Reception] PV generated but DB save failed — Storage fallback will be used");
+        // If the generate-pv route failed to save to DB, try a secondary save
+        // via the closure/data API endpoint (belt-and-suspenders approach)
+        if (dbStatus !== "ok") {
+          console.warn("[Reception] DB save failed in generate-pv — attempting secondary save via closure/data API");
+          try {
+            await fetch(`/api/projects/${project.id}/closure/data`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "ensure-reception",
+                reception_type: receptionType,
+                reception_date: receptionDate,
+              }),
+            });
+          } catch (e) {
+            console.warn("[Reception] Secondary save also failed:", e);
+          }
         }
 
-        // Navigate back to closure page
-        router.push(`/projects/${project.id}/closure`);
+        // Navigate back to closure page with cache-bust param
+        router.push(`/projects/${project.id}/closure?t=${Date.now()}`);
       } else {
         setGenerateError("Erreur lors de la génération du PV");
       }

@@ -175,16 +175,20 @@ export async function GET(
     }
 
     // FALLBACK: If table doesn't exist OR no record found, check Supabase Storage
+    let storageBasedFallbackUsed = false;
     if (!reception) {
       console.log(
-        "[ClosureData] No reception in DB, checking Storage fallback..."
+        "[ClosureData] No reception in DB (tableExists:", receptionTableExists, "), checking Storage fallback for orgId:", orgId, "projectId:", projectId
       );
       reception = await getReceptionFromStorage(admin, orgId, projectId);
       if (reception) {
         console.log(
           "[ClosureData] Found reception files in Storage:",
-          reception.status
+          reception.status, "pv_document_url:", reception.pv_document_url
         );
+        storageBasedFallbackUsed = true;
+      } else {
+        console.warn("[ClosureData] Storage fallback found NO files either");
       }
     }
 
@@ -216,7 +220,11 @@ export async function GET(
       closureDocs,
       _meta: {
         receptionTableExists,
-        storageBasedFallback: !receptionTableExists && !!reception,
+        storageBasedFallback: storageBasedFallbackUsed,
+        hasReception: !!reception,
+        receptionSource: reception
+          ? (storageBasedFallbackUsed ? "storage" : "database")
+          : "none",
       },
     });
   } catch (error) {
@@ -330,6 +338,53 @@ export async function POST(
 
       // The upload was already done client-side to Storage.
       // Even if DB save fails, Storage has the file.
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "ensure-reception") {
+      // Secondary save: create a minimal reception record if none exists
+      // This is a fallback when generate-pv's DB save failed
+      const { reception_type, reception_date } = body;
+
+      // First check if a record already exists
+      let hasExisting = false;
+      try {
+        const { data: existing } = await (admin as any)
+          .from("project_receptions")
+          .select("id")
+          .eq("project_id", projectId)
+          .limit(1)
+          .maybeSingle();
+        hasExisting = !!existing;
+      } catch {
+        // Table might not exist
+      }
+
+      if (!hasExisting) {
+        // Try to create a minimal record
+        try {
+          const { error: insertErr } = await (admin as any)
+            .from("project_receptions")
+            .insert({
+              project_id: projectId,
+              organization_id: profile.organization_id,
+              reception_type: reception_type || "provisional",
+              reception_date: reception_date || new Date().toISOString().split("T")[0],
+              status: "completed",
+              pv_document_url: `closure/${profile.organization_id}/${projectId}/PVR-generated.docx`,
+            });
+
+          if (insertErr) {
+            console.warn("[ClosureData] ensure-reception insert failed:", insertErr.message);
+            // Table might not exist — that's OK, Storage fallback will handle it
+          } else {
+            console.log("[ClosureData] ensure-reception: created reception record");
+          }
+        } catch (err) {
+          console.warn("[ClosureData] ensure-reception exception:", err);
+        }
+      }
+
       return NextResponse.json({ success: true });
     }
 
