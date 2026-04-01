@@ -590,7 +590,7 @@ export async function POST(
 
     const fileName = `${archivePrefix}.zip`;
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
