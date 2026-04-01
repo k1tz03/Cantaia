@@ -544,6 +544,18 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (profile?.organization_id) {
+        // Ensure the "audio" bucket exists (auto-create if missing)
+        try {
+          const { data: buckets } = await admin.storage.listBuckets();
+          const bucketExists = buckets?.some((b: { name: string }) => b.name === "audio");
+          if (!bucketExists) {
+            console.log("[GeneratePV] Creating missing 'audio' bucket");
+            await admin.storage.createBucket("audio", { public: true });
+          }
+        } catch (bucketErr) {
+          console.warn("[GeneratePV] Bucket check/create failed:", bucketErr);
+        }
+
         // Upload DOCX to storage — check for errors
         const storagePath = `closure/${profile.organization_id}/${body.project_id}/${fileName}`;
         const { error: uploadError } = await admin.storage.from("audio").upload(storagePath, uint8, {

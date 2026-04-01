@@ -174,12 +174,11 @@ export default function UploadSignedPVPage() {
       // Compress image client-side to fit under Vercel's 4.5MB body limit
       const { base64, type } = await compressImage(file);
 
-      // Upload via server-side API (admin client bypasses Storage policies)
-      const res = await fetch(`/api/projects/${projectId}/closure/data`, {
+      // Upload via dedicated route (admin client bypasses Storage policies)
+      const res = await fetch(`/api/projects/${projectId}/closure/upload-file`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "upload-signed-base64",
           file_base64: base64,
           filename: file.name,
           content_type: type,

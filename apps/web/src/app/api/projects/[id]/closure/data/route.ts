@@ -298,6 +298,18 @@ export async function POST(
       const safeName = (filename || "signed.jpg").replace(/[^a-zA-Z0-9._-]/g, "_");
       const storagePath = `closure/${profile.organization_id}/${projectId}/signed_${Date.now()}_${safeName}`;
 
+      // Ensure the "audio" bucket exists (auto-create if missing)
+      try {
+        const { data: buckets } = await admin.storage.listBuckets();
+        const bucketExists = buckets?.some((b: { name: string }) => b.name === "audio");
+        if (!bucketExists) {
+          console.log("[ClosureData] Creating missing 'audio' bucket");
+          await admin.storage.createBucket("audio", { public: true });
+        }
+      } catch (bucketErr) {
+        console.warn("[ClosureData] Bucket check/create failed:", bucketErr);
+      }
+
       const { error: uploadErr } = await admin.storage
         .from("audio")
         .upload(storagePath, buffer, {
