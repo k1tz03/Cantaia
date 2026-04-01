@@ -630,7 +630,14 @@ export default function ProjectPlanningPage() {
   // Export PDF
   const handleExportPdf = async () => {
     if (!planningId) return;
-    window.open(`/api/planning/${planningId}/export-pdf`, "_blank");
+    try {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile(`/api/planning/${planningId}/export-pdf`, {
+        fallbackFilename: `Planning_${planningId}.pdf`,
+      });
+    } catch (err) {
+      console.error("Planning PDF export failed:", err);
+    }
   };
 
   // Share link

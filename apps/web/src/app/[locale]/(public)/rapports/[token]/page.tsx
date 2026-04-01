@@ -132,29 +132,17 @@ export default function PublicSiteReportsPage() {
   async function handleExport(format: "xlsx" | "pdf") {
     setExporting(true);
     try {
-      const res = await fetch(`/api/site-reports/public/${token}/export`, {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile(`/api/site-reports/public/${token}/export`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           format,
           type: activeTab,
           week_start: weekStart,
           project_id: projectFilter || undefined,
-        }),
+        },
+        fallbackFilename: `export.${format}`,
       });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download =
-          res.headers
-            .get("Content-Disposition")
-            ?.split("filename=")[1]
-            ?.replace(/"/g, "") || `export.${format}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
     } catch {
       /* ignore */
     } finally {

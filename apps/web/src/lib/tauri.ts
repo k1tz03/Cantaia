@@ -54,6 +54,61 @@ export async function saveFileWithDialog(
   }, 100);
 }
 
+// ─── Export de fichier (fetch + save) ────────────────────────────────────────
+
+/**
+ * Télécharge un fichier depuis une route API et le sauvegarde.
+ * Fonctionne dans le navigateur (download classique) et dans l'app Tauri (dialog natif).
+ *
+ * Remplace les patterns `window.open()` et `fetch → blob → <a>.click()` qui ne
+ * fonctionnent pas correctement dans la WebView Tauri.
+ *
+ * @example
+ * // GET (ex: PDF export)
+ * await exportFile(`/api/pv/${id}/export-pdf`, { fallbackFilename: "pv.pdf" });
+ *
+ * // POST (ex: DOCX export)
+ * await exportFile("/api/visits/export-report", {
+ *   method: "POST",
+ *   body: { visit_id: "xxx" },
+ *   fallbackFilename: "rapport.docx",
+ * });
+ */
+export async function exportFile(
+  url: string,
+  options?: {
+    method?: "GET" | "POST";
+    body?: unknown;
+    fallbackFilename?: string;
+  },
+): Promise<void> {
+  const {
+    method = "GET",
+    body,
+    fallbackFilename = "export.pdf",
+  } = options || {};
+
+  const fetchOptions: RequestInit = { method };
+  if (body) {
+    fetchOptions.headers = { "Content-Type": "application/json" };
+    fetchOptions.body = JSON.stringify(body);
+  }
+
+  const res = await fetch(url, fetchOptions);
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status} ${res.statusText}`);
+  }
+
+  const blob = await res.blob();
+
+  // Extract filename from Content-Disposition header if available
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
+  const filename = filenameMatch?.[1]?.trim() || fallbackFilename;
+
+  await saveFileWithDialog(filename, blob);
+}
+
 // ─── Notifications système ────────────────────────────────────────────────────
 
 /**

@@ -137,7 +137,14 @@ export function usePVContent(id: string) {
 
   const handleExportPDF = async (savedLabel: string) => {
     await handleSave(savedLabel);
-    window.open(`/api/pv/${id}/export-pdf`, "_blank");
+    try {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile(`/api/pv/${id}/export-pdf`, {
+        fallbackFilename: `PV_Seance_${pvContent?.meeting_number || ""}.pdf`,
+      });
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    }
   };
 
   const handleDeletePv = async (onDeleted: () => void) => {

@@ -66,23 +66,12 @@ export default function VisitDetailPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      const res = await fetch("/api/visits/export-report", {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile("/api/visits/export-report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visit_id: visitId }),
+        body: { visit_id: visitId },
+        fallbackFilename: `rapport-visite-${visitId}.docx`,
       });
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const disposition = res.headers.get("Content-Disposition") || "";
-      const match = disposition.match(/filename="(.+)"/);
-      a.download = match?.[1] || `rapport-visite-${visitId}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
       // Reload to show updated report_pdf_url
       loadVisit();
     } catch (err) {

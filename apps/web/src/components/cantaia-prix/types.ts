@@ -85,12 +85,9 @@ export function exportCSV(items: EstimateLineItem[], totals: { subtotal: number;
   const summary = `\n\nSous-total;;;;;;${totals.subtotal.toFixed(2)}\nMarge;;;;;;${totals.margin.toFixed(2)}\nTransport;;;;;;${totals.transport.toFixed(2)}\nTotal estimé;;;;;;${totals.grand.toFixed(2)}`;
   const csv = header + rows + summary;
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `cantaia-estimation-${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  import("@/lib/tauri").then(({ saveFileWithDialog }) =>
+    saveFileWithDialog(`cantaia-estimation-${new Date().toISOString().split("T")[0]}.csv`, blob)
+  );
 }
 
 export const MARGIN_OPTIONS = [

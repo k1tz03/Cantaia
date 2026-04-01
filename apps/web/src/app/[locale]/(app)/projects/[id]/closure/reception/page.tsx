@@ -169,12 +169,8 @@ export default function ReceptionFormPage() {
 
       if (response.ok) {
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `PVR-${project.code || "PROJ"}-001.docx`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        const { saveFileWithDialog } = await import("@/lib/tauri");
+        await saveFileWithDialog(`PVR-${project.code || "PROJ"}-001.docx`, blob);
 
         // Navigate back to closure page
         router.push(`/projects/${project.id}/closure`);

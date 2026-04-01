@@ -165,12 +165,9 @@ export default function AIRoundtablePage() {
     ].join("\n");
 
     const blob = new Blob([md], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cantaia-roundtable-${new Date().toISOString().split("T")[0]}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    import("@/lib/tauri").then(({ saveFileWithDialog }) =>
+      saveFileWithDialog(`cantaia-roundtable-${new Date().toISOString().split("T")[0]}.md`, blob)
+    );
   }
 
   // Group messages by round for display

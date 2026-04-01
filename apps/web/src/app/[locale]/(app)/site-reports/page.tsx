@@ -153,25 +153,17 @@ export default function SiteReportsPage() {
     setExporting(true);
     try {
       const endpoint = activeTab === "hours" ? "/api/site-reports/export-hours" : "/api/site-reports/export-notes";
-      const res = await fetch(endpoint, {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           format,
           week_start: weekStart,
           project_id: projectFilter || undefined,
           supplier: supplierFilter || undefined,
-        }),
+        },
+        fallbackFilename: `export.${format}`,
       });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = res.headers.get("Content-Disposition")?.split("filename=")[1]?.replace(/"/g, "") || `export.${format}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
     } catch { /* ignore */ } finally {
       setExporting(false);
     }

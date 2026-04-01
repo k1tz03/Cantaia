@@ -282,19 +282,14 @@ export function SubmissionEditor({
         if (!res.ok) throw new Error("Export failed");
 
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
         const extensions: Record<string, string> = {
           xlsx: "xlsx",
           csv: "csv",
           sia451: "01s",
         };
-        a.download = `soumission_${Date.now()}.${extensions[format]}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const filename = `soumission_${Date.now()}.${extensions[format]}`;
+        const { saveFileWithDialog } = await import("@/lib/tauri");
+        await saveFileWithDialog(filename, blob);
 
         // Mark as exported
         const updatedSub: SavedSubmission = {

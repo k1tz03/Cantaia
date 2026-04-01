@@ -19,7 +19,7 @@
 |---------|-------------|--------|
 | **Cantaia Soumissions** | Gestion des soumissions, appels d'offres, comparaison fournisseurs | ACTIF |
 | **Cantaia Mail** | Sync Outlook en temps réel + classification IA des emails par projet | ACTIF |
-| **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | ACTIF (Chiffrage IA désactivé) |
+| **Cantaia Prix** | Intelligence prix (chiffrage IA, import prix, analyse, historique) | MASQUÉ (retiré de la sidebar 2026-03-31, API toujours fonctionnelle) |
 | **Cantaia PV** | Procès-verbaux de chantier | GREYED OUT (teaser) |
 | **Plans** | Registre de plans + estimation multi-modèle | ACTIF (Estimation désactivée) |
 | **Portail Chef d'Equipe** | Rapports journaliers, accès PIN, 4 onglets mobile-first | ACTIF |
@@ -346,7 +346,7 @@ ADMIN_SECRET_KEY
 | Route | Méthode | Description |
 |-------|---------|-------------|
 | `/api/auth/callback` | GET | OAuth callback — 5 niveaux de résolution d'org, stockage tokens, migration utilisateur, redirect vers onboarding si premier login |
-| `/api/auth/microsoft-connect` | GET | Direct Microsoft OAuth flow (bypasse Supabase PKCE qui ne retourne pas `provider_token`). Utilisé par Settings > Intégrations pour "Connecter Microsoft 365". Échange le code directement avec Microsoft, stocke tokens dans `users` + `email_connections`, redirige vers `/settings?tab=outlook&connected=email` |
+| `/api/auth/microsoft-connect` | GET | Direct Microsoft OAuth flow (bypasse Supabase PKCE qui ne retourne pas `provider_token`). Scopes: `Mail.Read Mail.ReadWrite Mail.Send User.Read People.Read Contacts.Read` (+ openid/email/profile/offline_access). Utilisé par Settings > Intégrations pour "Connecter Microsoft 365". Échange le code directement avec Microsoft, stocke tokens dans `users` + `email_connections`, redirige vers `/settings?tab=outlook&connected=email` |
 
 ### Email Sync & Classification
 | Route | Méthode | Description |
@@ -363,7 +363,8 @@ ADMIN_SECRET_KEY
 | `/api/email/sync/cron` | POST | Sync cron planifié |
 | `/api/email/folders` | GET/POST | Dossiers email / créer dossier |
 | `/api/email/thread` | GET | Thread email |
-| `/api/email/send` | POST | Envoyer email |
+| `/api/email/send` | POST | Envoyer email (JSON ou FormData avec pièces jointes). Attachments via Graph inline base64 `#microsoft.graph.fileAttachment` (max 10MB/fichier, 25MB total) |
+| `/api/email/contacts` | GET | Autocomplete contacts — 3 stratégies : People API → Messages search → Contacts API, puis org members, suppliers, DB senders. Param `q` (min 2 chars), retourne 15 résultats max |
 
 ### Email (Legacy + Extensions)
 | Route | Méthode | Description |
@@ -770,7 +771,7 @@ Structure : `apps/web/src/app/[locale]/(group)/path/page.tsx`
 ### `apps/web/src/components/` (27 dossiers, 160+ fichiers)
 
 #### App Core (`app/`, 10 fichiers)
-- `Sidebar.tsx` — Navigation latérale principale (collapsible, groupes projets, liens produits, badges support/unread)
+- `Sidebar.tsx` — Navigation latérale principale (collapsible via Ctrl+B / ⌘+B, localStorage `cantaia_sidebar_collapsed`, groupes projets, liens produits, badges support/unread, initiales avatar quand réduit)
 - `EmailDetailPanel.tsx` — Détail email complet (corps, PJ, réponse IA, tâches, classification)
 - `OnboardingGuard.tsx` / `OnboardingChecklist.tsx` — Onboarding
 - `ComingSoonProduct.tsx` — Page teaser produit (Cantaia PV)
@@ -1083,6 +1084,8 @@ Pipeline 4 passes multi-modèle :
 
 ### Auth & Tokens Microsoft
 - `getValidMicrosoftToken(userId)` — Fonction centrale, lit `email_connections` PUIS `users`, refresh met à jour LES DEUX tables
+- **GOTCHA** : `getValidMicrosoftToken()` retourne `{ accessToken: string }` OU `{ error: string }` — **PAS une string**. Toujours vérifier `!("error" in tokenResult)` puis utiliser `tokenResult.accessToken`
+- **Scopes OAuth** : `openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read People.Read Contacts.Read` — définis dans `microsoft-connect/route.ts` ET `microsoft-provider.ts` (refresh). `People.Read`+`Contacts.Read` ajoutés 2026-04-01
 - `syncViaProvider()` dans `outlook/sync/route.ts` — Met aussi à jour les deux tables
 - Tokens chiffrés AES-256-GCM si `MICROSOFT_TOKEN_ENCRYPTION_KEY` est défini
 - `safeEncrypt()`/`safeDecrypt()` avec fallback gracieux
@@ -1157,9 +1160,9 @@ pnpm clean
 
 ---
 
-## 13. État Actuel (Mars 2026)
+## 13. État Actuel (Avril 2026)
 
-- **Build** : ~90 pages, ~190 routes API, 0 erreurs
+- **Build** : ~90 pages, ~195 routes API, 0 erreurs
 - **Migrations** : 001-062 (62 fichiers SQL)
 - **Composants** : 160+ fichiers dans 27 dossiers
 - **Core** : ~95 fichiers TypeScript
@@ -1191,7 +1194,9 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 - Thread : `GET /api/mail/emails/[id]/thread` → Graph conversationId → jusqu'à 50 messages
 - Backfill on-demand : si body_html/body_text manquants, fetch depuis Graph et sauvegarde en DB
 - Réponse IA : ReplyModal envoie `thread_context` (messages du thread) à `/api/ai/generate-reply`
-- Envoi email : `/api/email/send` (reply, forward, new) avec auto-refresh tokens
+- Envoi email : `/api/email/send` (reply, forward, new) avec auto-refresh tokens — supporte JSON ou FormData avec pièces jointes
+- Compose modal : ComposeModal avec autocomplete contacts Outlook (`/api/email/contacts`), pièces jointes (Paperclip + file chips), destinataires multiples (to/cc/bcc)
+- Images inline : résolution `cid:` en data URIs base64 côté serveur + pixel transparent fallback côté client
 - EmailContext reste utilisé par Sidebar (badge unread) et Dashboard
 
 ### Refonte Admin & Super-Admin (2026-03-19)
@@ -1264,6 +1269,19 @@ Config source : `packages/config/src/plan-features.ts`
 | SUB.FIX2 | Soumissions analyze | Excel text extraction bloated — colonnes vides, lignes vides, données inutiles envoyées à Claude | Filtrage colonnes <20% remplissage, suppression lignes vides, trim trailing empty cells |
 | SUB.FIX3 | Soumissions analyze | Pas de chunking — documents >40K chars tronqués, perte de postes | Chunking par 80K chars (~20K tokens) avec traitement séquentiel et merge des résultats |
 | SUB.FIX4 | Soumissions client | Polling timeout client 90s trop court pour le nouveau timeout serveur | Polling timeout 90s→180s |
+
+### Corrigés (2026-03-31 → 2026-04-01)
+
+| ID | Module | Description | Fix |
+|----|--------|-------------|-----|
+| MAIL.FIX9 | Mail page | Crash lors du clic sur notification sync bulk — `emailId=bulk-*` n'est pas un vrai record en DB | Toast bulk navigue vers `/mail` sans emailId ; mail page nettoie l'URL si emailId commence par `bulk-` |
+| MAIL.FIX10 | Mail inline images | Images `cid:` non affichées dans les emails (au-delà des threads) — refs non résolues côté client | Serveur : élargir filtre attachment (isInline OR contentId) + fallback filename ; client : remplacer `cid:` non résolues par pixel transparent, proxy route pour images cross-origin |
+| MAIL.FIX11 | Mail contacts | Autocomplete contacts ne retourne jamais de contacts Outlook — `getValidMicrosoftToken()` utilisé comme string au lieu d'objet + scope `People.Read` absent | Destructurer `tokenResult.accessToken`, implémenter 3 stratégies (People API → Messages search → Contacts API), ajouter scopes `People.Read Contacts.Read` à OAuth |
+| EMAIL.FIX5 | Compose modal | Pas de support pièces jointes dans le compose email | Ajouté bouton paperclip + file chips (max 10MB/fichier, 25MB total), envoi FormData multipart, `microsoft-provider.ts` crée `#microsoft.graph.fileAttachment` en base64 |
+| NAV.FIX7 | Sidebar | Cantaia Prix toujours visible dans la sidebar alors que le produit est masqué | Suppression complète du lien de la sidebar (desktop + mobile) |
+| SIDEBAR.FIX1 | Sidebar | Bouton collapse invisible — `h-screen` + `overflow-hidden` cachait les derniers 48px | Remplacé `h-screen` par `h-full` |
+| SIDEBAR.FIX2 | Sidebar | Pas de raccourci clavier pour collapse/expand sidebar | Ajouté `Ctrl+B` / `⌘+B` avec persistence localStorage `cantaia_sidebar_collapsed`, initiales avatar quand réduit |
+| DASH.FIX1 | Direction stats | Crash `toFixed is not a function` sur la page direction — API retournait objet imbriqué au lieu de plat | Aplati la réponse API `direction/stats` pour que `marginAvg` soit un number direct |
 
 ### Corrigés — Audit Sécurité (2026-03-12)
 
@@ -2428,7 +2446,7 @@ Dossier `.superpowers/design-preview/` contient les maquettes HTML de référenc
 
 ---
 
-## 27. TODO Techniques (Mars 2026 — mis à jour)
+## 27. TODO Techniques (Avril 2026 — mis à jour)
 
 ### Priorité haute
 1. ~~Appliquer migrations 059-062~~ → script `apply_all_missing.sql`
@@ -2437,16 +2455,69 @@ Dossier `.superpowers/design-preview/` contient les maquettes HTML de référenc
 4. Implémenter rate limiting routes IA (`@upstash/ratelimit`) — SEC2.NC1
 5. Migrer bucket "plans" public → privé + signed URLs — SEC2.NC3
 6. Définir `MICROSOFT_TOKEN_ENCRYPTION_KEY` en production — SEC2.NC4
+7. Reconnecter Microsoft OAuth pour obtenir les scopes `People.Read` + `Contacts.Read` (meilleur autocomplete contacts)
 
 ### Priorité moyenne
-7. Pricing landing : décider prix finaux et démasquer `PricingSection`
-8. Finir les rewrites structurels : Planning (Gantt), Submissions, Tasks
-9. Landing : remplacer le mockup Dashboard HTML par une vraie capture d'écran
-10. Ajouter vidéo Gemini haute qualité (15s+, prompt amélioré)
-11. Générer images Banana Pro et intégrer
+8. Pricing landing : décider prix finaux et démasquer `PricingSection`
+9. Finir les rewrites structurels : Planning (Gantt), Submissions, Tasks
+10. Landing : remplacer le mockup Dashboard HTML par une vraie capture d'écran
+11. Ajouter vidéo Gemini haute qualité (15s+, prompt amélioré)
+12. Générer images Banana Pro et intégrer
+13. Réactiver Cantaia Prix dans la sidebar quand les estimations sont fiables
 
 ### Priorité basse
-12. PWA : icônes 192x192 et 512x512 pour manifest
-13. Landing : ajouter section témoignages quand premiers clients
-14. Landing : animer les chiffres (CountUp) dans ProofSection
-15. DNS : configurer cantaia.com, cantaia.app, cantaia.ch → redirect cantaia.io
+14. PWA : icônes 192x192 et 512x512 pour manifest
+15. Landing : ajouter section témoignages quand premiers clients
+16. Landing : animer les chiffres (CountUp) dans ProofSection
+17. DNS : configurer cantaia.com, cantaia.app, cantaia.ch → redirect cantaia.io
+
+---
+
+## 28. Session 2026-03-31 → 2026-04-01 — Mail UX & Contact Autocomplete
+
+### 28.1 Compose Email avec Pièces Jointes
+
+Implémentation full-stack de l'envoi d'emails avec pièces jointes depuis le compose modal.
+
+#### Architecture
+- **Client** (`mail/page.tsx`) : bouton Paperclip + `<input type="file" multiple>`, chips preview avec taille formatée, validation 10MB/fichier, envoi `FormData`
+- **API** (`/api/email/send`) : détection auto `Content-Type` (FormData vs JSON), extraction `File` → `Buffer`, validation 25MB total, backward-compatible JSON
+- **Provider** (`microsoft-provider.ts`) : `sendEmail()` inclut `message.attachments[]` avec `@odata.type: "#microsoft.graph.fileAttachment"`, conversion `Buffer.toString("base64")`
+- **Interface** (`email-provider.interface.ts`) : `EmailDraft.attachments` déjà défini : `Array<{ filename, content: Buffer | string, contentType }>`
+
+#### Limites
+- 10 MB par fichier (côté client)
+- 25 MB total (côté serveur, limite Graph API pour inline attachments)
+- Pour fichiers >4MB, Graph recommande un upload session (non implémenté)
+
+### 28.2 Contact Autocomplete Outlook — 3 Stratégies
+
+Réécriture complète de `/api/email/contacts` pour prioriser les contacts Outlook.
+
+#### Architecture 3 stratégies (cascading fallback)
+1. **Strategy A** : People API (`/me/people?$search=`) — meilleure qualité (ranking par fréquence de communication), requiert `People.Read` scope
+2. **Strategy B** : Messages search (`/me/messages?$search=`) — **toujours fonctionne** avec `Mail.Read`, extrait contacts depuis from/to/cc des 50 derniers messages correspondants
+3. **Strategy C** : Contacts API (`/me/contacts?$filter=`) — contacts Outlook explicites, requiert `Contacts.Read` scope
+
+Puis fallback DB : org members → suppliers → recent senders (si Graph indisponible).
+
+#### Scopes OAuth mis à jour
+- `People.Read` + `Contacts.Read` ajoutés dans `microsoft-connect/route.ts` (connexion initiale) et `microsoft-provider.ts` (token refresh)
+- Les utilisateurs existants doivent **reconnecter** Microsoft pour obtenir les nouveaux scopes
+- En attendant, Strategy B (Messages search) fonctionne avec les scopes existants
+
+### 28.3 Résolution Images Inline (cid:)
+
+Fix multi-couche pour les images embarquées dans les emails HTML.
+
+#### Couches
+1. **Serveur** (`/api/mail/emails/[id]/thread`) : résout `cid:xxx` en `data:image/...;base64,...` via Graph attachments API (filtre élargi : `isInline` OR `contentId` non-vide + fallback filename matching)
+2. **Client** (`mail/page.tsx`) : remplace `cid:` non résolues par pixel transparent + proxy route pour images cross-origin bloquées par CSP
+3. **CSP** (`next.config.ts`) : `img-src` inclut `data:` et les domaines Graph/Outlook
+
+### 28.4 Sidebar Collapsible (Ctrl+B)
+
+- Raccourci clavier `Ctrl+B` / `⌘+B` pour toggle collapse
+- État persisté dans `localStorage` clé `cantaia_sidebar_collapsed`
+- Mode réduit : initiales avatar, icônes sans labels, tooltips au survol
+- Fix `h-screen` → `h-full` pour que le bouton collapse soit visible
