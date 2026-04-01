@@ -42,6 +42,7 @@ export default function ReceptionFormPage() {
     name: "", role: "", company: "", present: true, signed: false,
   });
   const [initialized, setInitialized] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Initialize state values that depend on loaded project
   useEffect(() => {
@@ -144,8 +145,6 @@ export default function ReceptionFormPage() {
     updated[lotIndex].reserves = updated[lotIndex].reserves.filter((_, i) => i !== reserveIndex);
     setLots(updated);
   };
-
-  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     setGenerating(true);
