@@ -101,55 +101,96 @@ export default function UploadSignedPVPage() {
     );
   }
 
+  // Compress image to fit under Vercel's 4.5MB body limit
+  // Base64 adds ~33% overhead, so we target ~2.5MB max image size
+  const compressImage = (f: File): Promise<{ base64: string; type: string }> => {
+    return new Promise((resolve, reject) => {
+      if (!f.type.startsWith("image/")) {
+        // Non-image (PDF): read as base64 directly
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          resolve({ base64, type: f.type });
+        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(f);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        // Scale down large images
+        const maxDim = 1600;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas not supported")); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try progressively lower quality until under 2.5MB
+        let quality = 0.85;
+        const tryCompress = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) { reject(new Error("Compression failed")); return; }
+              if (blob.size > 2.5 * 1024 * 1024 && quality > 0.3) {
+                quality -= 0.15;
+                tryCompress();
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = (reader.result as string).split(",")[1];
+                resolve({ base64, type: "image/jpeg" });
+              };
+              reader.readAsDataURL(blob);
+            },
+            "image/jpeg",
+            quality
+          );
+        };
+        tryCompress();
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = URL.createObjectURL(f);
+    });
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
     setUploadError(null);
 
     try {
-      // Step 1: Get a signed upload URL from the server (admin client, bypasses policies)
-      const urlRes = await fetch(`/api/projects/${projectId}/closure/data`, {
+      // Compress image client-side to fit under Vercel's 4.5MB body limit
+      const { base64, type } = await compressImage(file);
+
+      // Upload via server-side API (admin client bypasses Storage policies)
+      const res = await fetch(`/api/projects/${projectId}/closure/data`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "get-upload-url",
+          action: "upload-signed-base64",
+          file_base64: base64,
           filename: file.name,
-        }),
-      });
-
-      if (!urlRes.ok) {
-        const errData = await urlRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Erreur serveur: ${urlRes.status}`);
-      }
-
-      const { upload_url, storage_path } = await urlRes.json();
-
-      // Step 2: Upload directly to Supabase Storage using the signed URL
-      // This bypasses the Vercel 4.5MB body size limit
-      const uploadRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error(`Upload échoué: ${uploadRes.status} ${uploadRes.statusText}`);
-      }
-
-      // Step 3: Get public URL and notify server to save in DB
-      // Construct the public URL from the storage path
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/audio/${storage_path}`;
-
-      await fetch(`/api/projects/${projectId}/closure/data`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "upload-signed",
-          signed_url: publicUrl,
+          content_type: type,
           reception_id: receptionId,
         }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Erreur serveur: ${res.status}`);
+      }
 
       // Save localStorage marker for signed PV (fallback if DB save failed)
       try {

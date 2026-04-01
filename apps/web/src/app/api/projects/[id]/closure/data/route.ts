@@ -284,30 +284,63 @@ export async function POST(
     const body = await request.json();
     const { action } = body;
 
-    if (action === "get-upload-url") {
-      // Generate a signed upload URL so the client can upload directly to Storage
-      // This bypasses the Vercel 4.5MB body size limit AND Storage policies
-      const { filename } = body as { filename: string };
-      const safeName = (filename || "signed.pdf").replace(/[^a-zA-Z0-9._-]/g, "_");
+    if (action === "upload-signed-base64") {
+      // Client sends compressed image as base64 (< 4MB after compression)
+      // Server uploads to Storage via admin client (bypasses policies)
+      const { file_base64, filename, content_type, reception_id } = body as {
+        file_base64: string;
+        filename: string;
+        content_type: string;
+        reception_id: string | null;
+      };
+
+      const buffer = Buffer.from(file_base64, "base64");
+      const safeName = (filename || "signed.jpg").replace(/[^a-zA-Z0-9._-]/g, "_");
       const storagePath = `closure/${profile.organization_id}/${projectId}/signed_${Date.now()}_${safeName}`;
 
-      const { data, error } = await admin.storage
+      const { error: uploadErr } = await admin.storage
         .from("audio")
-        .createSignedUploadUrl(storagePath);
+        .upload(storagePath, buffer, {
+          contentType: content_type || "image/jpeg",
+          upsert: true,
+        });
 
-      if (error || !data) {
-        console.error("[ClosureData] Failed to create signed upload URL:", error?.message);
+      if (uploadErr) {
+        console.error("[ClosureData] Storage upload failed:", uploadErr.message);
         return NextResponse.json(
-          { error: `Failed to create upload URL: ${error?.message || "unknown"}` },
+          { error: `Upload échoué: ${uploadErr.message}` },
           { status: 500 }
         );
       }
 
-      return NextResponse.json({
-        upload_url: data.signedUrl,
-        token: data.token,
-        storage_path: storagePath,
-      });
+      const { data: urlData } = admin.storage.from("audio").getPublicUrl(storagePath);
+      const signedUrl = urlData?.publicUrl || storagePath;
+
+      // Try DB save (non-fatal if table doesn't exist)
+      try {
+        if (reception_id && !reception_id.startsWith("storage-fallback-") && !reception_id.startsWith("local-fallback-")) {
+          await (admin as any)
+            .from("project_receptions")
+            .update({ pv_signed_url: signedUrl, pv_signed_at: new Date().toISOString(), status: "signed" })
+            .eq("id", reception_id);
+        } else {
+          await (admin as any)
+            .from("project_receptions")
+            .insert({
+              project_id: projectId,
+              organization_id: profile.organization_id,
+              reception_type: "provisional",
+              reception_date: new Date().toISOString().split("T")[0],
+              status: "signed",
+              pv_signed_url: signedUrl,
+              pv_signed_at: new Date().toISOString(),
+            });
+        }
+      } catch {
+        console.warn("[ClosureData] DB save for signed PV failed (table may not exist)");
+      }
+
+      return NextResponse.json({ success: true, signed_url: signedUrl });
     }
 
     if (action === "upload-signed") {
