@@ -532,7 +532,9 @@ export async function POST(request: NextRequest) {
 
     const fileName = `PVR-${body.project_code || "PROJ"}-001.docx`;
 
-    // ── Save reception record to DB (best-effort, non-blocking) ──
+    // ── Save reception record to DB ──
+    let dbSaveSuccess = false;
+    let dbSaveError = "";
     try {
       const admin = createAdminClient();
       const { data: profile } = await admin
@@ -561,13 +563,18 @@ export async function POST(request: NextRequest) {
         g5y.setFullYear(g5y.getFullYear() + 5);
 
         // Delete any existing reception for this project (regeneration)
-        await (admin as any)
+        const { error: deleteErr } = await (admin as any)
           .from("project_receptions")
           .delete()
           .eq("project_id", body.project_id);
 
+        if (deleteErr) {
+          console.warn("[ClosureGeneratePV] Delete old reception failed:", deleteErr.message);
+          // If table doesn't exist, this will fail — that's OK, we'll try insert anyway
+        }
+
         // Insert new reception record
-        await (admin as any).from("project_receptions").insert({
+        const { error: insertErr } = await (admin as any).from("project_receptions").insert({
           project_id: body.project_id,
           organization_id: profile.organization_id,
           reception_type: body.reception_type || "provisional",
@@ -583,23 +590,35 @@ export async function POST(request: NextRequest) {
           created_by: user.id,
         });
 
-        console.log(
-          "[ClosureGeneratePV] Reception record saved for project:",
-          body.project_id
-        );
+        if (insertErr) {
+          console.error("[ClosureGeneratePV] Insert reception failed:", insertErr.message, insertErr.details, insertErr.hint);
+          dbSaveError = insertErr.message;
+        } else {
+          dbSaveSuccess = true;
+          console.log(
+            "[ClosureGeneratePV] Reception record saved for project:",
+            body.project_id
+          );
+        }
+      } else {
+        dbSaveError = "User has no organization_id";
       }
-    } catch (dbErr) {
-      // Non-fatal: PV was generated and will be downloaded, DB save is best-effort
-      console.warn("[ClosureGeneratePV] DB save failed (non-fatal):", dbErr);
+    } catch (dbErr: any) {
+      console.error("[ClosureGeneratePV] DB save exception:", dbErr?.message || dbErr);
+      dbSaveError = dbErr?.message || "Unknown DB error";
     }
 
-    return new NextResponse(uint8, {
+    // Return DOCX file with a custom header indicating DB save status
+    const response = new NextResponse(uint8, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "Content-Disposition": `attachment; filename="${fileName}"`,
+        "X-DB-Save-Status": dbSaveSuccess ? "ok" : "failed",
+        "X-DB-Save-Error": dbSaveError || "",
       },
     });
+    return response;
   } catch (error) {
     console.error("[ClosureGeneratePV] Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

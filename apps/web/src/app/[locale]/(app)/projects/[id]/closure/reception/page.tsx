@@ -145,8 +145,11 @@ export default function ReceptionFormPage() {
     setLots(updated);
   };
 
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
   const handleGenerate = async () => {
     setGenerating(true);
+    setGenerateError(null);
     try {
       const response = await fetch("/api/projects/closure/generate-pv", {
         method: "POST",
@@ -172,11 +175,20 @@ export default function ReceptionFormPage() {
         const { saveFileWithDialog } = await import("@/lib/tauri");
         await saveFileWithDialog(`PVR-${project.code || "PROJ"}-001.docx`, blob);
 
+        // Check if DB save succeeded (header from API)
+        const dbStatus = response.headers.get("X-DB-Save-Status");
+        if (dbStatus === "failed") {
+          console.warn("[Reception] PV generated but DB save failed — Storage fallback will be used");
+        }
+
         // Navigate back to closure page
         router.push(`/projects/${project.id}/closure`);
+      } else {
+        setGenerateError("Erreur lors de la génération du PV");
       }
     } catch (error) {
       console.error("[Reception] Generation error:", error);
+      setGenerateError(error instanceof Error ? error.message : "Erreur inattendue");
     } finally {
       setGenerating(false);
     }
@@ -474,6 +486,14 @@ export default function ReceptionFormPage() {
             placeholder="Observations générales sur la réception..."
           />
         </div>
+
+        {/* Error banner */}
+        {generateError && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-400">{generateError}</p>
+          </div>
+        )}
 
         {/* Generate button */}
         <div className="border-t border-[#27272A] pt-6">

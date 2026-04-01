@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
-import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   CheckCircle,
@@ -49,32 +48,32 @@ export default function ProjectClosurePage() {
   const [closureDocs, setClosureDocs] = useState<{ id: string }[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const fetchClosureData = useCallback(async () => {
     if (!projectId) return;
     setDataLoading(true);
+    setFetchError(null);
     try {
-      const supabase = createClient();
+      // Use server-side API route (admin client, bypasses RLS, handles missing tables)
+      const res = await fetch(`/api/projects/${projectId}/closure/data`);
+      if (!res.ok) {
+        if (res.status === 401) {
+          console.warn("[Closure] Unauthorized — redirecting to login");
+          return;
+        }
+        throw new Error(`API returned ${res.status}`);
+      }
+      const data = await res.json();
 
-      const [tasksRes, meetingsRes, emailsRes, receptionRes, docsRes] = await Promise.all([
-        // Tasks for this project
-        supabase.from("tasks").select("id, status").eq("project_id", projectId),
-        // Meetings for this project
-        supabase.from("meetings").select("id, meeting_date, meeting_number, status").eq("project_id", projectId),
-        // Emails for this project
-        supabase.from("email_records").select("classification").eq("project_id", projectId),
-        // Reception record
-        (supabase as any).from("project_receptions").select("id, pv_document_url, pv_signed_url, status").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-        // Closure documents
-        (supabase as any).from("closure_documents").select("id").eq("project_id", projectId),
-      ]);
-
-      setTasks(tasksRes.data || []);
-      setMeetings(meetingsRes.data || []);
-      setProjectEmails(emailsRes.data || []);
-      setReception(receptionRes.data || null);
-      setClosureDocs(docsRes.data || []);
+      setTasks(data.tasks || []);
+      setMeetings(data.meetings || []);
+      setProjectEmails(data.emails || []);
+      setReception(data.reception || null);
+      setClosureDocs(data.closureDocs || []);
     } catch (err) {
       console.warn("[Closure] Failed to fetch closure data:", err);
+      setFetchError("Erreur lors du chargement des données de clôture");
     } finally {
       setDataLoading(false);
     }
@@ -230,18 +229,13 @@ export default function ProjectClosurePage() {
   const handleComplete = async () => {
     setCompleting(true);
     try {
-      const supabase = createClient();
-      const now = new Date().toISOString();
-      await (supabase as any)
-        .from("projects")
-        .update({ status: "completed", closed_at: now })
-        .eq("id", project.id);
-      // Also update reception status to "signed" if it exists
-      if (reception?.id) {
-        await (supabase as any)
-          .from("project_receptions")
-          .update({ status: "signed" })
-          .eq("id", reception.id);
+      const res = await fetch(`/api/projects/${projectId}/closure/data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete" }),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to complete project: ${res.status}`);
       }
       router.push(`/projects/${project.id}`);
     } catch (err) {
@@ -286,6 +280,14 @@ export default function ProjectClosurePage() {
           />
         </div>
       </div>
+
+      {/* Error banner */}
+      {fetchError && (
+        <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-400">{fetchError}</p>
+        </div>
+      )}
 
       {/* Steps */}
       <div className="mt-8 space-y-4">

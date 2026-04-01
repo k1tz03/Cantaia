@@ -35,19 +35,14 @@ export default function UploadSignedPVPage() {
 
   const projectId = params.id as string;
 
-  // Fetch existing reception record to get the ID
+  // Fetch existing reception record via server-side API (bypasses RLS)
   useEffect(() => {
     async function fetchReception() {
       try {
-        const supabase = createClient();
-        const { data } = await (supabase as any)
-          .from("project_receptions")
-          .select("id")
-          .eq("project_id", projectId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (data?.id) setReceptionId(data.id);
+        const res = await fetch(`/api/projects/${projectId}/closure/data`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.reception?.id) setReceptionId(data.reception.id);
       } catch (err) {
         console.warn("[UploadSignedPV] Failed to fetch reception:", err);
       }
@@ -115,21 +110,13 @@ export default function UploadSignedPVPage() {
     try {
       const supabase = createClient();
 
-      // Get user profile for org_id
+      // Get user for auth check
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      const { data: profile } = await (supabase as any)
-        .from("users")
-        .select("organization_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const orgId = (profile as any)?.organization_id || "unknown";
-
       // Sanitize filename
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `closure/${orgId}/${projectId}/signed_${Date.now()}_${safeName}`;
+      const storagePath = `closure/${projectId}/signed_${Date.now()}_${safeName}`;
 
       // Upload to Supabase Storage (bucket "audio" — shared closure bucket)
       const { error: uploadErr } = await supabase.storage
@@ -145,29 +132,20 @@ export default function UploadSignedPVPage() {
       const { data: urlData } = supabase.storage.from("audio").getPublicUrl(storagePath);
       const signedUrl = urlData?.publicUrl || storagePath;
 
-      // Update the project_receptions record
-      if (receptionId) {
-        await (supabase as any)
-          .from("project_receptions")
-          .update({
-            pv_signed_url: signedUrl,
-            pv_signed_at: new Date().toISOString(),
-            status: "signed",
-          })
-          .eq("id", receptionId);
-      } else {
-        // No reception record found — create one (fallback, shouldn't happen normally)
-        await (supabase as any)
-          .from("project_receptions")
-          .insert({
-            project_id: projectId,
-            organization_id: orgId,
-            reception_type: "provisional",
-            reception_date: new Date().toISOString().split("T")[0],
-            status: "signed",
-            pv_signed_url: signedUrl,
-            pv_signed_at: new Date().toISOString(),
-          });
+      // Update the reception record via server-side API (bypasses RLS)
+      const res = await fetch(`/api/projects/${projectId}/closure/data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload-signed",
+          signed_url: signedUrl,
+          reception_id: receptionId,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Erreur serveur: ${res.status}`);
       }
 
       setUploaded(true);
