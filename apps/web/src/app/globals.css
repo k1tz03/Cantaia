@@ -207,11 +207,16 @@ html:not(.dark) {
 }
 .email-content-dark img {
   color: unset !important;
-  background-color: white !important;
+  background-color: transparent !important;
   max-width: 100% !important;
   height: auto !important;
-  border-radius: 2px;
-  padding: 2px;
+  border-radius: 4px;
+}
+/* Hide broken images — show nothing instead of a white box */
+.email-content-dark img[src^="cid:"],
+.email-content-dark img:not([src]),
+.email-content-dark img[src=""] {
+  display: none !important;
 }
 .email-content-dark a {
   color: #60A5FA !important;

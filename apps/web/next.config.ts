@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.sentry.io",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://lh3.googleusercontent.com",
+              "img-src 'self' data: blob: https: http:",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://*.supabase.in https://*.sentry.io https://api.stripe.com https://login.microsoftonline.com https://graph.microsoft.com",
               "frame-src 'self' https://js.stripe.com https://*.supabase.co https://*.supabase.in",

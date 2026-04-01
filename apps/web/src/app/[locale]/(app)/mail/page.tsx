@@ -41,7 +41,10 @@ const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"),
 /** Sanitize HTML email body — allows images (data:image/*), styles, links */
 function sanitizeEmailHtml(html: string): string {
   if (typeof window === "undefined") return ""; // SSR: don't render unsanitized HTML
-  return DOMPurify.sanitize(html, {
+  // Step 1: Fix image URLs (proxy Microsoft, remove unresolved cid:)
+  const fixed = fixEmailImages(html);
+  // Step 2: Sanitize HTML
+  return DOMPurify.sanitize(fixed, {
     ALLOWED_TAGS: [
       "p", "div", "span", "br", "hr", "a", "b", "i", "u", "em", "strong",
       "table", "thead", "tbody", "tr", "td", "th", "caption", "colgroup", "col",
@@ -73,6 +76,46 @@ function safeStr(val: unknown): string {
 /** Check if a string looks like HTML */
 function looksLikeHtml(s: string): boolean {
   return /<(?:p|div|br|table|html|body|img|span|a|ul|ol|h[1-6])\b/i.test(s);
+}
+
+/** Microsoft domains that need authenticated proxy for images */
+const MS_IMG_DOMAINS = [
+  "outlook.office365.com",
+  "outlook.office.com",
+  "attachments.office.net",
+  "graph.microsoft.com",
+  "outlook.live.com",
+  "content.one.outlook.com",
+];
+
+/**
+ * Rewrite Microsoft-hosted image URLs → our proxy route.
+ * Also removes unresolved cid: images (replace with empty pixel).
+ */
+function fixEmailImages(html: string): string {
+  if (!html) return html;
+  // Proxy Microsoft image URLs that need auth
+  let result = html.replace(
+    /(<img\s[^>]*?\bsrc\s*=\s*["'])(https?:\/\/[^"']+)(["'])/gi,
+    (_match, before, url, after) => {
+      try {
+        const parsed = new URL(url);
+        const needsProxy = MS_IMG_DOMAINS.some(
+          (d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`)
+        );
+        if (needsProxy) {
+          return `${before}/api/mail/image-proxy?url=${encodeURIComponent(url)}${after}`;
+        }
+      } catch { /* invalid URL */ }
+      return `${before}${url}${after}`;
+    }
+  );
+  // Remove unresolved cid: references — hide instead of showing broken image box
+  result = result.replace(
+    /<img\s[^>]*?\bsrc\s*=\s*["']cid:[^"']*["'][^>]*\/?>/gi,
+    ""
+  );
+  return result;
 }
 
 /* ═══════════════════════════════════════════════════════════

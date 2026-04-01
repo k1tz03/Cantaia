@@ -16,6 +16,39 @@ interface ThreadMessage {
 }
 
 /**
+ * Microsoft / Outlook image domains that require authentication.
+ * These can't be loaded directly in <img> tags — we proxy them.
+ */
+const MS_IMAGE_DOMAINS = [
+  "outlook.office365.com",
+  "outlook.office.com",
+  "attachments.office.net",
+  "graph.microsoft.com",
+  "outlook.live.com",
+  "content.one.outlook.com",
+];
+
+/** Replace authenticated Microsoft image URLs with our proxy route */
+function proxyMicrosoftImages(html: string): string {
+  // Match img src attributes pointing to Microsoft domains
+  return html.replace(
+    /(<img\s[^>]*?\bsrc\s*=\s*["'])(https?:\/\/[^"']+)(["'])/gi,
+    (_match, before, url, after) => {
+      try {
+        const parsed = new URL(url);
+        const needsProxy = MS_IMAGE_DOMAINS.some(
+          (d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`)
+        );
+        if (needsProxy) {
+          return `${before}/api/mail/image-proxy?url=${encodeURIComponent(url)}${after}`;
+        }
+      } catch { /* invalid URL, leave as-is */ }
+      return `${before}${url}${after}`;
+    }
+  );
+}
+
+/**
  * GET /api/mail/emails/[id]/thread
  * Fetches the full conversation thread from Microsoft Graph.
  * On-demand backfill: if body_html/body_text are missing, fetches and saves them.
@@ -75,6 +108,9 @@ export async function GET(
           console.warn(`[thread] Fallback CID resolve failed:`, err?.message);
         }
       }
+
+      // Proxy authenticated Microsoft image URLs
+      body = proxyMicrosoftImages(body);
 
       return {
         subject: record.subject,
@@ -221,6 +257,9 @@ export async function GET(
             console.warn(`[thread] CID resolve failed for ${msg.id}:`, err?.message);
           }
         }
+
+        // Proxy authenticated Microsoft image URLs
+        bodyContent = proxyMicrosoftImages(bodyContent);
 
         return {
           id: msg.id,
