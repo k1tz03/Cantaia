@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
-import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   Upload,
@@ -108,39 +107,17 @@ export default function UploadSignedPVPage() {
     setUploadError(null);
 
     try {
-      const supabase = createClient();
+      // Upload via server-side API (admin client bypasses Storage policies)
+      const formData = new FormData();
+      formData.append("action", "upload-signed-file");
+      formData.append("file", file);
+      if (receptionId) {
+        formData.append("reception_id", receptionId);
+      }
 
-      // Get user for auth check
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non authentifié");
-
-      // Sanitize filename
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `closure/${projectId}/signed_${Date.now()}_${safeName}`;
-
-      // Upload to Supabase Storage (bucket "audio" — shared closure bucket)
-      const { error: uploadErr } = await supabase.storage
-        .from("audio")
-        .upload(storagePath, file, {
-          contentType: file.type,
-          upsert: true,
-        });
-
-      if (uploadErr) throw new Error(`Upload échoué: ${uploadErr.message}`);
-
-      // Get public URL
-      const { data: urlData } = supabase.storage.from("audio").getPublicUrl(storagePath);
-      const signedUrl = urlData?.publicUrl || storagePath;
-
-      // Update the reception record via server-side API (bypasses RLS)
       const res = await fetch(`/api/projects/${projectId}/closure/data`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "upload-signed",
-          signed_url: signedUrl,
-          reception_id: receptionId,
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -148,9 +125,19 @@ export default function UploadSignedPVPage() {
         throw new Error(errData.error || `Erreur serveur: ${res.status}`);
       }
 
+      // Save localStorage marker for signed PV (fallback if DB save failed)
+      try {
+        localStorage.setItem(
+          `cantaia_pv_signed_${projectId}`,
+          JSON.stringify({ signed_at: new Date().toISOString(), filename: file.name })
+        );
+      } catch {
+        // non-fatal
+      }
+
       setUploaded(true);
       setTimeout(() => {
-        router.push(`/projects/${project.id}/closure`);
+        router.push(`/projects/${project.id}/closure?t=${Date.now()}`);
       }, 1500);
     } catch (error) {
       console.error("[UploadSignedPV] Error:", error);

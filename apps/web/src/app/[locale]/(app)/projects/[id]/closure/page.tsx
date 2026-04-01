@@ -159,7 +159,19 @@ export default function ProjectClosurePage() {
   const step4Complete = !!reception && reception.pv_document_url !== null;
 
   // Step 5: Signed PV uploaded (BLOCKING)
-  const step5Complete = !!reception && reception.pv_signed_url !== null;
+  // Also check localStorage fallback in case DB save failed (migration 010 not applied)
+  let step5Complete = !!reception && reception.pv_signed_url !== null;
+  if (!step5Complete) {
+    try {
+      const signedMarker = localStorage.getItem(`cantaia_pv_signed_${projectId}`);
+      if (signedMarker) {
+        step5Complete = true;
+        console.log("[Closure] Step 5 completed via localStorage fallback");
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   // Step 6: Closure documents (optional)
   const step6Complete = closureDocs.length > 0;

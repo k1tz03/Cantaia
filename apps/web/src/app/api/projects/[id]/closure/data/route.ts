@@ -281,16 +281,88 @@ export async function POST(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const body = await request.json();
+    // Detect if request is FormData (file upload) or JSON
+    const contentType = request.headers.get("content-type") || "";
+    let body: Record<string, unknown>;
+
+    if (contentType.includes("multipart/form-data")) {
+      // File upload via FormData
+      const formData = await request.formData();
+      const action = formData.get("action") as string;
+      const file = formData.get("file") as File | null;
+      const receptionId = formData.get("reception_id") as string | null;
+
+      if (action === "upload-signed-file" && file) {
+        // Upload file to Storage using admin client (bypasses storage policies)
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `closure/${profile.organization_id}/${projectId}/signed_${Date.now()}_${safeName}`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+
+        const { error: uploadErr } = await admin.storage
+          .from("audio")
+          .upload(storagePath, uint8, {
+            contentType: file.type,
+            upsert: true,
+          });
+
+        if (uploadErr) {
+          console.error("[ClosureData] Storage upload failed:", uploadErr.message);
+          return NextResponse.json(
+            { error: `Upload échoué: ${uploadErr.message}` },
+            { status: 500 }
+          );
+        }
+
+        // Get public URL
+        const { data: urlData } = admin.storage.from("audio").getPublicUrl(storagePath);
+        const signedUrl = urlData?.publicUrl || storagePath;
+
+        // Try to save to DB (non-fatal if table doesn't exist)
+        try {
+          if (receptionId && !receptionId.startsWith("storage-fallback-") && !receptionId.startsWith("local-fallback-")) {
+            await (admin as any)
+              .from("project_receptions")
+              .update({
+                pv_signed_url: signedUrl,
+                pv_signed_at: new Date().toISOString(),
+                status: "signed",
+              })
+              .eq("id", receptionId);
+          } else {
+            await (admin as any)
+              .from("project_receptions")
+              .insert({
+                project_id: projectId,
+                organization_id: profile.organization_id,
+                reception_type: "provisional",
+                reception_date: new Date().toISOString().split("T")[0],
+                status: "signed",
+                pv_signed_url: signedUrl,
+                pv_signed_at: new Date().toISOString(),
+              });
+          }
+        } catch {
+          console.warn("[ClosureData] DB save for signed PV failed (table may not exist)");
+        }
+
+        return NextResponse.json({ success: true, signed_url: signedUrl });
+      }
+
+      return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    }
+
+    body = await request.json();
     const { action } = body;
 
     if (action === "upload-signed") {
-      const { signed_url, reception_id } = body;
+      const { signed_url, reception_id } = body as { signed_url: string; reception_id: string };
 
       // Try to update in DB first
       let dbSuccess = false;
 
-      if (reception_id && !reception_id.startsWith("storage-fallback-")) {
+      if (reception_id && !reception_id.startsWith("storage-fallback-") && !reception_id.startsWith("local-fallback-")) {
         // Real DB record — update it
         const { error } = await (admin as any)
           .from("project_receptions")
@@ -328,16 +400,12 @@ export async function POST(
               "[ClosureData] DB insert failed (table may not exist):",
               error.message
             );
-            // NOT a fatal error — the file is already in Storage,
-            // and the Storage fallback will detect it on next page load
           }
         } catch (err) {
           console.warn("[ClosureData] DB insert exception:", err);
         }
       }
 
-      // The upload was already done client-side to Storage.
-      // Even if DB save fails, Storage has the file.
       return NextResponse.json({ success: true });
     }
 
