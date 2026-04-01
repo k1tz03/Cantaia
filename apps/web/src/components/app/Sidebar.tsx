@@ -119,6 +119,17 @@ export function Sidebar() {
     localStorage.setItem("cantaia_sidebar_collapsed", String(collapsed));
   }, [collapsed]);
 
+  // Keyboard shortcut: Ctrl+B to toggle sidebar
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+        e.preventDefault();
+        setCollapsed((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function isActive(href: string): boolean {
     const pathWithoutLocale = pathname.replace(/^\/(fr|en|de)/, "");
@@ -171,7 +182,17 @@ export function Sidebar() {
           )}
           title={collapsed ? t(item.labelKey) : undefined}
         >
-          <Icon className={cn("h-[14px] w-[18px] shrink-0", active ? "text-[#F97316]" : "text-[#A1A1AA]")} />
+          <span className="relative shrink-0">
+            <Icon className={cn("h-[14px] w-[18px]", active ? "text-[#F97316]" : "text-[#A1A1AA]")} />
+            {collapsed && badgeText && (
+              <span className={cn(
+                "absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[8px] font-bold text-white",
+                item.badgeColor === "red" ? "bg-[#EF4444]" : "bg-[#F97316]"
+              )}>
+                {badgeText}
+              </span>
+            )}
+          </span>
           {!collapsed && (
             <>
               <span className="flex-1">{t(item.labelKey)}</span>
@@ -230,7 +251,7 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col bg-sidebar border-r border-[#27272A] transition-all duration-200 h-screen sticky top-0",
+          "hidden lg:flex flex-col bg-sidebar border-r border-[#27272A] transition-all duration-200 h-full",
           collapsed ? "w-[64px]" : "w-[220px]"
         )}
         role="navigation"
@@ -313,7 +334,17 @@ export function Sidebar() {
           {/* Theme Toggle */}
           <ThemeToggle collapsed={collapsed} />
 
-          {!collapsed && (
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-1.5 mb-1.5">
+              <button
+                onClick={signOut}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold bg-[#F97316]/15 text-[#F97316] hover:bg-[#F97316]/25 transition-colors"
+                title={`${userName} — ${t("logout")}`}
+              >
+                {userInitials}
+              </button>
+            </div>
+          ) : (
             <div className="mb-1.5 flex items-center gap-2 rounded-[7px] px-2 py-1.5">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold bg-[#F97316]/15 text-[#F97316]">
                 {userInitials}
@@ -332,7 +363,11 @@ export function Sidebar() {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center justify-center gap-2 rounded-[7px] px-3 py-2 text-xs font-medium text-[#A1A1AA] transition-colors hover:bg-[#1C1C1F] hover:text-[#D4D4D8]"
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-[7px] px-3 py-2 text-xs font-medium transition-colors",
+              "text-[#71717A] hover:bg-[#27272A] hover:text-[#D4D4D8]"
+            )}
+            title={collapsed ? `${t("expand")} (Ctrl+B)` : `${t("collapse")} (Ctrl+B)`}
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
