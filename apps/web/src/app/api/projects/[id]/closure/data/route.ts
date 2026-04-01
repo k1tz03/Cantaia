@@ -281,80 +281,34 @@ export async function POST(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Detect if request is FormData (file upload) or JSON
-    const contentType = request.headers.get("content-type") || "";
-    let body: Record<string, unknown>;
+    const body = await request.json();
+    const { action } = body;
 
-    if (contentType.includes("multipart/form-data")) {
-      // File upload via FormData
-      const formData = await request.formData();
-      const action = formData.get("action") as string;
-      const file = formData.get("file") as File | null;
-      const receptionId = formData.get("reception_id") as string | null;
+    if (action === "get-upload-url") {
+      // Generate a signed upload URL so the client can upload directly to Storage
+      // This bypasses the Vercel 4.5MB body size limit AND Storage policies
+      const { filename } = body as { filename: string };
+      const safeName = (filename || "signed.pdf").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `closure/${profile.organization_id}/${projectId}/signed_${Date.now()}_${safeName}`;
 
-      if (action === "upload-signed-file" && file) {
-        // Upload file to Storage using admin client (bypasses storage policies)
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const storagePath = `closure/${profile.organization_id}/${projectId}/signed_${Date.now()}_${safeName}`;
+      const { data, error } = await admin.storage
+        .from("audio")
+        .createSignedUploadUrl(storagePath);
 
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8 = new Uint8Array(arrayBuffer);
-
-        const { error: uploadErr } = await admin.storage
-          .from("audio")
-          .upload(storagePath, uint8, {
-            contentType: file.type,
-            upsert: true,
-          });
-
-        if (uploadErr) {
-          console.error("[ClosureData] Storage upload failed:", uploadErr.message);
-          return NextResponse.json(
-            { error: `Upload échoué: ${uploadErr.message}` },
-            { status: 500 }
-          );
-        }
-
-        // Get public URL
-        const { data: urlData } = admin.storage.from("audio").getPublicUrl(storagePath);
-        const signedUrl = urlData?.publicUrl || storagePath;
-
-        // Try to save to DB (non-fatal if table doesn't exist)
-        try {
-          if (receptionId && !receptionId.startsWith("storage-fallback-") && !receptionId.startsWith("local-fallback-")) {
-            await (admin as any)
-              .from("project_receptions")
-              .update({
-                pv_signed_url: signedUrl,
-                pv_signed_at: new Date().toISOString(),
-                status: "signed",
-              })
-              .eq("id", receptionId);
-          } else {
-            await (admin as any)
-              .from("project_receptions")
-              .insert({
-                project_id: projectId,
-                organization_id: profile.organization_id,
-                reception_type: "provisional",
-                reception_date: new Date().toISOString().split("T")[0],
-                status: "signed",
-                pv_signed_url: signedUrl,
-                pv_signed_at: new Date().toISOString(),
-              });
-          }
-        } catch {
-          console.warn("[ClosureData] DB save for signed PV failed (table may not exist)");
-        }
-
-        return NextResponse.json({ success: true, signed_url: signedUrl });
+      if (error || !data) {
+        console.error("[ClosureData] Failed to create signed upload URL:", error?.message);
+        return NextResponse.json(
+          { error: `Failed to create upload URL: ${error?.message || "unknown"}` },
+          { status: 500 }
+        );
       }
 
-      return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+      return NextResponse.json({
+        upload_url: data.signedUrl,
+        token: data.token,
+        storage_path: storagePath,
+      });
     }
-
-    body = await request.json();
-    const { action } = body;
 
     if (action === "upload-signed") {
       const { signed_url, reception_id } = body as { signed_url: string; reception_id: string };

@@ -107,23 +107,49 @@ export default function UploadSignedPVPage() {
     setUploadError(null);
 
     try {
-      // Upload via server-side API (admin client bypasses Storage policies)
-      const formData = new FormData();
-      formData.append("action", "upload-signed-file");
-      formData.append("file", file);
-      if (receptionId) {
-        formData.append("reception_id", receptionId);
-      }
-
-      const res = await fetch(`/api/projects/${projectId}/closure/data`, {
+      // Step 1: Get a signed upload URL from the server (admin client, bypasses policies)
+      const urlRes = await fetch(`/api/projects/${projectId}/closure/data`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-upload-url",
+          filename: file.name,
+        }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Erreur serveur: ${res.status}`);
+      if (!urlRes.ok) {
+        const errData = await urlRes.json().catch(() => ({}));
+        throw new Error(errData.error || `Erreur serveur: ${urlRes.status}`);
       }
+
+      const { upload_url, storage_path } = await urlRes.json();
+
+      // Step 2: Upload directly to Supabase Storage using the signed URL
+      // This bypasses the Vercel 4.5MB body size limit
+      const uploadRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Upload échoué: ${uploadRes.status} ${uploadRes.statusText}`);
+      }
+
+      // Step 3: Get public URL and notify server to save in DB
+      // Construct the public URL from the storage path
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/audio/${storage_path}`;
+
+      await fetch(`/api/projects/${projectId}/closure/data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload-signed",
+          signed_url: publicUrl,
+          reception_id: receptionId,
+        }),
+      });
 
       // Save localStorage marker for signed PV (fallback if DB save failed)
       try {
