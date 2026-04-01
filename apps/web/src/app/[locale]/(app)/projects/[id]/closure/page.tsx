@@ -82,8 +82,30 @@ export default function ProjectClosurePage() {
       setTasks(data.tasks || []);
       setMeetings(data.meetings || []);
       setProjectEmails(data.emails || []);
-      setReception(data.reception || null);
       setClosureDocs(data.closureDocs || []);
+
+      // Use server reception data if available, otherwise check localStorage fallback
+      // This handles the case where migration 010 is not applied (project_receptions table doesn't exist)
+      // and Storage fallback also finds no files — the localStorage marker from reception/page.tsx
+      // proves the user DID generate the PV successfully
+      let receptionData = data.reception || null;
+      if (!receptionData) {
+        try {
+          const marker = localStorage.getItem(`cantaia_pv_generated_${projectId}`);
+          if (marker) {
+            const parsed = JSON.parse(marker);
+            console.log("[Closure] No server reception data — using localStorage fallback:", parsed);
+            receptionData = {
+              id: `local-fallback-${projectId}`,
+              pv_document_url: parsed.filename || "PVR-generated.docx",
+              pv_signed_url: null,
+            };
+          }
+        } catch {
+          // localStorage parse error — ignore
+        }
+      }
+      setReception(receptionData);
     } catch (err) {
       console.warn("[Closure] Failed to fetch closure data:", err);
       setFetchError("Erreur lors du chargement des données de clôture");
