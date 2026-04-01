@@ -18,6 +18,7 @@ import {
   FolderCheck,
   ClipboardList,
   AlertTriangle,
+  Archive,
 } from "lucide-react";
 
 interface ClosureStep {
@@ -33,6 +34,9 @@ export default function ProjectClosurePage() {
   const router = useRouter();
   const t = useTranslations("closure");
   const [completing, setCompleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveReady, setArchiveReady] = useState(false);
 
   const projectId = params.id as string;
   const { project, loading: projectLoading } = useProject(projectId);
@@ -204,6 +208,24 @@ export default function ProjectClosurePage() {
 
   const completedSteps = steps.filter((s) => s.status === "completed").length;
   const canComplete = step1Complete && step2Complete && step3Complete && step4Complete && step5Complete;
+
+  const handleDownloadArchive = async () => {
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const { exportFile } = await import("@/lib/tauri");
+      await exportFile(`/api/projects/${projectId}/closure/archive`, {
+        method: "POST",
+        fallbackFilename: `Archive_${project.name}_${new Date().toISOString().split("T")[0]}.zip`,
+      });
+      setArchiveReady(true);
+    } catch (err) {
+      console.error("[Closure] Archive failed:", err);
+      setArchiveError(err instanceof Error ? err.message : "Erreur lors de la génération de l'archive");
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   const handleComplete = async () => {
     setCompleting(true);
@@ -400,8 +422,57 @@ export default function ProjectClosurePage() {
         );
       })()}
 
+      {/* Archive section */}
+      {canComplete && (
+        <div className="mt-8 rounded-md border border-[#27272A] bg-[#18181B] p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#F97316]/10">
+              <Archive className="h-5 w-5 text-[#F97316]" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-[#FAFAFA]">
+                {t("archiveTitle")}
+              </h3>
+              <p className="mt-1 text-xs text-[#71717A]">
+                {t("archiveDescription")}
+              </p>
+              {archiveError && (
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                  <p className="text-xs text-red-400">{archiveError}</p>
+                </div>
+              )}
+              {archiveReady && (
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <p className="text-xs text-green-400">{t("archiveDownloaded")}</p>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleDownloadArchive}
+                disabled={archiving}
+                className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+              >
+                {archiving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("archiveGenerating")}
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4" />
+                    {t("archiveDownload")}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Complete button */}
-      <div className="mt-8 border-t border-[#27272A] pt-6">
+      <div className="mt-6 border-t border-[#27272A] pt-6">
         <button
           type="button"
           onClick={handleComplete}
