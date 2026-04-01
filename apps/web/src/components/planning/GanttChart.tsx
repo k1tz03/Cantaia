@@ -116,7 +116,7 @@ export default function GanttChart({
   zoom: initialZoom,
   onTaskUpdate,
   onPhaseUpdate,
-  onTaskAdd: _onTaskAdd,
+  onTaskAdd: _onTaskAdd, // eslint-disable-line @typescript-eslint/no-unused-vars
   onTaskDelete,
   onDependencyCreate,
   onDependencyDelete,

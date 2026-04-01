@@ -49,7 +49,7 @@ export default function PublicPlanningPage() {
           milestones: (json.tasks || []).filter((tk: any) => tk.is_milestone),
         };
         setPlanning(planningData);
-      } catch (err) {
+      } catch {
         setError("Erreur de chargement");
       } finally {
         setLoading(false);

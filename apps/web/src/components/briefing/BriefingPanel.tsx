@@ -153,6 +153,7 @@ export function BriefingPanel({ compact = true }: BriefingPanelProps) {
 
 // ---------- Mock briefing (used until API is connected) ----------
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getMockBriefing(_t: ReturnType<typeof useTranslations>): BriefingContent {
   return {
     mode: "ai" as const,

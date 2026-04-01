@@ -144,6 +144,7 @@ export function SubmissionEditor({
   }
 
   // ---- Save ----
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function handleSave(_showFeedback = true) {
     setSaving(true);
     setSaveError(null);

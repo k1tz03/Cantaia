@@ -50,7 +50,7 @@ export function PriceRequestWizard({
   items,
   suppliers,
   budgetGroups,
-  existingRequests: _existingRequests,
+  existingRequests: _existingRequests, // eslint-disable-line @typescript-eslint/no-unused-vars
   onComplete,
 }: PriceRequestWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);

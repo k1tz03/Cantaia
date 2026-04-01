@@ -690,6 +690,7 @@ export function ReportForm({ projectId }: ReportFormProps) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {note.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={note.photo_url} alt="Bon" style={{ height: 48, width: 48, borderRadius: 6, objectFit: "cover" }} />
                   ) : (
                     <label style={{

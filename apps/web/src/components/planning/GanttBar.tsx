@@ -52,7 +52,7 @@ export default function GanttBar({
   pixelsPerDay,
   timelineStartDate,
   onSelect,
-  onDragEnd: _onDragEnd,
+  onDragEnd: _onDragEnd, // eslint-disable-line @typescript-eslint/no-unused-vars
   onResizeEnd,
   readOnly,
   rowIndex,
@@ -140,7 +140,7 @@ export default function GanttBar({
 
   // Tooltip handlers
   const handleMouseEnter = useCallback(
-    (_e: React.MouseEvent) => {
+    (_e: React.MouseEvent) => { // eslint-disable-line @typescript-eslint/no-unused-vars
       if (isDragging || isResizing) return;
       const rect = barRef.current?.getBoundingClientRect();
       if (rect) {

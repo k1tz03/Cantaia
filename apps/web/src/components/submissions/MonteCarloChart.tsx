@@ -278,6 +278,7 @@ export default function MonteCarloChart({ items }: MonteCarloChartProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [seed, setSeed] = useState(0);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const result = useMemo(() => runSimulation(items), [items, seed]);
 
   const handleRecalculate = useCallback(() => {

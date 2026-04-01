@@ -533,6 +533,7 @@ function ReportDetailContent({
                     <span className="text-sm text-[#71717A]">{entry.supplier_name || "—"}</span>
                   </div>
                   {entry.photo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={entry.photo_url}
                       alt={`BL ${entry.note_number}`}

@@ -103,7 +103,7 @@ interface MetricResult {
 async function computeModuleMetrics(
   admin: any,
   module: string,
-  _period: string
+  _period: string // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Promise<MetricResult[]> {
   const metrics: MetricResult[] = [];
 

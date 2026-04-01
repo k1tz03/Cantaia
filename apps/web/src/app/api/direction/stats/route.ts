@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns org-wide financial statistics for the direction dashboard.
  * Only includes projects where invoiced_amount is set (finalized projects).
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
   const supabase = await createClient();
   const {

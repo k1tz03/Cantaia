@@ -319,7 +319,7 @@ export async function POST(request: Request) {
               continue;
             }
           }
-        } catch (l0bErr) {
+        } catch {
           // Level 0b failure must never block the rest of the pipeline
         }
       }
@@ -776,7 +776,7 @@ async function syncViaProvider(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string,
   connection: EmailConnectionRecord,
-  _organizationId?: string
+  _organizationId?: string // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   try {
     const provider = getEmailProvider(connection.provider);
@@ -894,7 +894,7 @@ async function syncViaProvider(
         try {
           await (adminClient as any).from("email_records").insert(chunk);
           synced += chunk.length;
-        } catch (err) {
+        } catch {
           // Fallback: insert individually
           for (const record of chunk) {
             try {

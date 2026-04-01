@@ -623,14 +623,12 @@ async function handleGeneral(
   const activeUserIds = new Set<string>();
   const dailyActiveMap = new Map<string, Set<string>>();
   let totalPageViews = 0;
-  let totalFeatureUses = 0;
   let totalDurationMs = 0;
   let totalSessions = 0;
 
   for (const r of activityRows) {
     activeUserIds.add(r.user_id);
     totalPageViews += r.page_views || 0;
-    totalFeatureUses += r.feature_uses || 0;
     totalDurationMs += Number(r.total_duration_ms) || 0;
     totalSessions += r.session_count || 0;
     const day = r.stat_date;

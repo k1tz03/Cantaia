@@ -105,7 +105,7 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
         setExtractionProgress({ total: uploadedFiles.length, processed, withPrices, items, errors });
         setExtractionResults([...allResults]);
         setSelectedExtractions(new Set(allResults.map((r: any) => r.emailId)));
-      } catch (err: unknown) {
+      } catch {
         errors += batch.length;
         processed += batch.length;
         setExtractionProgress({ total: uploadedFiles.length, processed, withPrices, items, errors });

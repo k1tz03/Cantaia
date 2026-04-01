@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
         } else {
           throw new Error("No JSON in response");
         }
-      } catch (parseErr) {
+      } catch {
         console.error("[Visit Report] Failed to parse AI response, falling back to template. Raw:", text.substring(0, 300));
         report = getMockVisitReport() as VisitReport;
         report.ai_parse_failed = true;

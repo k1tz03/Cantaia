@@ -431,7 +431,7 @@ async function sendEmailViaGraph(
   subject: string,
   htmlBody: string,
   from: string,
-  _attachmentUrls?: string[]
+  _attachmentUrls?: string[] // eslint-disable-line @typescript-eslint/no-unused-vars
 ) {
   const message: any = {
     subject,

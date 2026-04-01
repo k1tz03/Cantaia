@@ -44,7 +44,7 @@ function formatFileSize(bytes: number): string {
 
 export function TicketThread({
   messages,
-  currentUserId: _currentUserId,
+  currentUserId: _currentUserId, // eslint-disable-line @typescript-eslint/no-unused-vars
   userName,
 }: {
   messages: Message[];

@@ -5,6 +5,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { UsageLimitBanner } from "./UsageLimitBanner";
 import { createClient } from "@/lib/supabase/client";
 import { Clock, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 /**
  * AI call limits per subscription plan (monthly).
@@ -126,13 +127,13 @@ export function TrialGuard() {
             Choisissez un plan pour continuer &agrave; utiliser Cantaia et
             acc&eacute;der &agrave; tous vos projets.
           </p>
-          <a
+          <Link
             href="/admin?tab=subscription"
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
           >
             Voir les plans
             <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
           <p className="mt-6 text-sm text-[#71717A]">
             Vos donn&eacute;es sont conserv&eacute;es et seront accessibles
             d&egrave;s l&apos;activation d&apos;un plan.

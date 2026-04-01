@@ -467,6 +467,7 @@ export default function SiteReportsPage() {
                       <td className="px-4 py-2">
                         {n.photo_url ? (
                           <a href={n.photo_url} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={n.photo_url} alt="Bon" className="h-10 w-10 rounded object-cover border border-[#27272A]" />
                           </a>
                         ) : (

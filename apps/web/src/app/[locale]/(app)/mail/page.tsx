@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import dynamic from "next/dynamic";
@@ -59,6 +59,15 @@ function sanitizeEmailHtml(html: string): string {
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ADD_ATTR: ["target"],
   });
+}
+
+/** Safely convert any value to a renderable string — prevents React #310 */
+function safeStr(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  // Objects, arrays, etc. → JSON fallback (prevents React #310 "Objects are not valid as a React child")
+  try { return JSON.stringify(val); } catch { return "[Object]"; }
 }
 
 /** Check if a string looks like HTML */
@@ -203,10 +212,60 @@ function getClassificationColor(classification: string): string {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   ERROR BOUNDARY — catch React #310 and rendering errors
+   ═══════════════════════════════════════════════════════════ */
+
+class MailErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[MailErrorBoundary]", error.message, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full min-h-screen bg-[#0F0F11] flex items-center justify-center">
+          <div className="text-center p-8 max-w-md">
+            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-400 text-xl">!</span>
+            </div>
+            <h2 className="text-lg font-semibold text-[#FAFAFA] mb-2">Une erreur est survenue</h2>
+            <p className="text-sm text-[#71717A] mb-4">Le module Mail a rencontré un problème d&apos;affichage.</p>
+            <button
+              onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              className="px-4 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg transition-colors"
+            >
+              Recharger
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
 
 export default function MailPage() {
+  return (
+    <MailErrorBoundary>
+      <MailPageInner />
+    </MailErrorBoundary>
+  );
+}
+
+function MailPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("mail.decisions");
@@ -343,6 +402,35 @@ export default function MailPage() {
     } catch { /* non-blocking */ }
   }, []);
 
+  // Compute filtered emails (needed by useEffect below, must be before early returns)
+  const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
+  const filteredThisWeek = thisWeek.filter((e) => !dismissedIds.has(e.id));
+  const filteredInfo = info.filter((e) => !dismissedIds.has(e.id));
+  const allEmails = [...filteredUrgent, ...filteredThisWeek, ...filteredInfo];
+  const selectedEmail = allEmails.find((e) => e.id === selectedEmailId) || null;
+
+  // Select email from URL param (?emailId=xxx) — from notification click
+  const urlEmailId = searchParams.get("emailId");
+
+  // When urlEmailId changes (notification clicked while already on /mail), select that email
+  useEffect(() => {
+    if (loading || !authorized) return; // Skip while loading
+    if (!urlEmailId) return;
+    // Bulk summary IDs (from bulk sync notification) are not real emails — just clean the URL
+    if (urlEmailId.startsWith("bulk-")) {
+      router.replace(`/${locale}/mail`, { scroll: false });
+      return;
+    }
+    if (allEmails.length === 0) return;
+    const target = allEmails.find((e) => e.id === urlEmailId);
+    if (target) {
+      setSelectedEmailId(target.id);
+      if (target.project_id) setActiveProject(target.project_id);
+    }
+    // Clean up URL param
+    router.replace(`/${locale}/mail`, { scroll: false });
+  }, [urlEmailId, loading, authorized]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── Loading state ── */
   if (loading) {
     return (
@@ -391,37 +479,8 @@ export default function MailPage() {
 
   if (!authorized) return null;
 
-  const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
-  const filteredThisWeek = thisWeek.filter((e) => !dismissedIds.has(e.id));
-  const filteredInfo = info.filter((e) => !dismissedIds.has(e.id));
-
   const totalUnprocessed = filteredUrgent.length + filteredThisWeek.length;
   const totalWaiting = filteredInfo.length;
-
-  // Find the selected email across all buckets
-  const allEmails = [...filteredUrgent, ...filteredThisWeek, ...filteredInfo];
-  const selectedEmail = allEmails.find((e) => e.id === selectedEmailId) || null;
-
-  // Select email from URL param (?emailId=xxx) — from notification click
-  const urlEmailId = searchParams.get("emailId");
-
-  // When urlEmailId changes (notification clicked while already on /mail), select that email
-  useEffect(() => {
-    if (!urlEmailId) return;
-    // Bulk summary IDs (from bulk sync notification) are not real emails — just clean the URL
-    if (urlEmailId.startsWith("bulk-")) {
-      router.replace(`/${locale}/mail`, { scroll: false });
-      return;
-    }
-    if (allEmails.length === 0) return;
-    const target = allEmails.find((e) => e.id === urlEmailId);
-    if (target) {
-      setSelectedEmailId(target.id);
-      if (target.project_id) setActiveProject(target.project_id);
-    }
-    // Clean up URL param
-    router.replace(`/${locale}/mail`, { scroll: false });
-  }, [urlEmailId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-select first email if none selected (initial load, no URL param)
   if (!selectedEmailId && !urlEmailId && allEmails.length > 0) {
@@ -792,8 +851,8 @@ function EmailRow({ email, isSelected, onSelect }: {
           <span className="text-[13px] font-semibold text-[#FAFAFA] truncate">{email.sender_name || email.sender_email}</span>
           <span className="text-[10px] text-[#52525B] shrink-0 ml-2">{formatTime(email)}</span>
         </div>
-        <div className="text-[12px] text-[#D4D4D8] truncate mt-0.5">{email.subject}</div>
-        <div className="text-[11px] text-[#71717A] truncate mt-0.5">{email.ai_summary || email.body_preview}</div>
+        <div className="text-[12px] text-[#D4D4D8] truncate mt-0.5">{safeStr(email.subject)}</div>
+        <div className="text-[11px] text-[#71717A] truncate mt-0.5">{safeStr(email.ai_summary || email.body_preview)}</div>
         <div className="flex gap-1 mt-1.5 flex-wrap">
           {email.project_name && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] font-medium">{email.project_name}</span>
@@ -843,7 +902,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
     setThreadLoading(true);
     setThreadError(null);
 
-    const immediateBody = email.body_html || email.body_text || email.body_preview || "";
+    const immediateBody = safeStr(email.body_html || email.body_text || email.body_preview || "");
     setFallbackBody(immediateBody);
     setFallbackIsHtml(looksLikeHtml(immediateBody));
 
@@ -855,7 +914,8 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
           setThread(data.thread);
         } else {
           if (data.fallback) {
-            const body = data.fallback.body || email.body_html || email.body_text || email.body_preview || "";
+            const rawBody = data.fallback?.body;
+            const body = safeStr(rawBody || email.body_html || email.body_text || email.body_preview || "");
             setFallbackIsHtml(looksLikeHtml(body));
             setFallbackBody(body);
           }
@@ -876,10 +936,10 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
       {/* ── Subject + Meta (non-scrollable) ── */}
       <div className="flex-shrink-0 px-6 pt-5 pb-3">
         <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
-          {email.subject}
+          {safeStr(email.subject)}
         </h2>
         <div className="flex items-center gap-2 mt-2 text-[12px] text-[#71717A] flex-wrap">
-          <span>De: <strong className="text-[#D4D4D8]">{email.sender_name || email.sender_email}</strong></span>
+          <span>De: <strong className="text-[#D4D4D8]">{safeStr(email.sender_name || email.sender_email)}</strong></span>
           <span className="text-[#3F3F46]">&middot;</span>
           <span>{formatFullDate(email.received_at, locale)}</span>
           {email.project_name && (
@@ -953,7 +1013,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                   <Sparkles className="w-3 h-3 text-[#F97316]" />
                   <span className="text-[10px] uppercase font-bold tracking-wider text-[#F97316]">{t("badges.aiSummary")}</span>
                 </div>
-                <p className="text-[13px] leading-relaxed text-[#D4D4D8]">{email.ai_summary}</p>
+                <p className="text-[13px] leading-relaxed text-[#D4D4D8]">{safeStr(email.ai_summary)}</p>
 
                 {/* Detail chips */}
                 <div className="flex gap-2 mt-3 flex-wrap">
@@ -995,9 +1055,9 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                 return (
                   <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
                     {isHtml ? (
-                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(mainMsg.body.content) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(mainMsg.body?.content)) }} />
                     ) : (
-                      <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{mainMsg.body.content}</div>
+                      <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{safeStr(mainMsg.body?.content)}</div>
                     )}
                   </div>
                 );
@@ -1024,9 +1084,9 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
                   <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                 </div>
               ) : fallbackIsHtml ? (
-                <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody)) }} />
               ) : (
-                <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{fallbackBody}</div>
+                <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{safeStr(fallbackBody)}</div>
               )}
             </div>
           )}
@@ -1091,7 +1151,7 @@ function ThreadView({ thread, currentUserEmail }: {
                   )}
                 </div>
                 {!isExpanded && (
-                  <p className="text-[11px] text-[#52525B] truncate mt-0.5">{msg.bodyPreview}</p>
+                  <p className="text-[11px] text-[#52525B] truncate mt-0.5">{safeStr(msg.bodyPreview)}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1113,9 +1173,9 @@ function ThreadView({ thread, currentUserEmail }: {
                 </div>
                 <div className="px-4 py-4">
                   {isHtml ? (
-                    <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(msg.body.content) }} />
+                    <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(msg.body?.content)) }} />
                   ) : (
-                    <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap">{msg.body.content}</div>
+                    <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap">{safeStr(msg.body?.content)}</div>
                   )}
                 </div>
               </div>
@@ -1155,7 +1215,7 @@ function ReplyModal({ email, onClose, onDone }: {
   const threadContextRef = useRef<string>("");
 
   useEffect(() => {
-    const immediateBody = email.body_html || email.body_text || email.body_preview || "";
+    const immediateBody = safeStr(email.body_html || email.body_text || email.body_preview || "");
     setFallbackBody(immediateBody);
     if (looksLikeHtml(immediateBody)) setFallbackIsHtml(true);
 
@@ -1166,10 +1226,10 @@ function ReplyModal({ email, onClose, onDone }: {
         if (data.thread && data.thread.length > 0) {
           setThread(data.thread);
           threadContextRef.current = data.thread.map((msg: ThreadMessage) =>
-            `[${msg.receivedDateTime}] De: ${msg.from.name} <${msg.from.email}>\nObjet: ${msg.subject}\n${msg.bodyPreview || ""}`
+            `[${msg.receivedDateTime}] De: ${safeStr(msg.from?.name)} <${safeStr(msg.from?.email)}>\nObjet: ${safeStr(msg.subject)}\n${safeStr(msg.bodyPreview)}`
           ).join("\n\n---\n\n");
         } else if (data.fallback) {
-          const body = data.fallback.body || email.body_html || email.body_text || email.body_preview || "";
+          const body = safeStr(data.fallback?.body || email.body_html || email.body_text || email.body_preview || "");
           if (looksLikeHtml(body)) setFallbackIsHtml(true);
           setFallbackBody(body);
         }
@@ -1263,7 +1323,7 @@ function ReplyModal({ email, onClose, onDone }: {
               <h2 className="text-lg font-semibold text-[#FAFAFA]">
                 {t("replyModal.title", { sender: email.sender_name || email.sender_email })}
               </h2>
-              <p className="text-sm text-[#71717A] truncate mt-0.5">{email.subject}</p>
+              <p className="text-sm text-[#71717A] truncate mt-0.5">{safeStr(email.subject)}</p>
             </div>
             <button onClick={onClose} className="p-1.5 text-[#71717A] hover:text-[#FAFAFA] rounded-lg hover:bg-[#27272A] transition-colors flex-shrink-0">
               <X className="w-5 h-5" />
@@ -1284,16 +1344,16 @@ function ReplyModal({ email, onClose, onDone }: {
                   <ThreadView thread={thread} currentUserEmail={email.sender_email} />
                 ) : (
                   <>
-                    <div className="text-sm font-medium text-[#FAFAFA] mb-1">{email.subject}</div>
-                    <div className="text-xs text-[#71717A] mb-3">{t("email.from")} : {email.sender_name || email.sender_email}</div>
+                    <div className="text-sm font-medium text-[#FAFAFA] mb-1">{safeStr(email.subject)}</div>
+                    <div className="text-xs text-[#71717A] mb-3">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</div>
                     {threadLoading && !fallbackBody ? (
                       <div className="flex items-center gap-2 text-[#71717A] text-sm py-4">
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(fallbackBody) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody)) }} />
                     ) : (
-                      <div className="text-sm text-[#A1A1AA] whitespace-pre-wrap">{fallbackBody}</div>
+                      <div className="text-sm text-[#A1A1AA] whitespace-pre-wrap">{safeStr(fallbackBody)}</div>
                     )}
                   </>
                 )}
@@ -1524,8 +1584,8 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
           </div>
           <div className="p-6 space-y-4">
             <div className="text-sm text-[#A1A1AA] bg-[#27272A] rounded-lg p-3 border border-[#3F3F46]">
-              <p className="font-medium text-[#FAFAFA] truncate">{email.subject}</p>
-              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
+              <p className="font-medium text-[#FAFAFA] truncate">{safeStr(email.subject)}</p>
+              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
             </div>
             <div>
               <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("delegateModal.delegateTo")}</label>
@@ -1632,8 +1692,8 @@ function TransferModal({ email, onClose, onDone }: {
           </div>
           <div className="p-6 space-y-4">
             <div className="text-sm text-[#A1A1AA] bg-[#27272A] rounded-lg p-3 border border-[#3F3F46]">
-              <p className="font-medium text-[#FAFAFA] truncate">{email.subject}</p>
-              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {email.sender_name || email.sender_email}</p>
+              <p className="font-medium text-[#FAFAFA] truncate">{safeStr(email.subject)}</p>
+              <p className="text-xs text-[#71717A] mt-1">{t("email.from")} : {safeStr(email.sender_name || email.sender_email)}</p>
             </div>
             <div>
               <label className="block text-xs text-[#71717A] uppercase font-medium mb-2">{t("transferModal.transferTo")}</label>

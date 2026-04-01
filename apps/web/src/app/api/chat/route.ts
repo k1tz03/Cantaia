@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
               type: "image",
               source: { type: "base64", media_type: mediaType, data: base64 },
             });
-          } catch (e) {
+          } catch {
             userContent.push({
               type: "text",
               text: `[Image: ${att.file_name} - failed to load]`,

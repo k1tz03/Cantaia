@@ -467,9 +467,8 @@ function StatCard({
 
 // ---------- Mock briefing ----------
 
-function getMockBriefing(
-  _t: ReturnType<typeof useTranslations>
-): BriefingContent {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getMockBriefing(_t: ReturnType<typeof useTranslations>): BriefingContent {
   return {
     mode: "ai" as const,
     greeting: "",

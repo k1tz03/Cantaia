@@ -9,7 +9,7 @@ export function PlanDetailTabs({
   activeTab,
   setActiveTab,
   versionsCount,
-  estimationScore: _estimationScore,
+  estimationScore: _estimationScore, // eslint-disable-line @typescript-eslint/no-unused-vars
   t,
 }: {
   activeTab: PlanTab;

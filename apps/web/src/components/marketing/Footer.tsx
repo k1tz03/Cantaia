@@ -56,11 +56,13 @@ export function MarketingFooter() {
             </h4>
             <ul className="mt-4 space-y-3">
               <li>
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                 <a href="/#features" className="text-sm text-[#52525B] transition-colors hover:text-white">
                   {t("features")}
                 </a>
               </li>
               <li>
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                 <a href="/#pricing" className="text-sm text-[#52525B] transition-colors hover:text-white">
                   {t("pricing")}
                 </a>

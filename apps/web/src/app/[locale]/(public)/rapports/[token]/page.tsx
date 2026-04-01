@@ -557,6 +557,7 @@ export default function PublicSiteReportsPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                             >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={n.photo_url}
                                 alt="Bon"

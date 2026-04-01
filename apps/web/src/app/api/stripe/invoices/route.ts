@@ -9,6 +9,7 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();

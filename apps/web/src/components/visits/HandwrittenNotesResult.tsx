@@ -78,6 +78,7 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
       <div className="flex gap-4 p-4">
         {/* Photo preview */}
         <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={getPublicUrl(photo.file_url)}
             alt={photo.caption || "Notes manuscrites"}

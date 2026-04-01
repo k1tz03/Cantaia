@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
+import Link from "next/link";
 
 interface UsageLimitBannerProps {
   current: number;
@@ -32,24 +33,24 @@ export function UsageLimitBanner({ current, limit, plan }: UsageLimitBannerProps
         {isBlocked ? (
           <span>
             Limite IA atteinte ({current}/{limit} appels).{" "}
-            <a
+            <Link
               href="/admin?tab=subscription"
               className="underline font-medium"
             >
               Upgradez votre plan
-            </a>
+            </Link>
           </span>
         ) : (
           <span>
             {Math.round(pct)}% de votre quota IA utilis&eacute; ({current}/
             {limit}).{" "}
             {plan === "trial" && (
-              <a
+              <Link
                 href="/admin?tab=subscription"
                 className="underline font-medium"
               >
                 Passer au plan Starter
-              </a>
+              </Link>
             )}
           </span>
         )}

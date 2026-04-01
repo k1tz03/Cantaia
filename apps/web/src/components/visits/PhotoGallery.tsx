@@ -96,6 +96,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
               onClick={() => openLightbox(index)}
               className="relative aspect-square w-full overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A] focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getPublicUrl(photo.file_url)}
                 alt={photo.caption || photo.file_name}
@@ -204,6 +205,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
           )}
 
           <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getPublicUrl(photos[lightboxIndex].file_url)}
               alt={photos[lightboxIndex].caption || ""}

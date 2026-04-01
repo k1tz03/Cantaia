@@ -303,7 +303,7 @@ async function handleCrudAction(
   body: any,
   planningId: string,
   admin: any,
-  _orgId: string,
+  _orgId: string, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Promise<NextResponse> {
   try {
     switch (body.action) {
@@ -704,7 +704,7 @@ async function handleCrudAction(
           .maybeSingle();
 
         const existingConfigClear = existingPlanningClear?.config || {};
-        const { baseline: _, ...configWithoutBaseline } = existingConfigClear;
+        const { baseline: _baseline, ...configWithoutBaseline } = existingConfigClear;
 
         const { error: clearError } = await (admin as any)
           .from("project_plannings")

@@ -53,7 +53,7 @@ function compressImage(file: File, maxDim = 2048): Promise<Blob> {
   });
 }
 
-export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUploaded, maxPhotos = 20 }: PhotoCaptureProps) {
+export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUploaded, maxPhotos = 20 }: PhotoCaptureProps) { // eslint-disable-line @typescript-eslint/no-unused-vars
   const t = useTranslations("visits.photos");
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -180,6 +180,7 @@ export function PhotoCapture({ visitId, orgId: _orgId, photoType, onPhotosUpload
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {pendingFiles.map((p) => (
             <div key={p.id} className="group relative aspect-square overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.preview}
                 alt=""

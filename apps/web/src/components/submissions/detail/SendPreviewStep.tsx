@@ -75,7 +75,7 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
     setError("");
     try {
       const groups = Object.entries(assignments)
-        .filter(([_, ids]) => ids.length > 0)
+        .filter(([, ids]) => ids.length > 0)
         .map(([groupName, supplierIds]) => ({
           material_group: groupName,
           supplier_ids: supplierIds,

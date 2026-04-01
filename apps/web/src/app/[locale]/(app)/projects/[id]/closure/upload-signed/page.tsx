@@ -200,6 +200,7 @@ export default function UploadSignedPVPage() {
             {/* Image preview */}
             {preview && (
               <div className="mt-4 overflow-hidden rounded-md border border-[#27272A]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={preview} alt="Preview" className="max-h-64 w-full object-contain" />
               </div>
             )}

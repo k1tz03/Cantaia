@@ -41,7 +41,7 @@ export function usePVContent(id: string) {
           const allActions: number[] = [];
           let idx = 0;
           for (const section of content.sections || []) {
-            for (const _action of section.actions || []) {
+            for (const _ of section.actions || []) { // eslint-disable-line @typescript-eslint/no-unused-vars
               allActions.push(idx++);
             }
           }
