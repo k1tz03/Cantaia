@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   transpilePackages: ["@cantaia/ui", "@cantaia/core", "@cantaia/database"],
-  serverExternalPackages: ["ffmpeg-static", "pdf-parse", "pdfjs-dist", "@react-pdf/renderer", "@react-pdf/pdfkit", "@react-pdf/yoga", "archiver"],
+  serverExternalPackages: ["ffmpeg-static", "pdf-parse", "pdfjs-dist", "@react-pdf/renderer", "@react-pdf/pdfkit", "@react-pdf/yoga"],
   images: {
     formats: ["image/avif", "image/webp"],
   },

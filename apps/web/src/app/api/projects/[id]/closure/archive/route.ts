@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import archiver from "archiver";
-import { PassThrough } from "stream";
+import JSZip from "jszip";
 
 export const maxDuration = 300; // 5 min — archive can be large
 
@@ -228,13 +227,7 @@ export async function POST(
     console.log(`[Archive] Data collected: ${tasks.length} tasks, ${emails.length} emails, ${meetings.length} meetings, ${submissions.length} submissions, ${plans.length} plans, ${visits.length} visits, ${siteReports.length} reports`);
 
     // ── Build ZIP ──
-    const archive = archiver("zip", { zlib: { level: 5 } });
-    const passthrough = new PassThrough();
-    archive.pipe(passthrough);
-
-    // Collect all chunks into a buffer
-    const chunks: Buffer[] = [];
-    passthrough.on("data", (chunk: Buffer) => chunks.push(chunk));
+    const zip = new JSZip();
 
     // ── 00 — Résumé Projet ──
     const projectSummary = [
@@ -266,7 +259,7 @@ export async function POST(
       `Archive générée le ${formatDate(new Date().toISOString())} par Cantaia`,
     ].join("\r\n");
 
-    archive.append(projectSummary, { name: `${archivePrefix}/00_Resume_Projet.txt` });
+    zip.file(`${archivePrefix}/00_Resume_Projet.txt`, projectSummary);
 
     // ── 01 — Emails ──
     if (emails.length > 0) {
@@ -284,7 +277,7 @@ export async function POST(
           ])
         )
       );
-      archive.append(emailCSV, { name: `${archivePrefix}/01_Emails/emails_registre.csv` });
+      zip.file(`${archivePrefix}/01_Emails/emails_registre.csv`, emailCSV);
     }
 
     // ── 02 — Plans ──
@@ -305,7 +298,7 @@ export async function POST(
           ])
         )
       );
-      archive.append(plansCSV, { name: `${archivePrefix}/02_Plans/plans_registre.csv` });
+      zip.file(`${archivePrefix}/02_Plans/plans_registre.csv`, plansCSV);
 
       // Try to download plan files
       const planVersions = await db
@@ -320,9 +313,7 @@ export async function POST(
             if (file) {
               const planRef = plans.find((p: any) => p.id === pv.plan_id);
               const prefix = planRef ? sanitizePath(planRef.plan_number || planRef.plan_title || pv.plan_id) : pv.plan_id;
-              archive.append(file.data, {
-                name: `${archivePrefix}/02_Plans/${prefix}_${sanitizePath(file.name)}`,
-              });
+              zip.file(`${archivePrefix}/02_Plans/${prefix}_${sanitizePath(file.name)}`, file.data);
             }
           }
         }
@@ -337,7 +328,7 @@ export async function POST(
           csvRow([s.title, s.reference, s.status, formatDate(s.deadline), formatDate(s.created_at)])
         )
       );
-      archive.append(subCSV, { name: `${archivePrefix}/03_Soumissions/soumissions_registre.csv` });
+      zip.file(`${archivePrefix}/03_Soumissions/soumissions_registre.csv`, subCSV);
 
       // For each submission, export items
       for (const sub of submissions) {
@@ -380,9 +371,7 @@ export async function POST(
               })
             );
             const subName = sanitizePath((sub as any).title || sub.id);
-            archive.append(itemsCSV, {
-              name: `${archivePrefix}/03_Soumissions/${subName}_postes.csv`,
-            });
+            zip.file(`${archivePrefix}/03_Soumissions/${subName}_postes.csv`, itemsCSV);
           }
         }
 
@@ -413,9 +402,7 @@ export async function POST(
             )
           );
           const subName = sanitizePath((sub as any).title || sub.id);
-          archive.append(prCSV, {
-            name: `${archivePrefix}/03_Soumissions/${subName}_demandes_prix.csv`,
-          });
+          zip.file(`${archivePrefix}/03_Soumissions/${subName}_demandes_prix.csv`, prCSV);
         }
       }
     }
@@ -428,7 +415,7 @@ export async function POST(
           csvRow([m.meeting_number, m.title, formatDate(m.meeting_date), m.location, m.status])
         )
       );
-      archive.append(pvCSV, { name: `${archivePrefix}/04_PV_Seances/seances_registre.csv` });
+      zip.file(`${archivePrefix}/04_PV_Seances/seances_registre.csv`, pvCSV);
 
       // Export PV content as text for each meeting
       for (const meeting of meetings as any[]) {
@@ -459,7 +446,7 @@ export async function POST(
           }
 
           const meetName = `PV_${String(meeting.meeting_number || "0").padStart(3, "0")}`;
-          archive.append(pvText, { name: `${archivePrefix}/04_PV_Seances/${meetName}.txt` });
+          zip.file(`${archivePrefix}/04_PV_Seances/${meetName}.txt`, pvText);
         }
       }
     }
@@ -472,7 +459,7 @@ export async function POST(
           csvRow([v.client_name, formatDate(v.visit_date), v.duration_minutes, formatDate(v.created_at)])
         )
       );
-      archive.append(visitCSV, { name: `${archivePrefix}/05_Visites/visites_registre.csv` });
+      zip.file(`${archivePrefix}/05_Visites/visites_registre.csv`, visitCSV);
 
       // Download visit report PDFs
       for (const visit of visits as any[]) {
@@ -480,7 +467,7 @@ export async function POST(
           const file = await tryDownloadFile(admin, visit.report_pdf_url);
           if (file) {
             const visitName = `Visite_${formatDate(visit.visit_date).replace(/\./g, "-")}_${sanitizePath(visit.client_name || "")}`;
-            archive.append(file.data, { name: `${archivePrefix}/05_Visites/${visitName}.pdf` });
+            zip.file(`${archivePrefix}/05_Visites/${visitName}.pdf`, file.data);
           }
         }
       }
@@ -494,7 +481,7 @@ export async function POST(
           csvRow([formatDate(r.report_date), r.submitted_by_name, r.status, r.weather, r.remarks])
         )
       );
-      archive.append(reportsCSV, { name: `${archivePrefix}/06_Rapports_Chantier/rapports_registre.csv` });
+      zip.file(`${archivePrefix}/06_Rapports_Chantier/rapports_registre.csv`, reportsCSV);
     }
 
     // ── 07 — Tâches ──
@@ -505,7 +492,7 @@ export async function POST(
           csvRow([t.title, t.description, t.status, t.priority, formatDate(t.due_date), formatDate(t.created_at)])
         )
       );
-      archive.append(tasksCSV, { name: `${archivePrefix}/07_Taches/taches_registre.csv` });
+      zip.file(`${archivePrefix}/07_Taches/taches_registre.csv`, tasksCSV);
     }
 
     // ── 08 — Clôture ──
@@ -514,7 +501,7 @@ export async function POST(
       if (reception.pv_document_url) {
         const file = await tryDownloadFile(admin, reception.pv_document_url);
         if (file) {
-          archive.append(file.data, { name: `${archivePrefix}/08_Cloture/PV_Reception.${file.name.split(".").pop() || "docx"}` });
+          zip.file(`${archivePrefix}/08_Cloture/PV_Reception.${file.name.split(".").pop() || "docx"}`, file.data);
         }
       }
 
@@ -522,7 +509,7 @@ export async function POST(
       if (reception.pv_signed_url) {
         const file = await tryDownloadFile(admin, reception.pv_signed_url);
         if (file) {
-          archive.append(file.data, { name: `${archivePrefix}/08_Cloture/PV_Reception_Signe.${file.name.split(".").pop() || "pdf"}` });
+          zip.file(`${archivePrefix}/08_Cloture/PV_Reception_Signe.${file.name.split(".").pop() || "pdf"}`, file.data);
         }
       }
 
@@ -545,7 +532,7 @@ export async function POST(
             )
           : ["  Aucun"]),
       ].join("\r\n");
-      archive.append(recSummary, { name: `${archivePrefix}/08_Cloture/resume_reception.txt` });
+      zip.file(`${archivePrefix}/08_Cloture/resume_reception.txt`, recSummary);
     }
 
     // Additional closure documents
@@ -555,7 +542,7 @@ export async function POST(
           const file = await tryDownloadFile(admin, doc.document_url);
           if (file) {
             const docName = sanitizePath(`${doc.document_type || "document"}_${file.name}`);
-            archive.append(file.data, { name: `${archivePrefix}/08_Cloture/${docName}` });
+            zip.file(`${archivePrefix}/08_Cloture/${docName}`, file.data);
           }
         }
       }
@@ -581,7 +568,7 @@ export async function POST(
             ["Entreprise", "Contact", "Email", "Téléphone"],
             suppliers.map((s: any) => csvRow([s.company_name, s.contact_name, s.email, s.phone]))
           );
-          archive.append(suppCSV, { name: `${archivePrefix}/09_Fournisseurs/fournisseurs_projet.csv` });
+          zip.file(`${archivePrefix}/09_Fournisseurs/fournisseurs_projet.csv`, suppCSV);
         }
 
         // Offers summary
@@ -592,20 +579,12 @@ export async function POST(
             csvRow([supplierMap.get(o.supplier_id) || o.supplier_id, o.status, formatCHF(o.total_amount), formatDate(o.submitted_at)])
           )
         );
-        archive.append(offersCSV, { name: `${archivePrefix}/09_Fournisseurs/offres_recues.csv` });
+        zip.file(`${archivePrefix}/09_Fournisseurs/offres_recues.csv`, offersCSV);
       }
     }
 
     // ── Finalize ZIP ──
-    await archive.finalize();
-
-    // Wait for all data to be collected
-    await new Promise<void>((resolve, reject) => {
-      passthrough.on("end", resolve);
-      passthrough.on("error", reject);
-    });
-
-    const zipBuffer = Buffer.concat(chunks);
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 5 } });
 
     console.log(`[Archive] ZIP created: ${(zipBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
