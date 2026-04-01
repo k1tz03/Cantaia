@@ -28,6 +28,8 @@ import {
   Inbox,
   Plus,
   Settings,
+  Paperclip,
+  FileText,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -1818,8 +1820,40 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
   const [suggestedProject, setSuggestedProject] = useState<{ id: string; name: string } | null>(null);
   const [confirmedProject, setConfirmedProject] = useState<string | null>(null);
 
+  // Attachments
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+    const maxSize = 10 * 1024 * 1024; // 10 MB per file
+    const newFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f.size > maxSize) {
+        setSendError(`"${f.name}" dépasse 10 MB`);
+        continue;
+      }
+      // Avoid duplicates by name+size
+      if (!attachments.some((a) => a.name === f.name && a.size === f.size)) {
+        newFiles.push(f);
+      }
+    }
+    if (newFiles.length) setAttachments((prev) => [...prev, ...newFiles]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  };
 
   // Escape to close
   useEffect(() => {
@@ -1917,18 +1951,23 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
     setSending(true);
     setSendError(null);
     try {
-      const payload: Record<string, unknown> = {
-        to: toEmails,
-        subject,
-        body: body.replace(/\n/g, "<br>"),
-      };
-      if (ccInput.trim()) payload.cc = ccInput.split(",").map((s: string) => s.trim()).filter(Boolean);
-      if (bccInput.trim()) payload.bcc = bccInput.split(",").map((s: string) => s.trim()).filter(Boolean);
+      const formData = new FormData();
+      formData.append("to", JSON.stringify(toEmails));
+      formData.append("subject", subject);
+      formData.append("body", body.replace(/\n/g, "<br>"));
+      if (ccInput.trim()) {
+        formData.append("cc", JSON.stringify(ccInput.split(",").map((s: string) => s.trim()).filter(Boolean)));
+      }
+      if (bccInput.trim()) {
+        formData.append("bcc", JSON.stringify(bccInput.split(",").map((s: string) => s.trim()).filter(Boolean)));
+      }
+      for (const file of attachments) {
+        formData.append("attachments", file);
+      }
 
       const res = await fetch("/api/email/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -2048,6 +2087,25 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
               placeholder="Rédigez votre message..."
               className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
             />
+            {/* Attachment chips */}
+            {attachments.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {attachments.map((file, i) => (
+                  <div key={`${file.name}-${i}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#27272A] border border-[#3F3F46] rounded-lg text-[11px] text-[#D4D4D8] group">
+                    <FileText className="w-3.5 h-3.5 text-[#71717A] flex-shrink-0" />
+                    <span className="truncate max-w-[160px]">{file.name}</span>
+                    <span className="text-[#52525B]">({formatFileSize(file.size)})</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      className="ml-0.5 p-0.5 rounded hover:bg-[#3F3F46] text-[#52525B] hover:text-[#FAFAFA] transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* AI Assist panel */}
@@ -2133,6 +2191,24 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 Envoyer
               </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-[#71717A] hover:text-[#D4D4D8] hover:bg-[#27272A] rounded-lg transition-colors"
+                title="Joindre un fichier"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+              />
+              {attachments.length > 0 && (
+                <span className="text-[11px] text-[#52525B]">{attachments.length} fichier{attachments.length > 1 ? "s" : ""}</span>
+              )}
               <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#71717A] hover:text-[#D4D4D8] transition-colors ml-auto">
                 Annuler
               </button>

@@ -51,24 +51,42 @@ export class MicrosoftProvider implements EmailProvider {
     const token = connection.oauth_access_token;
     if (!token) throw new Error("No Microsoft access token");
 
+    // Build message payload
+    const message: Record<string, unknown> = {
+      subject: draft.subject,
+      body: { contentType: "HTML", content: draft.bodyHtml },
+      toRecipients: draft.to.map((addr) => ({ emailAddress: { address: addr } })),
+      ccRecipients: (draft.cc || []).map((addr) => ({ emailAddress: { address: addr } })),
+      bccRecipients: (draft.bcc || []).map((addr) => ({ emailAddress: { address: addr } })),
+    };
+
+    // Add attachments if present (Microsoft Graph fileAttachment format)
+    if (draft.attachments && draft.attachments.length > 0) {
+      message.attachments = draft.attachments.map((att) => ({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: att.filename,
+        contentType: att.contentType,
+        contentBytes: Buffer.isBuffer(att.content)
+          ? att.content.toString("base64")
+          : typeof att.content === "string"
+            ? att.content
+            : Buffer.from(att.content as ArrayBuffer).toString("base64"),
+      }));
+    }
+
     const response = await fetch(`${GRAPH_BASE_URL}/me/sendMail`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        message: {
-          subject: draft.subject,
-          body: { contentType: "HTML", content: draft.bodyHtml },
-          toRecipients: draft.to.map((addr) => ({ emailAddress: { address: addr } })),
-          ccRecipients: (draft.cc || []).map((addr) => ({ emailAddress: { address: addr } })),
-          bccRecipients: (draft.bcc || []).map((addr) => ({ emailAddress: { address: addr } })),
-        },
-      }),
+      body: JSON.stringify({ message }),
     });
 
-    if (!response.ok) throw new Error(`Send failed: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Send failed: ${response.status} ${response.statusText} ${errorText}`);
+    }
     return "sent";
   }
 

@@ -51,11 +51,11 @@ export async function GET(req: NextRequest) {
 
   // 3. Microsoft Graph People API (Outlook contacts + frequent contacts)
   try {
-    const token = await getValidMicrosoftToken(user.id);
-    if (token) {
+    const tokenResult = await getValidMicrosoftToken(user.id);
+    if (!("error" in tokenResult)) {
       const graphRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/people?$search="${encodeURIComponent(q)}"&$top=10&$select=displayName,scoredEmailAddresses`,
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+        { headers: { Authorization: `Bearer ${tokenResult.accessToken}`, "Content-Type": "application/json" } }
       );
       if (graphRes.ok) {
         const graphData = await graphRes.json();
