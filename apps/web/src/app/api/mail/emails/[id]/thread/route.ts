@@ -91,18 +91,29 @@ export async function GET(
           );
           if (attRes.ok) {
             const attData = await attRes.json();
-            const inlineAtts = (attData.value || []).filter(
-              (a: any) => a.isInline && a.contentBytes
+            // Accept attachments with contentBytes AND either isInline or contentId
+            const cidAtts = (attData.value || []).filter(
+              (a: any) => a.contentBytes && (a.isInline || a.contentId)
             );
-            for (const att of inlineAtts) {
+            for (const att of cidAtts) {
               const cid = att.contentId || att.name;
               if (cid && att.contentBytes) {
                 const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
                 body = body
-                  .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri)
-                  .replace(new RegExp(`cid:${cid.replace(/^<|>$/g, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                  .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                const cidClean = cid.replace(/^<|>$/g, "");
+                if (cidClean !== cid) {
+                  body = body
+                    .replace(new RegExp(`cid:${cidClean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                }
+                if (att.name && att.name !== cid && att.name !== cidClean) {
+                  body = body
+                    .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                }
               }
             }
+          } else {
+            console.warn(`[thread] Fallback attachments fetch failed: ${attRes.status}`);
           }
         } catch (err: any) {
           console.warn(`[thread] Fallback CID resolve failed:`, err?.message);
@@ -240,18 +251,34 @@ export async function GET(
             );
             if (attRes.ok) {
               const attData = await attRes.json();
-              const inlineAtts = (attData.value || []).filter(
-                (a: any) => a.isInline && a.contentBytes
+              // Accept attachments that have contentBytes AND either:
+              // - are marked isInline, OR
+              // - have a contentId (signature images sometimes have isInline=false but still use cid:)
+              const cidAtts = (attData.value || []).filter(
+                (a: any) => a.contentBytes && (a.isInline || a.contentId)
               );
-              for (const att of inlineAtts) {
+              for (const att of cidAtts) {
                 const cid = att.contentId || att.name;
                 if (cid && att.contentBytes) {
                   const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
+                  // Try exact match first
                   bodyContent = bodyContent
-                    .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri)
-                    .replace(new RegExp(`cid:${cid.replace(/^<|>$/g, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                    .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                  // Try without angle brackets
+                  const cidClean = cid.replace(/^<|>$/g, "");
+                  if (cidClean !== cid) {
+                    bodyContent = bodyContent
+                      .replace(new RegExp(`cid:${cidClean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                  }
+                  // Also try matching by filename if contentId didn't match
+                  if (att.name && att.name !== cid && att.name !== cidClean) {
+                    bodyContent = bodyContent
+                      .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                  }
                 }
               }
+            } else {
+              console.warn(`[thread] Attachments fetch failed for ${msg.id}: ${attRes.status}`);
             }
           } catch (err: any) {
             console.warn(`[thread] CID resolve failed for ${msg.id}:`, err?.message);

@@ -212,8 +212,7 @@ html:not(.dark) {
   height: auto !important;
   border-radius: 4px;
 }
-/* Hide broken images — show nothing instead of a white box */
-.email-content-dark img[src^="cid:"],
+/* Hide truly broken images (no src attribute at all) */
 .email-content-dark img:not([src]),
 .email-content-dark img[src=""] {
   display: none !important;

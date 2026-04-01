@@ -90,7 +90,7 @@ const MS_IMG_DOMAINS = [
 
 /**
  * Rewrite Microsoft-hosted image URLs → our proxy route.
- * Also removes unresolved cid: images (replace with empty pixel).
+ * Convert unresolved cid: images to transparent 1×1 pixel (instead of removing).
  */
 function fixEmailImages(html: string): string {
   if (!html) return html;
@@ -110,10 +110,14 @@ function fixEmailImages(html: string): string {
       return `${before}${url}${after}`;
     }
   );
-  // Remove unresolved cid: references — hide instead of showing broken image box
+  // Convert unresolved cid: references to transparent 1×1 pixel.
+  // This preserves the element in the DOM (for layout) but makes it invisible.
+  // The server-side thread API already resolves cid: → data: URIs when possible;
+  // any remaining cid: refs are truly unresolvable.
+  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   result = result.replace(
-    /<img\s[^>]*?\bsrc\s*=\s*["']cid:[^"']*["'][^>]*\/?>/gi,
-    ""
+    /(\bsrc\s*=\s*["'])cid:[^"']*?(["'])/gi,
+    `$1${TRANSPARENT_PIXEL}$2`
   );
   return result;
 }
@@ -343,6 +347,19 @@ function MailPageInner() {
   // FIX 5 — Lock body scroll when any popup is open
   const anyPopupOpen = !!(replyEmail || delegateEmail || transferEmail || composeOpen);
   useBodyScrollLock(anyPopupOpen);
+
+  // Graceful broken-image handler — hides images that fail to load inside email content
+  useEffect(() => {
+    function handleImageError(e: Event) {
+      const img = e.target as HTMLImageElement;
+      if (img.tagName === "IMG" && img.closest(".email-content")) {
+        img.style.display = "none";
+      }
+    }
+    // Use capture phase to intercept errors before they bubble
+    document.addEventListener("error", handleImageError, true);
+    return () => document.removeEventListener("error", handleImageError, true);
+  }, []);
 
   const { setActiveProject } = useActiveProject();
 
