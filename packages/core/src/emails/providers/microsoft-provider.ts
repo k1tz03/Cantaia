@@ -165,7 +165,7 @@ export class MicrosoftProvider implements EmailProvider {
       client_secret: clientSecret,
       grant_type: "refresh_token",
       refresh_token: connection.oauth_refresh_token,
-      scope: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
+      scope: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read People.Read Contacts.Read",
     });
 
     const response = await fetch(tokenUrl, {

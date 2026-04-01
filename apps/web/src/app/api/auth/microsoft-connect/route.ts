@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   const redirectUri = `${appUrl}/api/auth/microsoft-connect`;
   console.log("[microsoft-connect] redirectUri:", redirectUri, "host:", reqHost);
   const scopes =
-    "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read";
+    "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read People.Read Contacts.Read";
 
   // ── Handle OAuth error from Microsoft ──
   if (error) {
