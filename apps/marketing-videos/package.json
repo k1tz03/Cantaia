@@ -1,0 +1,26 @@
+{
+  "name": "@cantaia/marketing-videos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cantaia marketing videos built with Remotion",
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion render src/index.ts TheProblem out/cantaia-the-problem.mp4 && remotion render src/index.ts TheSolution out/cantaia-the-solution.mp4 && remotion render src/index.ts TheProof out/cantaia-the-proof.mp4",
+    "build:problem": "remotion render src/index.ts TheProblem out/cantaia-the-problem.mp4",
+    "build:solution": "remotion render src/index.ts TheSolution out/cantaia-the-solution.mp4",
+    "build:proof": "remotion render src/index.ts TheProof out/cantaia-the-proof.mp4",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.242",
+    "@remotion/player": "4.0.242",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.242"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.5.0"
+  }
+}
