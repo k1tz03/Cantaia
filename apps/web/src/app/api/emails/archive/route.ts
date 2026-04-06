@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
   let emailQuery = (admin as any)
     .from("email_records")
     .select("id, outlook_message_id, subject, sender_email, sender_name, recipients, received_at, body_text, body_html, body_preview, classification, has_attachments")
-    .eq("project_id", project_id)
-    .eq("is_processed", true);
+    .eq("project_id", project_id);
 
   if (email_ids && email_ids.length > 0) {
     emailQuery = emailQuery.in("id", email_ids);

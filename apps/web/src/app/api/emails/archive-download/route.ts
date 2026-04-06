@@ -64,8 +64,7 @@ export async function GET(request: NextRequest) {
   const { count: totalEmails } = await admin
     .from("email_records")
     .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId)
-    .eq("is_processed", true);
+    .eq("project_id", projectId);
 
   const savedArchives = (archives || []).filter(
     (a: { status: string }) => a.status === "saved"

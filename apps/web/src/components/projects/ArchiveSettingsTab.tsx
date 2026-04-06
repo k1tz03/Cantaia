@@ -170,15 +170,20 @@ export function ArchiveSettingsTab({
   const IDB_DB = "cantaia_archive";
   const IDB_STORE = "dir_handles";
 
-  const saveHandleToIDB = useCallback(async (handle: any) => {
-    try {
-      const req = indexedDB.open(IDB_DB, 1);
-      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
-      req.onsuccess = () => {
-        const tx = req.result.transaction(IDB_STORE, "readwrite");
-        tx.objectStore(IDB_STORE).put(handle, `project_${projectId}`);
-      };
-    } catch { /* IndexedDB unavailable */ }
+  const saveHandleToIDB = useCallback((handle: any): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(IDB_DB, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+        req.onsuccess = () => {
+          const tx = req.result.transaction(IDB_STORE, "readwrite");
+          const putReq = tx.objectStore(IDB_STORE).put(handle, `project_${projectId}`);
+          putReq.onsuccess = () => resolve();
+          putReq.onerror = () => resolve();
+        };
+        req.onerror = () => resolve();
+      } catch { resolve(); }
+    });
   }, [projectId]);
 
   const loadHandleFromIDB = useCallback(async (): Promise<any | null> => {
@@ -197,15 +202,20 @@ export function ArchiveSettingsTab({
     });
   }, [projectId]);
 
-  const clearHandleFromIDB = useCallback(async () => {
-    try {
-      const req = indexedDB.open(IDB_DB, 1);
-      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
-      req.onsuccess = () => {
-        const tx = req.result.transaction(IDB_STORE, "readwrite");
-        tx.objectStore(IDB_STORE).delete(`project_${projectId}`);
-      };
-    } catch { /* IndexedDB unavailable */ }
+  const clearHandleFromIDB = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(IDB_DB, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+        req.onsuccess = () => {
+          const tx = req.result.transaction(IDB_STORE, "readwrite");
+          const delReq = tx.objectStore(IDB_STORE).delete(`project_${projectId}`);
+          delReq.onsuccess = () => resolve();
+          delReq.onerror = () => resolve();
+        };
+        req.onerror = () => resolve();
+      } catch { resolve(); }
+    });
   }, [projectId]);
 
   // ─── Restore auto-local from IndexedDB on mount ───
