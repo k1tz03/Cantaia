@@ -110,6 +110,13 @@ export default function BriefingPage() {
       if (res.ok) {
         const data = await res.json();
         setBriefing(data.briefing);
+      } else {
+        // If generate fails, try fetching today's cached briefing
+        const fallback = await fetch(`/api/briefing/today?date=${new Date().toISOString().split("T")[0]}`);
+        if (fallback.ok) {
+          const data = await fallback.json();
+          setBriefing(data.briefing);
+        }
       }
     } catch {
       // keep current briefing

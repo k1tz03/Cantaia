@@ -23,6 +23,7 @@ import {
   Download,
   FileDown,
   Mail,
+  ChevronDown,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
@@ -167,6 +168,7 @@ export default function SubmissionDetailPage() {
   // Prevents the polling useEffect from interfering (overwriting "error" back to "analyzing").
   const reanalyzeActiveRef = useRef(false);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [sentRequestsCollapsed, setSentRequestsCollapsed] = useState(true);
 
   const { setActiveProject } = useActiveProject();
 
@@ -549,46 +551,52 @@ export default function SubmissionDetailPage() {
         )}
         {activeTab === "requests" && (
           <div className="space-y-6">
-            {/* Sent requests history */}
+            {/* Sent requests history — collapsible */}
             {priceRequests.filter((pr) => pr.sent_at).length > 0 && (
               <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
-                <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A]">
+                <button
+                  onClick={() => setSentRequestsCollapsed((p) => !p)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-[#27272A] border-b border-[#27272A] hover:bg-[#27272A]/80 transition-colors"
+                >
                   <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({priceRequests.filter((pr) => pr.sent_at).length})</h3>
-                </div>
-                <div className="divide-y divide-[#27272A]">
-                  {priceRequests.filter((pr) => pr.sent_at).map((pr) => {
-                    const hasQuotes = quotes.some((q) => q.request_id === pr.id);
-                    const isResponded = pr.status === "responded" || hasQuotes;
-                    return (
-                      <div key={pr.id} className="px-4 py-3 flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                            {pr.suppliers?.company_name || "Fournisseur manuel"}
+                  <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${sentRequestsCollapsed ? "" : "rotate-180"}`} />
+                </button>
+                {!sentRequestsCollapsed && (
+                  <div className="divide-y divide-[#27272A] max-h-[400px] overflow-y-auto">
+                    {priceRequests.filter((pr) => pr.sent_at).map((pr) => {
+                      const hasQuotes = quotes.some((q) => q.request_id === pr.id);
+                      const isResponded = pr.status === "responded" || hasQuotes;
+                      return (
+                        <div key={pr.id} className="px-4 py-3 flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-[#FAFAFA] font-medium truncate">
+                              {pr.suppliers?.company_name || "Fournisseur manuel"}
+                            </div>
+                            <div className="text-xs text-[#71717A] mt-0.5">
+                              {pr.material_group} · {pr.items_requested?.length || 0} postes · Code: {pr.tracking_code}
+                            </div>
                           </div>
-                          <div className="text-xs text-[#71717A] mt-0.5">
-                            {pr.material_group} · {pr.items_requested?.length || 0} postes · Code: {pr.tracking_code}
+                          <div className="text-right shrink-0">
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                              isResponded
+                                ? "bg-green-500/10 text-green-400"
+                                : "bg-amber-500/10 text-amber-400"
+                            }`}>
+                              {isResponded ? (
+                                <><CheckCircle2 className="h-3 w-3" /> Répondu</>
+                              ) : (
+                                <><Send className="h-3 w-3" /> En attente</>
+                              )}
+                            </span>
+                            <div className="text-[10px] text-[#71717A] mt-0.5">
+                              Envoyé le {new Date(pr.sent_at!).toLocaleDateString("fr-CH")}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                            isResponded
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-amber-500/10 text-amber-400"
-                          }`}>
-                            {isResponded ? (
-                              <><CheckCircle2 className="h-3 w-3" /> Répondu</>
-                            ) : (
-                              <><Send className="h-3 w-3" /> En attente</>
-                            )}
-                          </span>
-                          <div className="text-[10px] text-[#71717A] mt-0.5">
-                            Envoyé le {new Date(pr.sent_at!).toLocaleDateString("fr-CH")}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

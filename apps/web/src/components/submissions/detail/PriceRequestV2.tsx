@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Search, Send, Eye, Trash2, X, Plus, Check,
   ChevronDown, ChevronRight, Zap, Paperclip,
   CheckCircle2, Loader2, Package as PackageIcon,
-  Camera, XCircle,
+  Camera, XCircle, Sparkles, Undo2,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -145,6 +145,11 @@ export function PriceRequestV2({
   deadline,
   onComplete,
 }: PriceRequestV2Props) {
+  // ── AI filtering state ──────────────────────────────────────
+  const [excludedItems, setExcludedItems] = useState<Map<string, string>>(new Map()); // id → reason
+  const [aiFilterLoading, setAiFilterLoading] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
+
   // ── Selection state ─────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [packages, setPackages] = useState<AssignmentPackage[]>([]);
@@ -173,18 +178,73 @@ export function PriceRequestV2({
   const [sendResult, setSendResult] = useState<{ sent: number; saved: number; errors: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  // ── AI item filtering (on mount) ────────────────────────────
+  useEffect(() => {
+    if (items.length === 0) return;
+    setAiFilterLoading(true);
+    fetch(`/api/submissions/${submissionId}/filter-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((i) => ({
+          id: i.id,
+          description: i.description,
+          unit: i.unit,
+          cfc_code: i.cfc_code,
+          material_group: i.material_group,
+        })),
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.excluded && data.excluded.length > 0) {
+          const map = new Map<string, string>();
+          for (const e of data.excluded) map.set(e.id, e.reason);
+          setExcludedItems(map);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAiFilterLoading(false));
+  }, [submissionId, items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Active items = all items minus AI-excluded ones
+  const activeItems = useMemo(() => items.filter((i) => !excludedItems.has(i.id)), [items, excludedItems]);
+  const excludedItemsList = useMemo(() => items.filter((i) => excludedItems.has(i.id)), [items, excludedItems]);
+
+  const restoreItem = useCallback((itemId: string) => {
+    setExcludedItems((prev) => {
+      const next = new Map(prev);
+      next.delete(itemId);
+      return next;
+    });
+  }, []);
+
+  const excludeItem = useCallback((itemId: string) => {
+    setExcludedItems((prev) => {
+      const next = new Map(prev);
+      next.set(itemId, "Exclu manuellement");
+      return next;
+    });
+    // Also deselect it
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  }, []);
+
   // ── Derived data ────────────────────────────────────────────
   const materialGroups = useMemo(() => {
     const groups: string[] = [];
     const seen = new Set<string>();
-    for (const item of items) {
+    for (const item of activeItems) {
       if (!seen.has(item.material_group)) {
         seen.add(item.material_group);
         groups.push(item.material_group);
       }
     }
     return groups;
-  }, [items]);
+  }, [activeItems]);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, WizardItem>();
@@ -220,7 +280,7 @@ export function PriceRequestV2({
   }, [existingRequests]);
 
   const filteredItems = useMemo(() => {
-    let result = items;
+    let result = activeItems;
     // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -238,12 +298,12 @@ export function PriceRequestV2({
       result = result.filter((i) => !assignedItemMap.has(i.id));
     }
     return result;
-  }, [items, searchQuery, filter, assignedItemMap]);
+  }, [activeItems, searchQuery, filter, assignedItemMap]);
 
   const counts = useMemo(() => {
-    const assigned = items.filter((i) => assignedItemMap.has(i.id)).length;
-    return { total: items.length, assigned, unassigned: items.length - assigned };
-  }, [items, assignedItemMap]);
+    const assigned = activeItems.filter((i) => assignedItemMap.has(i.id)).length;
+    return { total: activeItems.length, assigned, unassigned: activeItems.length - assigned };
+  }, [activeItems, assignedItemMap]);
 
   const totalEmails = useMemo(() => {
     // Each package × number of distinct material groups in its items
@@ -625,7 +685,11 @@ export function PriceRequestV2({
           <div>
             <h2 className="text-base font-semibold text-[#FAFAFA]">Demandes de prix</h2>
             <p className="text-xs text-[#71717A]">
-              {items.length} postes · {materialGroups.length} groupes
+              {activeItems.length} postes · {materialGroups.length} groupes
+              {excludedItemsList.length > 0 && (
+                <span className="text-[#52525B]"> · {excludedItemsList.length} exclus par IA</span>
+              )}
+              {aiFilterLoading && <span className="text-[#F97316] ml-1">· Analyse IA...</span>}
             </p>
           </div>
         </div>
@@ -675,7 +739,7 @@ export function PriceRequestV2({
           {/* Items table */}
           <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)] items-center px-3 py-2 bg-[#111113] border-b border-[#27272A] text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+            <div className="grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)_32px] items-center px-3 py-2 bg-[#111113] border-b border-[#27272A] text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
               <div className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -692,6 +756,7 @@ export function PriceRequestV2({
               <div className="text-right">Quantité</div>
               <div className="text-center">Unité</div>
               <div>Assigné à</div>
+              <div></div>
             </div>
 
             {/* Grouped items */}
@@ -745,7 +810,7 @@ export function PriceRequestV2({
                           <div
                             key={item.id}
                             onClick={() => toggleItem(item.id)}
-                            className={`grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)] items-center px-3 py-2 border-b border-[#27272A]/50 cursor-pointer transition-colors ${
+                            className={`grid grid-cols-[40px_60px_1fr_80px_60px_minmax(140px,200px)_32px] items-center px-3 py-2 border-b border-[#27272A]/50 cursor-pointer transition-colors ${
                               isSelected ? "bg-[#F97316]/[0.04]" : "hover:bg-[#1C1C1F]"
                             }`}
                           >
@@ -759,7 +824,7 @@ export function PriceRequestV2({
                             </div>
                             <div className="text-xs text-[#A1A1AA] font-mono">{item.item_number || "—"}</div>
                             <div className="min-w-0 pr-2">
-                              <div className="text-xs text-[#FAFAFA] truncate">{item.description}</div>
+                              <div className="text-xs text-[#FAFAFA]">{item.description}</div>
                               <div className="flex items-center gap-2 mt-0.5">
                                 {item.cfc_code && (
                                   <span className="text-[10px] text-[#52525B]">{item.cfc_code}</span>
@@ -791,6 +856,15 @@ export function PriceRequestV2({
                                 </span>
                               ))}
                             </div>
+                            <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => excludeItem(item.id)}
+                                className="p-1 rounded hover:bg-[#27272A] text-[#52525B] hover:text-amber-500 transition-colors"
+                                title="Exclure ce poste"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -805,6 +879,61 @@ export function PriceRequestV2({
               )}
             </div>
           </div>
+
+          {/* ── AI Excluded items section ──────────────────── */}
+          {excludedItemsList.length > 0 && (
+            <div className="mt-3">
+              <button
+                onClick={() => setShowExcluded(!showExcluded)}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] hover:border-[#3F3F46] transition-colors text-left"
+              >
+                {showExcluded ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-[#52525B]" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-[#52525B]" />
+                )}
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs font-medium text-[#A1A1AA]">
+                  Postes exclus par l&apos;IA
+                </span>
+                <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-medium">
+                  {excludedItemsList.length}
+                </span>
+              </button>
+
+              {showExcluded && (
+                <div className="mt-2 bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-amber-500/5 border-b border-[#27272A] text-[10px] text-amber-500/80">
+                    Ces postes ont été identifiés comme ne nécessitant pas de demande de prix (services, location, main d&apos;œuvre). Cliquez sur ↩ pour les réintégrer.
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
+                    {excludedItemsList.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 px-3 py-2 border-b border-[#27272A]/50 hover:bg-[#1C1C1F] transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-[#71717A]">{item.description}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {item.item_number && <span className="text-[10px] text-[#52525B] font-mono">{item.item_number}</span>}
+                            <span className="text-[10px] text-amber-500/60 italic">{excludedItems.get(item.id)}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => restoreItem(item.id)}
+                          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                          title="Réintégrer ce poste"
+                        >
+                          <Undo2 className="h-3 w-3" />
+                          Restaurer
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Right: Packages panel ─────────────────────────── */}
@@ -1003,9 +1132,9 @@ export function PriceRequestV2({
       {/* ── Supplier picker modal ────────────────────────────── */}
       {pickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPickerOpen(false)}>
-          <div className="w-[520px] max-h-[80vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="w-[520px] max-h-[80vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A] shrink-0">
               <div>
                 <h3 className="text-sm font-semibold text-[#FAFAFA]">Choisir un fournisseur</h3>
                 <p className="text-xs text-[#52525B] mt-0.5">
@@ -1018,7 +1147,7 @@ export function PriceRequestV2({
             </div>
 
             {/* Search */}
-            <div className="px-5 py-3 border-b border-[#27272A]">
+            <div className="px-5 py-3 border-b border-[#27272A] shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#52525B]" />
                 <input
@@ -1033,7 +1162,7 @@ export function PriceRequestV2({
             </div>
 
             {/* Supplier list */}
-            <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
+            <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
               {/* AI Recommended */}
               {pickerData.recommended.length > 0 && (
                 <div>
@@ -1092,7 +1221,7 @@ export function PriceRequestV2({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#27272A] bg-[#111113]">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">
               <span className="text-xs text-[#52525B]">
                 {pickerSelected.size > 0 ? `${pickerSelected.size} sélectionné${pickerSelected.size > 1 ? "s" : ""}` : "Aucun sélectionné"}
               </span>

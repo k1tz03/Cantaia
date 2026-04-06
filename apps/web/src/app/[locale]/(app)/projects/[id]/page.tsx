@@ -53,7 +53,8 @@ const baseTabs = [
   { key: "plans", icon: Map },
   { key: "planning", icon: CalendarRange },
   { key: "site-reports", icon: ClipboardList },
-  { key: "prix", icon: FileStack },
+  // HIDDEN: Cantaia Prix tab removed from project detail (2026-04)
+  // { key: "prix", icon: FileStack },
   { key: "archiving", icon: FolderArchive },
   { key: "closure", icon: ShieldCheck },
 ] as const;
@@ -278,7 +279,8 @@ export default function ProjectDetailPage() {
           <ProjectSiteReportsTab projectId={project.id} />
         )}
 
-        {activeTab === "prix" && <ProjectPrixTab benchmark={benchmark} />}
+        {/* HIDDEN: Cantaia Prix tab removed (2026-04) */}
+        {/* {activeTab === "prix" && <ProjectPrixTab benchmark={benchmark} />} */}
 
         {activeTab === "archiving" && (
           <ArchiveSettingsTab

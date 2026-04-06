@@ -33,6 +33,7 @@ import {
   Trash2,
   FolderPlus,
   Folder,
+  ArrowRightLeft,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -369,6 +370,7 @@ function MailPageInner() {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [isAloneInOrg, setIsAloneInOrg] = useState(true);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+  const [orgProjects, setOrgProjects] = useState<{ id: string; name: string; code: string | null; color: string | null }[]>([]);
   const [generatingSummaries, setGeneratingSummaries] = useState(false);
   const [summaryToast, setSummaryToast] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -437,6 +439,7 @@ function MailPageInner() {
       setStats(data.stats);
       setIsAloneInOrg(data.isAloneInOrg ?? true);
       setOrgMembers(data.orgMembers || []);
+      setOrgProjects(data.orgProjects || []);
       if (data.hasEmailConnection !== undefined) setHasEmailConnection(data.hasEmailConnection);
     } catch {
       router.replace("/dashboard");
@@ -614,6 +617,33 @@ function MailPageInner() {
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setSelectedEmailId((prev) => prev === emailId ? null : prev);
   }, [urgent, thisWeek, info]);
+
+  const reassignProject = useCallback(async (emailId: string, projectId: string) => {
+    try {
+      if (projectId) {
+        // Reassign to a different project
+        await fetch("/api/emails/confirm-classification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email_id: emailId, action: "change_project", project_id: projectId }),
+        });
+      } else {
+        // Remove from project — use reject action to clear project_id
+        await fetch("/api/emails/confirm-classification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email_id: emailId, action: "reject" }),
+        });
+      }
+      // Update local state so project badge updates immediately
+      const proj = projectId ? orgProjects.find((p) => p.id === projectId) : null;
+      const updater = (emails: DecisionEmail[]) =>
+        emails.map((e) => e.id === emailId ? { ...e, project_id: projectId || null, project_name: proj?.name || null } : e);
+      setUrgent(updater);
+      setThisWeek(updater);
+      setInfo(updater);
+    } catch { /* non-blocking */ }
+  }, [orgProjects]);
 
   // Compute filtered emails (needed by useEffect below, must be before early returns)
   const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
@@ -1022,6 +1052,7 @@ function MailPageInner() {
               isAloneInOrg={isAloneInOrg}
               locale={locale}
               folders={customFolders}
+              orgProjects={orgProjects}
               onReply={() => setReplyEmail(selectedEmail)}
               onDelegate={() => setDelegateEmail(selectedEmail)}
               onTransfer={() => setTransferEmail(selectedEmail)}
@@ -1032,6 +1063,7 @@ function MailPageInner() {
               onNegotiate={() => setReplyEmail(selectedEmail)}
               onRefuse={() => dismissCard(selectedEmail.id, "refuse")}
               onMoveToFolder={moveToFolder}
+              onReassignProject={reassignProject}
             />
           ) : selectedFolderMessage ? (
             <FolderMessageDetail message={selectedFolderMessage} locale={locale} />
@@ -1346,11 +1378,12 @@ function FolderMessageDetail({ message, locale }: { message: FolderMessage; loca
 interface FolderInfo { id: string; name: string; }
 interface FolderSuggestion { folder_id: string; folder_name: string; confidence: number; reason: string; }
 
-function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse, onMoveToFolder }: {
+function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, onReply, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse, onMoveToFolder, onReassignProject }: {
   email: DecisionEmail;
   isAloneInOrg: boolean;
   locale: string;
   folders: FolderInfo[];
+  orgProjects: { id: string; name: string; code: string | null; color: string | null }[];
   onReply: () => void;
   onDelegate: () => void;
   onTransfer: () => void;
@@ -1361,6 +1394,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDel
   onNegotiate: () => void;
   onRefuse: () => void;
   onMoveToFolder: (emailId: string, folderId: string, folderName: string) => void;
+  onReassignProject: (emailId: string, projectId: string) => void;
 }) {
   const t = useTranslations("mail.decisions");
   const [thread, setThread] = useState<ThreadMessage[] | null>(null);
@@ -1372,6 +1406,8 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDel
   const [folderSuggestion, setFolderSuggestion] = useState<FolderSuggestion | null>(null);
   const [movingToFolder, setMovingToFolder] = useState(false);
   const folderDropdownRef = useRef<HTMLDivElement>(null);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
 
   // Reset on email change
   useEffect(() => {
@@ -1440,6 +1476,17 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDel
     return () => document.removeEventListener("mousedown", handleClick);
   }, [folderDropdownOpen]);
 
+  // Close project dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setProjectDropdownOpen(false);
+      }
+    }
+    if (projectDropdownOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [projectDropdownOpen]);
+
   const handleMoveToFolder = async (folderId: string, folderName: string) => {
     setMovingToFolder(true);
     setFolderDropdownOpen(false);
@@ -1470,15 +1517,49 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDel
               <span className="text-[#A1A1AA]">{email.recipients.join(", ")}</span>
             </div>
           )}
-          {/* Date + Project */}
+          {/* Date + Project (clickable to reassign) */}
           <div className="flex items-center gap-2">
             <span>{formatFullDate(email.received_at, locale)}</span>
-            {email.project_name && (
-              <>
-                <span className="text-[#3F3F46]">&middot;</span>
-                <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium">{email.project_name}</span>
-              </>
-            )}
+            <span className="text-[#3F3F46]">&middot;</span>
+            <div className="relative" ref={projectDropdownRef}>
+              <button
+                onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium hover:bg-[#3B82F6]/20 transition-colors"
+              >
+                {email.project_name || "Aucun projet"}
+                <ArrowRightLeft className="w-2.5 h-2.5 opacity-60" />
+              </button>
+              {projectDropdownOpen && orgProjects.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 z-50 w-56 max-h-64 overflow-y-auto bg-[#18181B] border border-[#27272A] rounded-lg shadow-xl py-1">
+                  {/* Remove project assignment */}
+                  {email.project_id && (
+                    <button
+                      onClick={() => { onReassignProject(email.id, ""); setProjectDropdownOpen(false); }}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-[#A1A1AA] hover:bg-[#27272A] transition-colors flex items-center gap-2"
+                    >
+                      <X className="w-3 h-3 text-[#71717A]" />
+                      Retirer du projet
+                    </button>
+                  )}
+                  {email.project_id && <div className="border-t border-[#27272A] my-1" />}
+                  {orgProjects.map((proj) => (
+                    <button
+                      key={proj.id}
+                      onClick={() => { onReassignProject(email.id, proj.id); setProjectDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#27272A] transition-colors flex items-center gap-2 ${proj.id === email.project_id ? "text-[#60A5FA]" : "text-[#D4D4D8]"}`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: proj.color || "#3B82F6" }}
+                      />
+                      <span className="truncate">{proj.name}</span>
+                      {proj.code && <span className="text-[#52525B] ml-auto shrink-0">{proj.code}</span>}
+                      {proj.id === email.project_id && <Check className="w-3 h-3 ml-auto shrink-0 text-[#60A5FA]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

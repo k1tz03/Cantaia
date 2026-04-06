@@ -86,6 +86,37 @@ Mit freundlichen Grüssen,
 };
 
 /**
+ * Strip "fourniture et pose de", "Lieferung und Montage von", etc. from item descriptions.
+ * Suppliers only need the material/product part, not the service verbs.
+ * Returns the original description if cleaning removes too much (< 10 chars).
+ */
+export function cleanDescriptionForSupplier(desc: string): string {
+  let cleaned = desc;
+
+  // Remove common FR prefixes (fourniture et pose, livraison et mise en place, etc.)
+  cleaned = cleaned.replace(/^(?:fourniture\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+  cleaned = cleaned.replace(/^(?:livraison\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+  cleaned = cleaned.replace(/^(?:fourniture,?\s+(?:transport\s+et\s+)?(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+
+  // Remove DE prefixes (Lieferung und Montage, Lieferung und Verlegung)
+  cleaned = cleaned.replace(/^(?:Lieferung\s+und\s+(?:Montage|Verlegung|Einbau)\s+(?:von\s+)?)/i, "");
+
+  // Remove trailing clauses: "y compris ...", "inkl. ...", "inclus ..."
+  cleaned = cleaned.replace(/[,;]\s*(?:y\s+compris|incl(?:us|uant)?|inkl(?:usive)?|einschliesslich)\s+.{0,80}$/i, "");
+
+  // Remove trailing "et pose", "und Montage" when it's just appended
+  cleaned = cleaned.replace(/\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))$/i, "");
+  cleaned = cleaned.replace(/\s+und\s+(?:Montage|Verlegung|Einbau)$/i, "");
+
+  cleaned = cleaned.trim();
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  return cleaned.length >= 10 ? cleaned : desc;
+}
+
+/**
  * Generate a price request email from template
  */
 export function generatePriceRequestEmail(ctx: PriceRequestContext): GeneratedPriceRequest {

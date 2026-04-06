@@ -212,6 +212,14 @@ export async function GET(request: NextRequest) {
       // Table might not exist
     }
 
+    // Fetch all org projects for reassignment dropdown
+    const { data: orgProjects } = await (admin as any)
+      .from("projects")
+      .select("id, name, code, color")
+      .eq("organization_id", profile.organization_id)
+      .in("status", ["active", "planning"])
+      .order("name");
+
     // Check if user is alone in org + get org members for delegation
     const { data: orgMembers } = await (admin as any)
       .from("users")
@@ -249,6 +257,7 @@ export async function GET(request: NextRequest) {
       hasEmailConnection,
       isAloneInOrg,
       orgMembers: orgMembers || [],
+      orgProjects: orgProjects || [],
       urgent,
       thisWeek,
       info,

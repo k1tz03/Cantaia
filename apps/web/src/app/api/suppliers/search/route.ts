@@ -83,20 +83,45 @@ export async function POST(request: NextRequest) {
     const response = await anthropic.messages.create({
       model: MODEL_FOR_TASK.supplier_search,
       max_tokens: 4096,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+      messages: [
+        { role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] },
+        { role: "assistant", content: '{"suggestions": [' },
+      ],
     });
 
-    const text =
+    const rawText =
       response.content[0].type === "text" ? response.content[0].text : "";
 
-    // Parse the JSON response from Claude
-    // Handle potential markdown code block wrapping
-    const jsonText = text
-      .replace(/^```json?\s*/i, "")
-      .replace(/\s*```\s*$/i, "")
-      .trim();
+    // Prepend the assistant prefill to reconstruct full JSON
+    const fullJson = '{"suggestions": [' + rawText;
 
-    const result = JSON.parse(jsonText);
+    // Robust JSON parsing with multiple strategies
+    let result: any;
+    const cleaned = fullJson.replace(/,\s*([\]}])/g, "$1").trim();
+    try {
+      result = JSON.parse(cleaned);
+    } catch {
+      // If truncated, try closing the JSON
+      let fixed = cleaned;
+      if (!fixed.endsWith("}")) fixed += "}";
+      if (!fixed.includes("]}")) fixed = fixed.replace(/\]?\s*\}?\s*$/, "]}");
+      try {
+        result = JSON.parse(fixed);
+      } catch {
+        // Last resort: extract individual suggestion objects
+        const objects: any[] = [];
+        const regex = /\{[^{}]*"company_name"[^{}]*\}/g;
+        let match;
+        while ((match = regex.exec(fullJson)) !== null) {
+          try { objects.push(JSON.parse(match[0])); } catch { /* skip malformed */ }
+        }
+        if (objects.length > 0) {
+          result = { suggestions: objects };
+        } else {
+          throw new SyntaxError("No valid supplier objects found in AI response");
+        }
+      }
+    }
 
     return NextResponse.json({
       suggestions: result.suggestions || [],

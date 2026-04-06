@@ -50,7 +50,14 @@ export const env = new Proxy({} as ServerEnv & ClientEnv, {
 /**
  * Returns the canonical app URL (https://cantaia.io), stripped of trailing slashes.
  * Use this everywhere instead of reading NEXT_PUBLIC_APP_URL directly.
+ * Prefers BASE_DOMAIN if set, rejects .vercel.app for user-facing URLs.
  */
 export function getAppUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io").replace(/\/+$/, "");
+  const baseDomain = process.env.BASE_DOMAIN;
+  if (baseDomain) return `https://${baseDomain}`.replace(/\/+$/, "");
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io";
+  // Never expose .vercel.app in user-facing links (share links, portals, emails)
+  if (appUrl.includes(".vercel.app")) return "https://cantaia.io";
+  return appUrl.replace(/\/+$/, "");
 }

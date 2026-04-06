@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+function cleanDescriptionForSupplier(desc: string): string {
+  let cleaned = desc;
+  cleaned = cleaned.replace(/^(?:fourniture\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+  cleaned = cleaned.replace(/^(?:livraison\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+  cleaned = cleaned.replace(/^(?:fourniture,?\s+(?:transport\s+et\s+)?(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
+  cleaned = cleaned.replace(/^(?:Lieferung\s+und\s+(?:Montage|Verlegung|Einbau)\s+(?:von\s+)?)/i, "");
+  cleaned = cleaned.replace(/[,;]\s*(?:y\s+compris|incl(?:us|uant)?|inkl(?:usive)?|einschliesslich)\s+.{0,80}$/i, "");
+  cleaned = cleaned.replace(/\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))$/i, "");
+  cleaned = cleaned.replace(/\s+und\s+(?:Montage|Verlegung|Einbau)$/i, "");
+  cleaned = cleaned.trim();
+  if (cleaned.length > 0) cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  return cleaned.length >= 10 ? cleaned : desc;
+}
 
 /**
  * GET /api/submissions/[id]/preview-email?group=Béton&supplier_id=xxx
@@ -113,7 +126,7 @@ export async function GET(
       : "dans les meilleurs délais";
 
     const itemsTable = groupItems
-      .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${i.description}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
+      .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${cleanDescriptionForSupplier(i.description || "")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
       .join("\n");
 
     const subject = `Demande de prix — ${projectName} — ${group}`;
@@ -161,7 +174,7 @@ ${org?.name || ""}</p>
       separator,
       ...groupItems.map((i: any) => {
         const num = (i.item_number || "-").slice(0, colWidths.num);
-        const desc = (i.description || "").slice(0, colWidths.desc);
+        const desc = cleanDescriptionForSupplier(i.description || "").slice(0, colWidths.desc);
         const unit = (i.unit || "-").slice(0, colWidths.unit);
         const qty = i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-";
         return `${pad(num, colWidths.num)} | ${pad(desc, colWidths.desc)} | ${pad(unit, colWidths.unit)} | ${padR(qty, colWidths.qty)}`;

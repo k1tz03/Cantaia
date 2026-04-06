@@ -18,6 +18,7 @@ export {
 export {
   generatePriceRequestEmail,
   generateReminderEmail,
+  cleanDescriptionForSupplier,
   type PriceRequestContext,
   type GeneratedPriceRequest,
 } from "./price-request-generator";

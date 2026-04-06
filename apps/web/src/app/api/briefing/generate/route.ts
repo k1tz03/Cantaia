@@ -29,7 +29,8 @@ export async function POST() {
     return NextResponse.json({ error: "User profile not found" }, { status: 404 });
   }
 
-  if (!userProfile.briefing_enabled) {
+  // briefing_enabled defaults to null (new users) — treat as enabled (opt-out model)
+  if (userProfile.briefing_enabled === false) {
     return NextResponse.json({ error: "Briefing disabled" }, { status: 400 });
   }
 
@@ -59,8 +60,18 @@ export async function POST() {
     .eq("user_id", user.id)
     .gte("received_at", sevenDaysAgo.toISOString());
 
+  // If filtered projects returned nothing, fall back to all org projects
+  let projectIds = (projects || []).map((p: { id: string }) => p.id);
+  if (projectIds.length === 0) {
+    const { data: allProjects } = await (admin as any)
+      .from("projects")
+      .select("id")
+      .eq("organization_id", orgId)
+      .in("status", ["active", "planning"]);
+    projectIds = (allProjects || []).map((p: { id: string }) => p.id);
+  }
+
   // Fetch tasks (open)
-  const projectIds = (projects || []).map((p: { id: string }) => p.id);
   const { data: tasks } = await (admin as any)
     .from("tasks")
     .select("id, project_id, title, status, due_date, assigned_to_name, priority")
