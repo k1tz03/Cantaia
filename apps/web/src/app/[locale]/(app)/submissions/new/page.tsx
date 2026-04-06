@@ -33,6 +33,7 @@ export default function NewSubmissionPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [clientName, setClientName] = useState("");
   const [city, setCity] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -144,6 +145,7 @@ export default function NewSubmissionPage() {
         if (clientName) body.client_name = clientName;
         if (city) body.city = city;
       }
+      if (deadline) body.deadline = deadline;
 
       const res = await fetch("/api/submissions", {
         method: "POST",
@@ -169,7 +171,7 @@ export default function NewSubmissionPage() {
       setSubmitting(false);
       setUploadStep("idle");
     }
-  }, [file, projectId, newProjectName, clientName, city, router]);
+  }, [file, projectId, newProjectName, clientName, city, deadline, router]);
 
   // Human-readable step labels
   const stepLabel: Record<UploadStep, string> = {
@@ -289,6 +291,21 @@ export default function NewSubmissionPage() {
               </button>
             </>
           )}
+        </div>
+
+        {/* Deadline */}
+        <div className="bg-[#0F0F11] border border-[#27272A] rounded-xl p-6 space-y-2">
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">Deadline demandes de prix</h2>
+          <p className="text-xs text-[#71717A]">
+            Date limite pour recevoir les offres fournisseurs. Sera mentionnée dans les emails de demande de prix.
+          </p>
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            min={new Date().toISOString().split("T")[0]}
+            className="w-full sm:w-64 px-3 py-2 border border-[#27272A] rounded-lg text-sm bg-[#0F0F11] text-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-brand/20 [color-scheme:dark]"
+          />
         </div>
 
         {/* File upload */}

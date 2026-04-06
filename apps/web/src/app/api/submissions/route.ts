@@ -280,6 +280,7 @@ export async function POST(request: NextRequest) {
         file_name: fileName,
         file_type: fileType,
         analysis_status: "pending",
+        ...(deadline ? { deadline } : {}),
       })
       .select()
       .single();

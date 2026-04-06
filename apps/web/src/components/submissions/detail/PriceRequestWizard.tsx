@@ -34,6 +34,7 @@ interface PriceRequestWizardProps {
   suppliers: Supplier[];
   budgetGroups?: BudgetGroup[];
   existingRequests?: PriceRequest[];
+  deadline?: string | null;
   onComplete?: () => void;
 }
 
@@ -50,7 +51,8 @@ export function PriceRequestWizard({
   items,
   suppliers,
   budgetGroups,
-  existingRequests: _existingRequests, // eslint-disable-line @typescript-eslint/no-unused-vars
+  existingRequests,
+  deadline,
   onComplete,
 }: PriceRequestWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -189,6 +191,7 @@ export function PriceRequestWizard({
           items={items}
           selectedGroups={selectedGroups}
           selectedItemIds={selectedItemIds}
+          existingRequests={existingRequests as any}
           onToggleItem={toggleItem}
           onSelectAllGroup={selectAllGroup}
           onDeselectAllGroup={deselectAllGroup}
@@ -212,6 +215,7 @@ export function PriceRequestWizard({
           suppliers={suppliers}
           assignments={assignments}
           selectedItemIds={selectedItemIds}
+          deadline={deadline}
           onBack={() => setCurrentStep(2)}
           onComplete={onComplete}
         />

@@ -22,6 +22,7 @@ import {
   Search,
   Download,
   FileDown,
+  Mail,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
@@ -621,6 +622,7 @@ export default function SubmissionDetailPage() {
                   : undefined
               }
               existingRequests={priceRequests as any}
+              deadline={(submission as any)?.deadline || null}
               onComplete={fetchData}
             />
           </div>
@@ -928,6 +930,10 @@ function ComparisonTabContent({
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [emailModal, setEmailModal] = useState<{ requestId: string; supplierName: string } | null>(null);
+  const [emailData, setEmailData] = useState<{ subject: string; sender_email: string; sender_name: string; received_at: string; body_html: string | null; body_text: string | null } | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // Derive "effectively responded" requests: status === "responded" OR has associated quotes
   const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
@@ -999,6 +1005,27 @@ function ComparisonTabContent({
       setAwardError(err.message || "Erreur inconnue");
     } finally {
       setAwarding(false);
+    }
+  };
+
+  const openEmailModal = async (requestId: string, supplierName: string) => {
+    setEmailModal({ requestId, supplierName });
+    setEmailData(null);
+    setEmailError(null);
+    setEmailLoading(true);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/supplier-email?request_id=${requestId}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur");
+      if (json.email) {
+        setEmailData(json.email);
+      } else {
+        setEmailError("Aucun email de réponse trouvé pour ce fournisseur");
+      }
+    } catch (err: any) {
+      setEmailError(err.message || "Erreur lors du chargement de l'email");
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -1289,6 +1316,89 @@ function ComparisonTabContent({
         </div>
       )}
 
+      {/* Supplier email modal */}
+      {emailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEmailModal(null)}>
+          <div className="bg-[#18181B] rounded-xl shadow-2xl border border-[#27272A] max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F97316]/10">
+                  <Mail className="h-4 w-4 text-[#F97316]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-[#FAFAFA]">Email de réponse</h3>
+                  <p className="text-xs text-[#71717A]">{emailModal.supplierName}</p>
+                </div>
+              </div>
+              <button onClick={() => setEmailModal(null)} className="text-[#71717A] hover:text-[#FAFAFA] transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {emailLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#F97316]" />
+                  <span className="ml-2 text-sm text-[#71717A]">Chargement de l'email...</span>
+                </div>
+              )}
+              {emailError && !emailLoading && (
+                <div className="text-center py-12">
+                  <Mail className="h-10 w-10 text-[#52525B] mx-auto mb-3" />
+                  <p className="text-sm text-[#71717A]">{emailError}</p>
+                  <p className="text-xs text-[#52525B] mt-1">L'email de réponse n'a pas pu être retrouvé.</p>
+                </div>
+              )}
+              {emailData && !emailLoading && (
+                <div className="space-y-4">
+                  {/* Email metadata */}
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-[#71717A] w-12 shrink-0 pt-0.5">De</span>
+                      <div>
+                        <span className="text-sm text-[#FAFAFA]">{emailData.sender_name || emailData.sender_email}</span>
+                        {emailData.sender_name && (
+                          <span className="text-xs text-[#71717A] ml-2">&lt;{emailData.sender_email}&gt;</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#71717A] w-12 shrink-0">Objet</span>
+                      <span className="text-sm text-[#FAFAFA] font-medium">{emailData.subject}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#71717A] w-12 shrink-0">Date</span>
+                      <span className="text-xs text-[#A1A1AA]">
+                        {new Date(emailData.received_at).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Separator */}
+                  <div className="border-t border-[#27272A]" />
+
+                  {/* Email body */}
+                  <div className="bg-white text-black rounded-lg p-4 text-sm leading-relaxed overflow-auto max-h-[45vh]">
+                    {emailData.body_html ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: emailData.body_html }}
+                        className="[&_img]:max-w-full [&_img]:h-auto [&_table]:border-collapse [&_td]:p-1"
+                      />
+                    ) : emailData.body_text ? (
+                      <pre className="whitespace-pre-wrap font-sans">{emailData.body_text}</pre>
+                    ) : (
+                      <p className="text-[#71717A] italic">Contenu de l'email non disponible</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {materialGroups.map((group) => {
         const groupItems = filteredItems.filter((i) => i.material_group === group);
         const groupRequests = effectivelyResponded.filter((pr) => pr.material_group === group);
@@ -1361,15 +1471,27 @@ function ComparisonTabContent({
                         {prices.map((p) => {
                           const isCheapest = p.price !== null && p.price === minPrice;
                           const isMostExpensive = p.price !== null && p.price === maxPrice && validPrices.length > 1;
+                          const prReq = groupRequests.find((r) => r.id === p.requestId);
                           return (
                             <td
                               key={p.requestId}
+                              onClick={() => {
+                                if (p.price !== null && prReq) {
+                                  openEmailModal(p.requestId, supplierNames[p.requestId] || "Fournisseur");
+                                }
+                              }}
                               className={`px-3 py-2 text-right text-sm ${
-                                isCheapest ? "text-green-400 font-bold bg-green-500/10/50" :
+                                isCheapest ? "text-green-400 font-bold bg-green-500/10" :
                                 isMostExpensive ? "text-red-600" : "text-[#FAFAFA]"
-                              }`}
+                              } ${p.price !== null ? "cursor-pointer hover:bg-[#27272A]/50 transition-colors" : ""}`}
+                              title={p.price !== null ? "Cliquer pour voir l'email du fournisseur" : undefined}
                             >
-                              {p.price !== null ? p.price.toFixed(2) : (
+                              {p.price !== null ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {p.price.toFixed(2)}
+                                  <Mail className="h-3 w-3 text-[#52525B] opacity-0 group-hover:opacity-100" />
+                                </span>
+                              ) : (
                                 <span className="text-xs text-[#71717A]">—</span>
                               )}
                             </td>

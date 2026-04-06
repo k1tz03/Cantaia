@@ -3,7 +3,6 @@ import { Sidebar } from "@/components/app/Sidebar";
 import { AppEmailProvider } from "@/components/providers/AppEmailProvider";
 import { AppActiveProjectProvider } from "@/components/providers/AppActiveProjectProvider";
 import { CommandPalette } from "@/components/ui/CommandPalette";
-import { OnboardingChecklist } from "@/components/app/OnboardingChecklist";
 import { OnboardingGuard } from "@/components/app/OnboardingGuard";
 import { TrialGuard } from "@/components/stripe/TrialGuard";
 import { AppHeader } from "@/components/app/AppHeader";
@@ -32,7 +31,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <CommandPalette />
-            <OnboardingChecklist />
             <TourOverlay />
             {/* Watcher emails — toasts + notifications OS */}
             <EmailNotificationWatcher />

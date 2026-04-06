@@ -11,6 +11,7 @@ interface SendPreviewStepProps {
   suppliers: Supplier[];
   assignments: SupplierAssignment;
   selectedItemIds?: Set<string>;
+  deadline?: string | null;
   onBack: () => void;
   onComplete?: () => void;
 }
@@ -23,7 +24,7 @@ interface PreviewData {
   items_count: number;
 }
 
-export function SendPreviewStep({ submissionId, lots, suppliers, assignments, selectedItemIds, onBack, onComplete }: SendPreviewStepProps) {
+export function SendPreviewStep({ submissionId, lots, suppliers, assignments, selectedItemIds, deadline, onBack, onComplete }: SendPreviewStepProps) {
   const [previewOpen, setPreviewOpen] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -84,6 +85,9 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
       const payload: Record<string, unknown> = { groups };
       if (selectedItemIds && selectedItemIds.size > 0) {
         payload.item_ids = Array.from(selectedItemIds);
+      }
+      if (deadline) {
+        payload.deadline = deadline;
       }
 
       const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
@@ -146,6 +150,11 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
         <span className="text-sm text-[#71717A]">a {totalEmails} fournisseur{totalEmails > 1 ? "s" : ""}</span>
         <span className="text-sm text-[#71717A]">pour {totalGroups} groupe{totalGroups > 1 ? "s" : ""}</span>
         <span className="text-sm text-[#71717A]">({totalItems} postes)</span>
+        {deadline && (
+          <span className="text-sm text-[#71717A] ml-auto">
+            Deadline : <span className="text-[#FAFAFA] font-medium">{new Date(deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })}</span>
+          </span>
+        )}
       </div>
 
       {error && (

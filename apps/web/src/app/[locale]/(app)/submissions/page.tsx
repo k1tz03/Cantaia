@@ -294,16 +294,35 @@ export default function SubmissionsPage() {
                       const { sent, responded, pending } = sub.price_stats;
                       const responseRate = sent > 0 ? Math.round((responded / sent) * 100) : 0;
 
-                      // Deadline computation
+                      // Deadline + response rate combined alert
                       let deadlineLabel: React.ReactNode = null;
                       if (sub.deadline) {
                         const daysLeft = Math.ceil((new Date(sub.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        const missingPct = sent > 0 ? Math.round(((sent - responded) / sent) * 100) : 0;
+                        const hasMissing = sent > 0 && responded < sent;
+
                         if (daysLeft < 0) {
-                          deadlineLabel = <span className="text-red-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Expiré</span>;
+                          deadlineLabel = (
+                            <span className="text-red-400 flex items-center gap-1 text-[11px]">
+                              <AlertTriangle className="h-3 w-3" />
+                              Expiré{hasMissing ? ` · ${missingPct}% sans réponse` : ""}
+                            </span>
+                          );
+                        } else if (daysLeft <= 5 && hasMissing) {
+                          deadlineLabel = (
+                            <span className={`flex items-center gap-1 text-[11px] ${daysLeft <= 2 ? "text-red-400" : "text-amber-400"}`}>
+                              <AlertTriangle className="h-3 w-3" />
+                              {daysLeft}j · {missingPct}% sans réponse
+                            </span>
+                          );
                         } else if (daysLeft <= 3) {
-                          deadlineLabel = <span className="text-amber-400">{daysLeft}j restant{daysLeft > 1 ? "s" : ""}</span>;
+                          deadlineLabel = <span className="text-amber-400 text-[11px]">{daysLeft}j restant{daysLeft > 1 ? "s" : ""}</span>;
                         } else {
-                          deadlineLabel = <span className="text-[#71717A]">{daysLeft}j restants</span>;
+                          deadlineLabel = (
+                            <span className="text-[#71717A] text-[11px]">
+                              {daysLeft}j{hasMissing ? ` · ${missingPct}% en attente` : ""}
+                            </span>
+                          );
                         }
                       }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp, Check } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp, Check, Send } from "lucide-react";
 
 interface Item {
   id: string;
@@ -13,10 +13,21 @@ interface Item {
   cfc_code: string | null;
 }
 
+interface ExistingRequest {
+  id: string;
+  material_group: string;
+  items_requested: Array<{ id?: string; item_number?: string; description?: string }> | null;
+  sent_at: string | null;
+  status: string;
+  suppliers?: { company_name: string } | null;
+  supplier_name_manual?: string | null;
+}
+
 interface ItemSelectionStepProps {
   items: Item[];
   selectedGroups: string[];
   selectedItemIds: Set<string>;
+  existingRequests?: ExistingRequest[];
   onToggleItem: (itemId: string) => void;
   onSelectAllGroup: (group: string) => void;
   onDeselectAllGroup: (group: string) => void;
@@ -28,6 +39,7 @@ export function ItemSelectionStep({
   items,
   selectedGroups,
   selectedItemIds,
+  existingRequests,
   onToggleItem,
   onSelectAllGroup,
   onDeselectAllGroup,
@@ -35,6 +47,34 @@ export function ItemSelectionStep({
   onNext,
 }: ItemSelectionStepProps) {
   const [openGroup, setOpenGroup] = useState<string>(selectedGroups[0] || "");
+
+  // Build a lookup: item_number → { sent_at, suppliers[] } for items that already have price requests
+  const requestedItemsMap = useMemo(() => {
+    const map = new Map<string, { sent_at: string; supplier_names: string[] }>();
+    if (!existingRequests) return map;
+    for (const req of existingRequests) {
+      if (!req.sent_at || !req.items_requested) continue;
+      const supplierName = req.suppliers?.company_name || req.supplier_name_manual || "Fournisseur";
+      for (const ri of req.items_requested) {
+        const key = ri.item_number || ri.id;
+        if (!key) continue;
+        const existing = map.get(key);
+        if (existing) {
+          if (!existing.supplier_names.includes(supplierName)) {
+            existing.supplier_names.push(supplierName);
+          }
+        } else {
+          map.set(key, { sent_at: req.sent_at, supplier_names: [supplierName] });
+        }
+      }
+    }
+    return map;
+  }, [existingRequests]);
+
+  function getItemRequestInfo(item: Item) {
+    if (!item.item_number) return null;
+    return requestedItemsMap.get(item.item_number) || requestedItemsMap.get(item.id) || null;
+  }
 
   // Group items by material_group, only for selected groups
   const groupedItems: Record<string, Item[]> = {};
@@ -114,35 +154,50 @@ export function ItemSelectionStep({
               {/* Items list */}
               {isOpen && (
                 <div className="divide-y divide-border">
-                  {groupItems.map(item => (
-                    <label
-                      key={item.id}
-                      className="flex items-start gap-3 px-4 py-2.5 hover:bg-[#1C1C1F] cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedItemIds.has(item.id)}
-                        onChange={() => onToggleItem(item.id)}
-                        className="mt-0.5 h-4 w-4 rounded border-[#27272A] text-[#F97316]"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {item.item_number && (
-                            <span className="text-xs font-mono text-[#71717A]">{item.item_number}</span>
-                          )}
-                          {item.cfc_code && (
-                            <span className="text-xs text-[#F97316]/70">CFC {item.cfc_code}</span>
+                  {groupItems.map(item => {
+                    const requestInfo = getItemRequestInfo(item);
+                    return (
+                      <label
+                        key={item.id}
+                        className={`flex items-start gap-3 px-4 py-2.5 hover:bg-[#1C1C1F] cursor-pointer ${requestInfo ? "bg-blue-500/5" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={() => onToggleItem(item.id)}
+                          className="mt-0.5 h-4 w-4 rounded border-[#27272A] text-[#F97316]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {item.item_number && (
+                              <span className="text-xs font-mono text-[#71717A]">{item.item_number}</span>
+                            )}
+                            {item.cfc_code && (
+                              <span className="text-xs text-[#F97316]/70">CFC {item.cfc_code}</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-[#FAFAFA] line-clamp-2">{item.description}</p>
+                          {requestInfo && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Send className="h-3 w-3 text-blue-400" />
+                              <span className="text-[11px] text-blue-400">
+                                Demandé le {new Date(requestInfo.sent_at).toLocaleDateString("fr-CH", { day: "numeric", month: "short", year: "numeric" })}
+                                {" — "}
+                                {requestInfo.supplier_names.length === 1
+                                  ? requestInfo.supplier_names[0]
+                                  : `${requestInfo.supplier_names.length} fournisseurs`}
+                              </span>
+                            </div>
                           )}
                         </div>
-                        <p className="text-sm text-[#FAFAFA] line-clamp-2">{item.description}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        {item.quantity != null && (
-                          <span className="text-xs text-[#71717A]">{item.quantity} {item.unit || ""}</span>
-                        )}
-                      </div>
-                    </label>
-                  ))}
+                        <div className="text-right shrink-0">
+                          {item.quantity != null && (
+                            <span className="text-xs text-[#71717A]">{item.quantity} {item.unit || ""}</span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </div>
