@@ -54,14 +54,14 @@ export async function detectPriceResponse(
   }
 
   // ── Step 2: Sender email fallback ──
-  // Query price_requests with status 'sent' joined to suppliers
+  // Query submission_price_requests with status 'sent' joined to suppliers
   // where the supplier email matches the sender email.
   if (email.sender_email) {
     try {
+      // Try new submission_price_requests table first
       const { data: matches, error } = await supabase
-        .from("price_requests")
+        .from("submission_price_requests")
         .select("id, supplier_id, submission_id, suppliers!inner(id, email)")
-        .eq("organization_id", organizationId)
         .eq("status", "sent")
         .eq("suppliers.email", email.sender_email.toLowerCase());
 
@@ -73,6 +73,25 @@ export async function detectPriceResponse(
           submissionId: match.submission_id,
           matchMethod: "sender_email",
         };
+      }
+
+      // Also check manual suppliers (supplier_id is null, email stored directly)
+      if (!matches || matches.length === 0) {
+        const { data: manualMatches } = await supabase
+          .from("submission_price_requests")
+          .select("id, supplier_id, submission_id")
+          .eq("status", "sent")
+          .eq("supplier_email_manual", email.sender_email.toLowerCase());
+
+        if (manualMatches && manualMatches.length === 1) {
+          const match = manualMatches[0];
+          return {
+            priceRequestId: match.id,
+            supplierId: match.supplier_id || match.id,
+            submissionId: match.submission_id,
+            matchMethod: "sender_email",
+          };
+        }
       }
       // If 0 or >1 matches: ambiguous, don't auto-link
     } catch (err) {

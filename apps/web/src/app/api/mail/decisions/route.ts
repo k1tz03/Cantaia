@@ -123,6 +123,8 @@ export async function GET() {
     const info = (infoEmails || []).map((email: any) => ({
       ...email,
       project_name: email.project_id ? projectMap[email.project_id] || null : null,
+      price_indicator: priceIndicators[email.id] || null,
+      is_quote: email.price_extracted || email.email_category === "price_response",
       priority: "info",
     }));
 

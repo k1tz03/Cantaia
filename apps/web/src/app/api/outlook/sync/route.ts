@@ -249,7 +249,7 @@ export async function POST(request: Request) {
               .eq("id", priceMatch.submissionId)
               .maybeSingle();
 
-            // Update the email record: link to price request and classify
+            // Update the email record: link to price request and classify as price_response
             await (adminClient as any)
               .from("email_records")
               .update({
@@ -257,17 +257,19 @@ export async function POST(request: Request) {
                 classification: "action_required",
                 project_id: submission?.project_id || null,
                 classification_status: "auto_classified",
-                email_category: "project",
+                email_category: "price_response",
+                price_extracted: false,
                 ai_reasoning: `Level 0: Linked to price request via ${priceMatch.matchMethod}${priceMatch.trackingCode ? ` (${priceMatch.trackingCode})` : ""}`,
               })
               .eq("id", email.id);
 
-            // Update the price_request status to responded
+            // Update the submission_price_requests status to responded
+            const l0ResponseAt = new Date().toISOString();
             await (adminClient as any)
-              .from("price_requests")
+              .from("submission_price_requests")
               .update({
                 status: "responded",
-                responded_at: new Date().toISOString(),
+                response_received_at: l0ResponseAt,
               })
               .eq("id", priceMatch.priceRequestId);
 
@@ -283,8 +285,25 @@ export async function POST(request: Request) {
         // ── Level 0b: SUB- tracking code detection (new submissions module) ──
         try {
           const { extractSubmissionTrackingCodes: extractTrackingCodes } = await import("@cantaia/core/submissions");
-          const emailText = `${email.subject || ""} ${email.body_preview || ""}`;
-          const subCodes = extractTrackingCodes(emailText);
+          // Search subject + body_preview first (fast path)
+          let emailText = `${email.subject || ""} ${email.body_preview || ""}`;
+          let subCodes = extractTrackingCodes(emailText);
+
+          // If not found, search full body from DB (tracking code is often in the quoted footer)
+          if (subCodes.length === 0) {
+            const { data: fullEmailForTracking } = await (adminClient as any)
+              .from("email_records")
+              .select("body_text, body_html")
+              .eq("id", email.id)
+              .maybeSingle();
+            if (fullEmailForTracking) {
+              const fullText = fullEmailForTracking.body_text
+                || (fullEmailForTracking.body_html ? fullEmailForTracking.body_html.replace(/<[^>]+>/g, " ") : "");
+              if (fullText) {
+                subCodes = extractTrackingCodes(fullText);
+              }
+            }
+          }
 
           if (subCodes.length > 0) {
             const trackingCode = subCodes[0];

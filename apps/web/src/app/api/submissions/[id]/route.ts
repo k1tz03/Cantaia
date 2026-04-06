@@ -51,11 +51,15 @@ export async function GET(
       .order("item_number", { ascending: true });
 
     // Fetch price requests with supplier info (supplier_id can be null for manual suppliers)
-    const { data: rawPriceRequests } = await (admin as any)
+    const { data: rawPriceRequests, error: prError } = await (admin as any)
       .from("submission_price_requests")
       .select("*, suppliers(id, company_name, contact_name, email)")
       .eq("submission_id", id)
       .order("created_at", { ascending: false });
+
+    if (prError) {
+      console.error("[submissions] Price requests query error:", prError.message, prError.details);
+    }
 
     // Normalize: for manual suppliers (supplier_id=null), populate suppliers from manual fields
     const priceRequests = (rawPriceRequests || []).map((pr: any) => {
@@ -74,11 +78,15 @@ export async function GET(
     });
 
     // Fetch quotes
-    const { data: quotes } = await (admin as any)
+    const { data: quotes, error: qError } = await (admin as any)
       .from("submission_quotes")
       .select("*")
       .eq("submission_id", id)
       .order("created_at", { ascending: false });
+
+    if (qError) {
+      console.error("[submissions] Quotes query error:", qError.message, qError.details);
+    }
 
     return NextResponse.json({
       success: true,
