@@ -2070,10 +2070,12 @@ function ReplyModal({ email, signature, onClose, onDone }: {
     setSending(true);
     setSendError(null);
     try {
-      // Append signature if available
+      // Append signature if available (supports rich HTML signatures)
       let fullBody = replyText.replace(/\n/g, "<br>");
       if (signature?.trim()) {
-        fullBody += "<br><br>--<br>" + signature.replace(/\n/g, "<br>");
+        // If signature contains HTML tags, inject as-is; otherwise convert newlines
+        const isHtml = /<[a-z][\s\S]*>/i.test(signature);
+        fullBody += '<br><br><div style="border-top:1px solid #ccc;padding-top:8px;margin-top:8px;">' + (isHtml ? signature : signature.replace(/\n/g, "<br>")) + "</div>";
       }
 
       const payload: Record<string, any> = {
@@ -2264,11 +2266,11 @@ function ReplyModal({ email, signature, onClose, onDone }: {
                 </div>
                 )}
 
-                {/* Signature preview */}
+                {/* Signature preview (supports rich HTML) */}
                 {signature?.trim() && (
                   <div className="mt-3 border-t border-dashed border-[#27272A] pt-3">
                     <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1.5">Signature</p>
-                    <div className="text-xs text-[#71717A] whitespace-pre-wrap">{signature}</div>
+                    <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: signature }} />
                   </div>
                 )}
               </div>
@@ -2692,10 +2694,11 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
     setSending(true);
     setSendError(null);
     try {
-      // Append signature if available
+      // Append signature if available (supports rich HTML signatures)
       let fullBody = body.replace(/\n/g, "<br>");
       if (signature?.trim()) {
-        fullBody += "<br><br>--<br>" + signature.replace(/\n/g, "<br>");
+        const isHtml = /<[a-z][\s\S]*>/i.test(signature);
+        fullBody += '<br><br><div style="border-top:1px solid #ccc;padding-top:8px;margin-top:8px;">' + (isHtml ? signature : signature.replace(/\n/g, "<br>")) + "</div>";
       }
 
       const formData = new FormData();
@@ -2834,11 +2837,11 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
               placeholder="Rédigez votre message..."
               className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
             />
-            {/* Signature preview */}
+            {/* Signature preview (supports rich HTML) */}
             {signature?.trim() && (
               <div className="mt-2 border-t border-dashed border-[#27272A] pt-2">
                 <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1">Signature (ajoutée automatiquement)</p>
-                <div className="text-xs text-[#71717A] whitespace-pre-wrap">{signature}</div>
+                <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: signature }} />
               </div>
             )}
             {/* Attachment chips */}

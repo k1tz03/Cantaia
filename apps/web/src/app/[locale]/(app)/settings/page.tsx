@@ -33,6 +33,7 @@ import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { ClassificationSettingsTab } from "@/components/settings/ClassificationSettingsTab";
 import { EmailPreferencesTab } from "@/components/settings/EmailPreferencesTab";
 import { DataSharingTab } from "@/components/settings/DataSharingTab";
+import RichSignatureEditor from "@/components/settings/RichSignatureEditor";
 
 type SettingsTab =
   | "profile"
@@ -365,7 +366,7 @@ function ProfileSection() {
         />
       </div>
 
-      {/* ─── Email Signature ─── */}
+      {/* ─── Email Signature (Rich HTML) ─── */}
       <div className="s-section border-t border-[#27272A] pt-6 mt-2">
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#27272A]">
           <div className="flex items-center gap-2">
@@ -382,22 +383,24 @@ function ProfileSection() {
           </button>
         </div>
         <p className="text-[11px] text-[#71717A] mb-3">
-          Cette signature sera automatiquement ajoutée à tous vos emails sortants (composition, réponse, demandes de prix).
+          Copiez votre signature depuis Outlook et collez-la directement ci-dessous. Les images, logos et formatage seront conservés.
         </p>
 
-        <textarea
+        <RichSignatureEditor
           value={signature}
-          onChange={(e) => setSignature(e.target.value)}
-          placeholder={"Cordialement,\nJulien Ray\nChef de projet\n+41 79 123 45 67"}
-          rows={5}
-          className="block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none font-mono"
+          onChange={(html) => setSignature(html)}
+          placeholder="Collez votre signature Outlook ici (Ctrl+V), ou créez-en une avec la barre d'outils..."
         />
 
         {showSignaturePreview && signature && (
-          <div className="mt-3 rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
-            <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-2">Aperçu dans l&apos;email</p>
-            <div className="border-t border-[#27272A] pt-3">
-              <div className="text-[13px] text-[#A1A1AA] whitespace-pre-wrap">{signature}</div>
+          <div className="mt-3 rounded-lg border border-[#27272A] bg-white p-4">
+            <p className="text-[10px] uppercase tracking-wider text-[#A1A1AA] mb-2">Aperçu dans l&apos;email (fond blanc)</p>
+            <div className="border-t border-gray-200 pt-3">
+              {/* Render as real HTML — same as how recipients see it */}
+              <div
+                className="text-[13px] text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: signature }}
+              />
             </div>
           </div>
         )}
