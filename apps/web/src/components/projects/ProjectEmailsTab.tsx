@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@cantaia/ui";
 import { Mail, Loader2, Search, X, Paperclip } from "lucide-react";
@@ -14,12 +14,22 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<EmailRecord | null>(null);
   const [search, setSearch] = useState("");
+  const [totalCount, setTotalCount] = useState(0);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchEmails = useCallback(() => {
-    fetch(`/api/projects/${projectId}/emails`)
-      .then((res) => res.ok ? res.json() : { emails: [] })
-      .then((data) => {
+  const fetchEmails = useCallback((searchQuery?: string) => {
+    const params = new URLSearchParams();
+    params.set("limit", "200");
+    if (searchQuery) params.set("search", searchQuery);
+    fetch(`/api/projects/${projectId}/emails?${params}`)
+      .then((res) => {
+        if (!res.ok) return { emails: [], count: 0 };
+        const count = parseInt(res.headers.get("X-Total-Count") || "0");
+        return res.json().then((data: any) => ({ ...data, count }));
+      })
+      .then((data: any) => {
         setEmails(data.emails || []);
+        setTotalCount(data.count || data.emails?.length || 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -33,41 +43,27 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
       .catch(() => {});
   }, [fetchEmails]);
 
-  const filteredEmails = useMemo(() => {
-    if (!search.trim()) return emails;
-    const q = search.toLowerCase();
-    return emails.filter((e) =>
-      (e.subject || "").toLowerCase().includes(q) ||
-      (e.sender_email || "").toLowerCase().includes(q) ||
-      (e.sender_name || "").toLowerCase().includes(q) ||
-      (e.body_preview || "").toLowerCase().includes(q) ||
-      (e.ai_summary || "").toLowerCase().includes(q)
-    );
-  }, [emails, search]);
+  // Debounced server-side search
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchEmails(value.trim() || undefined);
+    }, 300);
+  }, [fetchEmails]);
 
   const handleEmailUpdated = useCallback(() => {
-    fetchEmails();
+    fetchEmails(search.trim() || undefined);
     if (selectedEmail) {
       const stillHere = emails.find((e) => e.id === selectedEmail.id);
       if (!stillHere) setSelectedEmail(null);
     }
-  }, [fetchEmails, selectedEmail, emails]);
+  }, [fetchEmails, search, selectedEmail, emails]);
 
   if (loading) {
     return (
       <div className="flex h-40 items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-brand" />
-      </div>
-    );
-  }
-
-  if (emails.length === 0) {
-    return (
-      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-[#27272A] bg-[#0F0F11]">
-        <div className="text-center">
-          <Mail className="mx-auto h-8 w-8 text-[#71717A]" />
-          <p className="mt-2 text-sm text-[#71717A]">{t("noEmailsYet")}</p>
-        </div>
       </div>
     );
   }
@@ -85,12 +81,12 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
               type="text"
               placeholder={t("searchEmails")}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] py-1.5 pl-8 pr-8 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             />
             {search && (
               <button
-                onClick={() => setSearch("")}
+                onClick={() => handleSearchChange("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#71717A]"
               >
                 <X className="h-3.5 w-3.5" />
@@ -98,12 +94,22 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
             )}
           </div>
           <p className="mt-1.5 text-[11px] text-[#71717A]">
-            {filteredEmails.length} email{filteredEmails.length !== 1 ? "s" : ""} classé{filteredEmails.length !== 1 ? "s" : ""}
+            {totalCount} email{totalCount !== 1 ? "s" : ""} classé{totalCount !== 1 ? "s" : ""}
           </p>
         </div>
 
+        {emails.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center px-4">
+              <Mail className="mx-auto h-8 w-8 text-[#71717A]" />
+              <p className="mt-2 text-sm text-[#71717A]">
+                {search ? "Aucun email ne correspond a la recherche" : t("noEmailsYet")}
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto">
-          {filteredEmails.map((email) => (
+          {emails.map((email) => (
             <button
               key={email.id}
               onClick={() => setSelectedEmail(email)}
@@ -145,6 +151,7 @@ export function ProjectEmailsTab({ projectId }: { projectId: string }) {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {selectedEmail ? (

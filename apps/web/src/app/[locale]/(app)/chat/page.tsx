@@ -115,34 +115,19 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Smooth streaming: buffer incoming tokens and flush via rAF
-  const streamBufferRef = useRef("");
-  const rafRef = useRef<number | null>(null);
-
-  const flushStreamBuffer = useCallback(() => {
-    if (streamBufferRef.current) {
-      const chunk = streamBufferRef.current;
-      streamBufferRef.current = "";
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last && last.role === "assistant") {
-          updated[updated.length - 1] = {
-            ...last,
-            content: last.content + chunk,
-          };
-        }
-        return updated;
-      });
-    }
-    rafRef.current = requestAnimationFrame(flushStreamBuffer);
-  }, []);
-
-  // Clean up rAF on unmount
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+  /** Append a token to the last assistant message immediately */
+  const appendToken = useCallback((token: string) => {
+    setMessages((prev) => {
+      const updated = [...prev];
+      const last = updated[updated.length - 1];
+      if (last && last.role === "assistant") {
+        updated[updated.length - 1] = {
+          ...last,
+          content: last.content + token,
+        };
+      }
+      return updated;
+    });
   }, []);
 
   // Auto-scroll to bottom
@@ -269,10 +254,6 @@ export default function ChatPage() {
         throw new Error("Stream failed");
       }
 
-      // Start rAF loop for smooth rendering
-      streamBufferRef.current = "";
-      rafRef.current = requestAnimationFrame(flushStreamBuffer);
-
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
@@ -294,8 +275,7 @@ export default function ChatPage() {
               setActiveConvId(event.data);
               loadConversations();
             } else if (event.type === "text") {
-              // Buffer text for smooth rAF-based rendering
-              streamBufferRef.current += event.data;
+              appendToken(event.data);
             } else if (event.type === "error") {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -314,29 +294,7 @@ export default function ChatPage() {
           }
         }
       }
-
-      // Final flush — ensure all buffered text is rendered
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      if (streamBufferRef.current) {
-        const remaining = streamBufferRef.current;
-        streamBufferRef.current = "";
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.role === "assistant") {
-            updated[updated.length - 1] = {
-              ...last,
-              content: last.content + remaining,
-            };
-          }
-          return updated;
-        });
-      }
     } catch (err: unknown) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      streamBufferRef.current = "";
       if (err instanceof Error && err.name === "AbortError") return;
       setMessages((prev) => {
         const updated = [...prev];

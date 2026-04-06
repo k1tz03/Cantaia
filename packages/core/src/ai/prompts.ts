@@ -760,24 +760,31 @@ export interface SupplierSearchContext {
   cfc_codes: string[];
   specialty: string;
   geo_zone: string;
+  keywords?: string;
   project_description?: string;
   existing_suppliers: string[];
   language: "fr" | "en" | "de";
 }
 
 export function buildSupplierSearchPrompt(ctx: SupplierSearchContext): string {
+  const searchCriteria: string[] = [];
+  if (ctx.cfc_codes.length > 0) searchCriteria.push(`- Codes CFC : ${ctx.cfc_codes.join(", ")}`);
+  if (ctx.specialty) searchCriteria.push(`- Spécialité : ${ctx.specialty}`);
+  searchCriteria.push(`- Zone géographique : ${ctx.geo_zone} (Suisse)`);
+  if (ctx.keywords) searchCriteria.push(`- Mots-clés de recherche : ${ctx.keywords}`);
+  if (ctx.project_description) searchCriteria.push(`- Contexte projet : ${ctx.project_description}`);
+
   return `Tu es un expert en approvisionnement pour la construction en Suisse. Tu connais les principaux fournisseurs et sous-traitants du marché suisse de la construction.
 
 RECHERCHE DE FOURNISSEURS :
-- Codes CFC : ${ctx.cfc_codes.join(", ")}
-- Spécialité : ${ctx.specialty}
-- Zone géographique : ${ctx.geo_zone} (Suisse)
-${ctx.project_description ? `- Contexte projet : ${ctx.project_description}` : ""}
+${searchCriteria.join("\n")}
 
 FOURNISSEURS DÉJÀ CONNUS (à ne pas proposer) :
 ${ctx.existing_suppliers.length > 0 ? ctx.existing_suppliers.join(", ") : "Aucun"}
 
-Propose 5-10 fournisseurs/sous-traitants suisses RÉELS et VÉRIFIABLES correspondant aux critères. Privilégie les entreprises de la zone géographique indiquée.
+Propose 10-15 FOURNISSEURS suisses RÉELS et VÉRIFIABLES correspondant aux critères. Privilégie les entreprises de la zone géographique indiquée, mais inclus aussi des entreprises d'autres régions suisses si elles sont pertinentes.
+
+IMPORTANT : Recherche des FOURNISSEURS de matériaux et d'équipements, PAS des prestataires de services ou sous-traitants (sauf si les mots-clés ou la spécialité indiquent explicitement un sous-traitant).
 
 Réponds UNIQUEMENT en JSON :
 {
@@ -785,7 +792,9 @@ Réponds UNIQUEMENT en JSON :
     {
       "company_name": "Nom réel de l'entreprise",
       "contact_info": {
+        "email": "info@entreprise.ch",
         "website": "https://...",
+        "address": "Rue Example 10",
         "city": "Ville",
         "postal_code": "1000",
         "phone": "+41 XX XXX XX XX"
@@ -794,18 +803,18 @@ Réponds UNIQUEMENT en JSON :
       "cfc_codes": ["211", "212"],
       "certifications": ["ISO 9001"],
       "reasoning": "Pourquoi cette entreprise est pertinente",
-      "confidence": 0.85
+      "confidence": 0.75
     }
   ]
 }
 
 RÈGLES :
-1. Ne propose QUE des entreprises suisses réelles que tu connais avec certitude de tes données d'entraînement
-2. Confidence ≥ 0.7 uniquement — si tu n'es pas sûr qu'une entreprise existe, ne la propose pas
+1. Ne propose QUE des entreprises suisses réelles que tu connais de tes données d'entraînement
+2. Confidence ≥ 0.6 — inclus les entreprises dont tu es raisonnablement sûr qu'elles existent
 3. Les spécialités doivent correspondre au catalogue : gros_oeuvre, electricite, cvc, sanitaire, peinture, menuiserie, etancheite, facades, serrurerie, carrelage, platrerie, charpente, couverture, ascenseur, amenagement_exterieur, demolition, terrassement, echafaudage
-4. Inclure le site web si tu le connais avec certitude, sinon omettre le champ
-5. Privilégier les entreprises de la zone ${ctx.geo_zone}
-6. IMPORTANT : Ne JAMAIS inventer de numéros de téléphone, adresses email ou sites web. N'inclure que les informations de contact dont tu es certain à 90%+. Omettre un champ plutôt que risquer une information fausse.
+4. Inclure TOUTES les informations de contact que tu connais : email, téléphone, adresse, site web, ville, code postal. Si tu n'es pas certain d'un champ, omettre ce champ spécifique mais inclure les autres
+5. Privilégier les entreprises de la zone ${ctx.geo_zone}, puis élargir aux régions voisines
+6. Vise un MINIMUM de 10 résultats. Si la spécialité est large, propose jusqu'à 15 entreprises
 7. AVERTISSEMENT : Tes données d'entraînement peuvent être obsolètes. L'utilisateur devra vérifier l'existence et les coordonnées de chaque entreprise proposée.`;
 }
 

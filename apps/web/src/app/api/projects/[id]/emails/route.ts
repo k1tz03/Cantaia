@@ -51,14 +51,27 @@ export async function GET(
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
   const offset = (page - 1) * limit;
 
+  // Search parameter
+  const search = url.searchParams.get("search")?.trim() || "";
+
   // Return fields needed by EmailDetailPanel
-  const { data: emails, error, count } = await (admin as any)
+  // Project ownership already verified above — filter by project_id is sufficient
+  // (organization_id may be NULL on older email_records inserted before the fix)
+  let query = (admin as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at", { count: "exact" })
+    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at, user_id", { count: "exact" })
     .eq("project_id", id)
-    .eq("user_id", user.id)
-    .order("received_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order("received_at", { ascending: false });
+
+  // Server-side search filter
+  if (search) {
+    const sanitized = search.replace(/[%_,().]/g, "");
+    query = query.or(
+      `subject.ilike.%${sanitized}%,sender_email.ilike.%${sanitized}%,sender_name.ilike.%${sanitized}%,body_preview.ilike.%${sanitized}%,ai_summary.ilike.%${sanitized}%`
+    );
+  }
+
+  const { data: emails, error, count } = await query.range(offset, offset + limit - 1);
 
   if (error) {
     console.error("[projects/[id]/emails] Error:", error.message);

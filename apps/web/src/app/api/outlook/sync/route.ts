@@ -781,8 +781,14 @@ async function syncViaProvider(
   try {
     const provider = getEmailProvider(connection.provider);
 
-    // Refresh OAuth token if needed
-    if ((connection.provider === "microsoft" || connection.provider === "google") &&
+    // For Microsoft: use getValidMicrosoftToken() which handles decryption + refresh + dual-table sync
+    if (connection.provider === "microsoft") {
+      const tokenResult = await getValidMicrosoftToken(userId);
+      if ("error" in tokenResult) {
+        return { emailsSynced: 0, emailsSkipped: 0, error: tokenResult.error };
+      }
+      connection.oauth_access_token = tokenResult.accessToken;
+    } else if ((connection.provider === "google") &&
         isTokenExpired(connection.oauth_token_expires_at) &&
         provider.refreshToken) {
       try {
@@ -792,25 +798,14 @@ async function syncViaProvider(
           : connection.oauth_token_expires_at;
         const newRefreshToken = tokens.refresh_token || connection.oauth_refresh_token;
 
-        // Update BOTH tables to keep tokens in sync (prevents desync on rotation)
-        await Promise.all([
-          adminClient
-            .from("email_connections")
-            .update({
-              oauth_access_token: tokens.access_token,
-              oauth_refresh_token: newRefreshToken,
-              oauth_token_expires_at: newExpiresAt,
-            })
-            .eq("id", connection.id),
-          adminClient
-            .from("users")
-            .update({
-              microsoft_access_token: tokens.access_token,
-              microsoft_refresh_token: newRefreshToken,
-              microsoft_token_expires_at: newExpiresAt,
-            })
-            .eq("id", userId),
-        ]);
+        await adminClient
+          .from("email_connections")
+          .update({
+            oauth_access_token: tokens.access_token,
+            oauth_refresh_token: newRefreshToken,
+            oauth_token_expires_at: newExpiresAt,
+          })
+          .eq("id", connection.id);
 
         connection.oauth_access_token = tokens.access_token;
         if (tokens.refresh_token) connection.oauth_refresh_token = tokens.refresh_token;
@@ -874,6 +869,7 @@ async function syncViaProvider(
 
         toInsert.push({
           user_id: userId,
+          organization_id: userOrg?.organization_id || emailConnection?.organization_id || null,
           outlook_message_id: raw.externalId,
           sender_email: raw.from || "",
           sender_name: raw.fromName || null,

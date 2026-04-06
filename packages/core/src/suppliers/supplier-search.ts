@@ -31,6 +31,7 @@ export async function searchSuppliersAI(
     cfc_codes: string[];
     specialty: string;
     geo_zone: string;
+    keywords?: string;
     project_description?: string;
   },
   existingSupplierNames: string[],
@@ -43,6 +44,7 @@ export async function searchSuppliersAI(
     cfc_codes: params.cfc_codes,
     specialty: params.specialty,
     geo_zone: params.geo_zone,
+    keywords: params.keywords,
     project_description: params.project_description,
     existing_suppliers: existingSupplierNames,
     language: "fr",
@@ -53,7 +55,7 @@ export async function searchSuppliersAI(
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 
@@ -72,7 +74,7 @@ export async function searchSuppliersAI(
     const parsed = JSON.parse(jsonStr);
     return {
       suggestions: (parsed.suggestions || []).filter(
-        (s: AISupplierSuggestion) => s.confidence >= 0.6
+        (s: AISupplierSuggestion) => s.confidence >= 0.5
       ),
     };
   } catch (err: any) {

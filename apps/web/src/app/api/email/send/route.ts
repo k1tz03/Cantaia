@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getEmailProvider, isTokenExpired, type EmailConnectionConfig } from "@cantaia/core/emails";
+import { getEmailProvider, type EmailConnectionConfig } from "@cantaia/core/emails";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
  * POST /api/email/send
@@ -105,26 +106,13 @@ export async function POST(request: NextRequest) {
 
   const provider = getEmailProvider(connection.provider);
 
-  // Refresh token if needed
-  if ((connection.provider === "microsoft" || connection.provider === "google") &&
-      isTokenExpired(connection.oauth_token_expires_at) &&
-      provider.refreshToken) {
-    try {
-      const tokens = await provider.refreshToken(connection as EmailConnectionConfig);
-      await (admin as any)
-        .from("email_connections")
-        .update({
-          oauth_access_token: tokens.access_token,
-          oauth_refresh_token: tokens.refresh_token || connection.oauth_refresh_token,
-          oauth_token_expires_at: tokens.expires_in
-            ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-            : connection.oauth_token_expires_at,
-        })
-        .eq("id", connection.id);
-      connection.oauth_access_token = tokens.access_token;
-    } catch (err) {
-      return NextResponse.json({ error: `Token refresh failed: ${err instanceof Error ? err.message : "Unknown"}` }, { status: 500 });
+  // For Microsoft: use getValidMicrosoftToken() which handles decryption + refresh + dual-table sync
+  if (connection.provider === "microsoft") {
+    const tokenResult = await getValidMicrosoftToken(user.id);
+    if ("error" in tokenResult) {
+      return NextResponse.json({ error: tokenResult.error }, { status: 401 });
     }
+    connection.oauth_access_token = tokenResult.accessToken;
   }
 
   try {

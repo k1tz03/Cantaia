@@ -33,16 +33,13 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
-  // Validate required fields
-  if (!body.cfc_codes || !Array.isArray(body.cfc_codes) || body.cfc_codes.length === 0) {
+  // Validate required fields — either cfc_codes or keywords must be provided
+  const hasCfcCodes = body.cfc_codes && Array.isArray(body.cfc_codes) && body.cfc_codes.length > 0;
+  const hasKeywords = body.keywords && typeof body.keywords === "string" && body.keywords.trim().length > 0;
+
+  if (!hasCfcCodes && !hasKeywords) {
     return NextResponse.json(
-      { error: "cfc_codes is required and must be a non-empty array" },
-      { status: 400 }
-    );
-  }
-  if (!body.specialty || typeof body.specialty !== "string") {
-    return NextResponse.json(
-      { error: "specialty is required" },
+      { error: "cfc_codes ou keywords est requis" },
       { status: 400 }
     );
   }
@@ -66,9 +63,10 @@ export async function POST(request: NextRequest) {
 
   // Build the prompt
   const prompt = buildSupplierSearchPrompt({
-    cfc_codes: body.cfc_codes,
-    specialty: body.specialty,
+    cfc_codes: body.cfc_codes || [],
+    specialty: body.specialty || "",
     geo_zone: body.geo_zone,
+    keywords: body.keywords || undefined,
     project_description: body.project_description || undefined,
     existing_suppliers: existingNames,
     language: "fr",
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: MODEL_FOR_TASK.supplier_search,
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });
 

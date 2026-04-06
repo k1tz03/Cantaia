@@ -10,7 +10,9 @@ import {
   MapPin,
   Globe,
   Phone,
+  Mail,
   AlertCircle,
+  Search,
 } from "lucide-react";
 import {
   SUPPLIER_SPECIALTIES,
@@ -21,15 +23,26 @@ import {
 
 interface AISuggestion {
   company_name: string;
-  contact_info?: string;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+    website?: string;
+    address?: string;
+    city?: string;
+    postal_code?: string;
+  };
   email?: string;
   phone?: string;
   website?: string;
+  address?: string;
   city?: string;
+  postal_code?: string;
   specialties?: string[];
   cfc_codes?: string[];
   geo_zone?: string;
   reason?: string;
+  reasoning?: string;
+  confidence?: number;
 }
 
 interface AISearchDialogProps {
@@ -44,6 +57,7 @@ export function AISearchDialog({
   onSupplierAdded,
 }: AISearchDialogProps) {
   const [cfcCodesInput, setCfcCodesInput] = useState("");
+  const [keywords, setKeywords] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [geoZone, setGeoZone] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -73,7 +87,9 @@ export function AISearchDialog({
 
   async function handleSearch() {
     const codes = parseCfcCodes(cfcCodesInput);
-    if (codes.length === 0 || !specialty || !geoZone) return;
+    const hasKeywords = keywords.trim().length > 0;
+    if (codes.length === 0 && !hasKeywords) return;
+    if (!geoZone) return;
 
     setSearching(true);
     setSearchError("");
@@ -86,8 +102,9 @@ export function AISearchDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cfc_codes: codes,
-          specialty,
+          cfc_codes: codes.length > 0 ? codes : undefined,
+          keywords: hasKeywords ? keywords.trim() : undefined,
+          specialty: specialty || undefined,
           geo_zone: geoZone,
           project_description: projectDescription || undefined,
         }),
@@ -120,6 +137,16 @@ export function AISearchDialog({
     }
   }
 
+  /** Extract contact field from nested contact_info or flat fallback */
+  function getContact(s: AISuggestion, field: keyof NonNullable<AISuggestion["contact_info"]>): string | undefined {
+    return s.contact_info?.[field] || (s as any)[field] || undefined;
+  }
+
+  function getFullAddress(s: AISuggestion): string | undefined {
+    const parts = [getContact(s, "address"), getContact(s, "postal_code"), getContact(s, "city")].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : undefined;
+  }
+
   async function handleImportSuggestion(suggestion: AISuggestion, idx: number) {
     setImportingIdx(idx);
     setImportError("");
@@ -127,16 +154,17 @@ export function AISearchDialog({
     try {
       const payload: Record<string, any> = {
         company_name: suggestion.company_name,
-        email: suggestion.email || null,
-        phone: suggestion.phone || null,
-        website: suggestion.website || null,
-        city: suggestion.city || null,
+        email: getContact(suggestion, "email") || null,
+        phone: getContact(suggestion, "phone") || null,
+        website: getContact(suggestion, "website") || null,
+        city: getContact(suggestion, "city") || null,
+        address: getContact(suggestion, "address") || null,
         specialties: suggestion.specialties || [],
         cfc_codes: suggestion.cfc_codes || [],
         geo_zone: suggestion.geo_zone || geoZone || null,
         status: "new",
-        notes: suggestion.reason
-          ? `Source: Recherche IA. ${suggestion.reason}`
+        notes: (suggestion.reasoning || suggestion.reason)
+          ? `Source: Recherche IA. ${suggestion.reasoning || suggestion.reason}`
           : "Source: Recherche IA",
       };
 
@@ -172,6 +200,7 @@ export function AISearchDialog({
 
   function handleClose() {
     setCfcCodesInput("");
+    setKeywords("");
     setSpecialty("");
     setGeoZone("");
     setProjectDescription("");
@@ -186,7 +215,7 @@ export function AISearchDialog({
   }
 
   const canSearch =
-    parseCfcCodes(cfcCodesInput).length > 0 && specialty && geoZone;
+    (parseCfcCodes(cfcCodesInput).length > 0 || keywords.trim().length > 0) && geoZone;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -211,10 +240,28 @@ export function AISearchDialog({
         <div className="flex-1 overflow-y-auto p-5">
           {/* Search form */}
           <div className="space-y-4 mb-6">
-            {/* CFC Codes */}
+            {/* Keywords — free text search */}
             <div>
               <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
-                Codes CFC *
+                <Search className="inline h-3 w-3 mr-1" />
+                Recherche par mots-cles
+              </label>
+              <input
+                type="text"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder-gray-400 focus:border-[#F97316] focus:outline-none"
+                placeholder="Ex: grilles cunette, bordures beton, stores exterieurs..."
+              />
+              <p className="mt-0.5 text-[10px] text-[#52525B]">
+                Recherche libre par nom de produit, materiau ou type de fournisseur
+              </p>
+            </div>
+
+            {/* CFC Codes */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
+                Codes CFC (optionnel)
               </label>
               <input
                 type="text"
@@ -240,15 +287,15 @@ export function AISearchDialog({
             {/* Specialty + Geo zone */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
-                  Specialite *
+                <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
+                  Specialite (optionnel)
                 </label>
                 <select
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
                   className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="">-- Selectionner --</option>
+                  <option value="">-- Toutes --</option>
                   {SUPPLIER_SPECIALTIES.map((sp) => (
                     <option key={sp} value={sp}>
                       {getSpecialtyLabel(sp)}
@@ -263,7 +310,7 @@ export function AISearchDialog({
                 <select
                   value={geoZone}
                   onChange={(e) => setGeoZone(e.target.value)}
-                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
                 >
                   <option value="">-- Selectionner --</option>
                   {GEO_ZONES.map((z) => (
@@ -277,7 +324,7 @@ export function AISearchDialog({
 
             {/* Optional project description */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-[#FAFAFA]">
+              <label className="mb-1 block text-xs font-medium text-[#A1A1AA]">
                 Description du projet (optionnel)
               </label>
               <textarea
@@ -294,7 +341,7 @@ export function AISearchDialog({
               type="button"
               onClick={handleSearch}
               disabled={!canSearch || searching}
-              className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-medium text-white hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {searching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -345,27 +392,51 @@ export function AISearchDialog({
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-[#FAFAFA]">
-                            {s.company_name}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-[#FAFAFA]">
+                              {s.company_name}
+                            </h3>
+                            {s.confidence != null && (
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                s.confidence >= 0.8
+                                  ? "bg-green-500/10 text-green-400"
+                                  : s.confidence >= 0.6
+                                    ? "bg-amber-500/10 text-amber-400"
+                                    : "bg-[#27272A] text-[#71717A]"
+                              }`}>
+                                {Math.round(s.confidence * 100)}%
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Address line */}
+                          {getFullAddress(s) && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-[#A1A1AA]">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {getFullAddress(s)}
+                            </div>
+                          )}
 
                           {/* Contact info line */}
                           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#71717A]">
-                            {s.city && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {s.city}
-                              </span>
-                            )}
-                            {s.phone && (
+                            {getContact(s, "phone") && (
                               <span className="flex items-center gap-1">
                                 <Phone className="h-3 w-3" />
-                                {s.phone}
+                                {getContact(s, "phone")}
                               </span>
                             )}
-                            {s.website && (
+                            {getContact(s, "email") && (
                               <a
-                                href={s.website}
+                                href={`mailto:${getContact(s, "email")}`}
+                                className="flex items-center gap-1 text-[#3B82F6] hover:underline"
+                              >
+                                <Mail className="h-3 w-3" />
+                                {getContact(s, "email")}
+                              </a>
+                            )}
+                            {getContact(s, "website") && (
+                              <a
+                                href={getContact(s, "website")}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1 text-[#F97316] hover:underline"
@@ -376,10 +447,18 @@ export function AISearchDialog({
                             )}
                           </div>
 
-                          {/* Specialties */}
-                          {s.specialties && s.specialties.length > 0 && (
+                          {/* Specialties + CFC codes */}
+                          {((s.specialties && s.specialties.length > 0) || (s.cfc_codes && s.cfc_codes.length > 0)) && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {s.specialties.map((sp) => (
+                              {s.cfc_codes?.map((code) => (
+                                <span
+                                  key={code}
+                                  className="inline-flex items-center px-2 py-0.5 rounded bg-[#3B82F6]/10 text-[#3B82F6] text-[11px] font-mono font-medium"
+                                >
+                                  CFC {code}
+                                </span>
+                              ))}
+                              {s.specialties?.map((sp) => (
                                 <span
                                   key={sp}
                                   className="inline-flex items-center px-2 py-0.5 rounded bg-[#F97316]/10 text-[#F97316] text-[11px] font-medium"
@@ -390,10 +469,10 @@ export function AISearchDialog({
                             </div>
                           )}
 
-                          {/* Reason */}
-                          {s.reason && (
+                          {/* Reasoning */}
+                          {(s.reasoning || s.reason) && (
                             <p className="mt-2 text-xs text-[#71717A] italic">
-                              {s.reason}
+                              {s.reasoning || s.reason}
                             </p>
                           )}
                         </div>

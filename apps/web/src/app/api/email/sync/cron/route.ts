@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEmailProvider, isTokenExpired, type EmailConnectionConfig } from "@cantaia/core/emails";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 // Allow up to 5 minutes for bulk cron syncs across many connections
 export const maxDuration = 300;
@@ -42,8 +43,15 @@ export async function POST(request: NextRequest) {
     try {
       const provider = getEmailProvider(connection.provider);
 
-      // Refresh token if needed
-      if ((connection.provider === "microsoft" || connection.provider === "google") &&
+      // For Microsoft: use getValidMicrosoftToken() which handles decryption + refresh
+      if (connection.provider === "microsoft") {
+        const tokenResult = await getValidMicrosoftToken(connection.user_id);
+        if ("error" in tokenResult) {
+          results.push({ userId: connection.user_id, synced: 0, error: tokenResult.error });
+          continue;
+        }
+        connection.oauth_access_token = tokenResult.accessToken;
+      } else if (connection.provider === "google" &&
           isTokenExpired(connection.oauth_token_expires_at) &&
           provider.refreshToken) {
         const tokens = await provider.refreshToken(connection as EmailConnectionConfig);
