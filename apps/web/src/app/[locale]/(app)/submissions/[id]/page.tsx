@@ -544,37 +544,83 @@ export default function SubmissionDetailPage() {
           />
         )}
         {activeTab === "requests" && (
-          <PriceRequestWizard
-            submissionId={id}
-            lots={materialGroups.map((g) => {
-              const groupItems = items.filter((i) => i.material_group === g);
-              const firstItem = groupItems[0];
-              return {
-                id: g,
-                name: g,
-                cfc_code: firstItem?.cfc_code || null,
-                items_count: groupItems.length,
-              } as any;
-            })}
-            items={items}
-            suppliers={suppliers}
-            budgetGroups={
-              ((submission as any)?.budget_estimate as BudgetResult | null)?.estimates
-                ? Object.entries(
-                    (((submission as any).budget_estimate as BudgetResult).estimates || []).reduce(
-                      (acc: Record<string, number>, item: BudgetEstimate) => {
-                        const g = item.material_group;
-                        acc[g] = (acc[g] || 0) + (item.prix_median || 0) * (item.quantity || 1);
-                        return acc;
-                      },
-                      {} as Record<string, number>
-                    )
-                  ).map(([group, total]) => ({ group, total_median: total }))
-                : undefined
-            }
-            existingRequests={priceRequests as any}
-            onComplete={fetchData}
-          />
+          <div className="space-y-6">
+            {/* Sent requests history */}
+            {priceRequests.length > 0 && (
+              <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
+                <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A]">
+                  <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({priceRequests.filter((pr) => pr.sent_at).length})</h3>
+                </div>
+                <div className="divide-y divide-[#27272A]">
+                  {priceRequests.filter((pr) => pr.sent_at).map((pr) => {
+                    const hasQuotes = quotes.some((q) => q.request_id === pr.id);
+                    const isResponded = pr.status === "responded" || hasQuotes;
+                    return (
+                      <div key={pr.id} className="px-4 py-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-[#FAFAFA] font-medium truncate">
+                            {pr.suppliers?.company_name || "Fournisseur manuel"}
+                          </div>
+                          <div className="text-xs text-[#71717A] mt-0.5">
+                            {pr.material_group} · {pr.items_requested?.length || 0} postes · Code: {pr.tracking_code}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                            isResponded
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-amber-500/10 text-amber-400"
+                          }`}>
+                            {isResponded ? (
+                              <><CheckCircle2 className="h-3 w-3" /> Répondu</>
+                            ) : (
+                              <><Send className="h-3 w-3" /> En attente</>
+                            )}
+                          </span>
+                          <div className="text-[10px] text-[#71717A] mt-0.5">
+                            Envoyé le {new Date(pr.sent_at!).toLocaleDateString("fr-CH")}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* New price request wizard */}
+            <PriceRequestWizard
+              submissionId={id}
+              lots={materialGroups.map((g) => {
+                const groupItems = items.filter((i) => i.material_group === g);
+                const firstItem = groupItems[0];
+                return {
+                  id: g,
+                  name: g,
+                  cfc_code: firstItem?.cfc_code || null,
+                  items_count: groupItems.length,
+                } as any;
+              })}
+              items={items}
+              suppliers={suppliers}
+              budgetGroups={
+                ((submission as any)?.budget_estimate as BudgetResult | null)?.estimates
+                  ? Object.entries(
+                      (((submission as any).budget_estimate as BudgetResult).estimates || []).reduce(
+                        (acc: Record<string, number>, item: BudgetEstimate) => {
+                          const g = item.material_group;
+                          acc[g] = (acc[g] || 0) + (item.prix_median || 0) * (item.quantity || 1);
+                          return acc;
+                        },
+                        {} as Record<string, number>
+                      )
+                    ).map(([group, total]) => ({ group, total_median: total }))
+                  : undefined
+              }
+              existingRequests={priceRequests as any}
+              onComplete={fetchData}
+            />
+          </div>
         )}
         {activeTab === "comparison" && (
           <ComparisonTabContent
@@ -602,6 +648,7 @@ export default function SubmissionDetailPage() {
             items={items}
             materialGroups={materialGroups}
             priceRequests={priceRequests}
+            quotes={quotes}
           />
         )}
       </div>
@@ -878,8 +925,14 @@ function ComparisonTabContent({
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<string | null>(null);
 
+  // Derive "effectively responded" requests: status === "responded" OR has associated quotes
+  const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
+  const effectivelyResponded = priceRequests.filter(
+    (pr) => pr.status === "responded" || requestIdsWithQuotes.has(pr.id)
+  );
+
   const respondedWithoutQuotes = priceRequests.filter(
-    (pr) => pr.status === "responded" && !quotes.some((q) => q.request_id === pr.id)
+    (pr) => (pr.status === "responded" || requestIdsWithQuotes.has(pr.id)) && !quotes.some((q) => q.request_id === pr.id)
   );
 
   const handleExtractPrices = async () => {
@@ -963,9 +1016,9 @@ function ComparisonTabContent({
   }
 
   // Build comparison: for each item, show prices from each supplier
-  const respondedRequests = priceRequests.filter((pr) => pr.status === "responded");
+  // Use effectivelyResponded (status "responded" OR has quotes) instead of just status filter
   const supplierNames: Record<string, string> = {};
-  for (const pr of respondedRequests) {
+  for (const pr of effectivelyResponded) {
     supplierNames[pr.id] = pr.suppliers?.company_name || "Fournisseur";
   }
 
@@ -1025,7 +1078,7 @@ function ComparisonTabContent({
 
       {materialGroups.map((group) => {
         const groupItems = items.filter((i) => i.material_group === group);
-        const groupRequests = respondedRequests.filter((pr) => pr.material_group === group);
+        const groupRequests = effectivelyResponded.filter((pr) => pr.material_group === group);
         if (groupRequests.length === 0) return null;
 
         return (
@@ -1135,14 +1188,18 @@ function SummaryTabContent({
   items,
   materialGroups,
   priceRequests,
+  quotes,
 }: {
   submission: SubmissionData;
   items: SubmissionItem[];
   materialGroups: string[];
   priceRequests: PriceRequestData[];
+  quotes: QuoteData[];
 }) {
   const sentCount = priceRequests.filter((pr) => pr.sent_at).length;
-  const respondedCount = priceRequests.filter((pr) => pr.status === "responded").length;
+  // Count "responded" = status "responded" OR has associated quotes in DB
+  const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
+  const respondedCount = priceRequests.filter((pr) => pr.status === "responded" || requestIdsWithQuotes.has(pr.id)).length;
   const quotedItems = items.filter((i) => i.status === "quoted").length;
 
   return (
