@@ -436,11 +436,15 @@ export interface EmailArchive {
   local_path: string;
   folder_name: string | null;
   file_name: string;
-  attachments_saved: { name: string; local_path: string; size: number }[];
+  attachments_saved: { name: string; local_path: string; size: number; storage_path?: string }[];
   status: "pending" | "saved" | "failed" | "skipped";
   error_message: string | null;
   archived_at: string | null;
   created_at: string;
+  // Storage columns (migration 072)
+  storage_path: string | null;
+  storage_bucket: string;
+  file_size: number;
 }
 
 // ---------- Mail Module Tables ----------
@@ -1631,7 +1635,7 @@ export type EmailTemplateInsert = WithOptionalDefaults<
 
 export type EmailArchiveInsert = WithOptionalDefaults<
   EmailArchive,
-  "id" | "attachments_saved" | "status" | "error_message" | "archived_at" | "created_at"
+  "id" | "attachments_saved" | "status" | "error_message" | "archived_at" | "created_at" | "storage_path" | "storage_bucket" | "file_size"
 >;
 
 export type EmailClassificationRuleInsert = WithOptionalDefaults<

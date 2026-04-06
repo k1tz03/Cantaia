@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { determineArchivePath, type ArchiveEmailInput } from "@cantaia/core/emails";
-import type { ArchiveStructure, ArchiveFilenameFormat } from "@cantaia/database";
+import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
+import {
+  archiveEmail,
+  type ArchiveableEmail,
+  type ArchiveProjectConfig,
+} from "@cantaia/core/emails";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+
+export const maxDuration = 300;
 
 /**
  * POST /api/emails/archive
- * Archives emails for a specific project.
+ * Archives emails for a project: generates .eml files and uploads to Supabase Storage.
  *
  * Body:
  *  - project_id: string (required)
  *  - email_ids?: string[] (optional — if omitted, archives all unarchived project emails)
  *
- * In web mode: creates email_archives records with computed paths (for future Tauri desktop sync).
- * Returns archive manifest (list of paths) that can be used for ZIP download or Tauri filesystem write.
+ * Returns immediately with 202, then processes in background via after().
+ * Client polls GET /api/emails/archive-download?project_id=xxx to track progress.
  */
 export async function POST(request: NextRequest) {
   // 1. Auth
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
   const { project_id, email_ids } = body;
 
   // 3. Verify access + get project archive settings
-  const { data: project, error: projErr } = await admin
+  const { data: project, error: projErr } = await (admin as any)
     .from("projects")
     .select("id, name, organization_id, archive_enabled, archive_path, archive_structure, archive_filename_format, archive_attachments_mode")
     .eq("id", project_id)
@@ -70,9 +77,9 @@ export async function POST(request: NextRequest) {
   }
 
   // 4. Get emails to archive
-  let emailQuery = admin
+  let emailQuery = (admin as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, received_at, classification, has_attachments, body_preview")
+    .select("id, outlook_message_id, subject, sender_email, sender_name, recipients, received_at, body_text, body_html, body_preview, classification, has_attachments")
     .eq("project_id", project_id)
     .eq("is_processed", true);
 
@@ -90,12 +97,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, archived: 0, message: "No emails to archive" });
   }
 
-  // 5. Check which emails are already archived
+  // 5. Check which emails are already archived (status=saved)
   const { data: existingArchives } = await admin
     .from("email_archives")
     .select("email_id")
     .eq("project_id", project_id)
-    .in("status", ["saved", "pending"])
+    .eq("status", "saved")
     .in(
       "email_id",
       emails.map((e: { id: string }) => e.id)
@@ -112,92 +119,117 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       archived: 0,
+      already_archived: alreadyArchivedIds.size,
       message: "All emails already archived",
     });
   }
 
-  // 6. Compute archive paths and create records
-  const basePath = project.archive_path || `C:\\Chantiers\\${project.name}`;
-  const structure = (project.archive_structure || "by_category") as ArchiveStructure;
-  const filenameFormat = (project.archive_filename_format || "date_sender_subject") as ArchiveFilenameFormat;
-
-  const archiveRecords: {
-    email_id: string;
-    project_id: string;
-    organization_id: string;
-    local_path: string;
-    folder_name: string | null;
-    file_name: string;
-    attachments_saved: { name: string; local_path: string; size: number }[];
-    status: "pending" | "saved" | "failed" | "skipped";
-    archived_at: string | null;
-  }[] = [];
-
-  let archived = 0;
-  let failed = 0;
-
-  for (const email of emailsToArchive) {
-    try {
-      const input: ArchiveEmailInput = {
-        emailId: email.id,
-        projectName: project.name,
-        senderEmail: email.sender_email,
-        senderName: email.sender_name || null,
-        subject: email.subject,
-        receivedAt: email.received_at,
-        classification: email.classification || null,
-        attachmentNames: [], // Attachment names would come from attachments table — for now empty
-      };
-
-      const pathResult = determineArchivePath(input, structure, filenameFormat);
-
-      const fullPath = pathResult.folder
-        ? `${basePath}\\${pathResult.folder}\\${pathResult.fileName}.eml`
-        : `${basePath}\\${pathResult.fileName}.eml`;
-
-      archiveRecords.push({
-        email_id: email.id,
-        project_id: project.id,
-        organization_id: project.organization_id,
-        local_path: fullPath,
-        folder_name: pathResult.folder || null,
-        file_name: pathResult.fileName,
-        attachments_saved: [],
-        status: "pending",
-        archived_at: null,
-      });
-
-      archived++;
-    } catch (err) {
-      console.error(`[archive] Failed to compute path for email ${email.id}:`, err);
-      failed++;
+  // 6. Get Microsoft Graph token for attachment download
+  let graphToken: string | null = null;
+  try {
+    const tokenResult = await getValidMicrosoftToken(user.id);
+    if (!("error" in tokenResult)) {
+      graphToken = tokenResult.accessToken;
     }
+  } catch {
+    // No Graph token — archive without attachments
   }
 
-  // 7. Batch insert archive records
-  if (archiveRecords.length > 0) {
-    const { error: insertErr } = await admin
-      .from("email_archives")
-      .insert(archiveRecords);
+  // 7. Return 202 immediately, process in background
+  const totalToArchive = emailsToArchive.length;
 
-    if (insertErr) {
-      console.error("[archive] Failed to insert archive records:", insertErr.message);
-      return NextResponse.json(
-        { error: "Failed to create archive records: " + insertErr.message },
-        { status: 500 }
-      );
-    }
-  }
-
-  if (process.env.NODE_ENV === "development") console.log(
-    `[archive] Created ${archived} archive records for project ${project.name}, ${failed} failed`
-  );
+  after(async () => {
+    await processArchiveBatch(
+      admin,
+      emailsToArchive as ArchiveableEmail[],
+      project as ArchiveProjectConfig,
+      graphToken
+    );
+  });
 
   return NextResponse.json({
     success: true,
-    archived,
-    failed,
-    total_emails: emails.length,
+    accepted: totalToArchive,
     already_archived: alreadyArchivedIds.size,
+    total_emails: emails.length,
+    message: `Archiving ${totalToArchive} emails in background`,
   });
 }
+
+// ── Background processing ──
+
+async function processArchiveBatch(
+  admin: SupabaseClient,
+  emails: ArchiveableEmail[],
+  project: ArchiveProjectConfig,
+  graphToken: string | null
+) {
+  let archived = 0;
+  let failed = 0;
+
+  for (const email of emails) {
+    try {
+      const result = await archiveEmail(admin, email, project, graphToken);
+
+      // Delete any previous failed/pending records for this email
+      await (admin as any)
+        .from("email_archives")
+        .delete()
+        .eq("email_id", email.id)
+        .eq("project_id", project.id)
+        .in("status", ["pending", "failed"]);
+
+      // Insert the new archive record
+      await (admin as any)
+        .from("email_archives")
+        .insert({
+          email_id: email.id,
+          project_id: project.id,
+          organization_id: project.organization_id,
+          local_path: result.storage_path,
+          folder_name: result.folder_name,
+          file_name: result.file_name,
+          storage_path: result.storage_path,
+          storage_bucket: "email-archives",
+          file_size: result.file_size,
+          attachments_saved: result.attachments_saved,
+          status: result.status,
+          error_message: result.error_message || null,
+          archived_at: result.status === "saved" ? new Date().toISOString() : null,
+        });
+
+      if (result.status === "saved") {
+        archived++;
+      } else {
+        failed++;
+      }
+    } catch (err) {
+      console.error(`[archive] Failed to archive email ${email.id}:`, err);
+      failed++;
+
+      // Record the failure
+      try {
+        await (admin as any)
+          .from("email_archives")
+          .upsert({
+            email_id: email.id,
+            project_id: project.id,
+            organization_id: project.organization_id,
+            local_path: "",
+            file_name: email.subject.slice(0, 200),
+            status: "failed",
+            error_message: err instanceof Error ? err.message : String(err),
+          }, { onConflict: "email_id,project_id" });
+      } catch {
+        // Silently fail — don't block the batch
+      }
+    }
+  }
+
+  console.log(
+    `[archive] Batch complete for project ${project.name}: ${archived} saved, ${failed} failed out of ${emails.length}`
+  );
+}
+
+// Import type for TS
+type SupabaseClient = ReturnType<typeof createAdminClient>;

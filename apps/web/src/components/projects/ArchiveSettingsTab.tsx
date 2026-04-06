@@ -7,16 +7,17 @@ import {
   FolderArchive,
   Download,
   Save,
-  HardDrive,
   FolderOpen,
   FileText,
   Paperclip,
-  Info,
   Archive,
   CheckSquare,
   Square,
   Loader2,
   RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 
 // ─── Types ───
@@ -80,8 +81,8 @@ function RadioOption({
           onClick={() => onChange(value)}
           className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors ${
             checked
-              ? "border-brand bg-brand"
-              : "border-[#27272A] bg-[#0F0F11] hover:border-muted-foreground"
+              ? "border-[#F97316] bg-[#F97316]"
+              : "border-[#27272A] bg-[#0F0F11] hover:border-[#71717A]"
           }`}
         >
           {checked && <div className="h-1.5 w-1.5 rounded-full bg-[#0F0F11]" />}
@@ -130,10 +131,13 @@ export function ArchiveSettingsTab({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [archiveStats, setArchiveStats] = useState<{
     total: number;
     archived: number;
-  }>({ total: 0, archived: 0 });
+    failed: number;
+    pending: number;
+  }>({ total: 0, archived: 0, failed: 0, pending: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
   // ─── Fetch archive stats ───
@@ -146,6 +150,8 @@ export function ArchiveSettingsTab({
         setArchiveStats({
           total: data.total_emails || 0,
           archived: data.archived_count || 0,
+          failed: data.failed_count || 0,
+          pending: data.pending_count || 0,
         });
       }
     } catch {
@@ -234,8 +240,6 @@ export function ArchiveSettingsTab({
         archive_attachments_mode: attachmentsMode,
       };
 
-      console.log("[ArchiveSettingsTab] Saving archive settings:", payload);
-
       const res = await fetch("/api/projects/archive-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,16 +248,13 @@ export function ArchiveSettingsTab({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        console.error("[ArchiveSettingsTab] Save error:", err);
         toast.error(t("saveError") + ": " + (err.error || res.statusText));
         return;
       }
 
-      console.log("[ArchiveSettingsTab] Settings saved successfully");
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      console.error("[ArchiveSettingsTab] Network error:", err);
+    } catch {
       toast.error(t("networkError"));
     } finally {
       setSaving(false);
@@ -262,35 +263,38 @@ export function ArchiveSettingsTab({
 
   const handleCreateStructure = () => {
     const folders: string[] = [];
-    const basePath = path || `C:\\Chantiers\\${projectName}`;
 
     if (structure === "by_category") {
       folders.push(
-        `${basePath}\\Correspondance`,
-        `${basePath}\\Plans`,
-        `${basePath}\\Soumissions`,
-        `${basePath}\\PV`,
-        `${basePath}\\Administratif`,
-        `${basePath}\\Photos`,
-        `${basePath}\\Divers`
+        "01_Correspondance",
+        "01_Correspondance/01_Architecte",
+        "01_Correspondance/02_Ingenieurs",
+        "01_Correspondance/03_Entreprises",
+        "01_Correspondance/04_Maitre-ouvrage",
+        "01_Correspondance/05_Divers",
+        "02_PV-Seances",
+        "03_Plans",
+        "04_Soumissions-Offres",
+        "05_Avenants",
+        "06_Situations-Factures",
+        "07_Photos",
+        "08_Divers"
       );
     } else if (structure === "by_date") {
       const now = new Date();
       for (let m = 0; m < 6; m++) {
         const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
-        const label = d.toISOString().slice(0, 7);
-        folders.push(`${basePath}\\${label}`);
+        folders.push(d.toISOString().slice(0, 7));
       }
     } else if (structure === "by_sender") {
-      folders.push(
-        `${basePath}\\(dossiers crees automatiquement par expediteur)`
-      );
+      folders.push("(dossiers crees automatiquement par expediteur)");
     } else {
-      folders.push(basePath);
+      folders.push("(tous les emails dans un seul dossier)");
     }
 
     toast.info(
-      t("treeTitle") + ": " + folders.join(", ")
+      t("treeTitle") + ":\n" + folders.map((f) => `  📁 ${f}`).join("\n"),
+      { duration: 8000 }
     );
   };
 
@@ -304,10 +308,16 @@ export function ArchiveSettingsTab({
       });
       const data = await res.json();
       if (res.ok) {
+        const accepted = data.accepted || data.archived || 0;
+        const alreadyDone = data.already_archived || 0;
         toast.success(
-          `${t("archiveExisting")} : ${data.archived} ${t("emailsArchived")}, ${data.already_archived || 0} ${t("total")}`
+          `${accepted} emails en cours d'archivage${alreadyDone > 0 ? `, ${alreadyDone} deja archives` : ""}`,
+          { duration: 5000 }
         );
-        fetchStats();
+        // Poll for completion
+        if (accepted > 0) {
+          pollArchiveProgress();
+        }
       } else {
         toast.error(t("saveError") + ": " + (data.error || res.statusText));
       }
@@ -318,18 +328,93 @@ export function ArchiveSettingsTab({
     }
   };
 
-  const handleDownloadZip = () => {
-    toast.info(t("downloadZipPlaceholder"));
+  const pollArchiveProgress = useCallback(() => {
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max (every 5s)
+
+    const poll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) return;
+
+      try {
+        const res = await fetch(`/api/emails/archive-download?project_id=${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setArchiveStats({
+            total: data.total_emails || 0,
+            archived: data.archived_count || 0,
+            failed: data.failed_count || 0,
+            pending: data.pending_count || 0,
+          });
+
+          // If still pending, continue polling
+          if ((data.pending_count || 0) > 0) {
+            setTimeout(poll, 5000);
+          } else {
+            toast.success(`Archivage termine : ${data.archived_count} emails archives`);
+          }
+        }
+      } catch {
+        // Silently fail — will retry
+        setTimeout(poll, 5000);
+      }
+    };
+
+    setTimeout(poll, 3000);
+  }, [projectId]);
+
+  const handleDownloadZip = async () => {
+    if (archiveStats.archived === 0) {
+      toast.error("Aucun email archive a telecharger");
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const res = await fetch(
+        `/api/emails/archive-download?project_id=${projectId}&format=zip`
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Erreur lors du telechargement");
+        return;
+      }
+
+      // Download the blob
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1] ||
+        `archives_${projectName.replace(/[^a-zA-Z0-9_-]/g, "_")}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Telechargement en cours...");
+    } catch {
+      toast.error(t("networkError"));
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // ─── Render ───
+
+  const progressPercent =
+    archiveStats.total > 0
+      ? Math.round((archiveStats.archived / archiveStats.total) * 100)
+      : 0;
 
   return (
     <div className="space-y-6">
       {/* ─── Header ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-4 flex items-center gap-2">
-          <FolderArchive className="h-5 w-5 text-brand" />
+          <FolderArchive className="h-5 w-5 text-[#F97316]" />
           <h2 className="text-base font-semibold text-[#FAFAFA]">
             {t("title")} &mdash; {projectName}
           </h2>
@@ -343,7 +428,7 @@ export function ArchiveSettingsTab({
             className="flex items-center"
           >
             {enabled ? (
-              <CheckSquare className="h-5 w-5 text-brand" />
+              <CheckSquare className="h-5 w-5 text-[#F97316]" />
             ) : (
               <Square className="h-5 w-5 text-[#71717A]" />
             )}
@@ -355,43 +440,32 @@ export function ArchiveSettingsTab({
             {t("enableAutoArchive")}
           </span>
         </label>
+        <p className="mt-2 ml-8 text-xs text-[#71717A]">
+          Les emails classes dans ce projet seront automatiquement archives lors de la synchronisation.
+        </p>
       </div>
 
-      {/* ─── Archive Path ─── */}
+      {/* ─── Archive Path (for reference / future desktop) ─── */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
         <div className="mb-3 flex items-center gap-2">
-          <HardDrive className="h-4 w-4 text-[#71717A]" />
+          <FolderOpen className="h-4 w-4 text-[#71717A]" />
           <h3 className="text-sm font-semibold text-[#FAFAFA]">
             {t("rootFolder")}
           </h3>
+          <span className="text-xs text-[#52525B]">(optionnel)</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-            placeholder={`C:\\Chantiers\\${projectName}`}
-            className="flex-1 rounded-md border border-[#27272A] px-3 py-2 text-sm text-[#FAFAFA] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            type="button"
-            className="rounded-md border border-[#27272A] p-2 text-[#71717A] hover:bg-[#27272A]"
-            title={t("browse")}
-            onClick={() =>
-              toast.info(t("browseDesktopOnly"))
-            }
-          >
-            <FolderOpen className="h-4 w-4" />
-          </button>
-        </div>
+        <input
+          type="text"
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          placeholder={`Projet / ${projectName}`}
+          className="w-full rounded-md border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
+        />
 
-        <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-200 px-3 py-2.5">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            {t("desktopInfo")}
-          </p>
-        </div>
+        <p className="mt-2 text-xs text-[#71717A]">
+          Nom de reference pour l'arborescence. Les fichiers sont stockes dans le cloud Cantaia.
+        </p>
       </div>
 
       {/* ─── Folder Structure ─── */}
@@ -407,7 +481,6 @@ export function ArchiveSettingsTab({
           {structureOptions.map((opt) => (
             <RadioOption
               key={opt.value}
-
               value={opt.value}
               checked={structure === opt.value}
               onChange={(v) => setStructure(v as ArchiveStructure)}
@@ -433,7 +506,6 @@ export function ArchiveSettingsTab({
           {filenameOptions.map((opt) => (
             <RadioOption
               key={opt.value}
-
               value={opt.value}
               checked={filenameFormat === opt.value}
               onChange={(v) => setFilenameFormat(v as FilenameFormat)}
@@ -457,7 +529,6 @@ export function ArchiveSettingsTab({
           {attachmentsOptions.map((opt) => (
             <RadioOption
               key={opt.value}
-
               value={opt.value}
               checked={attachmentsMode === opt.value}
               onChange={(v) => setAttachmentsMode(v as AttachmentsMode)}
@@ -473,15 +544,85 @@ export function ArchiveSettingsTab({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-md bg-gold px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gold/90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-[#F97316] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? t("saving") : t("save")}
         </button>
         {saved && (
-          <span className="ml-3 text-sm text-green-600 dark:text-green-400">
+          <span className="ml-3 text-sm text-green-400">
             {t("saveSuccess")}
           </span>
+        )}
+      </div>
+
+      {/* ─── Stats & Progress ─── */}
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#FAFAFA]">Etat de l'archivage</h3>
+          <button
+            type="button"
+            onClick={fetchStats}
+            className="text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+            title={t("refresh")}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {statsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-[#71717A]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t("loadingStats")}
+          </div>
+        ) : (
+          <>
+            {/* Progress bar */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between text-xs text-[#A1A1AA] mb-1">
+                <span>{progressPercent}% archive</span>
+                <span>{archiveStats.archived} / {archiveStats.total}</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-[#27272A]">
+                <div
+                  className="h-2 rounded-full bg-[#F97316] transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div className="flex flex-wrap gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                <span className="text-[#A1A1AA]">
+                  <span className="font-medium text-[#FAFAFA]">{archiveStats.archived}</span> archives
+                </span>
+              </div>
+              {archiveStats.pending > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-[#A1A1AA]">
+                    <span className="font-medium text-[#FAFAFA]">{archiveStats.pending}</span> en cours
+                  </span>
+                </div>
+              )}
+              {archiveStats.failed > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                  <span className="text-[#A1A1AA]">
+                    <span className="font-medium text-[#FAFAFA]">{archiveStats.failed}</span> echoues
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Archive className="h-3.5 w-3.5 text-[#52525B]" />
+                <span className="text-[#A1A1AA]">
+                  <span className="font-medium text-[#FAFAFA]">{archiveStats.total}</span> {t("total")}
+                </span>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -493,7 +634,7 @@ export function ArchiveSettingsTab({
           <button
             type="button"
             onClick={handleCreateStructure}
-            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#0F0F11] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A]"
+            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#18181B] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A]"
           >
             <FolderOpen className="h-4 w-4" />
             {t("createTree")}
@@ -503,7 +644,7 @@ export function ArchiveSettingsTab({
             type="button"
             onClick={handleArchiveExisting}
             disabled={archiving || !enabled}
-            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#0F0F11] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#18181B] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A] disabled:opacity-50"
           >
             {archiving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -516,34 +657,17 @@ export function ArchiveSettingsTab({
           <button
             type="button"
             onClick={handleDownloadZip}
-            className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#0F0F11] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A]"
+            disabled={downloading || archiveStats.archived === 0}
+            className="inline-flex items-center gap-2 rounded-md border border-[#F97316]/30 bg-[#F97316]/10 px-4 py-2 text-sm font-medium text-[#F97316] transition-colors hover:bg-[#F97316]/20 disabled:opacity-50"
           >
-            <Download className="h-4 w-4" />
-            {t("downloadZip")}
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {downloading ? "Telechargement..." : t("downloadZip")}
           </button>
         </div>
-      </div>
-
-      {/* ─── Stats ─── */}
-      <div className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#27272A] px-4 py-3">
-        <Archive className="h-4 w-4 text-[#71717A]" />
-        {statsLoading ? (
-          <p className="text-sm text-[#71717A]">{t("loadingStats")}</p>
-        ) : (
-          <p className="text-sm text-[#71717A]">
-            <span className="font-medium text-[#FAFAFA]">{archiveStats.archived}</span> {t("emailsArchived")}
-            {" / "}
-            <span className="font-medium text-[#FAFAFA]">{archiveStats.total}</span> {t("total")}
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={fetchStats}
-          className="ml-auto text-[#71717A] hover:text-[#71717A]"
-          title={t("refresh")}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-        </button>
       </div>
     </div>
   );

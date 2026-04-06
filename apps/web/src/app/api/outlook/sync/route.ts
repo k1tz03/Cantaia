@@ -7,8 +7,7 @@ import { classifyEmail, classifyEmailByKeywords, isUnknownProjectSubject, type P
 import { isPotentialPlan, detectPlansInEmail, savePlanFromAttachment } from "@cantaia/core/plans";
 import { getAttachments as graphGetAttachments } from "@cantaia/core/outlook";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
-import { checkLocalRules, detectSpamNewsletter, determineArchivePath, getEmailProvider, isTokenExpired, type ArchiveEmailInput, type EmailConnectionConfig } from "@cantaia/core/emails";
-import type { ArchiveStructure, ArchiveFilenameFormat } from "@cantaia/database";
+import { checkLocalRules, detectSpamNewsletter, getEmailProvider, isTokenExpired, archiveEmail, type ArchiveableEmail, type ArchiveProjectConfig, type EmailConnectionConfig } from "@cantaia/core/emails";
 
 // Allow up to 5 minutes for bulk syncs (500+ emails with classification pipeline)
 export const maxDuration = 300;
@@ -145,12 +144,13 @@ export async function POST(request: Request) {
     archive_path: string | null;
     archive_structure: string;
     archive_filename_format: string;
+    archive_attachments_mode: string;
   }>();
 
   if (userOrg?.organization_id) {
-    const { data: archiveProjects } = await adminClient
+    const { data: archiveProjects } = await (adminClient as any)
       .from("projects")
-      .select("id, name, organization_id, archive_path, archive_structure, archive_filename_format, archive_enabled")
+      .select("id, name, organization_id, archive_path, archive_structure, archive_filename_format, archive_attachments_mode, archive_enabled")
       .eq("organization_id", userOrg.organization_id)
       .eq("archive_enabled", true);
 
@@ -161,6 +161,7 @@ export async function POST(request: Request) {
         archive_path: ap.archive_path,
         archive_structure: ap.archive_structure || "by_category",
         archive_filename_format: ap.archive_filename_format || "date_sender_subject",
+        archive_attachments_mode: ap.archive_attachments_mode || "subfolder",
       });
     }
   }
@@ -703,42 +704,70 @@ export async function POST(request: Request) {
         tasksCreated++;
       }
 
-      // Auto-archive if project has archiving enabled
+      // Auto-archive if project has archiving enabled — generates .eml + uploads to Supabase Storage
       const classifiedProjectId = result.project_id;
       if (classifiedProjectId && archiveProjectsMap.has(classifiedProjectId)) {
         try {
           const archiveProject = archiveProjectsMap.get(classifiedProjectId)!;
-          const basePath = archiveProject.archive_path || `C:\\Chantiers\\${archiveProject.name}`;
-          const archiveInput: ArchiveEmailInput = {
-            emailId: email.id,
-            projectName: archiveProject.name,
-            senderEmail,
-            senderName: email.sender_name || null,
-            subject: email.subject,
-            receivedAt: email.received_at,
-            classification: result.classification || null,
-            attachmentNames: [],
-          };
-          const pathResult = determineArchivePath(
-            archiveInput,
-            archiveProject.archive_structure as ArchiveStructure,
-            archiveProject.archive_filename_format as ArchiveFilenameFormat
-          );
-          const fullPath = pathResult.folder
-            ? `${basePath}\\${pathResult.folder}\\${pathResult.fileName}.eml`
-            : `${basePath}\\${pathResult.fileName}.eml`;
 
-          await adminClient.from("email_archives").insert({
+          const archiveableEmail: ArchiveableEmail = {
+            id: email.id,
+            outlook_message_id: email.outlook_message_id || null,
+            subject: email.subject,
+            sender_email: senderEmail,
+            sender_name: email.sender_name || null,
+            recipients: email.recipients || null,
+            received_at: email.received_at,
+            body_text: email.body_text || null,
+            body_html: email.body_html || null,
+            body_preview: email.body_preview || null,
+            classification: result.classification || null,
+            has_attachments: email.has_attachments || false,
+          };
+
+          const archiveProjectConfig: ArchiveProjectConfig = {
+            id: classifiedProjectId,
+            name: archiveProject.name,
+            organization_id: archiveProject.organization_id,
+            archive_path: archiveProject.archive_path,
+            archive_structure: archiveProject.archive_structure || "by_category",
+            archive_filename_format: archiveProject.archive_filename_format || "date_sender_subject",
+            archive_attachments_mode: archiveProject.archive_attachments_mode || "subfolder",
+          };
+
+          const archiveResult = await archiveEmail(
+            adminClient,
+            archiveableEmail,
+            archiveProjectConfig,
+            graphTokenForPlans || null
+          );
+
+          // Delete any previous failed/pending records for this email
+          await (adminClient as any)
+            .from("email_archives")
+            .delete()
+            .eq("email_id", email.id)
+            .eq("project_id", classifiedProjectId)
+            .in("status", ["pending", "failed"]);
+
+          // Insert archive record with storage info
+          await (adminClient as any).from("email_archives").insert({
             email_id: email.id,
             project_id: classifiedProjectId,
             organization_id: archiveProject.organization_id,
-            local_path: fullPath,
-            folder_name: pathResult.folder || null,
-            file_name: pathResult.fileName,
-            attachments_saved: [],
-            status: "pending",
+            local_path: archiveResult.storage_path,
+            folder_name: archiveResult.folder_name,
+            file_name: archiveResult.file_name,
+            storage_path: archiveResult.storage_path,
+            storage_bucket: "email-archives",
+            file_size: archiveResult.file_size,
+            attachments_saved: archiveResult.attachments_saved,
+            status: archiveResult.status,
+            error_message: archiveResult.error_message || null,
+            archived_at: archiveResult.status === "saved" ? new Date().toISOString() : null,
           });
-          emailsArchived++;
+
+          if (archiveResult.status === "saved") emailsArchived++;
         } catch (archiveErr) {
           console.warn(`[sync] Auto-archive failed for email ${email.id}:`, archiveErr);
         }
