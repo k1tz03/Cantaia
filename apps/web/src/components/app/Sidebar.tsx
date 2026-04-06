@@ -6,7 +6,6 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ThemeToggle } from "./ThemeToggle";
-import { useEmailContextSafe } from "@/lib/contexts/email-context";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ActiveProjectSection } from "./ActiveProjectSection";
 import { cn } from "@cantaia/ui";
@@ -56,8 +55,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const { user, signOut } = useAuth();
-  const emailCtx = useEmailContextSafe();
-  const unreadEmailCount = emailCtx?.unreadCount || 0;
+  const [mailUnprocessed, setMailUnprocessed] = useState(0);
 
   const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
   const [supportUnread, setSupportUnread] = useState(0);
@@ -71,6 +69,20 @@ export function Sidebar() {
         if (d.profile?.is_superadmin) setProfileSuperAdmin(true);
       })
       .catch(() => {});
+  }, [user?.id]);
+
+  // Poll mail unprocessed count (same metric as mail page)
+  useEffect(() => {
+    if (!user?.id) return;
+    function fetchMailCount() {
+      fetch("/api/mail/decisions?counts_only=true")
+        .then((r) => r.json())
+        .then((d) => setMailUnprocessed(d.totalUnprocessed || 0))
+        .catch(() => {});
+    }
+    fetchMailCount();
+    const interval = setInterval(fetchMailCount, 60000);
+    return () => clearInterval(interval);
   }, [user?.id]);
 
   // Poll support unread count
@@ -93,7 +105,7 @@ export function Sidebar() {
   // Section: QUOTIDIEN
   const dailyItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", dataTour: "nav-dashboard" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined, badgeColor: "orange", dataTour: "nav-mail" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: mailUnprocessed > 0 ? String(mailUnprocessed) : undefined, badgeColor: "orange", dataTour: "nav-mail" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", dataTour: "nav-briefing" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", dataTour: "nav-tasks" },
   ];
@@ -215,7 +227,7 @@ export function Sidebar() {
 
   const mobileBottomItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: unreadEmailCount > 0 ? String(unreadEmailCount) : undefined },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: mailUnprocessed > 0 ? String(mailUnprocessed) : undefined },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active" },
   ];
 

@@ -367,7 +367,6 @@ function MailPageInner() {
   const [info, setInfo] = useState<DecisionEmail[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [decisionsToday, setDecisionsToday] = useState(0);
   const [isAloneInOrg, setIsAloneInOrg] = useState(true);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [generatingSummaries, setGeneratingSummaries] = useState(false);
@@ -436,7 +435,6 @@ function MailPageInner() {
       setThisWeek(data.thisWeek);
       setInfo(data.info);
       setStats(data.stats);
-      setDecisionsToday(data.stats?.decisionsToday || data.stats?.processedToday || 0);
       setIsAloneInOrg(data.isAloneInOrg ?? true);
       setOrgMembers(data.orgMembers || []);
       if (data.hasEmailConnection !== undefined) setHasEmailConnection(data.hasEmailConnection);
@@ -471,7 +469,7 @@ function MailPageInner() {
     setTimeout(() => setSyncToast(null), 4000);
   }, [fetchData, t]);
 
-  // Fetch Outlook folders (lazy — on first expand)
+  // Fetch Outlook folders (eager on mount for AI suggestions, idempotent)
   const fetchFolders = useCallback(async () => {
     if (foldersLoaded) return;
     try {
@@ -483,6 +481,10 @@ function MailPageInner() {
     } catch { /* non-blocking */ }
     setFoldersLoaded(true);
   }, [foldersLoaded]);
+
+  // Eagerly load folders so AI folder suggestion works on first email view
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchFolders(); }, []);
 
   // Fetch messages from a specific Outlook folder (sent, trash, custom)
   const fetchFolderMessages = useCallback(async (folderId: string) => {
@@ -538,7 +540,6 @@ function MailPageInner() {
 
   const dismissCard = useCallback(async (emailId: string, action: string, email?: DecisionEmail) => {
     setDismissedIds((prev) => new Set(prev).add(emailId));
-    setDecisionsToday((d) => d + 1);
     // If the dismissed email is selected, clear selection
     setSelectedEmailId((prev) => prev === emailId ? null : prev);
     try {
@@ -580,6 +581,39 @@ function MailPageInner() {
       });
     } catch { /* non-blocking */ }
   }, []);
+
+  const moveToFolder = useCallback(async (emailId: string, folderId: string, folderName: string) => {
+    // Move email in Outlook via Graph API
+    try {
+      await fetch(`/api/email/${emailId}/move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder_id: folderId }),
+      });
+    } catch { /* non-blocking */ }
+
+    // Find the email to get sender/subject for learning
+    const email = [...urgent, ...thisWeek, ...info].find((e) => e.id === emailId);
+
+    // Fire-and-forget: teach the folder learning engine
+    if (email) {
+      fetch("/api/email/folder-learn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email_id: emailId,
+          folder_id: folderId,
+          folder_name: folderName,
+          sender_email: email.sender_email,
+          subject: email.subject,
+        }),
+      }).catch(() => {});
+    }
+
+    // Dismiss from the decision view after moving
+    setDismissedIds((prev) => new Set(prev).add(emailId));
+    setSelectedEmailId((prev) => prev === emailId ? null : prev);
+  }, [urgent, thisWeek, info]);
 
   // Compute filtered emails (needed by useEffect below, must be before early returns)
   const filteredUrgent = urgent.filter((e) => !dismissedIds.has(e.id));
@@ -627,15 +661,6 @@ function MailPageInner() {
             <div className="h-8 w-20 animate-pulse rounded-lg bg-[#1C1C1F]" />
           </div>
         </div>
-        {/* KPI skeleton */}
-        <div className="flex-shrink-0 h-[60px] border-b border-[#1C1C1F] flex">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex-1 px-5 py-3 border-r border-[#1C1C1F] last:border-r-0">
-              <div className="h-3 w-20 animate-pulse rounded bg-[#1C1C1F] mb-2" />
-              <div className="h-5 w-12 animate-pulse rounded bg-[#27272A]" />
-            </div>
-          ))}
-        </div>
         {/* Panels skeleton */}
         <div className="flex-1 flex min-h-0">
           <div className="w-[420px] border-r border-[#1C1C1F]">
@@ -662,8 +687,10 @@ function MailPageInner() {
 
   if (!authorized) return null;
 
-  const totalUnprocessed = filteredUrgent.length + filteredThisWeek.length;
-  const totalWaiting = filteredInfo.length;
+  const totalActionable = filteredUrgent.length + filteredThisWeek.length;
+  const totalInfo = filteredInfo.length;
+  // Use the API's total unprocessed count (matches sidebar badge) or fall back to bucket totals
+  const totalUnprocessed = stats?.totalUnprocessed ?? (totalActionable + totalInfo);
 
   // Auto-select first email if none selected (initial load, no URL param)
   if (!selectedEmailId && !urlEmailId && allEmails.length > 0) {
@@ -689,7 +716,7 @@ function MailPageInner() {
             Mail
           </h1>
           <span className="text-[12px] text-[#52525B]">
-            {totalUnprocessed} non trait{totalUnprocessed !== 1 ? "s" : ""} &middot; {totalWaiting} en attente
+            {totalUnprocessed} non trait&eacute;{totalUnprocessed !== 1 ? "s" : ""}{totalActionable > 0 && <> &middot; <span className="text-[#F97316]">{totalActionable} à traiter</span></>}
           </span>
         </div>
 
@@ -775,15 +802,6 @@ function MailPageInner() {
         </div>
       )}
 
-      {/* ═══ KPI STRIP ═══ */}
-      {stats && (
-        <div className="flex-shrink-0 border-b border-[#1C1C1F] flex">
-          <KpiCell label={t("stats.responseTime")} value={`${stats.avgResponseTime}h`} sub="moyenne" />
-          <KpiCell label={t("stats.emailsProcessed")} value={`${stats.processedToday}/${stats.totalToday}`} sub="aujourd'hui" />
-          <KpiCell label={t("stats.decisionsToday")} value={String(decisionsToday)} sub="ce jour" />
-          <KpiCell label={t("stats.savingsGenerated")} value={stats.savingsGenerated != null ? `CHF ${stats.savingsGenerated.toLocaleString("fr-CH")}` : "\u2014"} sub="estim." last />
-        </div>
-      )}
 
       {/* ═══ 2-PANEL MAIN CONTENT ═══ */}
       <div className="flex-1 flex min-h-0">
@@ -1003,6 +1021,7 @@ function MailPageInner() {
               email={selectedEmail}
               isAloneInOrg={isAloneInOrg}
               locale={locale}
+              folders={customFolders}
               onReply={() => setReplyEmail(selectedEmail)}
               onDelegate={() => setDelegateEmail(selectedEmail)}
               onTransfer={() => setTransferEmail(selectedEmail)}
@@ -1012,6 +1031,7 @@ function MailPageInner() {
               onAccept={() => dismissCard(selectedEmail.id, "accept", selectedEmail)}
               onNegotiate={() => setReplyEmail(selectedEmail)}
               onRefuse={() => dismissCard(selectedEmail.id, "refuse")}
+              onMoveToFolder={moveToFolder}
             />
           ) : selectedFolderMessage ? (
             <FolderMessageDetail message={selectedFolderMessage} locale={locale} />
@@ -1084,19 +1104,6 @@ function MailPageInner() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   KPI CELL
-   ═══════════════════════════════════════════════════════════ */
-
-function KpiCell({ label, value, sub, last }: { label: string; value: string; sub?: string; last?: boolean }) {
-  return (
-    <div className={`flex-1 px-5 py-2.5 ${last ? "" : "border-r border-[#1C1C1F]"}`}>
-      <div className="text-[9px] uppercase tracking-wider text-[#52525B] font-semibold">{label}</div>
-      <div className="font-extrabold text-lg text-[#FAFAFA] mt-0.5 leading-tight" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>{value}</div>
-      {sub && <div className="text-[10px] text-[#3F3F46] mt-0.5">{sub}</div>}
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════
    EMAIL BUCKET (left panel section)
@@ -1336,10 +1343,14 @@ function FolderMessageDetail({ message, locale }: { message: FolderMessage; loca
    EMAIL DETAIL PANEL (right panel)
    ═══════════════════════════════════════════════════════════ */
 
-function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse }: {
+interface FolderInfo { id: string; name: string; }
+interface FolderSuggestion { folder_id: string; folder_name: string; confidence: number; reason: string; }
+
+function EmailDetailPanel({ email, isAloneInOrg, locale, folders, onReply, onDelegate, onTransfer, onCreateTask, onArchive, onSnooze, onAccept, onNegotiate, onRefuse, onMoveToFolder }: {
   email: DecisionEmail;
   isAloneInOrg: boolean;
   locale: string;
+  folders: FolderInfo[];
   onReply: () => void;
   onDelegate: () => void;
   onTransfer: () => void;
@@ -1349,6 +1360,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
   onAccept: () => void;
   onNegotiate: () => void;
   onRefuse: () => void;
+  onMoveToFolder: (emailId: string, folderId: string, folderName: string) => void;
 }) {
   const t = useTranslations("mail.decisions");
   const [thread, setThread] = useState<ThreadMessage[] | null>(null);
@@ -1356,6 +1368,10 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
   const [threadError, setThreadError] = useState<string | null>(null);
   const [fallbackBody, setFallbackBody] = useState<string>("");
   const [fallbackIsHtml, setFallbackIsHtml] = useState(false);
+  const [folderDropdownOpen, setFolderDropdownOpen] = useState(false);
+  const [folderSuggestion, setFolderSuggestion] = useState<FolderSuggestion | null>(null);
+  const [movingToFolder, setMovingToFolder] = useState(false);
+  const folderDropdownRef = useRef<HTMLDivElement>(null);
 
   // Reset on email change
   useEffect(() => {
@@ -1391,6 +1407,45 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
     }
     loadThread();
   }, [email.id]);
+
+  // Fetch AI folder suggestion when email changes
+  useEffect(() => {
+    setFolderSuggestion(null);
+    setFolderDropdownOpen(false);
+    if (folders.length === 0) return;
+
+    fetch("/api/email/suggest-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sender_email: email.sender_email,
+        subject: email.subject,
+        body_preview: email.body_preview,
+        folders: folders.map((f) => ({ id: f.id, name: f.name })),
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (d.suggestion) setFolderSuggestion(d.suggestion); })
+      .catch(() => {});
+  }, [email.id, folders.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (folderDropdownRef.current && !folderDropdownRef.current.contains(e.target as Node)) {
+        setFolderDropdownOpen(false);
+      }
+    }
+    if (folderDropdownOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [folderDropdownOpen]);
+
+  const handleMoveToFolder = async (folderId: string, folderName: string) => {
+    setMovingToFolder(true);
+    setFolderDropdownOpen(false);
+    onMoveToFolder(email.id, folderId, folderName);
+    setMovingToFolder(false);
+  };
 
   return (
     <>
@@ -1459,8 +1514,60 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
           <Forward className="w-3.5 h-3.5" />{t("actions.transfer")}
         </button>
         <button onClick={onCreateTask} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
-          <ListTodo className="w-3.5 h-3.5" />{t("actions.createTask")}
+          <ListTodo className="w-3.5 h-3.5" />Tâches
         </button>
+
+        {/* Move to group dropdown */}
+        {folders.length > 0 && (
+          <div className="relative" ref={folderDropdownRef}>
+            <button
+              onClick={() => setFolderDropdownOpen(!folderDropdownOpen)}
+              disabled={movingToFolder}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors border ${
+                folderSuggestion
+                  ? "text-[#F97316] bg-[#F97316]/10 border-[#F97316]/20 hover:bg-[#F97316]/15"
+                  : "text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border-[#3F3F46]"
+              }`}
+            >
+              {movingToFolder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Folder className="w-3.5 h-3.5" />}
+              {folderSuggestion ? folderSuggestion.folder_name : "Groupe"}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+
+            {folderDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 w-56 bg-[#1C1C1F] border border-[#27272A] rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto">
+                {folderSuggestion && (
+                  <>
+                    <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#52525B] font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-[#F97316]" />Suggestion IA
+                    </div>
+                    <button
+                      onClick={() => handleMoveToFolder(folderSuggestion.folder_id, folderSuggestion.folder_name)}
+                      className="w-full text-left px-3 py-2 text-[12px] text-[#F97316] hover:bg-[#F97316]/10 flex items-center gap-2"
+                    >
+                      <Folder className="w-3.5 h-3.5" />
+                      <span className="flex-1">{folderSuggestion.folder_name}</span>
+                      <span className="text-[10px] text-[#F97316]/60">{Math.round(folderSuggestion.confidence * 100)}%</span>
+                    </button>
+                    <div className="border-t border-[#27272A] my-1" />
+                  </>
+                )}
+                <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#52525B] font-semibold">Tous les groupes</div>
+                {folders.map((folder) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => handleMoveToFolder(folder.id, folder.name)}
+                    className="w-full text-left px-3 py-2 text-[12px] text-[#D4D4D8] hover:bg-[#27272A] flex items-center gap-2"
+                  >
+                    <Folder className="w-3.5 h-3.5 text-[#52525B]" />
+                    {folder.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {!isAloneInOrg && (
           <button onClick={onDelegate} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border border-[#3F3F46] rounded-lg transition-colors">
             <Users className="w-3.5 h-3.5" />{t("actions.delegate")}

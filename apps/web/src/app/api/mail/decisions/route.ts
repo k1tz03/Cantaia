@@ -5,14 +5,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /**
  * GET /api/mail/decisions
  * Returns email_records classified as decisions for the mail decision view.
+ * ?counts_only=true — returns only the unprocessed count (lightweight, used by sidebar badge)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createAdminClient();
+    const countsOnly = request.nextUrl.searchParams.get("counts_only") === "true";
+
+    // Lightweight path: just return the total unprocessed count for sidebar badge
+    if (countsOnly) {
+      const { count } = await (admin as any)
+        .from("email_records")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_processed", false);
+      return NextResponse.json({ totalUnprocessed: count || 0 });
+    }
 
     const { data: profile } = await (admin as any)
       .from("users")
