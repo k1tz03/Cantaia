@@ -31,6 +31,7 @@ import {
   Mic,
   LifeBuoy,
   ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 
 type NavItemStatus = "active" | "coming_soon" | "locked";
@@ -102,6 +103,7 @@ export function Sidebar() {
 
   // Section: RÉFÉRENTIELS
   const referenceItems: NavItem[] = [
+    { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", dataTour: "nav-submissions" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", dataTour: "nav-suppliers" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active", dataTour: "nav-chat" },

@@ -30,7 +30,91 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ success: true, submissions: data || [] });
+    const submissions = data || [];
+    const submissionIds = submissions.map((s: any) => s.id);
+
+    // ── Enrich with price request stats (batch) ──
+    let priceRequestMap: Record<string, { sent: number; responded: number; pending: number }> = {};
+    let quotesCountMap: Record<string, number> = {};
+    let awardedMap: Record<string, { request_id: string; supplier_name: string } | null> = {};
+
+    if (submissionIds.length > 0) {
+      // Fetch all price requests for these submissions
+      const { data: allPR } = await (admin as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, status, sent_at, supplier_id, supplier_name_manual")
+        .in("submission_id", submissionIds);
+
+      // Fetch all quotes for these submissions
+      const { data: allQuotes } = await (admin as any)
+        .from("submission_quotes")
+        .select("id, submission_id, request_id")
+        .in("submission_id", submissionIds);
+
+      // Build request IDs that have quotes (effectively responded even if status not updated)
+      const requestIdsWithQuotes = new Set((allQuotes || []).map((q: any) => q.request_id));
+
+      // Aggregate per submission
+      for (const pr of allPR || []) {
+        if (!priceRequestMap[pr.submission_id]) {
+          priceRequestMap[pr.submission_id] = { sent: 0, responded: 0, pending: 0 };
+        }
+        const stats = priceRequestMap[pr.submission_id];
+        if (pr.sent_at) stats.sent++;
+        const hasResponse = pr.status === "responded" || requestIdsWithQuotes.has(pr.id);
+        if (hasResponse) {
+          stats.responded++;
+        } else if (pr.sent_at) {
+          stats.pending++;
+        }
+      }
+
+      // Quote count per submission
+      for (const q of allQuotes || []) {
+        quotesCountMap[q.submission_id] = (quotesCountMap[q.submission_id] || 0) + 1;
+      }
+
+      // Fetch supplier names for awarded submissions
+      const supplierIds = Array.from(new Set<string>(
+        (allPR || []).map((pr: any) => pr.supplier_id).filter(Boolean)
+      ));
+      let supplierNameMap: Record<string, string> = {};
+      if (supplierIds.length > 0) {
+        const { data: suppliers } = await admin
+          .from("suppliers")
+          .select("id, company_name")
+          .in("id", supplierIds);
+        for (const s of suppliers || []) {
+          supplierNameMap[s.id] = s.company_name;
+        }
+      }
+
+      // Determine awarded supplier per submission
+      for (const sub of submissions) {
+        const awardedId = sub.budget_estimate?.awarded_request_id;
+        if (awardedId) {
+          const awardedPR = (allPR || []).find((pr: any) => pr.id === awardedId);
+          if (awardedPR) {
+            awardedMap[sub.id] = {
+              request_id: awardedId,
+              supplier_name: awardedPR.supplier_id
+                ? (supplierNameMap[awardedPR.supplier_id] || "Fournisseur")
+                : (awardedPR.supplier_name_manual || "Fournisseur"),
+            };
+          }
+        }
+      }
+    }
+
+    // Attach stats to each submission
+    const enriched = submissions.map((sub: any) => ({
+      ...sub,
+      price_stats: priceRequestMap[sub.id] || { sent: 0, responded: 0, pending: 0 },
+      quotes_count: quotesCountMap[sub.id] || 0,
+      awarded: awardedMap[sub.id] || null,
+    }));
+
+    return NextResponse.json({ success: true, submissions: enriched });
   } catch (err: any) {
     console.error("[submissions] GET error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

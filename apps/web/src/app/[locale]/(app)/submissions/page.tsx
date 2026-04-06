@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "@/i18n/navigation";
 import {
   FileSpreadsheet,
@@ -9,8 +9,26 @@ import {
   Trash2,
   ChevronRight,
   Search,
+  Send,
+  CheckCircle2,
+  Clock,
+  BarChart3,
+  Trophy,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+interface PriceStats {
+  sent: number;
+  responded: number;
+  pending: number;
+}
+
+interface AwardedInfo {
+  request_id: string;
+  supplier_name: string;
+}
 
 interface SubmissionRow {
   id: string;
@@ -19,6 +37,11 @@ interface SubmissionRow {
   file_type: string | null;
   analysis_status: string;
   created_at: string;
+  deadline?: string | null;
+  budget_estimate?: { total_median?: number; awarded_request_id?: string } | null;
+  price_stats: PriceStats;
+  quotes_count: number;
+  awarded: AwardedInfo | null;
   projects?: {
     id: string;
     name: string;
@@ -61,15 +84,46 @@ export default function SubmissionsPage() {
     setDeleteId(null);
   }
 
-  const filtered = submissions.filter((s) => {
-    if (!search) return true;
+  const filtered = useMemo(() => {
+    if (!search) return submissions;
     const q = search.toLowerCase();
-    return (
-      (s.file_name || "").toLowerCase().includes(q) ||
-      (s.projects?.name || "").toLowerCase().includes(q) ||
-      (s.projects?.client_name || "").toLowerCase().includes(q)
+    return submissions.filter(
+      (s) =>
+        (s.file_name || "").toLowerCase().includes(q) ||
+        (s.projects?.name || "").toLowerCase().includes(q) ||
+        (s.projects?.client_name || "").toLowerCase().includes(q) ||
+        (s.projects?.city || "").toLowerCase().includes(q)
     );
-  });
+  }, [submissions, search]);
+
+  // Group by project
+  const grouped = useMemo(() => {
+    const map = new Map<string, { project: SubmissionRow["projects"]; subs: SubmissionRow[] }>();
+    for (const sub of filtered) {
+      const pid = sub.project_id || "no-project";
+      if (!map.has(pid)) {
+        map.set(pid, { project: sub.projects, subs: [] });
+      }
+      map.get(pid)!.subs.push(sub);
+    }
+    return Array.from(map.values());
+  }, [filtered]);
+
+  // Global KPIs
+  const kpis = useMemo(() => {
+    let totalSent = 0;
+    let totalResponded = 0;
+    let totalPending = 0;
+    let totalAwarded = 0;
+    for (const sub of submissions) {
+      totalSent += sub.price_stats.sent;
+      totalResponded += sub.price_stats.responded;
+      totalPending += sub.price_stats.pending;
+      if (sub.awarded) totalAwarded++;
+    }
+    const responseRate = totalSent > 0 ? Math.round((totalResponded / totalSent) * 100) : 0;
+    return { totalSent, totalResponded, totalPending, totalAwarded, responseRate };
+  }, [submissions]);
 
   const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
     pending: { label: "En attente", className: "bg-[#27272A] text-[#71717A] border border-[#27272A]", dot: "bg-[#71717A]" },
@@ -80,7 +134,7 @@ export default function SubmissionsPage() {
 
   return (
     <div className="px-4 py-5 sm:px-6 lg:px-8 overflow-auto h-full bg-[#0F0F11]">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -88,17 +142,58 @@ export default function SubmissionsPage() {
               Soumissions
             </h1>
             <p className="text-[13px] text-[#71717A] mt-0.5">
-              {submissions.length} soumission{submissions.length !== 1 ? "s" : ""}
+              {submissions.length} soumission{submissions.length !== 1 ? "s" : ""} · {grouped.length} chantier{grouped.length !== 1 ? "s" : ""}
             </p>
           </div>
           <Link
             href="/submissions/new"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-cta px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#EA580C] hover:shadow"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#EA580C] hover:shadow"
           >
             <Plus className="h-4 w-4" />
             Nouvelle soumission
           </Link>
         </div>
+
+        {/* Global KPIs */}
+        {submissions.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <Send className="h-3.5 w-3.5 text-[#F97316]" />
+                <span className="text-[11px] font-medium text-[#71717A] uppercase">Envoyées</span>
+              </div>
+              <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalSent}</div>
+            </div>
+            <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-[11px] font-medium text-[#71717A] uppercase">Réponses</span>
+              </div>
+              <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalResponded}</div>
+            </div>
+            <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-[11px] font-medium text-[#71717A] uppercase">En attente</span>
+              </div>
+              <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalPending}</div>
+            </div>
+            <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-[11px] font-medium text-[#71717A] uppercase">Taux réponse</span>
+              </div>
+              <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.responseRate}%</div>
+            </div>
+            <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <Trophy className="h-3.5 w-3.5 text-[#F97316]" />
+                <span className="text-[11px] font-medium text-[#71717A] uppercase">Attribuées</span>
+              </div>
+              <div className="text-xl font-bold text-[#FAFAFA] tabular-nums">{kpis.totalAwarded}</div>
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         {submissions.length > 0 && (
@@ -108,23 +203,25 @@ export default function SubmissionsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, projet..."
+              placeholder="Rechercher par nom, projet, client, ville..."
               className="w-full pl-10 pr-4 py-2 border border-[#27272A] rounded-xl text-sm bg-[#18181B] text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316] transition-all"
             />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#FAFAFA]">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
 
-        {/* List */}
+        {/* List grouped by project */}
         {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4 p-4 bg-[#18181B] border border-[#27272A] rounded-xl shadow-sm">
-                <div className="w-10 h-10 animate-pulse rounded-lg bg-[#27272A]" />
-                <div className="flex-1">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-[#27272A] mb-2" />
-                  <div className="h-3 w-1/2 animate-pulse rounded bg-[#27272A]" />
-                </div>
-                <div className="h-6 w-20 animate-pulse rounded-full bg-[#27272A]" />
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-[#18181B] border border-[#27272A] rounded-xl p-4 space-y-3">
+                <div className="h-5 w-48 animate-pulse rounded bg-[#27272A]" />
+                <div className="h-16 animate-pulse rounded bg-[#27272A]" />
+                <div className="h-16 animate-pulse rounded bg-[#27272A]" />
               </div>
             ))}
           </div>
@@ -141,57 +238,164 @@ export default function SubmissionsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map((sub) => {
-              const sc = statusConfig[sub.analysis_status] || statusConfig.pending;
+          <div className="space-y-5">
+            {grouped.map(({ project, subs }) => {
+              // Aggregate stats for this project
+              const projSent = subs.reduce((s, sub) => s + sub.price_stats.sent, 0);
+              const projResponded = subs.reduce((s, sub) => s + sub.price_stats.responded, 0);
+              const projPending = subs.reduce((s, sub) => s + sub.price_stats.pending, 0);
+              const projAwarded = subs.filter((s) => s.awarded).length;
+
               return (
-                <div
-                  key={sub.id}
-                  className="flex items-center gap-4 p-4 bg-[#18181B] border border-[#27272A] rounded-xl shadow-sm hover:shadow-md hover:border-[#3F3F46] transition-all group"
-                >
-                  <Link
-                    href={`/submissions/${sub.id}`}
-                    className="flex items-center gap-4 flex-1 min-w-0"
-                  >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${sub.file_type === "pdf" ? "bg-red-500/10" : "bg-emerald-500/10"}`}>
-                      {sub.file_type === "pdf" ? (
-                        <FileText className="h-5 w-5 text-red-500" />
-                      ) : (
-                        <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-[13px] text-[#FAFAFA] truncate group-hover:text-[#F97316] transition-colors">
-                        {sub.file_name || "Sans nom"}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-[#71717A]">
-                        {sub.projects?.color && (
-                          <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: sub.projects.color }} />
-                        )}
-                        <span className="truncate">{sub.projects?.name || "Projet inconnu"}</span>
-                        {sub.projects?.city && (
-                          <>
-                            <span className="text-[#52525B]">·</span>
-                            <span>{sub.projects.city}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full shrink-0 ${sc.className}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-                      {sc.label}
+                <div key={project?.id || "no-project"} className="bg-[#18181B] border border-[#27272A] rounded-xl overflow-hidden">
+                  {/* Project header */}
+                  <div className="px-4 py-3 bg-[#1C1C1F] border-b border-[#27272A] flex items-center gap-3 flex-wrap">
+                    {project?.color && (
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+                    )}
+                    <span className="text-sm font-semibold text-[#FAFAFA]">
+                      {project?.name || "Sans projet"}
                     </span>
-                    <p className="text-xs text-[#71717A] shrink-0 tabular-nums">
-                      {new Date(sub.created_at).toLocaleDateString("fr-CH")}
-                    </p>
-                    <ChevronRight className="h-4 w-4 text-[#71717A] group-hover:text-[#F97316] transition-colors shrink-0" />
-                  </Link>
-                  <button
-                    onClick={() => setDeleteId(sub.id)}
-                    className="p-1.5 text-[#71717A] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    {project?.client_name && (
+                      <span className="text-xs text-[#71717A]">— {project.client_name}</span>
+                    )}
+                    {project?.city && (
+                      <span className="text-xs text-[#52525B]">{project.city}</span>
+                    )}
+                    <div className="flex items-center gap-3 ml-auto text-[11px] text-[#71717A]">
+                      {projSent > 0 && (
+                        <>
+                          <span className="flex items-center gap-1">
+                            <Send className="h-3 w-3 text-[#F97316]" />{projSent}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />{projResponded}
+                          </span>
+                          {projPending > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-amber-500" />{projPending}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {projAwarded > 0 && (
+                        <span className="flex items-center gap-1 text-[#F97316]">
+                          <Trophy className="h-3 w-3" />{projAwarded}
+                        </span>
+                      )}
+                      <span className="text-[#52525B]">{subs.length} soumission{subs.length > 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+
+                  {/* Submission rows */}
+                  <div className="divide-y divide-[#27272A]">
+                    {subs.map((sub) => {
+                      const sc = statusConfig[sub.analysis_status] || statusConfig.pending;
+                      const { sent, responded, pending } = sub.price_stats;
+                      const responseRate = sent > 0 ? Math.round((responded / sent) * 100) : 0;
+
+                      // Deadline computation
+                      let deadlineLabel: React.ReactNode = null;
+                      if (sub.deadline) {
+                        const daysLeft = Math.ceil((new Date(sub.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        if (daysLeft < 0) {
+                          deadlineLabel = <span className="text-red-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Expiré</span>;
+                        } else if (daysLeft <= 3) {
+                          deadlineLabel = <span className="text-amber-400">{daysLeft}j restant{daysLeft > 1 ? "s" : ""}</span>;
+                        } else {
+                          deadlineLabel = <span className="text-[#71717A]">{daysLeft}j restants</span>;
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={sub.id}
+                          className="flex items-center gap-4 px-4 py-3 hover:bg-[#27272A]/30 transition-colors group"
+                        >
+                          <Link
+                            href={`/submissions/${sub.id}`}
+                            className="flex items-center gap-4 flex-1 min-w-0"
+                          >
+                            {/* File icon */}
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${sub.file_type === "pdf" ? "bg-red-500/10" : "bg-emerald-500/10"}`}>
+                              {sub.file_type === "pdf" ? (
+                                <FileText className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                              )}
+                            </div>
+
+                            {/* Name + status */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-[13px] text-[#FAFAFA] truncate group-hover:text-[#F97316] transition-colors">
+                                {sub.file_name || "Sans nom"}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                                  {sc.label}
+                                </span>
+                                {sub.awarded && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                    <Trophy className="h-2.5 w-2.5" />
+                                    {sub.awarded.supplier_name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Price request stats */}
+                            {sent > 0 && (
+                              <div className="hidden sm:flex items-center gap-3 shrink-0">
+                                {/* Mini progress bar */}
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <div className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] tabular-nums">
+                                    <span>{responded}/{sent}</span>
+                                    <span className="text-[#52525B]">·</span>
+                                    <span className={responseRate >= 75 ? "text-emerald-400" : responseRate >= 50 ? "text-amber-400" : "text-[#71717A]"}>
+                                      {responseRate}%
+                                    </span>
+                                  </div>
+                                  <div className="w-20 h-1.5 bg-[#27272A] rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        responseRate >= 75 ? "bg-emerald-500" : responseRate >= 50 ? "bg-amber-500" : "bg-[#F97316]"
+                                      }`}
+                                      style={{ width: `${responseRate}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                {pending > 0 && (
+                                  <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+                                    {pending} en attente
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Deadline */}
+                            {deadlineLabel && (
+                              <div className="hidden md:block text-[11px] shrink-0">
+                                {deadlineLabel}
+                              </div>
+                            )}
+
+                            {/* Date */}
+                            <p className="text-xs text-[#71717A] shrink-0 tabular-nums">
+                              {new Date(sub.created_at).toLocaleDateString("fr-CH")}
+                            </p>
+                            <ChevronRight className="h-4 w-4 text-[#71717A] group-hover:text-[#F97316] transition-colors shrink-0" />
+                          </Link>
+                          <button
+                            onClick={() => setDeleteId(sub.id)}
+                            className="p-1.5 text-[#71717A] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
