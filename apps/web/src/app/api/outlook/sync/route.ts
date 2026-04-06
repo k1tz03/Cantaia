@@ -776,7 +776,7 @@ async function syncViaProvider(
   adminClient: ReturnType<typeof createAdminClient>,
   userId: string,
   connection: EmailConnectionRecord,
-  _organizationId?: string // eslint-disable-line @typescript-eslint/no-unused-vars
+  organizationId?: string
 ): Promise<{ emailsSynced: number; emailsSkipped: number; error?: string }> {
   try {
     const provider = getEmailProvider(connection.provider);
@@ -869,7 +869,7 @@ async function syncViaProvider(
 
         toInsert.push({
           user_id: userId,
-          organization_id: userOrg?.organization_id || emailConnection?.organization_id || null,
+          organization_id: organizationId || connection.organization_id || null,
           outlook_message_id: raw.externalId,
           sender_email: raw.from || "",
           sender_name: raw.fromName || null,
