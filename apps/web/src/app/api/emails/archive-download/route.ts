@@ -81,6 +81,32 @@ export async function GET(request: NextRequest) {
     return await generateZipDownload(admin, savedArchives, project.name);
   }
 
+  // Generate signed download URLs for each archived file (10-minute expiry)
+  const archivesWithUrls = await Promise.all(
+    savedArchives.map(async (a: any) => {
+      let download_url: string | null = null;
+      if (a.storage_path) {
+        try {
+          const { data: signedData } = await admin.storage
+            .from(a.storage_bucket || "email-archives")
+            .createSignedUrl(a.storage_path, 600); // 10 minutes
+          download_url = signedData?.signedUrl || null;
+        } catch {
+          // Silently fail — URL will be null
+        }
+      }
+      return {
+        email_id: a.email_id,
+        file_name: a.file_name,
+        folder_name: a.folder_name,
+        storage_path: a.storage_path,
+        file_size: a.file_size,
+        archived_at: a.archived_at,
+        download_url,
+      };
+    })
+  );
+
   // JSON manifest
   return NextResponse.json({
     project_name: project.name,
@@ -89,14 +115,7 @@ export async function GET(request: NextRequest) {
     archived_count: savedArchives.length,
     failed_count: failedArchives.length,
     pending_count: pendingArchives.length,
-    archives: savedArchives.map((a: any) => ({
-      email_id: a.email_id,
-      file_name: a.file_name,
-      folder_name: a.folder_name,
-      storage_path: a.storage_path,
-      file_size: a.file_size,
-      archived_at: a.archived_at,
-    })),
+    archives: archivesWithUrls,
     failed: failedArchives.map((a: any) => ({
       email_id: a.email_id,
       file_name: a.file_name,

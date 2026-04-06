@@ -43,11 +43,15 @@ interface ExistingRequest {
   suppliers?: { company_name: string } | null;
 }
 
+interface PackageSupplier {
+  id: string;
+  name: string;
+  email: string | null;
+}
+
 interface AssignmentPackage {
   id: string;
-  supplierId: string;
-  supplierName: string;
-  supplierEmail: string | null;
+  suppliers: PackageSupplier[];
   itemIds: string[];
   customBodies: Record<string, string>; // material_group → custom body text
 }
@@ -272,12 +276,16 @@ export function PriceRequestV2({
   }, [items]);
 
   const assignedItemMap = useMemo(() => {
-    // item id → list of { supplierId, supplierName }
+    // item id → list of { supplierId, supplierName } (deduplicated)
     const map = new Map<string, { supplierId: string; supplierName: string }[]>();
     for (const pkg of packages) {
       for (const itemId of pkg.itemIds) {
         const list = map.get(itemId) || [];
-        list.push({ supplierId: pkg.supplierId, supplierName: pkg.supplierName });
+        for (const s of pkg.suppliers) {
+          if (!list.some((x) => x.supplierId === s.id)) {
+            list.push({ supplierId: s.id, supplierName: s.name });
+          }
+        }
         map.set(itemId, list);
       }
     }
@@ -325,14 +333,22 @@ export function PriceRequestV2({
   }, [activeItems, assignedItemMap]);
 
   const totalEmails = useMemo(() => {
-    // Each package × number of distinct material groups in its items
+    // Each package: N suppliers × distinct material groups in items
     let count = 0;
     for (const pkg of packages) {
       const groups = new Set(pkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean));
-      count += groups.size;
+      count += groups.size * pkg.suppliers.length;
     }
     return count;
   }, [packages, itemsById]);
+
+  const totalSuppliers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const pkg of packages) {
+      for (const s of pkg.suppliers) ids.add(s.id);
+    }
+    return ids.size;
+  }, [packages]);
 
   // ── Selection handlers ──────────────────────────────────────
 
@@ -389,25 +405,25 @@ export function PriceRequestV2({
   const confirmAssignment = useCallback(() => {
     if (pickerSelected.size === 0 || selectedIds.size === 0) return;
 
-    setPackages((prev) => {
-      const next = [...prev];
-      for (const suppId of pickerSelected) {
-        const supplier = suppliers.find((s) => s.id === suppId);
-        if (!supplier) continue;
+    // Create ONE package with all selected suppliers + all selected items
+    const pkgSuppliers: PackageSupplier[] = [];
+    for (const suppId of pickerSelected) {
+      const supplier = suppliers.find((s) => s.id === suppId);
+      if (!supplier) continue;
+      pkgSuppliers.push({ id: suppId, name: supplier.company_name, email: supplier.email });
+    }
 
-        // Always create a new package — don't merge into existing ones.
-        // Each assignment action = distinct package (even for same supplier).
-        next.push({
+    if (pkgSuppliers.length > 0) {
+      setPackages((prev) => [
+        ...prev,
+        {
           id: nextPkgId(),
-          supplierId: suppId,
-          supplierName: supplier.company_name,
-          supplierEmail: supplier.email,
+          suppliers: pkgSuppliers,
           itemIds: Array.from(selectedIds),
           customBodies: {},
-        });
-      }
-      return next;
-    });
+        },
+      ]);
+    }
 
     setSelectedIds(new Set());
     setPickerOpen(false);
@@ -429,10 +445,23 @@ export function PriceRequestV2({
   const removeSupplierFromItem = useCallback((supplierId: string, itemId: string) => {
     setPackages((prev) =>
       prev
-        .map((p) =>
-          p.supplierId === supplierId ? { ...p, itemIds: p.itemIds.filter((id) => id !== itemId) } : p
-        )
+        .map((p) => {
+          // Only affect packages that contain both this supplier AND this item
+          if (!p.suppliers.some((s) => s.id === supplierId) || !p.itemIds.includes(itemId)) return p;
+          return { ...p, itemIds: p.itemIds.filter((id) => id !== itemId) };
+        })
         .filter((p) => p.itemIds.length > 0)
+    );
+  }, []);
+
+  const removeSupplierFromPackage = useCallback((pkgId: string, supplierId: string) => {
+    setPackages((prev) =>
+      prev
+        .map((p) => {
+          if (p.id !== pkgId) return p;
+          return { ...p, suppliers: p.suppliers.filter((s) => s.id !== supplierId) };
+        })
+        .filter((p) => p.suppliers.length > 0)
     );
   }, []);
 
@@ -517,13 +546,16 @@ export function PriceRequestV2({
         byGroup.set(item.material_group, list);
       }
 
-      // Fetch preview for each group
+      // Fetch preview for each group (use first supplier for preview)
+      const firstSupplier = pkg.suppliers[0];
+      if (!firstSupplier) { setPreviewLoading(false); return; }
+
       const previews: PreviewData[] = [];
       for (const [group, itemIdList] of byGroup) {
         try {
           const params = new URLSearchParams({
             group,
-            supplier_id: pkg.supplierId,
+            supplier_id: firstSupplier.id,
             item_ids: itemIdList.join(","),
           });
           if (deadline) params.set("deadline", deadline);
@@ -596,6 +628,7 @@ export function PriceRequestV2({
           byGroup.set(item.material_group, list);
         }
 
+        const allSupplierIds = pkg.suppliers.map((s) => s.id);
         const groups: { material_group: string; supplier_ids: string[]; item_ids: string[] }[] = [];
         const customBodies: Record<string, string> = {};
         const customSubjects: Record<string, string> = {};
@@ -603,16 +636,20 @@ export function PriceRequestV2({
         for (const [group, itemIdList] of byGroup) {
           groups.push({
             material_group: group,
-            supplier_ids: [pkg.supplierId],
+            supplier_ids: allSupplierIds,
             item_ids: itemIdList,
           });
+          // Same custom body/subject for all suppliers in the package
           if (pkg.customBodies[group]) {
-            customBodies[pkg.supplierId] = pkg.customBodies[group];
+            for (const s of pkg.suppliers) {
+              customBodies[s.id] = pkg.customBodies[group];
+            }
           }
-          // Check for edited subject for this supplier+group
           const subjectKey = `${pkg.id}-${group}`;
           if (editedSubjects[subjectKey]) {
-            customSubjects[pkg.supplierId] = editedSubjects[subjectKey];
+            for (const s of pkg.suppliers) {
+              customSubjects[s.id] = editedSubjects[subjectKey];
+            }
           }
         }
 
@@ -1038,11 +1075,10 @@ export function PriceRequestV2({
 
                       return (
                         <div key={pkg.id} className="p-3">
-                          {/* Supplier header + actions */}
+                          {/* Package header + actions */}
                           <div className="flex items-center justify-between mb-2">
-                            <div className="min-w-0">
-                              <div className="text-xs font-semibold text-[#FAFAFA] truncate">{pkg.supplierName}</div>
-                              <div className="text-[10px] text-[#52525B] truncate">{pkg.supplierEmail || "Pas d'email"}</div>
+                            <div className="text-[10px] text-[#52525B]">
+                              {pkg.suppliers.length} fournisseur{pkg.suppliers.length > 1 ? "s" : ""} · {pkgItems.length} poste{pkgItems.length > 1 ? "s" : ""}
                             </div>
                             <div className="flex items-center gap-0.5 shrink-0 ml-2">
                               <button
@@ -1055,11 +1091,33 @@ export function PriceRequestV2({
                               <button
                                 onClick={() => deletePackage(pkg.id)}
                                 className="p-1 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
-                                title="Supprimer"
+                                title="Supprimer le paquet"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
                             </div>
+                          </div>
+
+                          {/* Supplier chips */}
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {pkg.suppliers.map((s) => (
+                              <span
+                                key={s.id}
+                                className="inline-flex items-center gap-1 max-w-[180px] px-2 py-1 rounded-md bg-[#F97316]/10 text-[10px] text-[#F97316] font-medium"
+                              >
+                                <span className="truncate">{s.name}</span>
+                                {!s.email && <span className="text-red-400" title="Pas d'email">⚠</span>}
+                                {pkg.suppliers.length > 1 && (
+                                  <button
+                                    onClick={() => removeSupplierFromPackage(pkg.id, s.id)}
+                                    className="shrink-0 hover:text-red-400 transition-colors"
+                                    title="Retirer ce fournisseur"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                )}
+                              </span>
+                            ))}
                           </div>
 
                           {/* Item descriptions */}
@@ -1084,12 +1142,9 @@ export function PriceRequestV2({
                                 </div>
                               </div>
                             ))}
-                            <div className="text-[10px] text-[#3F3F46] px-2">
-                              {pkgItems.length} poste{pkgItems.length > 1 ? "s" : ""}
-                            </div>
                           </div>
 
-                          {/* Per-package attachments */}
+                          {/* Shared attachments for the whole package */}
                           <div className="pt-2 border-t border-[#27272A]/50">
                             {pkgAtts.length > 0 && (
                               <>
@@ -1170,8 +1225,9 @@ export function PriceRequestV2({
               return (
                 <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-3">
                   <p className="text-xs text-[#71717A] mb-3">
-                    {totalEmails} email{totalEmails > 1 ? "s" : ""} à {packages.length} fournisseur{packages.length > 1 ? "s" : ""}
-                    {" "}pour {new Set(packages.flatMap((p) => p.itemIds)).size} postes
+                    {totalEmails} email{totalEmails > 1 ? "s" : ""} à {totalSuppliers} fournisseur{totalSuppliers > 1 ? "s" : ""}
+                    {" "}· {packages.length} paquet{packages.length > 1 ? "s" : ""}
+                    {" "}· {new Set(packages.flatMap((p) => p.itemIds)).size} postes
                   </p>
                   {hasOversizedPkg && (
                     <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
@@ -1382,12 +1438,32 @@ export function PriceRequestV2({
                   </div>
                 )}
 
-                {previewData[previewTab] && (
+                {previewData[previewTab] && (() => {
+                  const previewPkg = packages.find((p) => p.id === previewPkgId);
+                  return (
                   <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
-                    {/* To */}
+                    {/* Recipients */}
                     <div>
-                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">À</label>
-                      <p className="text-sm text-[#FAFAFA] mt-1">{previewData[previewTab].to || "—"}</p>
+                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+                        Destinataires ({previewPkg?.suppliers.length || 1})
+                      </label>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {(previewPkg?.suppliers || []).map((s) => (
+                          <span key={s.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#27272A] text-xs text-[#FAFAFA]">
+                            <span className="truncate">{s.name}</span>
+                            {s.email ? (
+                              <span className="text-[10px] text-[#52525B]">{s.email}</span>
+                            ) : (
+                              <span className="text-[10px] text-red-400">Pas d&apos;email</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                      {(previewPkg?.suppliers.length || 0) > 1 && (
+                        <p className="text-[10px] text-[#52525B] mt-1">
+                          Le même email sera envoyé à chaque fournisseur individuellement.
+                        </p>
+                      )}
                     </div>
                     {/* Subject (editable) */}
                     <div>
@@ -1476,7 +1552,8 @@ export function PriceRequestV2({
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Footer with Confirm button */}
                 <div className="flex items-center justify-end px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">

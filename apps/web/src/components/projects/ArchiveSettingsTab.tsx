@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  HardDrive,
 } from "lucide-react";
 
 // ─── Types ───
@@ -132,6 +133,31 @@ export function ArchiveSettingsTab({
   const [saved, setSaved] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [savingLocal, setSavingLocal] = useState(false);
+  const [localProgress, setLocalProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [autoLocalEnabled, setAutoLocalEnabled] = useState(false);
+  const [localDirName, setLocalDirName] = useState<string | null>(null);
+  const [lastLocalSyncCount, setLastLocalSyncCount] = useState(0);
+  const localDirHandleRef = useRef<any>(null);
+  const autoSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncedIdsRef = useRef<Set<string>>(new Set());
+  const autoSaveRef = useRef<(() => Promise<void>) | null>(null);
+
+  // ─── localStorage helpers for persisting synced email IDs ───
+
+  const loadSyncedIds = useCallback((): Set<string> => {
+    try {
+      const raw = localStorage.getItem(`cantaia_local_synced_${projectId}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  }, [projectId]);
+
+  const saveSyncedIds = useCallback((ids: Set<string>) => {
+    try {
+      localStorage.setItem(`cantaia_local_synced_${projectId}`, JSON.stringify([...ids]));
+    } catch { /* localStorage full */ }
+  }, [projectId]);
+
   const [archiveStats, setArchiveStats] = useState<{
     total: number;
     archived: number;
@@ -139,6 +165,69 @@ export function ArchiveSettingsTab({
     pending: number;
   }>({ total: 0, archived: 0, failed: 0, pending: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // ─── IndexedDB helpers for persisting directory handle ───
+  const IDB_DB = "cantaia_archive";
+  const IDB_STORE = "dir_handles";
+
+  const saveHandleToIDB = useCallback(async (handle: any) => {
+    try {
+      const req = indexedDB.open(IDB_DB, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => {
+        const tx = req.result.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(handle, `project_${projectId}`);
+      };
+    } catch { /* IndexedDB unavailable */ }
+  }, [projectId]);
+
+  const loadHandleFromIDB = useCallback(async (): Promise<any | null> => {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(IDB_DB, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+        req.onsuccess = () => {
+          const tx = req.result.transaction(IDB_STORE, "readonly");
+          const getReq = tx.objectStore(IDB_STORE).get(`project_${projectId}`);
+          getReq.onsuccess = () => resolve(getReq.result || null);
+          getReq.onerror = () => resolve(null);
+        };
+        req.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+  }, [projectId]);
+
+  const clearHandleFromIDB = useCallback(async () => {
+    try {
+      const req = indexedDB.open(IDB_DB, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => {
+        const tx = req.result.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).delete(`project_${projectId}`);
+      };
+    } catch { /* IndexedDB unavailable */ }
+  }, [projectId]);
+
+  // ─── Restore auto-local from IndexedDB on mount ───
+  useEffect(() => {
+    (async () => {
+      const handle = await loadHandleFromIDB();
+      if (!handle) return;
+
+      // Verify we still have permission
+      try {
+        const perm = await handle.queryPermission({ mode: "readwrite" });
+        if (perm === "granted") {
+          localDirHandleRef.current = handle;
+          setLocalDirName(handle.name);
+          setAutoLocalEnabled(true);
+        }
+      } catch {
+        // Permission lost — clean up
+        await clearHandleFromIDB();
+      }
+    })();
+  }, [loadHandleFromIDB, clearHandleFromIDB]);
 
   // ─── Fetch archive stats ───
   const fetchStats = useCallback(async () => {
@@ -352,6 +441,10 @@ export function ArchiveSettingsTab({
             setTimeout(poll, 5000);
           } else {
             toast.success(`Archivage termine : ${data.archived_count} emails archives`);
+            // Trigger auto-local save if enabled
+            if (localDirHandleRef.current && autoSaveRef.current) {
+              setTimeout(() => autoSaveRef.current?.(), 2000);
+            }
           }
         }
       } catch {
@@ -401,6 +494,330 @@ export function ArchiveSettingsTab({
       setDownloading(false);
     }
   };
+
+  // ─── Save to local disk via File System Access API ───
+
+  const supportsFileSystemAccess =
+    typeof window !== "undefined" && "showDirectoryPicker" in window;
+
+  const handleSaveLocal = async () => {
+    // Fallback: if browser doesn't support File System Access API, download ZIP instead
+    if (!supportsFileSystemAccess) {
+      toast.error(
+        "Votre navigateur ne supporte pas l'enregistrement local. Utilisez Chrome ou Edge, ou téléchargez le ZIP."
+      );
+      return;
+    }
+
+    if (archiveStats.archived === 0) {
+      toast.error("Aucun email archivé à enregistrer");
+      return;
+    }
+
+    try {
+      // 1. Let the user pick a folder
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: "readwrite",
+        startIn: "documents",
+      });
+
+      setSavingLocal(true);
+      setLocalProgress({ current: 0, total: 0 });
+
+      // 2. Fetch the manifest with signed download URLs
+      const res = await fetch(
+        `/api/emails/archive-download?project_id=${projectId}`
+      );
+      if (!res.ok) {
+        toast.error("Erreur lors de la récupération du manifest");
+        setSavingLocal(false);
+        return;
+      }
+      const manifest = await res.json();
+      const archives: Array<{
+        file_name: string;
+        folder_name: string | null;
+        download_url: string | null;
+      }> = manifest.archives || [];
+
+      const toDownload = archives.filter((a) => a.download_url);
+      setLocalProgress({ current: 0, total: toDownload.length });
+
+      if (toDownload.length === 0) {
+        toast.error("Aucun fichier disponible au téléchargement");
+        setSavingLocal(false);
+        return;
+      }
+
+      // 3. Create the project root folder
+      const projectFolderName = projectName
+        .replace(/[^a-zA-Z0-9À-ÿ _-]/g, "_")
+        .substring(0, 80);
+      const projectDir = await dirHandle.getDirectoryHandle(
+        projectFolderName,
+        { create: true }
+      );
+
+      // 4. Download each file and write to the local folder structure
+      let saved = 0;
+      let failed = 0;
+
+      for (const arc of toDownload) {
+        try {
+          // Create subfolder if folder_name exists
+          let targetDir = projectDir;
+          if (arc.folder_name) {
+            // Handle nested paths like "01_Correspondance/03_Entreprises"
+            const parts = arc.folder_name.split("/").filter(Boolean);
+            for (const part of parts) {
+              const safePart = part.replace(/[<>:"|?*]/g, "_");
+              targetDir = await targetDir.getDirectoryHandle(safePart, {
+                create: true,
+              });
+            }
+          }
+
+          // Download the file from signed URL
+          const fileRes = await fetch(arc.download_url!);
+          if (!fileRes.ok) {
+            failed++;
+            continue;
+          }
+          const fileBlob = await fileRes.blob();
+
+          // Sanitize filename and ensure .eml extension
+          let fileName = (arc.file_name || "email")
+            .replace(/[<>:"|?*]/g, "_")
+            .substring(0, 200);
+          if (!fileName.endsWith(".eml")) {
+            fileName += ".eml";
+          }
+
+          // Write the file
+          const fileHandle = await targetDir.getFileHandle(fileName, {
+            create: true,
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(fileBlob);
+          await writable.close();
+
+          saved++;
+          setLocalProgress({ current: saved, total: toDownload.length });
+        } catch (err) {
+          console.warn("[save-local] Error saving file:", arc.file_name, err);
+          failed++;
+        }
+      }
+
+      if (failed > 0) {
+        toast.warning(
+          `${saved} fichiers enregistrés, ${failed} erreurs`
+        );
+      } else {
+        toast.success(
+          `${saved} fichiers enregistrés dans "${projectFolderName}"`
+        );
+      }
+    } catch (err: any) {
+      // User cancelled the directory picker
+      if (err?.name === "AbortError") {
+        // User cancelled — silent
+        return;
+      }
+      console.error("[save-local] Error:", err);
+      toast.error("Erreur lors de l'enregistrement local");
+    } finally {
+      setSavingLocal(false);
+      setLocalProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // ─── Auto-save new archives to local disk ───
+
+  const autoSaveNewArchives = useCallback(async () => {
+    const dirHandle = localDirHandleRef.current;
+    if (!dirHandle) return;
+
+    try {
+      // Verify permission is still granted
+      const perm = await dirHandle.queryPermission({ mode: "readwrite" });
+      if (perm !== "granted") {
+        const requested = await dirHandle.requestPermission({ mode: "readwrite" });
+        if (requested !== "granted") {
+          setAutoLocalEnabled(false);
+          setLocalDirName(null);
+          localDirHandleRef.current = null;
+          await clearHandleFromIDB();
+          return;
+        }
+      }
+
+      // Fetch manifest with signed download URLs
+      const res = await fetch(`/api/emails/archive-download?project_id=${projectId}`);
+      if (!res.ok) return;
+      const manifest = await res.json();
+
+      const archives: Array<{
+        email_id: string;
+        file_name: string;
+        folder_name: string | null;
+        download_url: string | null;
+      }> = manifest.archives || [];
+
+      // Filter to only new archives not yet synced locally
+      const newArchives = archives.filter(
+        (a) => a.download_url && !syncedIdsRef.current.has(a.email_id)
+      );
+
+      if (newArchives.length === 0) return;
+
+      // Create project folder
+      const projectFolderName = projectName
+        .replace(/[^a-zA-Z0-9À-ÿ _-]/g, "_")
+        .substring(0, 80);
+      const projectDir = await dirHandle.getDirectoryHandle(projectFolderName, {
+        create: true,
+      });
+
+      let saved = 0;
+      for (const arc of newArchives) {
+        try {
+          let targetDir = projectDir;
+          if (arc.folder_name) {
+            const parts = arc.folder_name.split("/").filter(Boolean);
+            for (const part of parts) {
+              const safePart = part.replace(/[<>:"|?*]/g, "_");
+              targetDir = await targetDir.getDirectoryHandle(safePart, {
+                create: true,
+              });
+            }
+          }
+
+          const fileRes = await fetch(arc.download_url!);
+          if (!fileRes.ok) continue;
+          const fileBlob = await fileRes.blob();
+
+          let fileName = (arc.file_name || "email")
+            .replace(/[<>:"|?*]/g, "_")
+            .substring(0, 200);
+          if (!fileName.endsWith(".eml")) fileName += ".eml";
+
+          const fileHandle = await targetDir.getFileHandle(fileName, {
+            create: true,
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(fileBlob);
+          await writable.close();
+
+          syncedIdsRef.current.add(arc.email_id);
+          saved++;
+        } catch (err) {
+          console.warn("[auto-local] Error saving file:", arc.file_name, err);
+        }
+      }
+
+      if (saved > 0) {
+        saveSyncedIds(syncedIdsRef.current);
+        setLastLocalSyncCount(syncedIdsRef.current.size);
+        toast.success(
+          `${saved} nouveau(x) email(s) enregistre(s) en local`,
+          { duration: 3000 }
+        );
+      }
+    } catch (err) {
+      console.warn("[auto-local] Auto-sync error:", err);
+    }
+  }, [projectId, projectName, clearHandleFromIDB, saveSyncedIds]);
+
+  // Keep ref in sync for use in pollArchiveProgress
+  autoSaveRef.current = autoSaveNewArchives;
+
+  // ─── Enable / Disable auto-local ───
+
+  const handleEnableAutoLocal = async () => {
+    if (!supportsFileSystemAccess) return;
+
+    try {
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: "readwrite",
+        startIn: "documents",
+      });
+
+      localDirHandleRef.current = dirHandle;
+      setLocalDirName(dirHandle.name);
+      await saveHandleToIDB(dirHandle);
+
+      // Load any previously synced IDs
+      syncedIdsRef.current = loadSyncedIds();
+      setLastLocalSyncCount(syncedIdsRef.current.size);
+
+      // This triggers the auto-sync interval effect
+      setAutoLocalEnabled(true);
+
+      toast.success(`Enregistrement automatique active dans "${dirHandle.name}"`);
+    } catch (err: any) {
+      if (err?.name === "AbortError") return; // User cancelled
+      console.error("[auto-local] Enable error:", err);
+      toast.error("Erreur lors de la selection du dossier");
+    }
+  };
+
+  const handleDisableAutoLocal = async () => {
+    // Stop interval immediately
+    if (autoSyncIntervalRef.current) {
+      clearInterval(autoSyncIntervalRef.current);
+      autoSyncIntervalRef.current = null;
+    }
+
+    // Clear persisted data
+    await clearHandleFromIDB();
+    try {
+      localStorage.removeItem(`cantaia_local_synced_${projectId}`);
+    } catch { /* ok */ }
+
+    // Reset state
+    localDirHandleRef.current = null;
+    syncedIdsRef.current = new Set();
+    setAutoLocalEnabled(false);
+    setLocalDirName(null);
+    setLastLocalSyncCount(0);
+
+    toast.info("Enregistrement local automatique desactive");
+  };
+
+  // ─── Auto-sync interval — starts/stops when autoLocalEnabled changes ───
+
+  useEffect(() => {
+    if (!autoLocalEnabled || !localDirHandleRef.current) {
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+        autoSyncIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Load synced IDs on activation
+    syncedIdsRef.current = loadSyncedIds();
+    setLastLocalSyncCount(syncedIdsRef.current.size);
+
+    // Initial sync check (small delay to avoid race with mount)
+    const initialTimeout = setTimeout(() => {
+      autoSaveNewArchives();
+    }, 3000);
+
+    // Poll every 60s for new archives
+    autoSyncIntervalRef.current = setInterval(() => {
+      autoSaveNewArchives();
+    }, 60_000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+        autoSyncIntervalRef.current = null;
+      }
+    };
+  }, [autoLocalEnabled, autoSaveNewArchives, loadSyncedIds]);
 
   // ─── Render ───
 
@@ -667,8 +1084,89 @@ export function ArchiveSettingsTab({
             )}
             {downloading ? "Telechargement..." : t("downloadZip")}
           </button>
+
+          {supportsFileSystemAccess && (
+            <button
+              type="button"
+              onClick={handleSaveLocal}
+              disabled={savingLocal || archiveStats.archived === 0}
+              className="inline-flex items-center gap-2 rounded-md border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-4 py-2 text-sm font-medium text-[#3B82F6] transition-colors hover:bg-[#3B82F6]/20 disabled:opacity-50"
+            >
+              {savingLocal ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <HardDrive className="h-4 w-4" />
+              )}
+              {savingLocal
+                ? `Enregistrement... (${localProgress.current}/${localProgress.total})`
+                : "Enregistrer en local"}
+            </button>
+          )}
         </div>
+
+        {/* Hint for browsers without File System Access API */}
+        {!supportsFileSystemAccess && (
+          <p className="mt-3 text-xs text-[#52525B]">
+            💡 Pour enregistrer les fichiers directement sur votre disque (sans ZIP), utilisez Chrome ou Edge.
+          </p>
+        )}
       </div>
+
+      {/* ─── Auto-enregistrement local ─── */}
+      {supportsFileSystemAccess && (
+        <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-[#71717A]" />
+            <h3 className="text-sm font-semibold text-[#FAFAFA]">
+              Enregistrement local automatique
+            </h3>
+          </div>
+
+          <p className="mb-4 text-xs text-[#71717A]">
+            Les emails archives seront automatiquement enregistres sur votre disque a chaque synchronisation.
+          </p>
+
+          {autoLocalEnabled ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-md bg-[#18181B] px-3 py-2">
+                <FolderOpen className="h-4 w-4 text-[#F97316]" />
+                <span className="text-sm text-[#FAFAFA] truncate">{localDirName}</span>
+                <span className="ml-auto flex shrink-0 items-center gap-1 text-xs text-green-400">
+                  <CheckCircle2 className="h-3 w-3" /> Actif
+                </span>
+              </div>
+              {lastLocalSyncCount > 0 && (
+                <p className="text-xs text-[#A1A1AA]">
+                  {lastLocalSyncCount} fichier(s) synchronise(s) en local
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleDisableAutoLocal}
+                className="text-xs text-red-400 transition-colors hover:text-red-300"
+              >
+                Desactiver l&apos;enregistrement automatique
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleEnableAutoLocal}
+              disabled={!enabled}
+              className="inline-flex items-center gap-2 rounded-md border border-[#27272A] bg-[#18181B] px-4 py-2 text-sm font-medium text-[#FAFAFA] transition-colors hover:bg-[#27272A] disabled:opacity-50"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Choisir un dossier et activer
+            </button>
+          )}
+
+          {!enabled && !autoLocalEnabled && (
+            <p className="mt-3 text-xs text-[#52525B]">
+              Activez l&apos;archivage automatique ci-dessus pour utiliser cette fonctionnalite.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
