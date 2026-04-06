@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demande de prix V2 — Cantaia</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0F0F11; color: #FAFAFA; font-family: 'Inter', -apple-system, sans-serif; }
+
+  /* ─── Layout ─── */
+  .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .header h1 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .header h1 .icon { color: #F97316; }
+  .header .subtitle { font-size: 13px; color: #71717A; margin-top: 2px; }
+
+  /* ─── Two-column layout ─── */
+  .main-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+  .left-panel { min-width: 0; }
+  .right-panel { position: sticky; top: 24px; }
+
+  /* ─── Toolbar ─── */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 200px; background: #18181B; border: 1px solid #27272A; border-radius: 8px; padding: 8px 12px; color: #FAFAFA; font-size: 13px; outline: none; }
+  .search-box:focus { border-color: #3F3F46; }
+  .search-box::placeholder { color: #52525B; }
+  .filter-chip { background: #18181B; border: 1px solid #27272A; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #A1A1AA; cursor: pointer; white-space: nowrap; }
+  .filter-chip:hover { border-color: #3F3F46; color: #FAFAFA; }
+  .filter-chip.active { background: #F97316/15; border-color: #F97316; color: #F97316; }
+
+  /* ─── Items Table ─── */
+  .items-table { width: 100%; border-collapse: collapse; }
+  .items-table thead { position: sticky; top: 0; z-index: 5; }
+  .items-table th { background: #111113; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #27272A; }
+  .items-table th:first-child { width: 40px; }
+  .items-table td { padding: 10px 12px; border-bottom: 1px solid #1C1C1F; font-size: 13px; vertical-align: middle; }
+  .items-table tr:hover { background: #18181B; }
+  .items-table tr.selected { background: rgba(249, 115, 22, 0.06); }
+  .items-table tr.assigned { opacity: 0.5; }
+  .items-table tr.assigned td { text-decoration: line-through; text-decoration-color: #3F3F46; }
+
+  /* Group header row */
+  .group-header { background: #111113 !important; }
+  .group-header td { padding: 8px 12px; font-size: 12px; font-weight: 600; color: #A1A1AA; border-bottom: 1px solid #27272A; }
+  .group-header .group-name { display: flex; align-items: center; gap: 8px; }
+  .group-header .group-count { background: #27272A; color: #71717A; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+
+  /* Checkbox */
+  .cb { width: 16px; height: 16px; accent-color: #F97316; cursor: pointer; }
+
+  /* Item number */
+  .item-num { color: #52525B; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Description cell */
+  .desc-cell { max-width: 400px; }
+  .desc-text { color: #E4E4E7; line-height: 1.4; }
+  .desc-cfc { font-size: 11px; color: #52525B; margin-top: 2px; }
+
+  /* Qty + unit */
+  .qty-cell { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .unit-cell { color: #71717A; font-size: 12px; }
+
+  /* Assignment badges in table */
+  .assigned-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  .assigned-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.2); color: #F97316; font-size: 10px; padding: 2px 8px; border-radius: 12px; }
+  .assigned-badge .remove-badge { cursor: pointer; opacity: 0.6; font-size: 12px; }
+  .assigned-badge .remove-badge:hover { opacity: 1; }
+
+  /* ─── Floating Action Bar ─── */
+  .action-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #18181B; border: 1px solid #27272A; border-radius: 12px; padding: 12px 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 50; }
+  .action-bar.hidden { display: none; }
+  .action-bar .count { font-size: 13px; font-weight: 600; color: #F97316; }
+  .action-bar .count span { color: #71717A; font-weight: 400; }
+  .action-bar .sep { width: 1px; height: 24px; background: #27272A; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .btn-orange { background: #F97316; color: white; }
+  .btn-orange:hover { background: #EA580C; }
+  .btn-ghost { background: transparent; color: #A1A1AA; border: 1px solid #27272A; }
+  .btn-ghost:hover { background: #27272A; color: #FAFAFA; }
+
+  /* ─── Right Panel — Packages ─── */
+  .packages-panel { background: #18181B; border: 1px solid #27272A; border-radius: 12px; overflow: hidden; }
+  .packages-header { padding: 16px; border-bottom: 1px solid #27272A; display: flex; align-items: center; justify-content: space-between; }
+  .packages-header h2 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .packages-header .pkg-count { background: #F97316; color: white; font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+  .packages-list { max-height: calc(100vh - 280px); overflow-y: auto; }
+  .packages-empty { padding: 32px 16px; text-align: center; color: #52525B; font-size: 13px; }
+  .packages-empty .empty-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.3; }
+
+  /* Package card */
+  .package-card { padding: 14px 16px; border-bottom: 1px solid #1C1C1F; }
+  .package-card:last-child { border-bottom: none; }
+  .package-card:hover { background: #1C1C1F; }
+  .pkg-supplier { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pkg-supplier-name { font-size: 13px; font-weight: 600; color: #FAFAFA; }
+  .pkg-supplier-email { font-size: 11px; color: #52525B; }
+  .pkg-actions { display: flex; gap: 4px; }
+  .pkg-action-btn { background: none; border: none; color: #52525B; cursor: pointer; padding: 4px; border-radius: 4px; font-size: 14px; }
+  .pkg-action-btn:hover { background: #27272A; color: #FAFAFA; }
+  .pkg-items { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .pkg-item-chip { background: #27272A; color: #A1A1AA; font-size: 10px; padding: 3px 8px; border-radius: 4px; }
+  .pkg-stats { display: flex; gap: 12px; font-size: 11px; color: #52525B; }
+  .pkg-attachment-badge { display: inline-flex; align-items: center; gap: 3px; color: #3B82F6; font-size: 11px; }
+
+  /* ─── Send Section ─── */
+  .send-section { margin-top: 12px; padding: 16px; border-top: 1px solid #27272A; }
+  .send-summary { font-size: 12px; color: #71717A; margin-bottom: 12px; }
+  .send-summary strong { color: #FAFAFA; }
+  .btn-send { width: 100%; padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px; background: #F97316; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-send:hover { background: #EA580C; }
+  .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ─── Supplier Picker Modal ─── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: #18181B; border: 1px solid #27272A; border-radius: 16px; width: 560px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
+  .modal-header { padding: 20px; border-bottom: 1px solid #27272A; }
+  .modal-header h3 { font-size: 16px; font-weight: 600; }
+  .modal-header p { font-size: 13px; color: #71717A; margin-top: 4px; }
+  .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid #27272A; display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* Supplier list in modal */
+  .supplier-search { width: 100%; background: #111113; border: 1px solid #27272A; border-radius: 8px; padding: 10px 12px; color: #FAFAFA; font-size: 13px; margin-bottom: 12px; outline: none; }
+  .supplier-search:focus { border-color: #3F3F46; }
+  .supplier-section-title { font-size: 11px; font-weight: 600; color: #52525B; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 8px; }
+  .supplier-option { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; }
+  .supplier-option:hover { background: #27272A; }
+  .supplier-option.checked { background: rgba(249, 115, 22, 0.08); }
+  .supplier-option .s-info { flex: 1; }
+  .supplier-option .s-name { font-size: 13px; font-weight: 500; }
+  .supplier-option .s-email { font-size: 11px; color: #52525B; }
+  .supplier-option .s-meta { display: flex; gap: 8px; margin-top: 3px; }
+  .supplier-option .s-tag { font-size: 10px; color: #71717A; background: #27272A; padding: 1px 6px; border-radius: 3px; }
+  .ai-badge { font-size: 10px; color: #F97316; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.2); padding: 1px 6px; border-radius: 3px; }
+
+  /* ─── Email Preview Modal ─── */
+  .preview-modal { width: 700px; }
+  .preview-tabs { display: flex; gap: 0; border-bottom: 1px solid #27272A; padding: 0 20px; }
+  .preview-tab { padding: 10px 16px; font-size: 13px; color: #71717A; cursor: pointer; border-bottom: 2px solid transparent; }
+  .preview-tab.active { color: #F97316; border-bottom-color: #F97316; }
+  .preview-to { padding: 12px 20px; border-bottom: 1px solid #1C1C1F; font-size: 13px; color: #A1A1AA; }
+  .preview-to strong { color: #FAFAFA; }
+  .preview-subject { padding: 12px 20px; border-bottom: 1px solid #1C1C1F; font-size: 14px; font-weight: 600; color: #FAFAFA; }
+  .preview-body { padding: 20px; font-size: 13px; color: #E4E4E7; line-height: 1.7; max-height: 400px; overflow-y: auto; }
+  .preview-body .items-preview-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+  .preview-body .items-preview-table th { background: #111113; padding: 8px; text-align: left; font-size: 11px; color: #71717A; border-bottom: 1px solid #27272A; }
+  .preview-body .items-preview-table td { padding: 8px; border-bottom: 1px solid #1C1C1F; }
+  .preview-attachments { padding: 12px 20px; border-top: 1px solid #27272A; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .attachment-chip { display: inline-flex; align-items: center; gap: 6px; background: #27272A; border: 1px solid #3F3F46; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #A1A1AA; }
+  .attachment-chip .remove { cursor: pointer; color: #52525B; }
+  .attachment-chip .remove:hover { color: #EF4444; }
+  .add-attachment-btn { background: none; border: 1px dashed #3F3F46; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #52525B; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .add-attachment-btn:hover { border-color: #71717A; color: #71717A; }
+
+  /* ─── Tracking code ─── */
+  .tracking-box { background: #111113; border: 1px solid #27272A; border-radius: 6px; padding: 8px 12px; margin-top: 12px; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+  .tracking-box .label { color: #52525B; }
+  .tracking-box code { font-family: 'JetBrains Mono', monospace; color: #F97316; font-size: 12px; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .right-panel { position: static; }
+  }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3F3F46; }
+
+  /* ─── Deadline badge ─── */
+  .deadline-info { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #71717A; background: #111113; border: 1px solid #27272A; border-radius: 6px; padding: 6px 10px; }
+  .deadline-info .dl-date { color: #F97316; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>
+        <span class="icon">⚡</span>
+        Demandes de prix
+      </h1>
+      <div class="subtitle">Résidence Les Jardins — 47 postes · 6 groupes</div>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="deadline-info">
+        📅 Délai : <span class="dl-date">15 avril 2026</span>
+      </div>
+      <button class="btn btn-ghost" style="font-size: 12px;">← Retour</button>
+    </div>
+  </div>
+
+  <!-- Main two-column layout -->
+  <div class="main-layout">
+
+    <!-- LEFT: Items table -->
+    <div class="left-panel">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <input class="search-box" placeholder="Rechercher un poste, CFC, description..." />
+        <span class="filter-chip active">Tous (47)</span>
+        <span class="filter-chip">Non assignés (31)</span>
+        <span class="filter-chip">Assignés (16)</span>
+      </div>
+
+      <!-- Items table -->
+      <div style="border: 1px solid #27272A; border-radius: 12px; overflow: hidden;">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" class="cb" title="Tout sélectionner" /></th>
+              <th>N°</th>
+              <th>Description</th>
+              <th style="text-align: right;">Qté</th>
+              <th>Unité</th>
+              <th>Assigné à</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Group: Béton -->
+            <tr class="group-header">
+              <td><input type="checkbox" class="cb" title="Sélectionner le groupe" /></td>
+              <td colspan="5">
+                <div class="group-name">
+                  Béton armé
+                  <span class="group-count">8 postes</span>
+                </div>
+              </td>
+            </tr>
+            <tr class="selected">
+              <td><input type="checkbox" class="cb" checked /></td>
+              <td class="item-num">101</td>
+              <td class="desc-cell">
+                <div class="desc-text">Béton armé C30/37 pour fondations</div>
+                <div class="desc-cfc">CFC 211.1</div>
+              </td>
+              <td class="qty-cell">245</td>
+              <td class="unit-cell">m³</td>
+              <td>
+                <div class="assigned-badges">
+                  <span class="assigned-badge">Holcim <span class="remove-badge">×</span></span>
+                  <span class="assigned-badge">Vigier <span class="remove-badge">×</span></span>
+                </div>
+              </td>
+            </tr>
+            <tr class="selected">
+              <td><input type="checkbox" class="cb" checked /></td>
+              <td class="item-num">102</td>
+              <td class="desc-cell">
+                <div class="desc-text">Béton armé C25/30 pour voiles</div>
+                <div class="desc-cfc">CFC 211.2</div>
+              </td>
+              <td class="qty-cell">180</td>
+              <td class="unit-cell">m³</td>
+              <td>
+                <div class="assigned-badges">
+                  <span class="assigned-badge">Holcim <span class="remove-badge">×</span></span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">103</td>
+              <td class="desc-cell">
+                <div class="desc-text">Coffrage pour fondations</div>
+                <div class="desc-cfc">CFC 211.3</div>
+              </td>
+              <td class="qty-cell">520</td>
+              <td class="unit-cell">m²</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">104</td>
+              <td class="desc-cell">
+                <div class="desc-text">Ferraillage FeE 500, barres et treillis</div>
+                <div class="desc-cfc">CFC 211.4</div>
+              </td>
+              <td class="qty-cell">12'500</td>
+              <td class="unit-cell">kg</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">105</td>
+              <td class="desc-cell">
+                <div class="desc-text">Pompage béton sur chantier</div>
+                <div class="desc-cfc">CFC 211.5</div>
+              </td>
+              <td class="qty-cell">425</td>
+              <td class="unit-cell">m³</td>
+              <td></td>
+            </tr>
+
+            <!-- Group: Maçonnerie -->
+            <tr class="group-header">
+              <td><input type="checkbox" class="cb" title="Sélectionner le groupe" /></td>
+              <td colspan="5">
+                <div class="group-name">
+                  Maçonnerie
+                  <span class="group-count">5 postes</span>
+                </div>
+              </td>
+            </tr>
+            <tr class="selected">
+              <td><input type="checkbox" class="cb" checked /></td>
+              <td class="item-num">201</td>
+              <td class="desc-cell">
+                <div class="desc-text">Briques terre cuite format modulaire 290x140x190</div>
+                <div class="desc-cfc">CFC 221.1</div>
+              </td>
+              <td class="qty-cell">3'200</td>
+              <td class="unit-cell">pcs</td>
+              <td>
+                <div class="assigned-badges">
+                  <span class="assigned-badge">Keller AG <span class="remove-badge">×</span></span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">202</td>
+              <td class="desc-cell">
+                <div class="desc-text">Mortier de maçonnerie M10</div>
+                <div class="desc-cfc">CFC 221.2</div>
+              </td>
+              <td class="qty-cell">45</td>
+              <td class="unit-cell">m³</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">203</td>
+              <td class="desc-cell">
+                <div class="desc-text">Blocs béton creux 190x190x390</div>
+                <div class="desc-cfc">CFC 221.3</div>
+              </td>
+              <td class="qty-cell">1'850</td>
+              <td class="unit-cell">pcs</td>
+              <td></td>
+            </tr>
+
+            <!-- Group: Isolation -->
+            <tr class="group-header">
+              <td><input type="checkbox" class="cb" title="Sélectionner le groupe" /></td>
+              <td colspan="5">
+                <div class="group-name">
+                  Isolation thermique
+                  <span class="group-count">6 postes</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">301</td>
+              <td class="desc-cell">
+                <div class="desc-text">Isolation EPS 200mm façade extérieure</div>
+                <div class="desc-cfc">CFC 271.1</div>
+              </td>
+              <td class="qty-cell">680</td>
+              <td class="unit-cell">m²</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">302</td>
+              <td class="desc-cell">
+                <div class="desc-text">Isolation laine de roche 160mm toiture</div>
+                <div class="desc-cfc">CFC 271.2</div>
+              </td>
+              <td class="qty-cell">420</td>
+              <td class="unit-cell">m²</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">303</td>
+              <td class="desc-cell">
+                <div class="desc-text">Pare-vapeur polyéthylène 200μm</div>
+                <div class="desc-cfc">CFC 271.3</div>
+              </td>
+              <td class="qty-cell">1'100</td>
+              <td class="unit-cell">m²</td>
+              <td></td>
+            </tr>
+
+            <!-- Group: Fenêtres -->
+            <tr class="group-header">
+              <td><input type="checkbox" class="cb" title="Sélectionner le groupe" /></td>
+              <td colspan="5">
+                <div class="group-name">
+                  Fenêtres et portes
+                  <span class="group-count">7 postes</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">401</td>
+              <td class="desc-cell">
+                <div class="desc-text">Fenêtre PVC triple vitrage 1200x1400mm</div>
+                <div class="desc-cfc">CFC 222.1</div>
+              </td>
+              <td class="qty-cell">48</td>
+              <td class="unit-cell">pcs</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">402</td>
+              <td class="desc-cell">
+                <div class="desc-text">Porte-fenêtre coulissante 2400x2200mm</div>
+                <div class="desc-cfc">CFC 222.2</div>
+              </td>
+              <td class="qty-cell">12</td>
+              <td class="unit-cell">pcs</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="cb" /></td>
+              <td class="item-num">403</td>
+              <td class="desc-cell">
+                <div class="desc-text">Porte d'entrée aluminium sécurisée</div>
+                <div class="desc-cfc">CFC 222.3</div>
+              </td>
+              <td class="qty-cell">4</td>
+              <td class="unit-cell">pcs</td>
+              <td></td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: Packages panel -->
+    <div class="right-panel">
+      <div class="packages-panel">
+        <div class="packages-header">
+          <h2>
+            📦 Envois préparés
+            <span class="pkg-count">3</span>
+          </h2>
+        </div>
+
+        <div class="packages-list">
+
+          <!-- Package 1: Holcim -->
+          <div class="package-card">
+            <div class="pkg-supplier">
+              <div>
+                <div class="pkg-supplier-name">Holcim Suisse SA</div>
+                <div class="pkg-supplier-email">commandes@holcim.ch</div>
+              </div>
+              <div class="pkg-actions">
+                <button class="pkg-action-btn" title="Prévisualiser">👁</button>
+                <button class="pkg-action-btn" title="Modifier">✏️</button>
+                <button class="pkg-action-btn" title="Supprimer">🗑</button>
+              </div>
+            </div>
+            <div class="pkg-items">
+              <span class="pkg-item-chip">101 — Béton C30/37</span>
+              <span class="pkg-item-chip">102 — Béton C25/30</span>
+              <span class="pkg-item-chip">105 — Pompage béton</span>
+            </div>
+            <div class="pkg-stats">
+              <span>3 postes</span>
+              <span>·</span>
+              <span>Béton armé</span>
+              <span>·</span>
+              <span class="pkg-attachment-badge">📎 2 PJ</span>
+            </div>
+          </div>
+
+          <!-- Package 2: Vigier -->
+          <div class="package-card">
+            <div class="pkg-supplier">
+              <div>
+                <div class="pkg-supplier-name">Vigier Beton</div>
+                <div class="pkg-supplier-email">offres@vigier.ch</div>
+              </div>
+              <div class="pkg-actions">
+                <button class="pkg-action-btn" title="Prévisualiser">👁</button>
+                <button class="pkg-action-btn" title="Modifier">✏️</button>
+                <button class="pkg-action-btn" title="Supprimer">🗑</button>
+              </div>
+            </div>
+            <div class="pkg-items">
+              <span class="pkg-item-chip">101 — Béton C30/37</span>
+            </div>
+            <div class="pkg-stats">
+              <span>1 poste</span>
+              <span>·</span>
+              <span>Béton armé</span>
+            </div>
+          </div>
+
+          <!-- Package 3: Keller -->
+          <div class="package-card">
+            <div class="pkg-supplier">
+              <div>
+                <div class="pkg-supplier-name">Keller Ziegeleien AG</div>
+                <div class="pkg-supplier-email">anfragen@keller-ag.ch</div>
+              </div>
+              <div class="pkg-actions">
+                <button class="pkg-action-btn" title="Prévisualiser">👁</button>
+                <button class="pkg-action-btn" title="Modifier">✏️</button>
+                <button class="pkg-action-btn" title="Supprimer">🗑</button>
+              </div>
+            </div>
+            <div class="pkg-items">
+              <span class="pkg-item-chip">201 — Briques terre cuite</span>
+              <span class="pkg-item-chip">203 — Blocs béton creux</span>
+            </div>
+            <div class="pkg-stats">
+              <span>2 postes</span>
+              <span>·</span>
+              <span>Maçonnerie</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Send button -->
+        <div class="send-section">
+          <div class="send-summary">
+            <strong>3 emails</strong> à envoyer · <strong>6 postes</strong> couverts · 2 fournisseurs
+          </div>
+          <button class="btn-send">
+            ✉️ Envoyer toutes les demandes
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Floating Action Bar (appears when items are selected) ─── -->
+<div class="action-bar" id="actionBar">
+  <div class="count">4 <span>postes sélectionnés</span></div>
+  <div class="sep"></div>
+  <button class="btn btn-orange" onclick="document.getElementById('supplierModal').classList.remove('hidden')">
+    📦 Assigner à un fournisseur
+  </button>
+  <button class="btn btn-ghost">Désélectionner</button>
+</div>
+
+<!-- ─── Supplier Picker Modal ─── -->
+<div class="modal-overlay hidden" id="supplierModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Assigner 4 postes à un fournisseur</h3>
+      <p>Sélectionnez un ou plusieurs fournisseurs qui recevront ces postes.</p>
+    </div>
+    <div class="modal-body">
+      <input class="supplier-search" placeholder="Rechercher un fournisseur..." />
+
+      <div class="supplier-section-title">Recommandés par l'IA (CFC 211)</div>
+
+      <div class="supplier-option checked">
+        <input type="checkbox" class="cb" checked />
+        <div class="s-info">
+          <div class="s-name">Holcim Suisse SA <span class="ai-badge">IA 92%</span></div>
+          <div class="s-email">commandes@holcim.ch</div>
+          <div class="s-meta">
+            <span class="s-tag">Béton</span>
+            <span class="s-tag">Score 87/100</span>
+            <span class="s-tag">Taux rép. 95%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="supplier-option">
+        <input type="checkbox" class="cb" />
+        <div class="s-info">
+          <div class="s-name">Vigier Beton <span class="ai-badge">IA 78%</span></div>
+          <div class="s-email">offres@vigier.ch</div>
+          <div class="s-meta">
+            <span class="s-tag">Béton · Gravier</span>
+            <span class="s-tag">Score 72/100</span>
+            <span class="s-tag">Taux rép. 80%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="supplier-option">
+        <input type="checkbox" class="cb" />
+        <div class="s-info">
+          <div class="s-name">KIBAG SA <span class="ai-badge">IA 65%</span></div>
+          <div class="s-email">angebote@kibag.ch</div>
+          <div class="s-meta">
+            <span class="s-tag">Béton · Transport</span>
+            <span class="s-tag">Score 68/100</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="supplier-section-title">Autres fournisseurs</div>
+
+      <div class="supplier-option">
+        <input type="checkbox" class="cb" />
+        <div class="s-info">
+          <div class="s-name">Keller Ziegeleien AG</div>
+          <div class="s-email">anfragen@keller-ag.ch</div>
+          <div class="s-meta">
+            <span class="s-tag">Maçonnerie · Briques</span>
+            <span class="s-tag">Score 81/100</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="supplier-option">
+        <input type="checkbox" class="cb" />
+        <div class="s-info">
+          <div class="s-name">Swisspor AG</div>
+          <div class="s-email">info@swisspor.ch</div>
+          <div class="s-meta">
+            <span class="s-tag">Isolation</span>
+            <span class="s-tag">Score 90/100</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add manual supplier -->
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #27272A;">
+        <button class="btn btn-ghost" style="width: 100%; justify-content: center; font-size: 12px;">
+          + Ajouter un fournisseur manuellement
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('supplierModal').classList.add('hidden')">Annuler</button>
+      <button class="btn btn-orange" onclick="document.getElementById('supplierModal').classList.add('hidden')">
+        Confirmer l'assignation
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Email Preview Modal ─── -->
+<div class="modal-overlay hidden" id="previewModal">
+  <div class="modal preview-modal">
+    <div class="modal-header" style="padding-bottom: 0; border-bottom: none;">
+      <h3>Prévisualisation email</h3>
+    </div>
+    <div class="preview-tabs">
+      <div class="preview-tab active">Holcim Suisse SA</div>
+      <div class="preview-tab">Vigier Beton</div>
+      <div class="preview-tab">Keller AG</div>
+    </div>
+    <div class="preview-to">
+      À : <strong>commandes@holcim.ch</strong>
+    </div>
+    <div class="preview-subject">
+      Demande de prix — Résidence Les Jardins — Béton armé
+    </div>
+    <div class="preview-body">
+      <p>Madame, Monsieur,</p>
+      <br>
+      <p>Dans le cadre du projet <strong>Résidence Les Jardins</strong>, nous vous prions de bien vouloir nous transmettre vos meilleurs prix pour les postes suivants :</p>
+      <br>
+      <table class="items-preview-table">
+        <thead>
+          <tr><th>N°</th><th>Description</th><th>Quantité</th><th>Unité</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>101</td><td>Béton armé C30/37 pour fondations</td><td>245</td><td>m³</td></tr>
+          <tr><td>102</td><td>Béton armé C25/30 pour voiles</td><td>180</td><td>m³</td></tr>
+          <tr><td>105</td><td>Pompage béton sur chantier</td><td>425</td><td>m³</td></tr>
+        </tbody>
+      </table>
+      <p>Nous vous remercions de nous faire parvenir votre offre avant le <strong>15 avril 2026</strong>.</p>
+      <br>
+      <p>Avec nos meilleures salutations,</p>
+      <p>Julien Ray<br><span style="color: #71717A;">Menetrey SA</span></p>
+
+      <div class="tracking-box">
+        <span class="label">Code de suivi :</span>
+        <code>SUB-A7F2-beton-X9K3M1</code>
+      </div>
+    </div>
+    <div class="preview-attachments">
+      <span style="font-size: 12px; color: #71717A; margin-right: 4px;">Pièces jointes :</span>
+      <div class="attachment-chip">
+        📄 Plans_fondations.pdf <span class="remove">×</span>
+      </div>
+      <div class="attachment-chip">
+        🖼 Coupe_A-A.jpg <span class="remove">×</span>
+      </div>
+      <button class="add-attachment-btn">+ Ajouter</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('previewModal').classList.add('hidden')">Fermer</button>
+      <button class="btn btn-ghost">✏️ Modifier le texte</button>
+      <button class="btn btn-orange">✉️ Envoyer cet email</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

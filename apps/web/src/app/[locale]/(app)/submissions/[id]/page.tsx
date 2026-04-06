@@ -28,7 +28,7 @@ import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
-import { PriceRequestWizard } from "@/components/submissions/detail/PriceRequestWizard";
+import { PriceRequestV2 } from "@/components/submissions/detail/PriceRequestV2";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -550,7 +550,7 @@ export default function SubmissionDetailPage() {
         {activeTab === "requests" && (
           <div className="space-y-6">
             {/* Sent requests history */}
-            {priceRequests.length > 0 && (
+            {priceRequests.filter((pr) => pr.sent_at).length > 0 && (
               <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
                 <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A]">
                   <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({priceRequests.filter((pr) => pr.sent_at).length})</h3>
@@ -592,35 +592,11 @@ export default function SubmissionDetailPage() {
               </div>
             )}
 
-            {/* New price request wizard */}
-            <PriceRequestWizard
+            {/* V2: Single-page price request interface */}
+            <PriceRequestV2
               submissionId={id}
-              lots={materialGroups.map((g) => {
-                const groupItems = items.filter((i) => i.material_group === g);
-                const firstItem = groupItems[0];
-                return {
-                  id: g,
-                  name: g,
-                  cfc_code: firstItem?.cfc_code || null,
-                  items_count: groupItems.length,
-                } as any;
-              })}
               items={items}
               suppliers={suppliers}
-              budgetGroups={
-                ((submission as any)?.budget_estimate as BudgetResult | null)?.estimates
-                  ? Object.entries(
-                      (((submission as any).budget_estimate as BudgetResult).estimates || []).reduce(
-                        (acc: Record<string, number>, item: BudgetEstimate) => {
-                          const g = item.material_group;
-                          acc[g] = (acc[g] || 0) + (item.prix_median || 0) * (item.quantity || 1);
-                          return acc;
-                        },
-                        {} as Record<string, number>
-                      )
-                    ).map(([group, total]) => ({ group, total_median: total }))
-                  : undefined
-              }
               existingRequests={priceRequests as any}
               deadline={(submission as any)?.deadline || null}
               onComplete={fetchData}
