@@ -98,28 +98,41 @@ function matchSuppliersByRelevance(
       const cfcs = Array.isArray(s.cfc_codes) ? s.cfc_codes : [];
       const specs = Array.isArray(s.specialties) ? s.specialties : [];
 
+      // CFC code match (exact, prefix, or reverse prefix)
       if (lotCfc && cfcs.some((c: string) => c === lotCfc || lotCfc.startsWith(c) || c.startsWith(lotCfc))) {
         score += 40;
       }
 
+      // Specialty keyword match (group name words found in supplier specialties)
       const keywords = nameLower.split(/[\s,/()-]+/).filter((w: string) => w.length > 3);
+      let keywordMatches = 0;
       for (const kw of keywords) {
         if (specs.some((sp: string) => sp.toLowerCase().includes(kw))) {
-          score += 20;
+          keywordMatches++;
+        }
+      }
+      if (keywordMatches > 0) score += Math.min(keywordMatches * 15, 40);
+
+      // Also check if supplier company name matches group keywords
+      const companyLower = s.company_name.toLowerCase();
+      for (const kw of keywords) {
+        if (companyLower.includes(kw)) {
+          score += 10;
           break;
         }
       }
 
-      if (s.overall_score && s.overall_score >= 80) score += 10;
-      if (s.response_rate && s.response_rate >= 50) score += 5;
+      // NOTE: overall_score and response_rate are NOT included here —
+      // they are quality metrics, not relevance indicators
 
       return { ...s, relevance_score: score };
     });
 
+  // Only return suppliers with meaningful relevance (at least one keyword or CFC match)
   return scored
-    .filter((s) => s.relevance_score > 0)
+    .filter((s) => s.relevance_score >= 10)
     .sort((a, b) => b.relevance_score - a.relevance_score)
-    .slice(0, 8);
+    .slice(0, 6);
 }
 
 function formatFileSize(bytes: number): string {
@@ -169,8 +182,9 @@ export function PriceRequestV2({
   const [previewTab, setPreviewTab] = useState(0);
   const [editedBodies, setEditedBodies] = useState<Record<string, string>>({});
 
-  // ── Attachments ─────────────────────────────────────────────
-  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  // ── Attachments (per-package) ────────────────────────────────
+  const [packageAttachments, setPackageAttachments] = useState<Record<string, AttachmentFile[]>>({});
+  const [attachTargetPkgId, setAttachTargetPkgId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Send state ──────────────────────────────────────────────
@@ -376,22 +390,16 @@ export function PriceRequestV2({
         const supplier = suppliers.find((s) => s.id === suppId);
         if (!supplier) continue;
 
-        const existing = next.find((p) => p.supplierId === suppId);
-        if (existing) {
-          // Merge items into existing package
-          const merged = new Set(existing.itemIds);
-          for (const id of selectedIds) merged.add(id);
-          existing.itemIds = Array.from(merged);
-        } else {
-          next.push({
-            id: nextPkgId(),
-            supplierId: suppId,
-            supplierName: supplier.company_name,
-            supplierEmail: supplier.email,
-            itemIds: Array.from(selectedIds),
-            customBodies: {},
-          });
-        }
+        // Always create a new package — don't merge into existing ones.
+        // Each assignment action = distinct package (even for same supplier).
+        next.push({
+          id: nextPkgId(),
+          supplierId: suppId,
+          supplierName: supplier.company_name,
+          supplierEmail: supplier.email,
+          itemIds: Array.from(selectedIds),
+          customBodies: {},
+        });
       }
       return next;
     });
@@ -405,6 +413,11 @@ export function PriceRequestV2({
 
   const deletePackage = useCallback((pkgId: string) => {
     setPackages((prev) => prev.filter((p) => p.id !== pkgId));
+    setPackageAttachments((prev) => {
+      const next = { ...prev };
+      delete next[pkgId];
+      return next;
+    });
   }, []);
 
   const removeSupplierFromItem = useCallback((supplierId: string, itemId: string) => {
@@ -417,23 +430,29 @@ export function PriceRequestV2({
     );
   }, []);
 
-  // ── Attachments ─────────────────────────────────────────────
+  // ── Attachments (per-package) ────────────────────────────────
 
-  const addFiles = useCallback((files: FileList | null) => {
+  const addFilesToPackage = useCallback((pkgId: string, files: FileList | null) => {
     if (!files) return;
     const newFiles: AttachmentFile[] = [];
     for (const file of Array.from(files)) {
       if (file.size > 10 * 1024 * 1024) continue; // 10MB max
       newFiles.push({ file, name: file.name, size: file.size });
     }
-    setAttachments((prev) => [...prev, ...newFiles]);
+    setPackageAttachments((prev) => ({
+      ...prev,
+      [pkgId]: [...(prev[pkgId] || []), ...newFiles],
+    }));
   }, []);
 
-  const removeAttachment = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  const removePackageAttachment = useCallback((pkgId: string, index: number) => {
+    setPackageAttachments((prev) => ({
+      ...prev,
+      [pkgId]: (prev[pkgId] || []).filter((_, i) => i !== index),
+    }));
   }, []);
 
-  const captureScreen = useCallback(async () => {
+  const captureScreenForPackage = useCallback(async (pkgId: string) => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const video = document.createElement("video");
@@ -451,7 +470,10 @@ export function PriceRequestV2({
       canvas.toBlob((blob) => {
         if (!blob) return;
         const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
-        setAttachments((prev) => [...prev, { file, name: file.name, size: file.size }]);
+        setPackageAttachments((prev) => ({
+          ...prev,
+          [pkgId]: [...(prev[pkgId] || []), { file, name: file.name, size: file.size }],
+        }));
       }, "image/png");
     } catch {
       // User cancelled or API not supported
@@ -543,11 +565,12 @@ export function PriceRequestV2({
     setSending(true);
     setSendError(null);
 
-    try {
-      // Convert packages to API groups format
-      const groups: { material_group: string; supplier_ids: string[]; item_ids: string[] }[] = [];
-      const customBodies: Record<string, string> = {};
+    let totalSent = 0;
+    let totalSaved = 0;
+    let totalErrors = 0;
 
+    try {
+      // Send one API call per package (each with its own attachments)
       for (const pkg of packages) {
         // Group items by material_group
         const byGroup = new Map<string, string[]>();
@@ -559,6 +582,9 @@ export function PriceRequestV2({
           byGroup.set(item.material_group, list);
         }
 
+        const groups: { material_group: string; supplier_ids: string[]; item_ids: string[] }[] = [];
+        const customBodies: Record<string, string> = {};
+
         for (const [group, itemIdList] of byGroup) {
           groups.push({
             material_group: group,
@@ -569,46 +595,58 @@ export function PriceRequestV2({
             customBodies[pkg.supplierId] = pkg.customBodies[group];
           }
         }
+
+        // Convert per-package attachments to base64
+        const pkgAtts = packageAttachments[pkg.id] || [];
+        const attachmentData: { filename: string; contentType: string; content: string }[] = [];
+        for (const att of pkgAtts) {
+          const buffer = await att.file.arrayBuffer();
+          const base64 = btoa(
+            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+          );
+          attachmentData.push({ filename: att.name, contentType: att.file.type, content: base64 });
+        }
+
+        const body: any = {
+          groups,
+          deadline: deadline || undefined,
+          custom_bodies: Object.keys(customBodies).length > 0 ? customBodies : undefined,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+        };
+
+        try {
+          const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          const json = await res.json();
+
+          if (res.ok && json.success) {
+            totalSent += json.sent || 0;
+            totalSaved += json.saved || 0;
+            totalErrors += (json.results || []).filter((r: any) => r.status === "error").length;
+          } else {
+            totalErrors++;
+          }
+        } catch {
+          totalErrors++;
+        }
       }
 
-      // Convert attachments to base64
-      const attachmentData: { filename: string; contentType: string; content: string }[] = [];
-      for (const att of attachments) {
-        const buffer = await att.file.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-        );
-        attachmentData.push({ filename: att.name, contentType: att.file.type, content: base64 });
-      }
-
-      const body: any = {
-        groups,
-        deadline: deadline || undefined,
-        custom_bodies: Object.keys(customBodies).length > 0 ? customBodies : undefined,
-        attachments: attachmentData.length > 0 ? attachmentData : undefined,
-      };
-
-      const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const json = await res.json();
-
-      if (res.ok && json.success) {
-        const errors = (json.results || []).filter((r: any) => r.status === "error").length;
-        setSendResult({ sent: json.sent || 0, saved: json.saved || 0, errors });
+      if (totalSent > 0 || totalSaved > 0) {
+        setSendResult({ sent: totalSent, saved: totalSaved, errors: totalErrors });
         onComplete?.();
       } else {
-        setSendError(json.error || "Erreur lors de l'envoi");
+        setSendError("Aucun email envoyé — vérifiez les adresses email des fournisseurs");
       }
     } catch (err: any) {
       setSendError(err.message || "Erreur réseau");
     } finally {
       setSending(false);
     }
-  }, [packages, itemsById, attachments, deadline, submissionId, onComplete]);
+  }, [packages, itemsById, packageAttachments, deadline, submissionId, onComplete]);
 
   // ── Supplier picker data ────────────────────────────────────
 
@@ -1016,12 +1054,47 @@ export function PriceRequestV2({
                             <span>{pkg.itemIds.length} postes</span>
                             <span>·</span>
                             <span>{groupNames.join(", ")}</span>
-                            {attachments.length > 0 && (
+                            {(packageAttachments[pkg.id] || []).length > 0 && (
                               <>
                                 <span>·</span>
-                                <span className="text-blue-400">{attachments.length} PJ</span>
+                                <span className="text-blue-400">{(packageAttachments[pkg.id] || []).length} PJ</span>
                               </>
                             )}
+                          </div>
+                          {/* Per-package attachments */}
+                          <div className="mt-2 pt-2 border-t border-[#27272A]/50">
+                            {(packageAttachments[pkg.id] || []).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-1.5">
+                                {(packageAttachments[pkg.id] || []).map((att, i) => (
+                                  <span key={i} className="inline-flex items-center gap-1 max-w-[150px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
+                                    <Paperclip className="h-2.5 w-2.5 shrink-0" />
+                                    <span className="truncate">{att.name}</span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); removePackageAttachment(pkg.id, i); }}
+                                      className="shrink-0 hover:text-red-400 transition-colors"
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setAttachTargetPkgId(pkg.id); fileInputRef.current?.click(); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                title="Ajouter fichier"
+                              >
+                                <Plus className="h-2.5 w-2.5" /> Fichier
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); captureScreenForPackage(pkg.id); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                title="Capture d'écran"
+                              >
+                                <Camera className="h-2.5 w-2.5" /> Capture
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1031,49 +1104,18 @@ export function PriceRequestV2({
               </div>
             </div>
 
-            {/* Attachments */}
-            <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Paperclip className="h-3.5 w-3.5 text-[#71717A]" />
-                <span className="text-xs font-medium text-[#A1A1AA]">Pièces jointes</span>
-              </div>
-              {attachments.length > 0 && (
-                <div className="space-y-1 mb-2">
-                  {attachments.map((att, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-[#27272A]">
-                      <span className="text-[11px] text-[#A1A1AA] truncate">{att.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] text-[#52525B]">{formatFileSize(att.size)}</span>
-                        <button onClick={() => removeAttachment(i)} className="text-[#52525B] hover:text-red-400">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#27272A] text-xs text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#3F3F46] transition-colors"
-                >
-                  <Plus className="h-3 w-3" /> Fichier
-                </button>
-                <button
-                  onClick={captureScreen}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#27272A] text-xs text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#3F3F46] transition-colors"
-                >
-                  <Camera className="h-3 w-3" /> Capture
-                </button>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => addFiles(e.target.files)}
-              />
-            </div>
+            {/* Hidden file input (shared, target package set via attachTargetPkgId) */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (attachTargetPkgId) addFilesToPackage(attachTargetPkgId, e.target.files);
+                setAttachTargetPkgId(null);
+                if (e.target) e.target.value = "";
+              }}
+            />
 
             {/* Send */}
             {packages.length > 0 && (
@@ -1249,9 +1291,9 @@ export function PriceRequestV2({
       {/* ── Email preview modal ──────────────────────────────── */}
       {previewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPreviewOpen(false)}>
-          <div className="w-[640px] max-h-[85vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="w-[640px] max-h-[85vh] bg-[#18181B] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#27272A] shrink-0">
               <h3 className="text-sm font-semibold text-[#FAFAFA]">Prévisualisation email</h3>
               <button onClick={() => setPreviewOpen(false)} className="p-1.5 rounded-lg hover:bg-[#27272A] text-[#71717A]">
                 <X className="h-4 w-4" />
@@ -1267,7 +1309,7 @@ export function PriceRequestV2({
               <>
                 {/* Tabs if multiple groups */}
                 {previewData.length > 1 && (
-                  <div className="flex border-b border-[#27272A]">
+                  <div className="flex border-b border-[#27272A] shrink-0">
                     {previewData.map((p, i) => (
                       <button
                         key={p.group}
@@ -1285,7 +1327,7 @@ export function PriceRequestV2({
                 )}
 
                 {previewData[previewTab] && (
-                  <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(85vh-140px)]" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
                     {/* To */}
                     <div>
                       <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">À</label>
@@ -1304,7 +1346,12 @@ export function PriceRequestV2({
                     {/* Body */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Corps du message</label>
+                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+                          Corps du message
+                          {editedBodies[`${previewPkgId}-${previewData[previewTab].group}`] && (
+                            <span className="ml-2 text-[#F97316] normal-case">· modifié</span>
+                          )}
+                        </label>
                         {editedBodies[`${previewPkgId}-${previewData[previewTab].group}`] && (
                           <button
                             onClick={() => {
@@ -1336,15 +1383,16 @@ export function PriceRequestV2({
                         className="w-full p-3 bg-[#0F0F11] border border-[#27272A] rounded-lg text-xs text-[#FAFAFA] font-mono leading-relaxed focus:outline-none focus:border-[#F97316]/50 resize-y"
                       />
                     </div>
-                    {/* Attachments */}
-                    {attachments.length > 0 && (
+                    {/* Attachments for this package */}
+                    {previewPkgId && (packageAttachments[previewPkgId] || []).length > 0 && (
                       <div>
                         <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Pièces jointes</label>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {attachments.map((att, i) => (
+                          {(packageAttachments[previewPkgId] || []).map((att, i) => (
                             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] text-[10px] text-[#A1A1AA]">
                               <Paperclip className="h-2.5 w-2.5" />
                               {att.name}
+                              <span className="text-[#52525B]">({formatFileSize(att.size)})</span>
                             </span>
                           ))}
                         </div>
@@ -1352,6 +1400,17 @@ export function PriceRequestV2({
                     )}
                   </div>
                 )}
+
+                {/* Footer with Confirm button */}
+                <div className="flex items-center justify-end px-5 py-3 border-t border-[#27272A] bg-[#111113] shrink-0">
+                  <button
+                    onClick={() => setPreviewOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] transition-colors"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Confirmer
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -1387,9 +1446,9 @@ function SupplierPickerRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm text-[#FAFAFA] font-medium truncate">{supplier.company_name}</span>
-          {score != null && score > 0 && (
+          {score != null && score >= 10 && (
             <span className="shrink-0 text-[10px] font-medium text-[#F97316] bg-[#F97316]/10 px-1.5 py-0.5 rounded">
-              {Math.min(Math.round((score / 75) * 100), 99)}%
+              {Math.min(Math.round((score / 90) * 100), 99)}%
             </span>
           )}
         </div>
