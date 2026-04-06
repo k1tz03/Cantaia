@@ -17,7 +17,6 @@ import {
   MapPin,
   ShieldCheck,
   Map,
-  FileStack,
   FileSpreadsheet,
   UserCheck,
   Loader2,
@@ -36,7 +35,6 @@ import { ProjectMeetingsTab } from "@/components/projects/ProjectMeetingsTab";
 import { ProjectVisitsTab } from "@/components/projects/ProjectVisitsTab";
 import { ProjectSubmissionsTab } from "@/components/projects/ProjectSubmissionsTab";
 import { ProjectPlansTab } from "@/components/projects/ProjectPlansTab";
-import { ProjectPrixTab } from "@/components/projects/ProjectPrixTab";
 import { ProjectClosureTab } from "@/components/projects/ProjectClosureTab";
 import { ProjectPlanningTab } from "@/components/projects/ProjectPlanningTab";
 import { ProjectSiteReportsTab } from "@/components/projects/ProjectSiteReportsTab";
@@ -87,7 +85,6 @@ export default function ProjectDetailPage() {
   const [meetings, setMeetings] = useState<any[]>([]);
   // submissions now fetched directly by ProjectSubmissionsTab
   const [plans, setPlans] = useState<any[]>([]);
-  const [benchmark, setBenchmark] = useState<any[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -116,12 +113,6 @@ export default function ProjectDetailPage() {
       })
       .catch((err) => console.error("Failed to load plans:", err));
 
-    fetch(`/api/pricing/benchmark?project_id=${projectId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.items) setBenchmark(data.items);
-      })
-      .catch((err) => console.error("Failed to load benchmark:", err));
   }, [params.id]);
 
   if (projectLoading) {
