@@ -59,7 +59,7 @@ export async function GET(
   // (organization_id may be NULL on older email_records inserted before the fix)
   let query = (admin as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, received_at, body_preview, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, is_read, has_attachments, outlook_message_id, recipients, suggested_project_data, linked_price_request_id, created_at, user_id", { count: "exact" })
+    .select("id, subject, sender_email, sender_name, received_at, body_preview, body_html, body_text, project_id, classification, ai_classification_confidence, ai_project_match_confidence, ai_summary, ai_reasoning, classification_status, email_category, is_processed, has_attachments, outlook_message_id, recipients, suggested_project_data, created_at, user_id", { count: "exact" })
     .eq("project_id", id)
     .order("received_at", { ascending: false });
 

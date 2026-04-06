@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
+import { flushSync } from "react-dom";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -115,18 +116,22 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  /** Append a token to the last assistant message immediately */
+  /** Append a token to the last assistant message immediately.
+   *  flushSync forces React to render synchronously after each token,
+   *  bypassing React 18 automatic batching for smooth streaming. */
   const appendToken = useCallback((token: string) => {
-    setMessages((prev) => {
-      const updated = [...prev];
-      const last = updated[updated.length - 1];
-      if (last && last.role === "assistant") {
-        updated[updated.length - 1] = {
-          ...last,
-          content: last.content + token,
-        };
-      }
-      return updated;
+    flushSync(() => {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last && last.role === "assistant") {
+          updated[updated.length - 1] = {
+            ...last,
+            content: last.content + token,
+          };
+        }
+        return updated;
+      });
     });
   }, []);
 
