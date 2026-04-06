@@ -30,6 +30,9 @@ import {
   Settings,
   Paperclip,
   FileText,
+  Trash2,
+  FolderPlus,
+  Folder,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
@@ -133,6 +136,7 @@ interface DecisionEmail {
   subject: string;
   sender_email: string;
   sender_name: string;
+  recipients: string[] | null;
   body_preview: string;
   body_html?: string | null;
   body_text?: string | null;
@@ -185,6 +189,42 @@ interface ThreadMessage {
   bodyPreview: string;
   isCurrentMessage: boolean;
 }
+
+interface OutlookFolder {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
+  total_count: number;
+  unread_count: number;
+}
+
+interface FolderMessage {
+  id: string;
+  subject: string;
+  sender_name: string;
+  sender_email: string;
+  recipients: string[];
+  cc: string[];
+  received_at: string;
+  body_preview: string;
+  is_read: boolean;
+  has_attachments: boolean;
+}
+
+/** Well-known Outlook folder names to exclude from custom groups */
+const SYSTEM_FOLDER_NAMES = new Set([
+  "Inbox", "Boîte de réception", "Posteingang",
+  "Sent Items", "Éléments envoyés", "Gesendete Elemente",
+  "Deleted Items", "Éléments supprimés", "Gelöschte Elemente",
+  "Drafts", "Brouillons", "Entwürfe",
+  "Junk Email", "Courrier indésirable", "Junk-E-Mail",
+  "Archive", "Archiv",
+  "Conversation History", "Historique des conversations", "Aufgezeichnete Unterhaltungen",
+  "Outbox", "Boîte d'envoi", "Postausgang",
+  "RSS Feeds", "RSS-Feeds", "Flux RSS",
+  "Sync Issues", "Problèmes de synchronisation", "Synchronisierungsprobleme",
+  "Clutter",
+]);
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -334,11 +374,23 @@ function MailPageInner() {
   const [summaryToast, setSummaryToast] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"decisions" | "inbox">("decisions");
+  const [viewMode, setViewMode] = useState<"decisions" | "inbox" | "sent" | "trash" | "drafts" | "folder">("decisions");
   const [hasEmailConnection, setHasEmailConnection] = useState(true); // assume true until proven false
+
+  // Folder navigation
+  const [folders, setFolders] = useState<OutlookFolder[]>([]);
+  const [foldersLoaded, setFoldersLoaded] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [folderMessages, setFolderMessages] = useState<FolderMessage[]>([]);
+  const [folderMessagesLoading, setFolderMessagesLoading] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [foldersExpanded, setFoldersExpanded] = useState(true);
 
   // 2-panel: selected email
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [selectedFolderMessage, setSelectedFolderMessage] = useState<FolderMessage | null>(null);
 
   // Modal states
   const [replyEmail, setReplyEmail] = useState<DecisionEmail | null>(null);
@@ -419,6 +471,71 @@ function MailPageInner() {
     setTimeout(() => setSyncToast(null), 4000);
   }, [fetchData, t]);
 
+  // Fetch Outlook folders (lazy — on first expand)
+  const fetchFolders = useCallback(async () => {
+    if (foldersLoaded) return;
+    try {
+      const res = await fetch("/api/email/folders");
+      if (res.ok) {
+        const data = await res.json();
+        setFolders(data.folders || []);
+      }
+    } catch { /* non-blocking */ }
+    setFoldersLoaded(true);
+  }, [foldersLoaded]);
+
+  // Fetch messages from a specific Outlook folder (sent, trash, custom)
+  const fetchFolderMessages = useCallback(async (folderId: string) => {
+    setFolderMessagesLoading(true);
+    setFolderMessages([]);
+    setSelectedFolderMessage(null);
+    try {
+      const res = await fetch(`/api/email/folders/messages?folder_id=${encodeURIComponent(folderId)}&top=50`);
+      if (res.ok) {
+        const data = await res.json();
+        setFolderMessages(data.messages || []);
+      }
+    } catch { /* non-blocking */ }
+    setFolderMessagesLoading(false);
+  }, []);
+
+  // Navigate to a system folder view
+  const navigateToFolder = useCallback((mode: "sent" | "trash" | "drafts", folderId: string) => {
+    setViewMode(mode);
+    setSelectedEmailId(null);
+    setSelectedFolderMessage(null);
+    fetchFolderMessages(folderId);
+  }, [fetchFolderMessages]);
+
+  // Navigate to a custom folder
+  const navigateToCustomFolder = useCallback((folder: OutlookFolder) => {
+    setViewMode("folder");
+    setSelectedFolderId(folder.id);
+    setSelectedEmailId(null);
+    setSelectedFolderMessage(null);
+    fetchFolderMessages(folder.id);
+  }, [fetchFolderMessages]);
+
+  // Create a new folder
+  const createFolder = useCallback(async () => {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      const res = await fetch("/api/email/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newFolderName.trim() }),
+      });
+      if (res.ok) {
+        setNewFolderName("");
+        setShowCreateFolder(false);
+        setFoldersLoaded(false); // force refresh
+        fetchFolders();
+      }
+    } catch { /* non-blocking */ }
+    setCreatingFolder(false);
+  }, [newFolderName, fetchFolders]);
+
   const dismissCard = useCallback(async (emailId: string, action: string, email?: DecisionEmail) => {
     setDismissedIds((prev) => new Set(prev).add(emailId));
     setDecisionsToday((d) => d + 1);
@@ -470,6 +587,10 @@ function MailPageInner() {
   const filteredInfo = info.filter((e) => !dismissedIds.has(e.id));
   const allEmails = [...filteredUrgent, ...filteredThisWeek, ...filteredInfo];
   const selectedEmail = allEmails.find((e) => e.id === selectedEmailId) || null;
+
+  // Custom folders (exclude system Outlook folders)
+  const customFolders = folders.filter((f) => !SYSTEM_FOLDER_NAMES.has(f.name));
+  const isFolderView = viewMode === "sent" || viewMode === "trash" || viewMode === "drafts" || viewMode === "folder";
 
   // Select email from URL param (?emailId=xxx) — from notification click
   const urlEmailId = searchParams.get("emailId");
@@ -554,6 +675,7 @@ function MailPageInner() {
 
   const handleSelectEmail = (email: DecisionEmail) => {
     setSelectedEmailId(email.id);
+    setSelectedFolderMessage(null);
     if (email.project_id) setActiveProject(email.project_id);
   };
 
@@ -584,24 +706,6 @@ function MailPageInner() {
             <Plus className="w-3.5 h-3.5" />
             Nouveau
           </button>
-
-          {/* Decisions / Inbox toggle */}
-          <div className="flex items-center bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("decisions")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium transition-colors ${viewMode === "decisions" ? "bg-[#27272A] text-[#FAFAFA]" : "text-[#71717A] hover:text-[#A1A1AA]"}`}
-            >
-              <ListTodo className="w-3.5 h-3.5" />
-              {"D\u00e9cisions"}
-            </button>
-            <button
-              onClick={() => setViewMode("inbox")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium transition-colors ${viewMode === "inbox" ? "bg-[#27272A] text-[#FAFAFA]" : "text-[#71717A] hover:text-[#A1A1AA]"}`}
-            >
-              <Inbox className="w-3.5 h-3.5" />
-              Inbox
-            </button>
-          </div>
 
           {/* Sync button */}
           <button
@@ -683,47 +787,201 @@ function MailPageInner() {
 
       {/* ═══ 2-PANEL MAIN CONTENT ═══ */}
       <div className="flex-1 flex min-h-0">
-        {/* ── LEFT PANEL: Email list ── */}
+        {/* ── LEFT PANEL: Folder nav + Email list ── */}
         <div className="w-[420px] flex-shrink-0 border-r border-[#1C1C1F] flex flex-col min-h-0 bg-[#0F0F11]">
+          {/* ── Folder navigation ── */}
+          <div className="flex-shrink-0 border-b border-[#1C1C1F]" data-tour="mail-nav">
+            <nav className="py-1">
+              <MailNavItem
+                icon={<ListTodo className="w-4 h-4" />}
+                label={"D\u00e9cisions"}
+                count={totalUnprocessed}
+                active={viewMode === "decisions"}
+                onClick={() => { setViewMode("decisions"); setSelectedFolderMessage(null); }}
+              />
+              <MailNavItem
+                icon={<Inbox className="w-4 h-4" />}
+                label="Inbox"
+                active={viewMode === "inbox"}
+                onClick={() => { setViewMode("inbox"); setSelectedFolderMessage(null); }}
+              />
+              <MailNavItem
+                icon={<Send className="w-4 h-4" />}
+                label={"Envoy\u00e9s"}
+                active={viewMode === "sent"}
+                onClick={() => navigateToFolder("sent", "sentitems")}
+              />
+              <MailNavItem
+                icon={<Trash2 className="w-4 h-4" />}
+                label="Corbeille"
+                active={viewMode === "trash"}
+                onClick={() => navigateToFolder("trash", "deleteditems")}
+              />
+            </nav>
+
+            {/* ── Custom folders / Groups ── */}
+            <div className="border-t border-[#1C1C1F]">
+              <button
+                onClick={() => {
+                  setFoldersExpanded(!foldersExpanded);
+                  if (!foldersLoaded) fetchFolders();
+                }}
+                className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#18181B] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {foldersExpanded ? <ChevronDown className="w-3 h-3 text-[#52525B]" /> : <ChevronRight className="w-3 h-3 text-[#52525B]" />}
+                  <span className="text-[10px] uppercase tracking-wider text-[#52525B] font-semibold">Groupes</span>
+                  {customFolders.length > 0 && (
+                    <span className="text-[10px] text-[#3F3F46]">{customFolders.length}</span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowCreateFolder(true); }}
+                  className="p-1 text-[#52525B] hover:text-[#F97316] rounded transition-colors"
+                  title={"Cr\u00e9er un groupe"}
+                >
+                  <FolderPlus className="w-3.5 h-3.5" />
+                </button>
+              </button>
+
+              {foldersExpanded && (
+                <>
+                  {customFolders.length === 0 && foldersLoaded && (
+                    <div className="px-4 py-2 text-[11px] text-[#3F3F46]">
+                      Aucun groupe. Cliquez sur <FolderPlus className="w-3 h-3 inline" /> pour en cr{"\u00e9"}er.
+                    </div>
+                  )}
+                  {customFolders.map((folder) => (
+                    <MailNavItem
+                      key={folder.id}
+                      icon={<Folder className="w-4 h-4" />}
+                      label={folder.name}
+                      count={folder.unread_count || undefined}
+                      active={viewMode === "folder" && selectedFolderId === folder.id}
+                      onClick={() => navigateToCustomFolder(folder)}
+                      indent
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* ── Create folder inline form ── */}
+            {showCreateFolder && (
+              <div className="px-4 py-2 border-t border-[#1C1C1F] flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") createFolder(); if (e.key === "Escape") setShowCreateFolder(false); }}
+                  placeholder="Nom du groupe..."
+                  autoFocus
+                  className="flex-1 bg-[#18181B] border border-[#27272A] rounded-md px-2.5 py-1.5 text-[12px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50"
+                />
+                <button
+                  onClick={createFolder}
+                  disabled={creatingFolder || !newFolderName.trim()}
+                  className="px-2.5 py-1.5 text-[11px] font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-md disabled:opacity-50 transition-colors"
+                >
+                  {creatingFolder ? <Loader2 className="w-3 h-3 animate-spin" /> : "Cr\u00e9er"}
+                </button>
+                <button
+                  onClick={() => { setShowCreateFolder(false); setNewFolderName(""); }}
+                  className="p-1.5 text-[#52525B] hover:text-[#A1A1AA] rounded transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Email list ── */}
           <div className="flex-1 overflow-y-auto" data-tour="mail-buckets">
-            {/* Urgent bucket */}
-            {filteredUrgent.length > 0 && (
-              <EmailBucket
-                color="#EF4444"
-                label="Urgentes"
-                count={filteredUrgent.length}
-                emails={filteredUrgent}
-                selectedEmailId={selectedEmailId}
-                onSelect={handleSelectEmail}
-              />
+            {isFolderView ? (
+              /* Folder messages (sent, trash, drafts, custom) */
+              <>
+                {folderMessagesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#52525B]" />
+                  </div>
+                ) : folderMessages.length > 0 ? (
+                  folderMessages.map((msg) => (
+                    <FolderEmailRow
+                      key={msg.id}
+                      message={msg}
+                      isSelected={selectedFolderMessage?.id === msg.id}
+                      onSelect={() => { setSelectedFolderMessage(msg); setSelectedEmailId(null); }}
+                      isSentView={viewMode === "sent"}
+                    />
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-8">
+                    <div className="w-10 h-10 bg-[#27272A] rounded-xl flex items-center justify-center mb-3">
+                      {viewMode === "sent" ? <Send className="w-5 h-5 text-[#52525B]" /> : viewMode === "trash" ? <Trash2 className="w-5 h-5 text-[#52525B]" /> : <Folder className="w-5 h-5 text-[#52525B]" />}
+                    </div>
+                    <p className="text-[13px] text-[#52525B]">
+                      {viewMode === "sent" ? "Aucun email envoy\u00e9" : viewMode === "trash" ? "La corbeille est vide" : "Aucun email dans ce groupe"}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : viewMode === "decisions" ? (
+              <>
+                {/* Urgent bucket */}
+                {filteredUrgent.length > 0 && (
+                  <EmailBucket
+                    color="#EF4444"
+                    label="Urgentes"
+                    count={filteredUrgent.length}
+                    emails={filteredUrgent}
+                    selectedEmailId={selectedEmailId}
+                    onSelect={handleSelectEmail}
+                  />
+                )}
+
+                {/* This week bucket */}
+                {filteredThisWeek.length > 0 && (
+                  <EmailBucket
+                    color="#F59E0B"
+                    label="Cette semaine"
+                    count={filteredThisWeek.length}
+                    emails={filteredThisWeek}
+                    selectedEmailId={selectedEmailId}
+                    onSelect={handleSelectEmail}
+                  />
+                )}
+
+                {/* Info bucket */}
+                {filteredInfo.length > 0 && (
+                  <EmailBucket
+                    color="#71717A"
+                    label="Infos"
+                    count={filteredInfo.length}
+                    emails={filteredInfo}
+                    selectedEmailId={selectedEmailId}
+                    onSelect={handleSelectEmail}
+                  />
+                )}
+              </>
+            ) : (
+              /* Inbox mode: flat chronological list */
+              <>
+                {allEmails
+                  .slice()
+                  .sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime())
+                  .map((email) => (
+                    <EmailRow
+                      key={email.id}
+                      email={email}
+                      isSelected={selectedEmailId === email.id}
+                      onSelect={() => handleSelectEmail(email)}
+                    />
+                  ))}
+              </>
             )}
 
-            {/* This week bucket */}
-            {filteredThisWeek.length > 0 && (
-              <EmailBucket
-                color="#F59E0B"
-                label="Cette semaine"
-                count={filteredThisWeek.length}
-                emails={filteredThisWeek}
-                selectedEmailId={selectedEmailId}
-                onSelect={handleSelectEmail}
-              />
-            )}
-
-            {/* Info bucket */}
-            {filteredInfo.length > 0 && (
-              <EmailBucket
-                color="#71717A"
-                label="Infos"
-                count={filteredInfo.length}
-                emails={filteredInfo}
-                selectedEmailId={selectedEmailId}
-                onSelect={handleSelectEmail}
-              />
-            )}
-
-            {/* Empty list */}
-            {allEmails.length === 0 && (
+            {/* Empty state for decisions/inbox */}
+            {!isFolderView && allEmails.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center px-8">
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 border border-emerald-500/20">
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
@@ -755,6 +1013,8 @@ function MailPageInner() {
               onNegotiate={() => setReplyEmail(selectedEmail)}
               onRefuse={() => dismissCard(selectedEmail.id, "refuse")}
             />
+          ) : selectedFolderMessage ? (
+            <FolderMessageDetail message={selectedFolderMessage} locale={locale} />
           ) : (
             <div className="flex-1 flex items-center justify-center relative overflow-hidden">
               <ParticleCanvas
@@ -766,7 +1026,7 @@ function MailPageInner() {
               />
               <div className="text-center relative z-[1]">
                 <Mail className="w-10 h-10 text-[#27272A] mx-auto mb-3" />
-                <p className="text-[13px] text-[#52525B]">Selectionnez un email pour voir son contenu</p>
+                <p className="text-[13px] text-[#52525B]">S{"\u00e9"}lectionnez un email pour voir son contenu</p>
               </div>
             </div>
           )}
@@ -934,6 +1194,145 @@ function EmailRow({ email, isSelected, onSelect }: {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MAIL NAV ITEM (left panel navigation)
+   ═══════════════════════════════════════════════════════════ */
+
+function MailNavItem({ icon, label, count, active, onClick, indent }: {
+  icon: React.ReactNode;
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+  indent?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-4 py-2 text-[12px] transition-colors ${indent ? "pl-8" : ""} ${
+        active
+          ? "bg-[#F97316]/10 text-[#F97316] font-semibold"
+          : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]"
+      }`}
+    >
+      <span className={`shrink-0 ${active ? "text-[#F97316]" : "text-[#52525B]"}`}>{icon}</span>
+      <span className="flex-1 text-left truncate">{label}</span>
+      {count != null && count > 0 && (
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+          active ? "bg-[#F97316]/20 text-[#F97316]" : "bg-[#27272A] text-[#71717A]"
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOLDER EMAIL ROW (for sent, trash, custom folder messages)
+   ═══════════════════════════════════════════════════════════ */
+
+function FolderEmailRow({ message, isSelected, onSelect, isSentView }: {
+  message: FolderMessage;
+  isSelected: boolean;
+  onSelect: () => void;
+  isSentView?: boolean;
+}) {
+  const displayName = isSentView
+    ? (message.recipients?.[0] || "Destinataire inconnu")
+    : (message.sender_name || message.sender_email);
+  const avatarColor = getAvatarColor(displayName, false);
+
+  return (
+    <div
+      className={`flex gap-3 px-4 py-3 border-b border-[#1C1C1F] cursor-pointer transition-colors ${
+        isSelected
+          ? "bg-[#1C1209] border-l-[3px] border-l-[#F97316]"
+          : "hover:bg-[#18181B] border-l-[3px] border-l-transparent"
+      }`}
+      onClick={onSelect}
+    >
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] text-white font-semibold shrink-0"
+        style={{ backgroundColor: avatarColor }}
+      >
+        {getInitials(displayName)}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-baseline">
+          <span className={`text-[13px] font-semibold truncate ${message.is_read ? "text-[#A1A1AA]" : "text-[#FAFAFA]"}`}>
+            {displayName}
+          </span>
+          <span className="text-[10px] text-[#52525B] shrink-0 ml-2">
+            {formatTime({ received_at: message.received_at } as DecisionEmail)}
+          </span>
+        </div>
+        <div className={`text-[12px] truncate mt-0.5 ${message.is_read ? "text-[#71717A]" : "text-[#D4D4D8]"}`}>
+          {message.subject || "(Sans objet)"}
+        </div>
+        <div className="text-[11px] text-[#52525B] truncate mt-0.5">{message.body_preview}</div>
+        {message.has_attachments && (
+          <div className="flex gap-1 mt-1">
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#27272A] text-[#71717A] font-medium flex items-center gap-0.5">
+              <Paperclip className="w-2.5 h-2.5" />PJ
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOLDER MESSAGE DETAIL (right panel for sent/trash/folder)
+   ═══════════════════════════════════════════════════════════ */
+
+function FolderMessageDetail({ message, locale }: { message: FolderMessage; locale: string }) {
+  return (
+    <>
+      {/* Subject + Meta */}
+      <div className="flex-shrink-0 px-6 pt-5 pb-3">
+        <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
+          {message.subject || "(Sans objet)"}
+        </h2>
+        <div className="mt-2 space-y-1 text-[12px] text-[#71717A]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#52525B] w-6 shrink-0">De</span>
+            <strong className="text-[#D4D4D8]">{message.sender_name || message.sender_email}</strong>
+            {message.sender_name && message.sender_email && (
+              <span className="text-[#52525B]">&lt;{message.sender_email}&gt;</span>
+            )}
+          </div>
+          {message.recipients && message.recipients.length > 0 && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[#52525B] w-6 shrink-0 mt-px">{"\u00c0"}</span>
+              <span className="text-[#A1A1AA]">{message.recipients.join(", ")}</span>
+            </div>
+          )}
+          {message.cc && message.cc.length > 0 && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[#52525B] w-6 shrink-0 mt-px">CC</span>
+              <span className="text-[#A1A1AA]">{message.cc.join(", ")}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span>{formatFullDate(message.received_at, locale)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Body preview (folder messages only have body_preview — full body requires separate Graph call) */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4">
+        <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
+          <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">
+            {message.body_preview || "Aucun contenu disponible"}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    EMAIL DETAIL PANEL (right panel)
    ═══════════════════════════════════════════════════════════ */
 
@@ -1000,16 +1399,32 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, onReply, onDelegate, on
         <h2 className="text-[18px] font-bold text-[#FAFAFA] leading-snug" style={{ fontFamily: "var(--font-display), 'Plus Jakarta Sans', sans-serif" }}>
           {safeStr(email.subject)}
         </h2>
-        <div className="flex items-center gap-2 mt-2 text-[12px] text-[#71717A] flex-wrap">
-          <span>De: <strong className="text-[#D4D4D8]">{safeStr(email.sender_name || email.sender_email)}</strong></span>
-          <span className="text-[#3F3F46]">&middot;</span>
-          <span>{formatFullDate(email.received_at, locale)}</span>
-          {email.project_name && (
-            <>
-              <span className="text-[#3F3F46]">&middot;</span>
-              <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium">{email.project_name}</span>
-            </>
+        <div className="mt-2 space-y-1 text-[12px] text-[#71717A]">
+          {/* From */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#52525B] w-6 shrink-0">De</span>
+            <strong className="text-[#D4D4D8]">{safeStr(email.sender_name || email.sender_email)}</strong>
+            {email.sender_name && email.sender_email && (
+              <span className="text-[#52525B]">&lt;{email.sender_email}&gt;</span>
+            )}
+          </div>
+          {/* To */}
+          {email.recipients && email.recipients.length > 0 && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[#52525B] w-6 shrink-0 mt-px">{"À"}</span>
+              <span className="text-[#A1A1AA]">{email.recipients.join(", ")}</span>
+            </div>
           )}
+          {/* Date + Project */}
+          <div className="flex items-center gap-2">
+            <span>{formatFullDate(email.received_at, locale)}</span>
+            {email.project_name && (
+              <>
+                <span className="text-[#3F3F46]">&middot;</span>
+                <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/10 text-[#60A5FA] text-[10px] font-medium">{email.project_name}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

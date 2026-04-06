@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ThemeToggle } from "./ThemeToggle";
@@ -26,9 +26,6 @@ import {
   MoreHorizontal,
   X,
   Newspaper,
-  Plus,
-  Camera,
-  Mic,
   LifeBuoy,
   ClipboardList,
   FileSpreadsheet,
@@ -214,9 +211,7 @@ export function Sidebar() {
   }
 
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
   const { activeProject } = useActiveProject();
-  const router = useRouter();
 
   const mobileBottomItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active" },
@@ -237,16 +232,6 @@ export function Sidebar() {
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
 
-  const fabActions = [
-    { labelKey: "fabNewTask" as const, icon: CheckSquare, action: () => router.push("/tasks?create=true") },
-    { labelKey: "fabTakePhoto" as const, icon: Camera, action: () => router.push("/visits/new") },
-    { labelKey: "fabVoiceNote" as const, icon: Mic, action: () => router.push("/visits/new?mode=audio") },
-  ];
-
-  const handleFabAction = useCallback((action: () => void) => {
-    action();
-    setFabOpen(false);
-  }, []);
 
   return (
     <>
@@ -418,7 +403,7 @@ export function Sidebar() {
           })}
           {/* Active Project button */}
           <button
-            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
+            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors",
               "text-[#71717A] hover:text-[#FAFAFA]"
@@ -439,7 +424,7 @@ export function Sidebar() {
             </span>
           </button>
           <button
-            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); setFabOpen(false); }}
+            onClick={() => { setMobileMoreOpen(!mobileMoreOpen); }}
             className={cn(
               "relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
               mobileMoreOpen ? "text-[#F97316]" : "text-[#71717A] hover:text-[#FAFAFA]"
@@ -499,59 +484,6 @@ export function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* FAB Backdrop */}
-      <AnimatePresence>
-        {fabOpen && (
-          <motion.div
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={() => setFabOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* FAB + Action Buttons */}
-      <div className="fixed right-4 z-[51] bottom-20 md:bottom-6 lg:bottom-6" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {/* Expanded action buttons */}
-        <AnimatePresence>
-          {fabOpen && fabActions.map((fab, i) => {
-            const FabIcon = fab.icon;
-            return (
-              <motion.button
-                key={fab.labelKey}
-                className="flex items-center gap-3 mb-3 group"
-                initial={{ opacity: 0, scale: 0.3, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.3, y: 20 }}
-                transition={{ delay: (fabActions.length - 1 - i) * 0.05, type: "spring", damping: 20, stiffness: 300 }}
-                onClick={() => handleFabAction(fab.action)}
-              >
-                <span className="rounded-lg bg-[#0F0F11] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] shadow-lg whitespace-nowrap">
-                  {t(fab.labelKey)}
-                </span>
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0F0F11] shadow-lg text-[#F97316] transition-colors group-hover:bg-[#F97316]/10">
-                  <FabIcon className="h-5 w-5" />
-                </span>
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
-
-        {/* FAB button */}
-        <motion.button
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F97316] text-white shadow-lg hover:bg-[#EA580C] transition-colors focus:outline-none focus:ring-2 focus:ring-[#F97316] focus:ring-offset-2"
-          onClick={() => { setFabOpen(!fabOpen); setMobileMoreOpen(false); }}
-          animate={{ rotate: fabOpen ? 45 : 0 }}
-          transition={{ type: "spring", damping: 15, stiffness: 200 }}
-          aria-label={fabOpen ? "Close" : "Actions"}
-          aria-expanded={fabOpen}
-        >
-          <Plus className="h-7 w-7" />
-        </motion.button>
-      </div>
     </>
   );
 }
