@@ -19,6 +19,9 @@ import {
   CalendarRange,
   TrendingUp,
   Database,
+  Search,
+  Download,
+  FileDown,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
@@ -924,12 +927,26 @@ function ComparisonTabContent({
   const [awardSuccess, setAwardSuccess] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Derive "effectively responded" requests: status === "responded" OR has associated quotes
   const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
   const effectivelyResponded = priceRequests.filter(
     (pr) => pr.status === "responded" || requestIdsWithQuotes.has(pr.id)
   );
+
+  // Search filter
+  const searchLower = searchQuery.toLowerCase().trim();
+  const filteredItems = searchLower
+    ? items.filter(
+        (i) =>
+          i.description?.toLowerCase().includes(searchLower) ||
+          i.item_number?.toLowerCase().includes(searchLower) ||
+          i.cfc_code?.toLowerCase().includes(searchLower) ||
+          i.material_group?.toLowerCase().includes(searchLower) ||
+          i.product_name?.toLowerCase().includes(searchLower)
+      )
+    : items;
 
   const respondedWithoutQuotes = priceRequests.filter(
     (pr) => (pr.status === "responded" || requestIdsWithQuotes.has(pr.id)) && !quotes.some((q) => q.request_id === pr.id)
@@ -1022,8 +1039,204 @@ function ComparisonTabContent({
     supplierNames[pr.id] = pr.suppliers?.company_name || "Fournisseur";
   }
 
+  // ── Export helpers ──────────────────────────────────────────
+  const buildExportData = () => {
+    const rows: Array<Record<string, any>> = [];
+    for (const group of materialGroups) {
+      const groupItems = filteredItems.filter((i) => i.material_group === group);
+      const groupRequests = effectivelyResponded.filter((pr) => pr.material_group === group);
+      if (groupRequests.length === 0) continue;
+      for (const item of groupItems) {
+        const row: Record<string, any> = {
+          Groupe: group,
+          "N° Poste": item.item_number || "",
+          Description: item.description || "",
+          Unité: item.unit || "",
+          Quantité: item.quantity != null ? Number(item.quantity) : "",
+        };
+        const prices: number[] = [];
+        for (const pr of groupRequests) {
+          const q = quotes.find((qt) => qt.request_id === pr.id && qt.item_id === item.id);
+          const price = q?.unit_price_ht ?? null;
+          row[supplierNames[pr.id] || "Fournisseur"] = price != null ? price : "";
+          if (price != null) prices.push(price);
+        }
+        const min = prices.length > 0 ? Math.min(...prices) : null;
+        const max = prices.length > 0 ? Math.max(...prices) : null;
+        row["Écart (%)"] = min && max && min > 0 ? Math.round(((max - min) / min) * 100) : "";
+        rows.push(row);
+      }
+    }
+    return rows;
+  };
+
+  const handleExportExcel = async () => {
+    const XLSX = await import("xlsx");
+    const data = buildExportData();
+    if (data.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    // Auto-size columns
+    const colWidths = Object.keys(data[0]).map((key) => {
+      const maxLen = Math.max(key.length, ...data.map((r) => String(r[key] ?? "").length));
+      return { wch: Math.min(maxLen + 2, 60) };
+    });
+    ws["!cols"] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Analyse comparative");
+    XLSX.writeFile(wb, `analyse-comparative-${submissionId.slice(0, 8)}.xlsx`);
+  };
+
+  const handleExportPdf = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const data = buildExportData();
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // ── Header bar ──
+    doc.setFillColor(15, 15, 17); // #0F0F11
+    doc.rect(0, 0, pageW, 22, "F");
+    doc.setFillColor(249, 115, 22); // #F97316 orange accent line
+    doc.rect(0, 22, pageW, 1.2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(250, 250, 250); // #FAFAFA
+    doc.text("Cantaia", 12, 14);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(161, 161, 170); // #A1A1AA
+    doc.text("Analyse comparative des prix", 42, 14);
+    doc.setFontSize(8);
+    doc.text(new Date().toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" }), pageW - 12, 14, { align: "right" });
+
+    // ── Table ──
+    const startY = 28;
+    const rowH = 7;
+    const margin = 8;
+    const availW = pageW - margin * 2;
+    // Proportional column widths: Description gets more space
+    const descIdx = headers.indexOf("Description");
+    const baseCols = headers.length - 1; // all except Description
+    const descShare = 3; // Description = 3x normal column
+    const totalShares = baseCols + descShare;
+    const colW = availW / totalShares;
+    const colWidths = headers.map((_, i) => i === descIdx ? colW * descShare : colW);
+
+    let y = startY;
+    // Header row
+    doc.setFillColor(39, 39, 42); // #27272A
+    doc.rect(margin, y, availW, rowH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(250, 250, 250);
+    let x = margin;
+    for (let i = 0; i < headers.length; i++) {
+      doc.text(headers[i], x + 1.5, y + 5, { maxWidth: colWidths[i] - 3 });
+      x += colWidths[i];
+    }
+    y += rowH;
+
+    // Data rows
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    let currentGroup = "";
+    for (const row of data) {
+      // New page check
+      if (y + rowH > doc.internal.pageSize.getHeight() - 10) {
+        doc.addPage();
+        y = 10;
+      }
+      // Group separator
+      if (row.Groupe !== currentGroup) {
+        currentGroup = row.Groupe;
+        doc.setFillColor(24, 24, 27); // #18181B
+        doc.rect(margin, y, availW, rowH, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(249, 115, 22); // orange
+        doc.text(String(currentGroup), margin + 1.5, y + 5);
+        doc.setFont("helvetica", "normal");
+        y += rowH;
+        if (y + rowH > doc.internal.pageSize.getHeight() - 10) {
+          doc.addPage();
+          y = 10;
+        }
+      }
+      // Alternate row bg
+      const rowIdx = data.indexOf(row);
+      if (rowIdx % 2 === 0) {
+        doc.setFillColor(24, 24, 27); // #18181B
+        doc.rect(margin, y, availW, rowH, "F");
+      }
+      x = margin;
+      doc.setTextColor(200, 200, 200);
+      for (let i = 0; i < headers.length; i++) {
+        const val = row[headers[i]];
+        const text = val != null && val !== "" ? String(typeof val === "number" && i >= 5 ? val.toFixed(2) : val) : "—";
+        // Right-align numeric columns (after Quantité)
+        if (i >= 4 && headers[i] !== "Description") {
+          doc.text(text, x + colWidths[i] - 1.5, y + 5, { align: "right", maxWidth: colWidths[i] - 3 });
+        } else {
+          doc.text(text, x + 1.5, y + 5, { maxWidth: colWidths[i] - 3 });
+        }
+        x += colWidths[i];
+      }
+      // Row border
+      doc.setDrawColor(39, 39, 42);
+      doc.line(margin, y + rowH, margin + availW, y + rowH);
+      y += rowH;
+    }
+
+    // ── Footer ──
+    const footerY = doc.internal.pageSize.getHeight() - 6;
+    doc.setFontSize(6);
+    doc.setTextColor(113, 113, 122);
+    doc.text("Cantaia — L'IA au service du chantier", margin, footerY);
+    doc.text(`Généré le ${new Date().toLocaleDateString("fr-CH")}`, pageW - margin, footerY, { align: "right" });
+
+    doc.save(`analyse-comparative-${submissionId.slice(0, 8)}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Toolbar: search + export */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
+          <input
+            type="text"
+            placeholder="Rechercher par description, n° poste, code CFC..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm bg-[#18181B] border border-[#27272A] rounded-lg text-[#FAFAFA] placeholder:text-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/30"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#FAFAFA]">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {searchQuery && (
+          <span className="text-xs text-[#71717A]">{filteredItems.length} résultat(s)</span>
+        )}
+        <div className="flex gap-2 sm:ml-auto">
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#FAFAFA] border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] transition-colors"
+          >
+            <FileDown className="h-3.5 w-3.5 text-green-500" />
+            Excel
+          </button>
+          <button
+            onClick={handleExportPdf}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#FAFAFA] border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] transition-colors"
+          >
+            <Download className="h-3.5 w-3.5 text-red-400" />
+            PDF
+          </button>
+        </div>
+      </div>
+
       {/* Award success banner */}
       {awardSuccess && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-emerald-400">
@@ -1077,21 +1290,21 @@ function ComparisonTabContent({
       )}
 
       {materialGroups.map((group) => {
-        const groupItems = items.filter((i) => i.material_group === group);
+        const groupItems = filteredItems.filter((i) => i.material_group === group);
         const groupRequests = effectivelyResponded.filter((pr) => pr.material_group === group);
-        if (groupRequests.length === 0) return null;
+        if (groupRequests.length === 0 || groupItems.length === 0) return null;
 
         return (
           <div key={group} className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
             <div className="px-4 py-3 bg-[#27272A] border-b border-[#27272A] flex items-center gap-3">
               <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
-              <span className="text-xs text-[#71717A]">{groupRequests.length} offre(s)</span>
+              <span className="text-xs text-[#71717A]">{groupRequests.length} offre(s) · {groupItems.length} poste(s)</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
                   <tr className="border-b border-[#27272A] text-[11px] font-medium text-[#71717A] uppercase">
-                    <th className="text-left px-3 py-2 sticky left-0 bg-[#18181B] z-10 w-48">Description</th>
+                    <th className="text-left px-3 py-2 sticky left-0 bg-[#18181B] z-10 min-w-[280px]">Description</th>
                     <th className="text-center px-2 py-2 w-12">Unité</th>
                     <th className="text-right px-2 py-2 w-16">Qté</th>
                     {groupRequests.map((pr) => {
@@ -1139,7 +1352,7 @@ function ComparisonTabContent({
                       <tr key={item.id} className="hover:bg-[#1C1C1F] text-sm">
                         <td className="px-3 py-2 sticky left-0 bg-[#18181B] z-10">
                           <div className="text-xs font-mono text-[#71717A]">{item.item_number}</div>
-                          <div className="text-sm text-[#FAFAFA] truncate max-w-[200px]">{item.description}</div>
+                          <div className="text-sm text-[#FAFAFA] whitespace-normal">{item.description}</div>
                         </td>
                         <td className="px-2 py-2 text-center text-xs text-[#71717A]">{item.unit}</td>
                         <td className="px-2 py-2 text-right text-[#71717A] text-xs">
