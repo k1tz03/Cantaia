@@ -167,9 +167,18 @@ export default function DashboardPage() {
       .catch(() => {});
 
     fetch("/api/briefing/today")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.briefing) setBriefing(d.briefing);
+      .then(async (r) => {
+        if (r.ok) {
+          const d = await r.json();
+          if (d.briefing) setBriefing(d.briefing);
+        } else if (r.status === 404) {
+          // No briefing yet today — auto-generate
+          const genRes = await fetch("/api/briefing/generate", { method: "POST" });
+          if (genRes.ok) {
+            const d = await genRes.json();
+            if (d.briefing) setBriefing(d.briefing);
+          }
+        }
       })
       .catch(() => {});
 
