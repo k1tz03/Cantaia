@@ -129,6 +129,23 @@ export function ArchiveSettingsTab({
   const [attachmentsMode, setAttachmentsMode] = useState<AttachmentsMode>(
     (archiveAttachmentsMode as AttachmentsMode) || "subfolder"
   );
+
+  // ─── Fetch actual settings from DB on mount (props may be stale/hardcoded) ───
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const p = data?.project;
+        if (!p) return;
+        if (typeof p.archive_enabled === "boolean") setEnabled(p.archive_enabled);
+        if (p.archive_path) setPath(p.archive_path);
+        if (p.archive_structure) setStructure(p.archive_structure as ArchiveStructure);
+        if (p.archive_filename_format) setFilenameFormat(p.archive_filename_format as FilenameFormat);
+        if (p.archive_attachments_mode) setAttachmentsMode(p.archive_attachments_mode as AttachmentsMode);
+      })
+      .catch(() => { /* use props as fallback */ });
+  }, [projectId]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [archiving, setArchiving] = useState(false);

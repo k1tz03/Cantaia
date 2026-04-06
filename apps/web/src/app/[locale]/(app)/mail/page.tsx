@@ -1088,18 +1088,10 @@ function MailPageInner() {
               onMoveToFolder={moveToFolder}
               onReassignProject={reassignProject}
               onCreateNewProject={(em) => setNewProjectEmail(em)}
-              onCreateFolder={async (name) => {
-                try {
-                  const res = await fetch("/api/email/folders", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name }),
-                  });
-                  if (res.ok) {
-                    setFoldersLoaded(false);
-                    fetchFolders();
-                  }
-                } catch { /* non-blocking */ }
+              onCreateFolder={async () => {
+                // Just refresh the folder list — creation is handled by the caller
+                setFoldersLoaded(false);
+                fetchFolders();
               }}
             />
           ) : selectedFolderMessage ? (
@@ -1705,11 +1697,27 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
               )}
               {/* Create new group option — always available */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   setFolderDropdownOpen(false);
                   const folderName = prompt("Nom du nouveau groupe :");
                   if (folderName && folderName.trim()) {
-                    onCreateFolder(folderName.trim());
+                    try {
+                      // Create the folder
+                      const res = await fetch("/api/email/folders", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name: folderName.trim() }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        // Move the email to the newly created folder
+                        if (data.folder?.id) {
+                          onMoveToFolder(email.id, data.folder.id, folderName.trim());
+                        }
+                        // Also refresh folders list
+                        onCreateFolder(folderName.trim());
+                      }
+                    } catch { /* non-blocking */ }
                   }
                 }}
                 className="w-full text-left px-3 py-2 text-[12px] text-[#3B82F6] hover:bg-[#3B82F6]/10 flex items-center gap-2"
