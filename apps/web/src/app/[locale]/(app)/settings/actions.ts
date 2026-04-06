@@ -25,7 +25,7 @@ export async function updateProfileAction(data: UpdateUserInput) {
   // but first_name/last_name come from user_metadata which may be empty.
   const { data: currentProfile } = await (admin as any)
     .from("users")
-    .select("first_name, last_name, phone, preferred_language, job_title, age_range, gender")
+    .select("first_name, last_name, phone, preferred_language, job_title, age_range, gender, email_signature")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -67,6 +67,7 @@ export async function updateProfileAction(data: UpdateUserInput) {
   if (merged.job_title !== undefined) updateData.job_title = merged.job_title;
   if (merged.age_range !== undefined) updateData.age_range = merged.age_range;
   if (merged.gender !== undefined) updateData.gender = merged.gender;
+  if (data.email_signature !== undefined) updateData.email_signature = data.email_signature;
 
   const { error: dbError } = await (admin as any)
     .from("users")

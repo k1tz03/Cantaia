@@ -65,7 +65,7 @@ export async function POST(
     // Get user profile for email signature (cast: job_title from migration 041)
     const { data: userProfile } = await (admin as any)
       .from("users")
-      .select("first_name, last_name, email, organization_id, job_title")
+      .select("first_name, last_name, email, organization_id, job_title, email_signature")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -252,6 +252,10 @@ export async function POST(
               subject = effectiveCustomSubject || `Demande de prix — ${projectName} — ${group.material_group}`;
               const itemsTableHtml = generateItemsTableHtml(groupItems);
               htmlContent = customBodyToHtml(effectiveCustomBody, itemsTableHtml, trackingCode);
+              // Append user signature if available
+              if (userProfile.email_signature?.trim()) {
+                htmlContent += `<br/><p>--<br/>${userProfile.email_signature.replace(/\n/g, "<br/>")}</p>`;
+              }
               console.log("[SEND] Using custom email body for supplier:", supplierEmail);
             } else {
               const emailBody = generatePriceRequestEmail({
@@ -266,6 +270,7 @@ export async function POST(
                 senderCompany: org?.name || "",
                 senderTitle: userProfile.job_title,
                 language: body.language || "fr",
+                emailSignature: userProfile.email_signature || "",
               });
               subject = effectiveCustomSubject || emailBody.subject;
               htmlContent = emailBody.html;
@@ -366,6 +371,7 @@ function generatePriceRequestEmail(opts: {
   senderCompany: string;
   senderTitle: string | null;
   language: "fr" | "en" | "de";
+  emailSignature?: string;
 }) {
   const contactFirstName = opts.contactName?.split(/\s+/)[0] || null;
   const greeting = contactFirstName ? `Bonjour ${contactFirstName}` : "Bonjour";
@@ -406,9 +412,11 @@ function generatePriceRequestEmail(opts: {
 
 <p>Nous restons à votre disposition pour tout renseignement complémentaire.</p>
 
-<p>Cordialement,<br/>
+${opts.emailSignature?.trim()
+    ? `<p>--<br/>${opts.emailSignature.replace(/\n/g, "<br/>")}</p>`
+    : `<p>Cordialement,<br/>
 <strong>${opts.senderName}</strong>${opts.senderTitle ? `<br/>${opts.senderTitle}` : ""}<br/>
-${opts.senderCompany}</p>
+${opts.senderCompany}</p>`}
 `.trim();
 
   return { subject, html };

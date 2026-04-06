@@ -20,6 +20,7 @@ export const createUserSchema = z.object({
   job_title: z.string().max(200).optional(),
   age_range: z.enum(["18-25", "26-35", "36-45", "46-55", "56+"]).optional(),
   gender: z.enum(["homme", "femme", "autre", "non_specifie"]).optional(),
+  email_signature: z.string().max(5000).optional(),
 });
 
 export const updateUserSchema = createUserSchema.partial();

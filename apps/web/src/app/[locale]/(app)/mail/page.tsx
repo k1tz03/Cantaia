@@ -412,6 +412,9 @@ function MailPageInner() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [newProjectEmail, setNewProjectEmail] = useState<DecisionEmail | null>(null);
 
+  // Email signature
+  const [userSignature, setUserSignature] = useState("");
+
   // FIX 5 — Lock body scroll when any popup is open
   const anyPopupOpen = !!(replyEmail || delegateEmail || transferEmail || composeOpen);
   useBodyScrollLock(anyPopupOpen);
@@ -463,6 +466,11 @@ function MailPageInner() {
 
   useEffect(() => {
     fetchData();
+    // Fetch user signature for compose/reply
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((d) => { if (d.profile?.email_signature) setUserSignature(d.profile.email_signature); })
+      .catch(() => {});
   }, [fetchData]);
 
   const syncEmails = useCallback(async () => {
@@ -1120,6 +1128,7 @@ function MailPageInner() {
       {replyEmail && (
         <ReplyModal
           email={replyEmail}
+          signature={userSignature}
           onClose={() => setReplyEmail(null)}
           onDone={(emailId) => {
             const sentEmail = replyEmail;
@@ -1157,6 +1166,7 @@ function MailPageInner() {
       {/* Compose Modal */}
       {composeOpen && (
         <ComposeModal
+          signature={userSignature}
           onClose={() => setComposeOpen(false)}
           onSent={() => { setComposeOpen(false); fetchData(); }}
         />
@@ -1961,8 +1971,9 @@ function ThreadView({ thread, currentUserEmail }: {
    REPLY MODAL (FIX 3 — centered popup, 2 columns, CC/CCI)
    ═══════════════════════════════════════════════════════════ */
 
-function ReplyModal({ email, onClose, onDone }: {
+function ReplyModal({ email, signature, onClose, onDone }: {
   email: DecisionEmail;
+  signature?: string;
   onClose: () => void;
   onDone: (emailId: string) => void;
 }) {
@@ -2051,10 +2062,16 @@ function ReplyModal({ email, onClose, onDone }: {
     setSending(true);
     setSendError(null);
     try {
+      // Append signature if available
+      let fullBody = replyText.replace(/\n/g, "<br>");
+      if (signature?.trim()) {
+        fullBody += "<br><br>--<br>" + signature.replace(/\n/g, "<br>");
+      }
+
       const payload: Record<string, any> = {
         to: [email.sender_email],
         subject: t("email.rePrefix", { subject: email.subject }),
-        body: replyText.replace(/\n/g, "<br>"),
+        body: fullBody,
         reply_to_id: email.outlook_message_id,
       };
       if (cc.trim()) payload.cc = cc.split(",").map((s: string) => s.trim()).filter(Boolean);
@@ -2237,6 +2254,14 @@ function ReplyModal({ email, onClose, onDone }: {
                     )}
                   </div>
                 </div>
+                )}
+
+                {/* Signature preview */}
+                {signature?.trim() && (
+                  <div className="mt-3 border-t border-dashed border-[#27272A] pt-3">
+                    <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1.5">Signature</p>
+                    <div className="text-xs text-[#71717A] whitespace-pre-wrap">{signature}</div>
+                  </div>
                 )}
               </div>
             </div>
@@ -2506,7 +2531,7 @@ interface ContactSuggestion {
   source: string;
 }
 
-function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+function ComposeModal({ signature, onClose, onSent }: { signature?: string; onClose: () => void; onSent: () => void }) {
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [toInput, setToInput] = useState("");
   const [ccInput, setCcInput] = useState("");
@@ -2659,10 +2684,16 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
     setSending(true);
     setSendError(null);
     try {
+      // Append signature if available
+      let fullBody = body.replace(/\n/g, "<br>");
+      if (signature?.trim()) {
+        fullBody += "<br><br>--<br>" + signature.replace(/\n/g, "<br>");
+      }
+
       const formData = new FormData();
       formData.append("to", JSON.stringify(toEmails));
       formData.append("subject", subject);
-      formData.append("body", body.replace(/\n/g, "<br>"));
+      formData.append("body", fullBody);
       if (ccInput.trim()) {
         formData.append("cc", JSON.stringify(ccInput.split(",").map((s: string) => s.trim()).filter(Boolean)));
       }
@@ -2795,6 +2826,13 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
               placeholder="Rédigez votre message..."
               className="w-full h-full min-h-[200px] p-3 text-[13px] border border-[#3F3F46] rounded-lg resize-none text-[#FAFAFA] bg-[#0F0F11] placeholder:text-[#52525B] focus:outline-none focus:ring-1 focus:ring-[#F97316] leading-relaxed"
             />
+            {/* Signature preview */}
+            {signature?.trim() && (
+              <div className="mt-2 border-t border-dashed border-[#27272A] pt-2">
+                <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1">Signature (ajoutée automatiquement)</p>
+                <div className="text-xs text-[#71717A] whitespace-pre-wrap">{signature}</div>
+              </div>
+            )}
             {/* Attachment chips */}
             {attachments.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">

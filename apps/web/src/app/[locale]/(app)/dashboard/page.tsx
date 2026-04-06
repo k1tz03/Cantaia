@@ -56,7 +56,21 @@ interface ProjectItem {
   start_date: string | null;
   end_date: string | null;
 }
-interface BriefingItem {
+interface BriefingData {
+  mode?: "ai" | "fallback";
+  greeting?: string;
+  priority_alerts?: string[];
+  projects?: Array<{
+    project_id: string;
+    name: string;
+    status_emoji: string;
+    summary: string;
+    action_items: string[];
+  }>;
+  meetings_today?: Array<{ time: string; project: string; title: string }>;
+  submission_deadlines?: Array<{ title: string; deadline: string; days_remaining: number; project: string; note: string }>;
+  global_summary?: string;
+  // Legacy fallback fields
   content?: {
     summary?: string;
     sections?: { title: string; items: string[] }[];
@@ -151,7 +165,8 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [briefing, setBriefing] = useState<BriefingItem | null>(null);
+  const [briefing, setBriefing] = useState<BriefingData | null>(null);
+  const [briefingGenerating, setBriefingGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
@@ -167,8 +182,22 @@ export default function DashboardPage() {
       .catch(() => {});
 
     fetch("/api/briefing/today")
-      .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
-      .then((d) => {
+      .then(async (r) => {
+        if (r.status === 404) {
+          // No briefing for today — auto-generate one
+          setBriefingGenerating(true);
+          try {
+            const genRes = await fetch("/api/briefing/generate", { method: "POST" });
+            if (genRes.ok) {
+              const genData = await genRes.json();
+              if (genData.briefing) setBriefing(genData.briefing);
+            }
+          } catch { /* ignore */ }
+          setBriefingGenerating(false);
+          return;
+        }
+        if (!r.ok) throw new Error(`${r.status}`);
+        const d = await r.json();
         if (d.briefing) setBriefing(d.briefing);
       })
       .catch(() => {});
@@ -258,9 +287,28 @@ export default function DashboardPage() {
 
   /* ---- Briefing highlights ---- */
   const briefingHighlights = useMemo(() => {
-    if (!briefing?.content) return [];
-    if (briefing.content.highlights?.length) return briefing.content.highlights.slice(0, 3);
-    if (briefing.content.sections?.length) {
+    if (!briefing) return [];
+
+    // Primary: priority_alerts from the BriefingContent (AI or fallback)
+    if (briefing.priority_alerts?.length) {
+      return briefing.priority_alerts.slice(0, 3);
+    }
+
+    // Secondary: project summaries
+    if (briefing.projects?.length) {
+      return briefing.projects
+        .slice(0, 3)
+        .map((p) => `${p.status_emoji || "📋"} ${p.name}: ${p.summary}`);
+    }
+
+    // Tertiary: global_summary as a single item
+    if (briefing.global_summary) {
+      return [briefing.global_summary];
+    }
+
+    // Legacy fallback (old BriefingItem format)
+    if (briefing.content?.highlights?.length) return briefing.content.highlights.slice(0, 3);
+    if (briefing.content?.sections?.length) {
       const items: string[] = [];
       for (const sec of briefing.content.sections) {
         for (const item of sec.items || []) {
@@ -270,6 +318,7 @@ export default function DashboardPage() {
       }
       return items;
     }
+
     return [];
   }, [briefing]);
 
@@ -663,8 +712,16 @@ export default function DashboardPage() {
                 <Sparkles className="h-4 w-4" />
                 {t("aiBriefingTitle")}
               </div>
-              {briefingHighlights.length > 0 ? (
+              {briefingGenerating ? (
+                <div className="flex items-center gap-2 text-[12px] text-[#F97316] animate-pulse">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <span>Génération du briefing en cours...</span>
+                </div>
+              ) : briefingHighlights.length > 0 ? (
                 <div className="space-y-1.5">
+                  {briefing?.greeting && (
+                    <p className="text-[11px] text-[#A1A1AA] mb-1 italic">{briefing.greeting}</p>
+                  )}
                   {briefingHighlights.map((item, i) => (
                     <div key={i} className="flex gap-2 text-[12px] text-[#E4E4E7] leading-snug">
                       <div className="w-[5px] h-[5px] rounded-full bg-[#F97316] mt-[6px] shrink-0" />

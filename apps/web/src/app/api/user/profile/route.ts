@@ -20,8 +20,8 @@ export async function GET() {
   const admin = createAdminClient();
 
   // Try full SELECT first, then fallback to basic columns if some don't exist yet (migrations not applied)
-  const FULL_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, age_range, gender, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects, is_superadmin";
-  const BASIC_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, avatar_url, outlook_sync_enabled, microsoft_access_token, is_superadmin";
+  const FULL_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, job_title, age_range, gender, avatar_url, outlook_sync_enabled, last_sync_at, microsoft_access_token, briefing_enabled, briefing_time, briefing_email, briefing_projects, is_superadmin, email_signature";
+  const BASIC_COLUMNS = "id, organization_id, role, first_name, last_name, phone, preferred_language, email, avatar_url, outlook_sync_enabled, microsoft_access_token, is_superadmin, email_signature";
   const MINIMAL_COLUMNS = "id, organization_id, role, first_name, last_name, email, is_superadmin";
 
   let profile = null;
@@ -69,12 +69,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const admin = createAdminClient();
 
-  // Only allow updating specific briefing fields
+  // Allow updating briefing fields + email signature
   const allowedFields: Record<string, unknown> = {};
   if (typeof body.briefing_enabled === "boolean") allowedFields.briefing_enabled = body.briefing_enabled;
   if (typeof body.briefing_time === "string") allowedFields.briefing_time = body.briefing_time;
   if (typeof body.briefing_email === "boolean") allowedFields.briefing_email = body.briefing_email;
   if (Array.isArray(body.briefing_projects)) allowedFields.briefing_projects = body.briefing_projects;
+  if (typeof body.email_signature === "string") allowedFields.email_signature = body.email_signature;
 
   if (Object.keys(allowedFields).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
