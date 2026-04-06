@@ -1352,6 +1352,7 @@ export interface OfferLineItem {
   is_cheapest: boolean;
   is_anomaly: boolean;
   anomaly_reason: string | null;
+  supplier_remarks: string | null;
   status: OfferLineItemStatus;
   created_at: string;
 }
@@ -1610,7 +1611,7 @@ export type SupplierOfferInsert = WithOptionalDefaults<
 
 export type OfferLineItemInsert = WithOptionalDefaults<
   OfferLineItem,
-  "id" | "total_price" | "currency" | "match_confidence" | "supplier_description" | "supplier_quantity" | "supplier_unit" | "normalized_description" | "cfc_subcode" | "unit_normalized" | "vs_average_percent" | "vs_best_percent" | "is_cheapest" | "is_anomaly" | "anomaly_reason" | "status" | "created_at"
+  "id" | "total_price" | "currency" | "match_confidence" | "supplier_description" | "supplier_quantity" | "supplier_unit" | "normalized_description" | "cfc_subcode" | "unit_normalized" | "vs_average_percent" | "vs_best_percent" | "is_cheapest" | "is_anomaly" | "anomaly_reason" | "supplier_remarks" | "status" | "created_at"
 >;
 
 export type PricingAlertInsert = WithOptionalDefaults<

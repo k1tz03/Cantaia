@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { formatCHF } from "@/lib/format";
@@ -24,6 +24,9 @@ import {
   FileDown,
   Mail,
   ChevronDown,
+  MessageSquare,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
@@ -130,6 +133,7 @@ interface PriceRequestData {
   deadline: string | null;
   relance_count: number;
   last_relance_at: string | null;
+  conditions_text: string | null;
   suppliers?: {
     id: string;
     company_name: string;
@@ -148,6 +152,7 @@ interface QuoteData {
   currency: string;
   confidence: number | null;
   extracted_at: string;
+  supplier_remarks: string | null;
 }
 
 type Tab = "items" | "requests" | "comparison" | "budget" | "summary";
@@ -295,11 +300,32 @@ export default function SubmissionDetailPage() {
 
     try {
       // ── Step 1: PREPARE — clear items, fast-path Excel/text PDFs, or get chunk plan ──
-      const prepRes = await fetch(`/api/submissions/${id}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      // 180s client timeout: large Excel files (177+ items) can take 60-90s for Claude
+      // to analyze. Server maxDuration=300, Anthropic SDK timeout=120s. Client timeout
+      // must exceed SDK timeout so the server returns a proper error rather than client
+      // aborting prematurely with a cryptic "Request timed out".
+      const prepController = new AbortController();
+      const prepTimeoutId = setTimeout(() => prepController.abort(), 180_000);
+
+      let prepRes: Response;
+      try {
+        prepRes = await fetch(`/api/submissions/${id}/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          signal: prepController.signal,
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(prepTimeoutId);
+        if (fetchErr.name === "AbortError") {
+          throw new Error(
+            "L'analyse a dépassé 3 minutes. Le document est peut-être trop volumineux. " +
+            "Essayez de réduire le nombre de feuilles ou de lignes dans le fichier Excel."
+          );
+        }
+        throw fetchErr;
+      }
+      clearTimeout(prepTimeoutId);
 
       if (!prepRes.ok) {
         const err = await prepRes.json().catch(() => ({ error: `HTTP ${prepRes.status}` }));
@@ -914,6 +940,7 @@ function ComparisonTabContent({
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedRemarks, setExpandedRemarks] = useState<Set<string>>(new Set());
   const [emailModal, setEmailModal] = useState<{ requestId: string; supplierName: string } | null>(null);
   const [emailData, setEmailData] = useState<{ subject: string; sender_email: string; sender_name: string; received_at: string; body_html: string | null; body_text: string | null } | null>(null);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -941,6 +968,15 @@ function ComparisonTabContent({
   const respondedWithoutQuotes = priceRequests.filter(
     (pr) => (pr.status === "responded" || requestIdsWithQuotes.has(pr.id)) && !quotes.some((q) => q.request_id === pr.id)
   );
+
+  const toggleRemarks = (itemId: string) => {
+    setExpandedRemarks((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
 
   const handleExtractPrices = async () => {
     setExtracting(true);
@@ -1066,15 +1102,20 @@ function ComparisonTabContent({
           Quantité: item.quantity != null ? Number(item.quantity) : "",
         };
         const prices: number[] = [];
+        const remarksArr: string[] = [];
         for (const pr of groupRequests) {
           const q = quotes.find((qt) => qt.request_id === pr.id && qt.item_id === item.id);
           const price = q?.unit_price_ht ?? null;
           row[supplierNames[pr.id] || "Fournisseur"] = price != null ? price : "";
           if (price != null) prices.push(price);
+          if (q?.supplier_remarks) {
+            remarksArr.push(`${supplierNames[pr.id]}: ${q.supplier_remarks}`);
+          }
         }
         const min = prices.length > 0 ? Math.min(...prices) : null;
         const max = prices.length > 0 ? Math.max(...prices) : null;
         row["Écart (%)"] = min && max && min > 0 ? Math.round(((max - min) / min) * 100) : "";
+        row["Remarques"] = remarksArr.length > 0 ? remarksArr.join(" | ") : "";
         rows.push(row);
       }
     }
@@ -1394,6 +1435,22 @@ function ComparisonTabContent({
               <span className="text-sm font-medium text-[#FAFAFA]">{group}</span>
               <span className="text-xs text-[#71717A]">{groupRequests.length} offre(s) · {groupItems.length} poste(s)</span>
             </div>
+
+            {/* Conditions banners per supplier for this group */}
+            {groupRequests.some((pr) => pr.conditions_text) && (
+              <div className="px-4 py-2.5 border-b border-[#27272A] space-y-2">
+                {groupRequests.filter((pr) => pr.conditions_text).map((pr) => (
+                  <div key={`cond-${pr.id}`} className="flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2">
+                    <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-medium text-amber-400">{supplierNames[pr.id]} — Conditions</span>
+                      <p className="text-xs text-[#A1A1AA] mt-0.5 whitespace-pre-line leading-relaxed">{pr.conditions_text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px]">
                 <thead>
@@ -1431,64 +1488,103 @@ function ComparisonTabContent({
                     <th className="text-right px-3 py-2 w-20 bg-[#27272A]">Ecart</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-[#27272A]">
                   {groupItems.map((item) => {
                     const prices = groupRequests.map((pr) => {
                       const q = quotes.find((q) => q.request_id === pr.id && q.item_id === item.id);
-                      return { requestId: pr.id, price: q?.unit_price_ht ?? null };
+                      return { requestId: pr.id, price: q?.unit_price_ht ?? null, remarks: q?.supplier_remarks ?? null };
                     });
                     const validPrices = prices.filter((p) => p.price !== null).map((p) => p.price!);
                     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : null;
                     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : null;
                     const gap = minPrice && maxPrice && minPrice > 0 ? Math.round(((maxPrice - minPrice) / minPrice) * 100) : null;
+                    const itemRemarks = prices.filter((p) => p.remarks);
+                    const hasRemarks = itemRemarks.length > 0;
+                    const isExpanded = expandedRemarks.has(item.id);
 
                     return (
-                      <tr key={item.id} className="hover:bg-[#1C1C1F] text-sm">
-                        <td className="px-3 py-2 sticky left-0 bg-[#18181B] z-10">
-                          <div className="text-xs font-mono text-[#71717A]">{item.item_number}</div>
-                          <div className="text-sm text-[#FAFAFA] whitespace-normal">{item.description}</div>
-                        </td>
-                        <td className="px-2 py-2 text-center text-xs text-[#71717A]">{item.unit}</td>
-                        <td className="px-2 py-2 text-right text-[#71717A] text-xs">
-                          {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
-                        </td>
-                        {prices.map((p) => {
-                          const isCheapest = p.price !== null && p.price === minPrice;
-                          const isMostExpensive = p.price !== null && p.price === maxPrice && validPrices.length > 1;
-                          const prReq = groupRequests.find((r) => r.id === p.requestId);
-                          return (
-                            <td
-                              key={p.requestId}
-                              onClick={() => {
-                                if (p.price !== null && prReq) {
-                                  openEmailModal(p.requestId, supplierNames[p.requestId] || "Fournisseur");
-                                }
-                              }}
-                              className={`px-3 py-2 text-right text-sm ${
-                                isCheapest ? "text-green-400 font-bold bg-green-500/10" :
-                                isMostExpensive ? "text-red-600" : "text-[#FAFAFA]"
-                              } ${p.price !== null ? "cursor-pointer hover:bg-[#27272A]/50 transition-colors" : ""}`}
-                              title={p.price !== null ? "Cliquer pour voir l'email du fournisseur" : undefined}
-                            >
-                              {p.price !== null ? (
-                                <span className="inline-flex items-center gap-1">
-                                  {p.price.toFixed(2)}
-                                  <Mail className="h-3 w-3 text-[#52525B] opacity-0 group-hover:opacity-100" />
-                                </span>
-                              ) : (
-                                <span className="text-xs text-[#71717A]">—</span>
+                      <React.Fragment key={item.id}>
+                        <tr className="hover:bg-[#1C1C1F] text-sm group">
+                          <td className="px-3 py-2 sticky left-0 bg-[#18181B] z-10">
+                            <div className="flex items-start gap-1.5">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-mono text-[#71717A]">{item.item_number}</div>
+                                <div className="text-sm text-[#FAFAFA] whitespace-normal">{item.description}</div>
+                              </div>
+                              {hasRemarks && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRemarks(item.id)}
+                                  className="shrink-0 mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.5 rounded-full transition-colors"
+                                  title="Voir les remarques fournisseurs"
+                                >
+                                  <MessageSquare className="h-2.5 w-2.5" />
+                                  {itemRemarks.length}
+                                  <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                </button>
                               )}
+                            </div>
+                          </td>
+                          <td className="px-2 py-2 text-center text-xs text-[#71717A]">{item.unit}</td>
+                          <td className="px-2 py-2 text-right text-[#71717A] text-xs">
+                            {item.quantity != null ? Number(item.quantity).toLocaleString("fr-CH") : "—"}
+                          </td>
+                          {prices.map((p) => {
+                            const isCheapest = p.price !== null && p.price === minPrice;
+                            const isMostExpensive = p.price !== null && p.price === maxPrice && validPrices.length > 1;
+                            const prReq = groupRequests.find((r) => r.id === p.requestId);
+                            return (
+                              <td
+                                key={p.requestId}
+                                onClick={() => {
+                                  if (p.price !== null && prReq) {
+                                    openEmailModal(p.requestId, supplierNames[p.requestId] || "Fournisseur");
+                                  }
+                                }}
+                                className={`px-3 py-2 text-right text-sm ${
+                                  isCheapest ? "text-green-400 font-bold bg-green-500/10" :
+                                  isMostExpensive ? "text-red-600" : "text-[#FAFAFA]"
+                                } ${p.price !== null ? "cursor-pointer hover:bg-[#27272A]/50 transition-colors" : ""}`}
+                                title={p.price !== null ? "Cliquer pour voir l'email du fournisseur" : undefined}
+                              >
+                                {p.price !== null ? (
+                                  <span className="inline-flex items-center gap-1">
+                                    {p.price.toFixed(2)}
+                                    {p.remarks && <MessageSquare className="h-2.5 w-2.5 text-amber-500/60" />}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-[#71717A]">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-2 text-right bg-[#27272A]">
+                            {gap !== null ? (
+                              <span className={`text-xs font-medium ${gap > 15 ? "text-red-600" : gap > 5 ? "text-amber-600" : "text-green-600"}`}>
+                                {gap}%
+                              </span>
+                            ) : "—"}
+                          </td>
+                        </tr>
+                        {/* Expandable remarks row */}
+                        {hasRemarks && isExpanded && (
+                          <tr className="bg-[#111113]">
+                            <td colSpan={3 + groupRequests.length + 1} className="px-4 py-2.5">
+                              <div className="flex flex-wrap gap-3">
+                                {itemRemarks.map((p) => (
+                                  <div key={`rem-${p.requestId}`} className="flex items-start gap-2 bg-[#18181B] border border-[#27272A] rounded-lg px-3 py-2 max-w-sm">
+                                    <MessageSquare className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                                    <div className="min-w-0">
+                                      <span className="text-[10px] font-medium text-amber-400">{supplierNames[p.requestId]}</span>
+                                      <p className="text-xs text-[#A1A1AA] mt-0.5 whitespace-pre-line leading-relaxed">{p.remarks}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </td>
-                          );
-                        })}
-                        <td className="px-3 py-2 text-right bg-[#27272A]">
-                          {gap !== null ? (
-                            <span className={`text-xs font-medium ${gap > 15 ? "text-red-600" : gap > 5 ? "text-amber-600" : "text-green-600"}`}>
-                              {gap}%
-                            </span>
-                          ) : "—"}
-                        </td>
-                      </tr>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

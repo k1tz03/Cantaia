@@ -129,7 +129,10 @@ export async function GET(
       .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${cleanDescriptionForSupplier(i.description || "")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
       .join("\n");
 
-    const subject = `Demande de prix — ${projectName} — ${group}`;
+    const projectCode = (submission as any).projects?.code;
+    const subject = projectCode
+      ? `Demande de prix — ${projectName} (${projectCode}) — ${group}`
+      : `Demande de prix — ${projectName} — ${group}`;
     const senderName = `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim();
 
     const html = `

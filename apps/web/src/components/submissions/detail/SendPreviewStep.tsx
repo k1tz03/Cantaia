@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Mail, Search, Paperclip, Camera, X } from "lucide-react";
+import { ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Mail, Search, Paperclip, Camera, X, Package, Users } from "lucide-react";
 import type { SubmissionLot, Supplier } from "./shared";
 import type { SupplierAssignment } from "./PriceRequestWizard";
 
@@ -25,36 +25,48 @@ interface PreviewData {
 }
 
 export function SendPreviewStep({ submissionId, lots, suppliers, assignments, selectedItemIds, deadline, onBack, onComplete }: SendPreviewStepProps) {
+  // Preview state
   const [previewOpen, setPreviewOpen] = useState<string | null>(null);
+  const [previewGroupName, setPreviewGroupName] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Send state
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; saved: number; errors: number } | null>(null);
   const [error, setError] = useState("");
+
+  // Per-supplier email edits
   const [editedBodies, setEditedBodies] = useState<Record<string, string>>({});
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [editedSubjects, setEditedSubjects] = useState<Record<string, string>>({});
+
+  // Per-group attachments
+  const [groupAttachments, setGroupAttachments] = useState<Record<string, File[]>>({});
   const [isCapturing, setIsCapturing] = useState(false);
+  const activeGroupRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasScreenCapture = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
 
-  // Build summary: supplier -> groups
-  const supplierGroups: Record<string, { supplier: Supplier; groups: string[]; totalItems: number }> = {};
-  for (const [groupName, supplierIds] of Object.entries(assignments)) {
-    const lot = lots.find((l) => l.name === groupName);
-    for (const sId of supplierIds) {
-      if (!supplierGroups[sId]) {
-        const s = suppliers.find((sup) => sup.id === sId);
-        if (!s) continue;
-        supplierGroups[sId] = { supplier: s, groups: [], totalItems: 0 };
-      }
-      supplierGroups[sId].groups.push(groupName);
-      supplierGroups[sId].totalItems += (lot as any)?.items_count || 0;
-    }
-  }
+  // Build group-centric data (inverted from the old supplier-centric model)
+  const activeGroups = Object.entries(assignments)
+    .filter(([, ids]) => ids.length > 0)
+    .map(([groupName, supplierIds]) => {
+      const lot = lots.find(l => l.name === groupName);
+      const groupSuppliers = supplierIds
+        .map(sId => suppliers.find(s => s.id === sId))
+        .filter(Boolean) as Supplier[];
+      return {
+        groupName,
+        suppliers: groupSuppliers,
+        itemsCount: (lot as any)?.items_count || 0,
+      };
+    });
 
-  const totalEmails = Object.keys(supplierGroups).length;
-  const totalGroups = Object.keys(assignments).filter((g) => assignments[g].length > 0).length;
-  const totalItems = Object.values(supplierGroups).reduce((sum, sg) => sum + sg.totalItems, 0);
+  // Totals (one email per supplier-group pair)
+  const totalEmails = activeGroups.reduce((sum, g) => sum + g.suppliers.length, 0);
+  const totalGroups = activeGroups.length;
+  const totalItems = activeGroups.reduce((sum, g) => sum + g.itemsCount, 0);
+  const totalAttachments = Object.values(groupAttachments).reduce((sum, files) => sum + files.length, 0);
 
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} o`;
@@ -74,18 +86,35 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
     });
   }
 
+  // ── Per-group file management ──
+
+  function triggerFileUpload(groupName: string) {
+    activeGroupRef.current = groupName;
+    fileInputRef.current?.click();
+  }
+
   function handleFileAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     const valid = files.filter(f => f.size <= 10 * 1024 * 1024);
-    setAttachments(prev => [...prev, ...valid]);
+    const group = activeGroupRef.current;
+    if (group && valid.length > 0) {
+      setGroupAttachments(prev => ({
+        ...prev,
+        [group]: [...(prev[group] || []), ...valid],
+      }));
+    }
     e.target.value = "";
+    activeGroupRef.current = null;
   }
 
-  function removeAttachment(index: number) {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+  function removeAttachment(groupName: string, index: number) {
+    setGroupAttachments(prev => ({
+      ...prev,
+      [groupName]: (prev[groupName] || []).filter((_, i) => i !== index),
+    }));
   }
 
-  async function handleScreenCapture() {
+  async function handleScreenCapture(groupName: string) {
     try {
       setIsCapturing(true);
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -111,7 +140,10 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
         canvas.toBlob((b) => resolve(b!), "image/png")
       );
       const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
-      setAttachments(prev => [...prev, file]);
+      setGroupAttachments(prev => ({
+        ...prev,
+        [groupName]: [...(prev[groupName] || []), file],
+      }));
     } catch {
       // User cancelled or API not supported
     } finally {
@@ -119,9 +151,12 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
     }
   }
 
+  // ── Preview ──
+
   async function handlePreview(supplierId: string, groupName: string) {
     setLoadingPreview(true);
     setPreviewOpen(supplierId);
+    setPreviewGroupName(groupName);
     try {
       const params = new URLSearchParams({ group: groupName, supplier_id: supplierId });
       if (selectedItemIds && selectedItemIds.size > 0) {
@@ -139,6 +174,8 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
     }
   }
 
+  // ── Send ──
+
   async function handleSendAll() {
     setSending(true);
     setError("");
@@ -150,14 +187,19 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
           supplier_ids: supplierIds,
         }));
 
-      // Convert file attachments to base64
-      const base64Attachments = await Promise.all(
-        attachments.map(async (file) => ({
-          filename: file.name,
-          contentType: file.type,
-          content: await fileToBase64(file),
-        }))
-      );
+      // Convert per-group file attachments to base64
+      const groupAttachmentsBase64: Record<string, Array<{ filename: string; contentType: string; content: string }>> = {};
+      for (const [groupName, files] of Object.entries(groupAttachments)) {
+        if (files.length > 0) {
+          groupAttachmentsBase64[groupName] = await Promise.all(
+            files.map(async (file) => ({
+              filename: file.name,
+              contentType: file.type,
+              content: await fileToBase64(file),
+            }))
+          );
+        }
+      }
 
       const payload: Record<string, unknown> = { groups };
       if (selectedItemIds && selectedItemIds.size > 0) {
@@ -166,11 +208,14 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
       if (deadline) {
         payload.deadline = deadline;
       }
-      if (base64Attachments.length > 0) {
-        payload.attachments = base64Attachments;
+      if (Object.keys(groupAttachmentsBase64).length > 0) {
+        payload.group_attachments = groupAttachmentsBase64;
       }
       if (Object.keys(editedBodies).length > 0) {
         payload.custom_bodies = editedBodies;
+      }
+      if (Object.keys(editedSubjects).length > 0) {
+        payload.custom_subjects = editedSubjects;
       }
 
       const res = await fetch(`/api/submissions/${submissionId}/send-price-requests`, {
@@ -192,13 +237,14 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
         setError(data.error || "Erreur lors de l'envoi");
       }
     } catch {
-      setError("Erreur réseau");
+      setError("Erreur reseau");
     } finally {
       setSending(false);
     }
   }
 
-  // Success state
+  // ── Render: Success state ──
+
   if (sendResult) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -209,13 +255,16 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
           {sendResult.saved > 0 && `, ${sendResult.saved} sauvegarde${sendResult.saved > 1 ? "s" : ""}`}
         </p>
         {sendResult.errors > 0 && (
-          <p className="text-sm text-amber-600 text-amber-400">
+          <p className="text-sm text-amber-400">
             {sendResult.errors} erreur{sendResult.errors > 1 ? "s" : ""}
           </p>
         )}
       </div>
     );
   }
+
+  // Attachments for the currently previewed group
+  const previewGroupAttachments = previewGroupName ? (groupAttachments[previewGroupName] || []) : [];
 
   return (
     <div>
@@ -225,14 +274,19 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
       </div>
 
       {/* Summary banner */}
-      <div className="mb-6 rounded-lg bg-[#F97316]/5 border border-[#F97316]/20 p-4 flex items-center gap-6">
+      <div className="mb-6 rounded-lg bg-[#F97316]/5 border border-[#F97316]/20 p-4 flex items-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
           <Mail className="h-5 w-5 text-[#F97316]" />
           <span className="text-sm font-semibold text-[#FAFAFA]">{totalEmails} email{totalEmails > 1 ? "s" : ""}</span>
         </div>
-        <span className="text-sm text-[#71717A]">a {totalEmails} fournisseur{totalEmails > 1 ? "s" : ""}</span>
-        <span className="text-sm text-[#71717A]">pour {totalGroups} groupe{totalGroups > 1 ? "s" : ""}</span>
-        <span className="text-sm text-[#71717A]">({totalItems} postes)</span>
+        <span className="text-sm text-[#71717A]">{totalGroups} groupe{totalGroups > 1 ? "s" : ""}</span>
+        <span className="text-sm text-[#71717A]">{totalItems} postes</span>
+        {totalAttachments > 0 && (
+          <span className="text-sm text-[#71717A]">
+            <Paperclip className="inline h-3.5 w-3.5 mr-0.5" />
+            {totalAttachments} fichier{totalAttachments > 1 ? "s" : ""} joint{totalAttachments > 1 ? "s" : ""}
+          </span>
+        )}
         {deadline && (
           <span className="text-sm text-[#71717A] ml-auto">
             Deadline : <span className="text-[#FAFAFA] font-medium">{new Date(deadline).toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })}</span>
@@ -241,95 +295,103 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 text-red-400">
+        <div className="mb-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {/* Attachments section */}
-      <div className="mb-6 rounded-lg border border-[#27272A] p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-[#A1A1AA]">Pièces jointes (envoyées avec chaque demande)</h4>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-2.5 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#1C1C1F]"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-              Ajouter un fichier
-            </button>
-            {hasScreenCapture && (
-              <button
-                type="button"
-                onClick={handleScreenCapture}
-                disabled={isCapturing}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-2.5 py-1.5 text-xs font-medium text-[#FAFAFA] hover:bg-[#1C1C1F] disabled:opacity-50"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                {isCapturing ? "Capture..." : "Capture d'écran"}
-              </button>
-            )}
-          </div>
-        </div>
-        {attachments.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {attachments.map((file, i) => (
-              <div key={i} className="inline-flex items-center gap-1.5 rounded-md bg-[#27272A] px-2.5 py-1.5 text-xs text-[#FAFAFA]">
-                <Paperclip className="h-3 w-3 text-[#71717A]" />
-                <span className="max-w-[200px] truncate">{file.name}</span>
-                <span className="text-[#71717A]">({formatFileSize(file.size)})</span>
-                <button type="button" onClick={() => removeAttachment(i)} className="ml-1 text-[#71717A] hover:text-red-400">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-[#52525B]">Aucune pièce jointe. Ajoutez des fiches techniques, plans ou documents.</p>
-        )}
-      </div>
+      {/* Group cards */}
+      <div className="space-y-4 mb-6">
+        {activeGroups.map(({ groupName, suppliers: groupSuppliers, itemsCount }) => {
+          const files = groupAttachments[groupName] || [];
 
-      {/* Table */}
-      <div className="rounded-lg border border-[#27272A] overflow-hidden mb-6">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[#27272A] bg-[#27272A]/50">
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Fournisseur</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Groupes</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[#71717A] uppercase">Postes</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-[#71717A] uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.values(supplierGroups).map(({ supplier, groups, totalItems: items }) => (
-              <tr key={supplier.id} className="border-b border-[#27272A] last:border-0">
-                <td className="px-4 py-3">
-                  <p className="text-sm font-medium text-[#FAFAFA]">{supplier.company_name}</p>
-                  <p className="text-xs text-[#71717A]">{supplier.email}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {groups.map((g) => (
-                      <span key={g} className="inline-block rounded-full bg-[#27272A] px-2 py-0.5 text-xs text-[#FAFAFA]">{g}</span>
-                    ))}
+          return (
+            <div key={groupName} className="rounded-lg border border-[#27272A] overflow-hidden">
+              {/* Group header */}
+              <div className="px-4 py-3 bg-[#27272A]/50 border-b border-[#27272A] flex items-center gap-3">
+                <Package className="h-4 w-4 text-[#F97316]" />
+                <span className="text-sm font-semibold text-[#FAFAFA]">{groupName}</span>
+                <span className="text-xs text-[#71717A]">{itemsCount} poste{itemsCount > 1 ? "s" : ""}</span>
+                <div className="flex items-center gap-1 ml-auto">
+                  <Users className="h-3.5 w-3.5 text-[#71717A]" />
+                  <span className="text-xs text-[#71717A]">{groupSuppliers.length} fournisseur{groupSuppliers.length > 1 ? "s" : ""}</span>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-3">
+                {/* Suppliers list with preview buttons */}
+                <div className="space-y-2">
+                  {groupSuppliers.map((supplier) => (
+                    <div key={supplier.id} className="flex items-center justify-between rounded-md bg-[#1C1C1F] px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#FAFAFA] truncate">{supplier.company_name}</p>
+                        <p className="text-xs text-[#71717A] truncate">{supplier.email}</p>
+                      </div>
+                      <button
+                        onClick={() => handlePreview(supplier.id, groupName)}
+                        className="shrink-0 ml-3 inline-flex items-center gap-1 rounded-md border border-[#27272A] px-2.5 py-1 text-xs font-medium text-[#FAFAFA] hover:bg-[#27272A]"
+                      >
+                        <Search className="h-3 w-3" />
+                        Previsualiser
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Per-group attachments */}
+                <div className="rounded-md border border-[#27272A] bg-[#18181B] p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-[#71717A]">
+                      Pieces jointes pour ce groupe
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => triggerFileUpload(groupName)}
+                        className="inline-flex items-center gap-1 rounded border border-[#27272A] px-2 py-1 text-[11px] font-medium text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#FAFAFA]"
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        Fichier
+                      </button>
+                      {hasScreenCapture && (
+                        <button
+                          type="button"
+                          onClick={() => handleScreenCapture(groupName)}
+                          disabled={isCapturing}
+                          className="inline-flex items-center gap-1 rounded border border-[#27272A] px-2 py-1 text-[11px] font-medium text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#FAFAFA] disabled:opacity-50"
+                        >
+                          <Camera className="h-3 w-3" />
+                          Capture
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-[#71717A]">{items}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handlePreview(supplier.id, groups[0])}
-                    className="inline-flex items-center gap-1 rounded-md border border-[#27272A] px-2.5 py-1 text-xs font-medium text-[#FAFAFA] hover:bg-[#1C1C1F]"
-                  >
-                    <Search className="h-3 w-3" />
-                    Previsualiser
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  {files.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {files.map((file, i) => (
+                        <div key={i} className="inline-flex items-center gap-1 rounded bg-[#27272A] px-2 py-1 text-xs text-[#FAFAFA]">
+                          <Paperclip className="h-2.5 w-2.5 text-[#71717A]" />
+                          <span className="max-w-[160px] truncate">{file.name}</span>
+                          <span className="text-[#52525B]">({formatFileSize(file.size)})</span>
+                          <button type="button" onClick={() => removeAttachment(groupName, i)} className="ml-0.5 text-[#52525B] hover:text-red-400">
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[#52525B]">
+                      Aucune piece jointe. {groupSuppliers.length > 1
+                        ? `Les fichiers seront envoyes aux ${groupSuppliers.length} fournisseurs de ce groupe.`
+                        : "Ajoutez des fiches techniques ou plans."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Preview modal */}
@@ -344,12 +406,17 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
               <div className="p-6">
                 <div className="mb-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-[#71717A] w-14 shrink-0">À :</span>
+                    <span className="text-[#71717A] w-14 shrink-0">A :</span>
                     <span className="text-[#FAFAFA]">{previewData.to}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-[#71717A] w-14 shrink-0">Sujet :</span>
-                    <span className="text-[#FAFAFA] font-medium">{previewData.subject}</span>
+                    <input
+                      type="text"
+                      value={editedSubjects[previewOpen!] ?? previewData.subject}
+                      onChange={(e) => setEditedSubjects(prev => ({ ...prev, [previewOpen!]: e.target.value }))}
+                      className="flex-1 text-sm font-medium text-[#FAFAFA] bg-[#0F0F11] rounded-md px-2.5 py-1 border border-[#27272A] focus:border-[#F97316] focus:outline-none"
+                    />
                   </div>
                 </div>
 
@@ -360,11 +427,11 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
                   className="w-full min-h-[300px] text-xs text-[#FAFAFA] bg-[#0F0F11] rounded-lg p-4 font-mono resize-y border border-[#27272A] focus:border-[#F97316] focus:outline-none"
                 />
 
-                {attachments.length > 0 && (
+                {previewGroupAttachments.length > 0 && (
                   <div className="mt-3">
-                    <span className="text-xs text-[#71717A]">Pièces jointes ({attachments.length}) :</span>
+                    <span className="text-xs text-[#71717A]">Pieces jointes du groupe ({previewGroupAttachments.length}) :</span>
                     <div className="flex flex-wrap gap-1.5 mt-1">
-                      {attachments.map((file, i) => (
+                      {previewGroupAttachments.map((file, i) => (
                         <span key={i} className="inline-flex items-center gap-1 rounded bg-[#27272A] px-2 py-0.5 text-xs text-[#A1A1AA]">
                           <Paperclip className="h-2.5 w-2.5" />
                           {file.name}
@@ -375,16 +442,25 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
                 )}
 
                 <div className="mt-4 flex justify-between items-center">
-                  {editedBodies[previewOpen] !== undefined && (
-                    <span className="text-xs text-[#F97316]">Texte modifié — sera utilisé pour ce fournisseur</span>
+                  {(editedBodies[previewOpen!] !== undefined || editedSubjects[previewOpen!] !== undefined) && (
+                    <span className="text-xs text-[#F97316]">
+                      {editedSubjects[previewOpen!] !== undefined && editedBodies[previewOpen!] !== undefined
+                        ? "Sujet et texte modifies"
+                        : editedSubjects[previewOpen!] !== undefined
+                        ? "Sujet modifie"
+                        : "Texte modifie"} — sera utilise pour ce fournisseur
+                    </span>
                   )}
                   <div className="ml-auto flex gap-2">
-                    {editedBodies[previewOpen] !== undefined && (
+                    {(editedBodies[previewOpen!] !== undefined || editedSubjects[previewOpen!] !== undefined) && (
                       <button
-                        onClick={() => setEditedBodies(prev => { const next = { ...prev }; delete next[previewOpen!]; return next; })}
+                        onClick={() => {
+                          setEditedBodies(prev => { const next = { ...prev }; delete next[previewOpen!]; return next; });
+                          setEditedSubjects(prev => { const next = { ...prev }; delete next[previewOpen!]; return next; });
+                        }}
                         className="rounded-md border border-[#27272A] px-3 py-2 text-xs font-medium text-[#71717A] hover:bg-[#1C1C1F]"
                       >
-                        Réinitialiser
+                        Reinitialiser
                       </button>
                     )}
                     <button
@@ -412,13 +488,14 @@ export function SendPreviewStep({ submissionId, lots, suppliers, assignments, se
         <button
           onClick={handleSendAll}
           disabled={sending || totalEmails === 0}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-[#F97316]-foreground hover:bg-[#EA580C] disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Envoyer {totalEmails} demande{totalEmails > 1 ? "s" : ""}
         </button>
       </div>
 
+      {/* Hidden file input (shared, routed by activeGroupRef) */}
       <input
         ref={fileInputRef}
         type="file"

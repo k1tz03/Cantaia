@@ -798,7 +798,10 @@ async function analyzeWithClaude(textContent: string): Promise<any[]> {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey, timeout: 45_000 });
+  // 120s timeout per API call — large Excel files (177+ items) can produce 80K+ chars of text
+  // that takes Claude Haiku 40-60s to analyze. Previous 45s timeout caused "Request timed out"
+  // on dense spreadsheets. Safe within Vercel maxDuration=300.
+  const client = new Anthropic({ apiKey, timeout: 120_000 });
 
   const MAX_CHUNK_CHARS = 80_000;
 

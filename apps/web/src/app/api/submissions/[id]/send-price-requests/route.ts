@@ -26,10 +26,12 @@ interface SendRequest {
   deadline?: string;
   language?: "fr" | "en" | "de";
   attachment_urls?: string[];
-  attachments?: AttachmentData[]; // inline base64 attachments
+  attachments?: AttachmentData[]; // inline base64 attachments (global, sent with every email)
+  group_attachments?: Record<string, AttachmentData[]>; // per-group attachments (keyed by material_group name)
   custom_subject?: string;
   custom_body?: string;
   custom_bodies?: Record<string, string>; // per-supplier body overrides (supplier_id → body text)
+  custom_subjects?: Record<string, string>; // per-supplier subject overrides (supplier_id → subject)
   manual_suppliers?: ManualSupplierInfo[];
 }
 
@@ -241,12 +243,13 @@ export async function POST(
             let subject: string;
             let htmlContent: string;
 
-            // Check per-supplier body override, then global custom_body
+            // Check per-supplier overrides, then global fallbacks
             const effectiveCustomBody = body.custom_bodies?.[supplierId] || body.custom_body;
+            const effectiveCustomSubject = body.custom_subjects?.[supplierId] || body.custom_subject;
 
             if (effectiveCustomBody) {
               // Use custom content from editable preview
-              subject = body.custom_subject || `Demande de prix — ${projectName} — ${group.material_group}`;
+              subject = effectiveCustomSubject || `Demande de prix — ${projectName} — ${group.material_group}`;
               const itemsTableHtml = generateItemsTableHtml(groupItems);
               htmlContent = customBodyToHtml(effectiveCustomBody, itemsTableHtml, trackingCode);
               console.log("[SEND] Using custom email body for supplier:", supplierEmail);
@@ -264,18 +267,23 @@ export async function POST(
                 senderTitle: userProfile.job_title,
                 language: body.language || "fr",
               });
-              subject = body.custom_subject || emailBody.subject;
+              subject = effectiveCustomSubject || emailBody.subject;
               htmlContent = emailBody.html;
             }
 
-            console.log("[SEND] Sending email to:", supplierEmail, "subject:", subject, "attachments:", body.attachments?.length || 0);
+            // Merge global attachments + per-group attachments
+            const globalAttachments = body.attachments || [];
+            const perGroupAttachments = body.group_attachments?.[group.material_group] || [];
+            const mergedAttachments = [...globalAttachments, ...perGroupAttachments];
+
+            console.log("[SEND] Sending email to:", supplierEmail, "subject:", subject, "attachments:", mergedAttachments.length, "(global:", globalAttachments.length, "+ group:", perGroupAttachments.length, ")");
             await sendEmailViaGraph(
               tokenResult.accessToken,
               supplierEmail,
               subject,
               htmlContent,
               userProfile.email,
-              body.attachments
+              mergedAttachments.length > 0 ? mergedAttachments : undefined
             );
             console.log("[SEND] Email sent successfully to:", supplierEmail);
 
