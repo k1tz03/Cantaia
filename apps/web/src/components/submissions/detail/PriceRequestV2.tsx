@@ -181,10 +181,11 @@ export function PriceRequestV2({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewTab, setPreviewTab] = useState(0);
   const [editedBodies, setEditedBodies] = useState<Record<string, string>>({});
+  const [editedSubjects, setEditedSubjects] = useState<Record<string, string>>({});
 
-  // ── Attachments (per-package) ────────────────────────────────
-  const [packageAttachments, setPackageAttachments] = useState<Record<string, AttachmentFile[]>>({});
-  const [attachTargetPkgId, setAttachTargetPkgId] = useState<string | null>(null);
+  // ── Attachments (per-group, shared across all suppliers in the same material group) ──
+  const [groupAttachments, setGroupAttachments] = useState<Record<string, AttachmentFile[]>>({});
+  const [attachTargetGroup, setAttachTargetGroup] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Send state ──────────────────────────────────────────────
@@ -412,13 +413,29 @@ export function PriceRequestV2({
   // const removeItemFromPackage = useCallback((pkgId: string, itemId: string) => { ... }, []);
 
   const deletePackage = useCallback((pkgId: string) => {
-    setPackages((prev) => prev.filter((p) => p.id !== pkgId));
-    setPackageAttachments((prev) => {
-      const next = { ...prev };
-      delete next[pkgId];
-      return next;
+    setPackages((prev) => {
+      const updated = prev.filter((p) => p.id !== pkgId);
+      // Clean up group attachments for groups that no longer have any supplier
+      const removedPkg = prev.find((p) => p.id === pkgId);
+      if (removedPkg) {
+        const removedGroups = new Set(
+          removedPkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean)
+        );
+        const stillUsedGroups = new Set(
+          updated.flatMap((p) => p.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean))
+        );
+        const orphanGroups = Array.from(removedGroups).filter((g) => !stillUsedGroups.has(g!));
+        if (orphanGroups.length > 0) {
+          setGroupAttachments((prev) => {
+            const next = { ...prev };
+            for (const g of orphanGroups) if (g) delete next[g];
+            return next;
+          });
+        }
+      }
+      return updated;
     });
-  }, []);
+  }, [itemsById]);
 
   const removeSupplierFromItem = useCallback((supplierId: string, itemId: string) => {
     setPackages((prev) =>
@@ -430,29 +447,29 @@ export function PriceRequestV2({
     );
   }, []);
 
-  // ── Attachments (per-package) ────────────────────────────────
+  // ── Attachments (per-group — shared across all suppliers in the same material group) ──
 
-  const addFilesToPackage = useCallback((pkgId: string, files: FileList | null) => {
+  const addFilesToGroup = useCallback((groupName: string, files: FileList | null) => {
     if (!files) return;
     const newFiles: AttachmentFile[] = [];
     for (const file of Array.from(files)) {
       if (file.size > 10 * 1024 * 1024) continue; // 10MB max
       newFiles.push({ file, name: file.name, size: file.size });
     }
-    setPackageAttachments((prev) => ({
+    setGroupAttachments((prev) => ({
       ...prev,
-      [pkgId]: [...(prev[pkgId] || []), ...newFiles],
+      [groupName]: [...(prev[groupName] || []), ...newFiles],
     }));
   }, []);
 
-  const removePackageAttachment = useCallback((pkgId: string, index: number) => {
-    setPackageAttachments((prev) => ({
+  const removeGroupAttachment = useCallback((groupName: string, index: number) => {
+    setGroupAttachments((prev) => ({
       ...prev,
-      [pkgId]: (prev[pkgId] || []).filter((_, i) => i !== index),
+      [groupName]: (prev[groupName] || []).filter((_, i) => i !== index),
     }));
   }, []);
 
-  const captureScreenForPackage = useCallback(async (pkgId: string) => {
+  const captureScreenForGroup = useCallback(async (groupName: string) => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const video = document.createElement("video");
@@ -470,9 +487,9 @@ export function PriceRequestV2({
       canvas.toBlob((blob) => {
         if (!blob) return;
         const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
-        setPackageAttachments((prev) => ({
+        setGroupAttachments((prev) => ({
           ...prev,
-          [pkgId]: [...(prev[pkgId] || []), { file, name: file.name, size: file.size }],
+          [groupName]: [...(prev[groupName] || []), { file, name: file.name, size: file.size }],
         }));
       }, "image/png");
     } catch {
@@ -584,6 +601,7 @@ export function PriceRequestV2({
 
         const groups: { material_group: string; supplier_ids: string[]; item_ids: string[] }[] = [];
         const customBodies: Record<string, string> = {};
+        const customSubjects: Record<string, string> = {};
 
         for (const [group, itemIdList] of byGroup) {
           groups.push({
@@ -594,24 +612,35 @@ export function PriceRequestV2({
           if (pkg.customBodies[group]) {
             customBodies[pkg.supplierId] = pkg.customBodies[group];
           }
+          // Check for edited subject for this supplier+group
+          const subjectKey = `${pkg.id}-${group}`;
+          if (editedSubjects[subjectKey]) {
+            customSubjects[pkg.supplierId] = editedSubjects[subjectKey];
+          }
         }
 
-        // Convert per-package attachments to base64
-        const pkgAtts = packageAttachments[pkg.id] || [];
-        const attachmentData: { filename: string; contentType: string; content: string }[] = [];
-        for (const att of pkgAtts) {
-          const buffer = await att.file.arrayBuffer();
-          const base64 = btoa(
-            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-          );
-          attachmentData.push({ filename: att.name, contentType: att.file.type, content: base64 });
+        // Collect per-group attachments for the groups in this package
+        const groupAttBase64: Record<string, Array<{ filename: string; contentType: string; content: string }>> = {};
+        for (const g of groups) {
+          const gAtts = groupAttachments[g.material_group] || [];
+          if (gAtts.length > 0) {
+            groupAttBase64[g.material_group] = [];
+            for (const att of gAtts) {
+              const buffer = await att.file.arrayBuffer();
+              const base64 = btoa(
+                new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+              );
+              groupAttBase64[g.material_group].push({ filename: att.name, contentType: att.file.type, content: base64 });
+            }
+          }
         }
 
         const body: any = {
           groups,
           deadline: deadline || undefined,
           custom_bodies: Object.keys(customBodies).length > 0 ? customBodies : undefined,
-          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+          custom_subjects: Object.keys(customSubjects).length > 0 ? customSubjects : undefined,
+          group_attachments: Object.keys(groupAttBase64).length > 0 ? groupAttBase64 : undefined,
         };
 
         try {
@@ -646,7 +675,7 @@ export function PriceRequestV2({
     } finally {
       setSending(false);
     }
-  }, [packages, itemsById, packageAttachments, deadline, submissionId, onComplete]);
+  }, [packages, itemsById, groupAttachments, editedSubjects, deadline, submissionId, onComplete]);
 
   // ── Supplier picker data ────────────────────────────────────
 
@@ -1000,119 +1029,119 @@ export function PriceRequestV2({
                   </div>
                 ) : (
                   <div className="divide-y divide-[#27272A]">
-                    {packages.map((pkg) => {
-                      const groupNames = Array.from(
-                        new Set(pkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean))
-                      );
-                      return (
-                        <div key={pkg.id} className="p-3 hover:bg-[#1C1C1F] transition-colors">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-[#FAFAFA] truncate">{pkg.supplierName}</div>
-                              <div className="text-[10px] text-[#52525B] truncate">{pkg.supplierEmail || "Pas d'email"}</div>
+                    {/* Group packages by material_group for display */}
+                    {(() => {
+                      // Build group → packages map
+                      const groupMap = new Map<string, AssignmentPackage[]>();
+                      for (const pkg of packages) {
+                        const groups = Array.from(new Set(
+                          pkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean)
+                        )) as string[];
+                        for (const g of groups) {
+                          const list = groupMap.get(g) || [];
+                          if (!list.some(p => p.id === pkg.id)) list.push(pkg);
+                          groupMap.set(g, list);
+                        }
+                      }
+                      return Array.from(groupMap.entries()).map(([groupName, groupPkgs]) => {
+                        const gFiles = groupAttachments[groupName] || [];
+                        const allItemIds = new Set(groupPkgs.flatMap(p =>
+                          p.itemIds.filter(id => itemsById.get(id)?.material_group === groupName)
+                        ));
+                        return (
+                          <div key={groupName} className="p-3">
+                            {/* Group header */}
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xs font-semibold text-[#F97316] uppercase tracking-wide truncate">{groupName}</span>
+                              <span className="text-[10px] text-[#52525B]">{allItemIds.size} poste{allItemIds.size > 1 ? "s" : ""}</span>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0 ml-2">
-                              <button
-                                onClick={() => openPreview(pkg.id)}
-                                className="p-1.5 rounded hover:bg-[#27272A] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
-                                title="Prévisualiser"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => deletePackage(pkg.id)}
-                                className="p-1.5 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          {/* Item chips */}
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {pkg.itemIds.slice(0, 4).map((itemId) => {
-                              const item = itemsById.get(itemId);
-                              if (!item) return null;
-                              return (
-                                <span
-                                  key={itemId}
-                                  className="inline-flex items-center gap-1 max-w-[150px] px-1.5 py-0.5 rounded bg-[#27272A] text-[10px] text-[#A1A1AA]"
-                                >
-                                  <span className="font-mono text-[#71717A]">{item.item_number || "—"}</span>
-                                  <span className="truncate">{item.description}</span>
-                                </span>
-                              );
-                            })}
-                            {pkg.itemIds.length > 4 && (
-                              <span className="px-1.5 py-0.5 rounded bg-[#27272A] text-[10px] text-[#71717A]">
-                                +{pkg.itemIds.length - 4}
-                              </span>
-                            )}
-                          </div>
-                          {/* Stats */}
-                          <div className="flex items-center gap-2 text-[10px] text-[#52525B]">
-                            <span>{pkg.itemIds.length} postes</span>
-                            <span>·</span>
-                            <span>{groupNames.join(", ")}</span>
-                            {(packageAttachments[pkg.id] || []).length > 0 && (
-                              <>
-                                <span>·</span>
-                                <span className="text-blue-400">{(packageAttachments[pkg.id] || []).length} PJ</span>
-                              </>
-                            )}
-                          </div>
-                          {/* Per-package attachments */}
-                          <div className="mt-2 pt-2 border-t border-[#27272A]/50">
-                            {(packageAttachments[pkg.id] || []).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mb-1.5">
-                                {(packageAttachments[pkg.id] || []).map((att, i) => (
-                                  <span key={i} className="inline-flex items-center gap-1 max-w-[150px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
-                                    <Paperclip className="h-2.5 w-2.5 shrink-0" />
-                                    <span className="truncate">{att.name}</span>
+
+                            {/* Suppliers in this group */}
+                            <div className="space-y-1.5 mb-2">
+                              {groupPkgs.map((pkg) => (
+                                <div key={pkg.id} className="flex items-center justify-between rounded-md bg-[#1C1C1F] px-2.5 py-1.5">
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-medium text-[#FAFAFA] truncate">{pkg.supplierName}</div>
+                                    <div className="text-[10px] text-[#52525B] truncate">{pkg.supplierEmail || "Pas d'email"}</div>
+                                  </div>
+                                  <div className="flex items-center gap-0.5 shrink-0 ml-2">
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); removePackageAttachment(pkg.id, i); }}
-                                      className="shrink-0 hover:text-red-400 transition-colors"
+                                      onClick={() => openPreview(pkg.id)}
+                                      className="p-1 rounded hover:bg-[#27272A] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                                      title="Prévisualiser"
                                     >
-                                      <X className="h-2.5 w-2.5" />
+                                      <Eye className="h-3 w-3" />
                                     </button>
-                                  </span>
-                                ))}
+                                    <button
+                                      onClick={() => deletePackage(pkg.id)}
+                                      className="p-1 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
+                                      title="Supprimer"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Shared attachments for this group */}
+                            <div className="pt-2 border-t border-[#27272A]/50">
+                              {gFiles.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-1.5">
+                                  {gFiles.map((att, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 max-w-[150px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
+                                      <Paperclip className="h-2.5 w-2.5 shrink-0" />
+                                      <span className="truncate">{att.name}</span>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); removeGroupAttachment(groupName, i); }}
+                                        className="shrink-0 hover:text-red-400 transition-colors"
+                                      >
+                                        <X className="h-2.5 w-2.5" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setAttachTargetGroup(groupName); fileInputRef.current?.click(); }}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                  title="Ajouter fichier"
+                                >
+                                  <Plus className="h-2.5 w-2.5" /> Fichier
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); captureScreenForGroup(groupName); }}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                  title="Capture d'écran"
+                                >
+                                  <Camera className="h-2.5 w-2.5" /> Capture
+                                </button>
                               </div>
-                            )}
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setAttachTargetPkgId(pkg.id); fileInputRef.current?.click(); }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                title="Ajouter fichier"
-                              >
-                                <Plus className="h-2.5 w-2.5" /> Fichier
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); captureScreenForPackage(pkg.id); }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                title="Capture d'écran"
-                              >
-                                <Camera className="h-2.5 w-2.5" /> Capture
-                              </button>
+                              {gFiles.length === 0 && groupPkgs.length > 1 && (
+                                <p className="text-[9px] text-[#3F3F46] mt-1">
+                                  Partagé entre les {groupPkgs.length} fournisseurs
+                                </p>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Hidden file input (shared, target package set via attachTargetPkgId) */}
+            {/* Hidden file input (shared, target group set via attachTargetGroup) */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
               className="hidden"
               onChange={(e) => {
-                if (attachTargetPkgId) addFilesToPackage(attachTargetPkgId, e.target.files);
-                setAttachTargetPkgId(null);
+                if (attachTargetGroup) addFilesToGroup(attachTargetGroup, e.target.files);
+                setAttachTargetGroup(null);
                 if (e.target) e.target.value = "";
               }}
             />
@@ -1333,10 +1362,26 @@ export function PriceRequestV2({
                       <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">À</label>
                       <p className="text-sm text-[#FAFAFA] mt-1">{previewData[previewTab].to || "—"}</p>
                     </div>
-                    {/* Subject */}
+                    {/* Subject (editable) */}
                     <div>
-                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Objet</label>
-                      <p className="text-sm text-[#FAFAFA] mt-1">{previewData[previewTab].subject}</p>
+                      <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+                        Objet
+                        {editedSubjects[`${previewPkgId}-${previewData[previewTab].group}`] && (
+                          <span className="ml-2 text-[#F97316] normal-case">· modifié</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={
+                          editedSubjects[`${previewPkgId}-${previewData[previewTab].group}`] ??
+                          previewData[previewTab].subject
+                        }
+                        onChange={(e) => {
+                          const key = `${previewPkgId}-${previewData[previewTab].group}`;
+                          setEditedSubjects((prev) => ({ ...prev, [key]: e.target.value }));
+                        }}
+                        className="w-full mt-1 px-3 py-2 bg-[#0F0F11] border border-[#27272A] rounded-lg text-sm text-[#FAFAFA] focus:outline-none focus:border-[#F97316]/50 transition-colors"
+                      />
                     </div>
                     {/* Tracking */}
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/10">
@@ -1383,12 +1428,12 @@ export function PriceRequestV2({
                         className="w-full p-3 bg-[#0F0F11] border border-[#27272A] rounded-lg text-xs text-[#FAFAFA] font-mono leading-relaxed focus:outline-none focus:border-[#F97316]/50 resize-y"
                       />
                     </div>
-                    {/* Attachments for this package */}
-                    {previewPkgId && (packageAttachments[previewPkgId] || []).length > 0 && (
+                    {/* Attachments for this group */}
+                    {previewData[previewTab] && (groupAttachments[previewData[previewTab].group] || []).length > 0 && (
                       <div>
-                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Pièces jointes</label>
+                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Pièces jointes ({previewData[previewTab].group})</label>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {(packageAttachments[previewPkgId] || []).map((att, i) => (
+                          {(groupAttachments[previewData[previewTab].group] || []).map((att, i) => (
                             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] text-[10px] text-[#A1A1AA]">
                               <Paperclip className="h-2.5 w-2.5" />
                               {att.name}
