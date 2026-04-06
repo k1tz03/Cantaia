@@ -31,6 +31,71 @@ interface RecentVisit {
   report_status: string | null;
 }
 
+/**
+ * When AI briefing generation fails, fetch real stats directly from existing APIs
+ * to show something meaningful instead of all zeros.
+ */
+async function buildDataOnlyBriefing(): Promise<BriefingContent> {
+  // Fetch real data in parallel from existing API endpoints
+  const [projectsRes, decisionsRes, tasksRes] = await Promise.allSettled([
+    fetch("/api/projects/list").then((r) => r.json()),
+    fetch("/api/mail/decisions?counts_only=true").then((r) => r.json()),
+    fetch("/api/tasks").then((r) => r.json()),
+  ]);
+
+  const projects = projectsRes.status === "fulfilled" ? (projectsRes.value?.projects || []) : [];
+  const totalUnprocessed = decisionsRes.status === "fulfilled" ? (decisionsRes.value?.totalUnprocessed || 0) : 0;
+  const tasks = tasksRes.status === "fulfilled" ? (tasksRes.value?.tasks || []) : [];
+
+  const activeProjects = projects.filter((p: { status: string }) => p.status === "active" || p.status === "planning");
+  const openTasks = tasks.filter((t: { status: string }) => t.status === "todo" || t.status === "in_progress" || t.status === "waiting");
+  const overdueTasks = tasks.filter((t: { status: string; due_date: string | null }) =>
+    t.due_date && t.due_date < new Date().toISOString().split("T")[0] && t.status !== "done" && t.status !== "cancelled"
+  );
+  const dueTodayTasks = tasks.filter((t: { status: string; due_date: string | null }) =>
+    t.due_date === new Date().toISOString().split("T")[0] && t.status !== "done" && t.status !== "cancelled"
+  );
+
+  const projectSummaries = activeProjects.slice(0, 5).map((p: { id: string; name: string; code?: string; status?: string }) => {
+    const projTasks = openTasks.filter((t: { project_id: string }) => t.project_id === p.id);
+    const projOverdue = overdueTasks.filter((t: { project_id: string }) => t.project_id === p.id);
+    const actionItems: string[] = [];
+    if (projOverdue.length > 0) actionItems.push(`${projOverdue.length} tâche${projOverdue.length > 1 ? "s" : ""} en retard`);
+    if (projTasks.length > 0) actionItems.push(`${projTasks.length} tâche${projTasks.length > 1 ? "s" : ""} en cours`);
+    return {
+      project_id: p.id,
+      name: p.name,
+      status_emoji: projOverdue.length > 0 ? "🔴" : projTasks.length > 0 ? "🟡" : "🟢",
+      summary: actionItems.length > 0 ? actionItems.join(", ") : "Aucune action en cours",
+      action_items: actionItems,
+    };
+  });
+
+  const greeting = `Bonjour ! Voici un aperçu de votre journée.`;
+  const alerts: string[] = [];
+  if (overdueTasks.length > 0) alerts.push(`⚠️ ${overdueTasks.length} tâche${overdueTasks.length > 1 ? "s" : ""} en retard`);
+  if (totalUnprocessed > 0) alerts.push(`📬 ${totalUnprocessed} email${totalUnprocessed > 1 ? "s" : ""} non traité${totalUnprocessed > 1 ? "s" : ""}`);
+
+  return {
+    mode: "fallback" as const,
+    greeting,
+    priority_alerts: alerts,
+    projects: projectSummaries,
+    meetings_today: [],
+    stats: {
+      total_projects: activeProjects.length,
+      emails_unread: totalUnprocessed,
+      emails_action_required: totalUnprocessed,
+      tasks_overdue: overdueTasks.length,
+      tasks_due_today: dueTodayTasks.length,
+      meetings_today: 0,
+    },
+    global_summary: alerts.length > 0
+      ? `Points d'attention : ${alerts.join(", ")}.`
+      : `${activeProjects.length} projet${activeProjects.length > 1 ? "s" : ""} actif${activeProjects.length > 1 ? "s" : ""}, ${openTasks.length} tâche${openTasks.length > 1 ? "s" : ""} en cours.`,
+  };
+}
+
 export default function BriefingPage() {
   const t = useTranslations("briefing");
   const tv = useTranslations("visits");
@@ -54,17 +119,28 @@ export default function BriefingPage() {
         }
         if (res.status === 404 && selectedDate === new Date().toISOString().split("T")[0]) {
           // Auto-generate for today
-          const genRes = await fetch("/api/briefing/generate", { method: "POST" });
-          if (genRes.ok) {
-            const data = await genRes.json();
-            setBriefing(data.briefing);
-            return;
+          try {
+            const genRes = await fetch("/api/briefing/generate", { method: "POST" });
+            if (genRes.ok) {
+              const data = await genRes.json();
+              setBriefing(data.briefing);
+              return;
+            }
+          } catch {
+            // AI generation failed — fall through to data-only briefing
           }
         }
       } catch {
-        // Fallback to mock
+        // Network error — fall through to data-only briefing
       }
-      setBriefing(getMockBriefing(t));
+
+      // Fallback: build a data-only briefing from real stats instead of showing zeros
+      try {
+        const fallbackBriefing = await buildDataOnlyBriefing();
+        setBriefing(fallbackBriefing);
+      } catch {
+        setBriefing(getMockBriefing(t));
+      }
     };
     fetchBriefing().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

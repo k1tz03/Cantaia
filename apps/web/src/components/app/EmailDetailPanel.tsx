@@ -27,6 +27,9 @@ import {
   FileSpreadsheet,
   ImageIcon,
   Download,
+  RotateCcw,
+  Forward,
+  Trash2,
 } from "lucide-react";
 import type { EmailRecord, Project } from "@cantaia/database";
 import { formatDate } from "@/lib/mock-data";
@@ -118,6 +121,15 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
   const [emailBody, setEmailBody] = useState<{ contentType: string; content: string } | null>(null);
   const [emailBodyLoading, setEmailBodyLoading] = useState(false);
   const [savedPlans, setSavedPlans] = useState<Map<string, { planId: string; planTitle: string }>>(new Map());
+  // Direct reply/forward/delete states
+  const [showDirectReply, setShowDirectReply] = useState(false);
+  const [directReplyText, setDirectReplyText] = useState("");
+  const [sendingDirectReply, setSendingDirectReply] = useState(false);
+  const [showForward, setShowForward] = useState(false);
+  const [forwardTo, setForwardTo] = useState("");
+  const [forwardNote, setForwardNote] = useState("");
+  const [sendingForward, setSendingForward] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const project = email.project_id ? projects.find((p) => p.id === email.project_id) : null;
   const detailedSummary = email.ai_summary || null;
@@ -453,6 +465,85 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
     }
   }
 
+  // Direct reply (non-AI) — sends reply via Outlook
+  async function handleSendDirectReply() {
+    if (!directReplyText.trim() || !email.outlook_message_id) return;
+    setSendingDirectReply(true);
+    try {
+      const res = await fetch("/api/outlook/send-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outlook_message_id: email.outlook_message_id,
+          reply_content: directReplyText,
+        }),
+      });
+      if (res.ok) {
+        setShowDirectReply(false);
+        setDirectReplyText("");
+        onEmailUpdated?.();
+      }
+    } catch (err) {
+      console.error("[EmailDetail] Direct reply error:", err);
+    } finally {
+      setSendingDirectReply(false);
+    }
+  }
+
+  // Forward email to another recipient
+  async function handleSendForward() {
+    if (!forwardTo.trim() || !email.outlook_message_id) return;
+    setSendingForward(true);
+    try {
+      const subject = `TR: ${email.subject}`;
+      const forwardBody = forwardNote
+        ? `${forwardNote}\n\n---------- Message transféré ----------\nDe : ${email.sender_name || email.sender_email}\nDate : ${formatDate(email.received_at)}\nObjet : ${email.subject}\n\n${email.body_preview || ""}`
+        : `---------- Message transféré ----------\nDe : ${email.sender_name || email.sender_email}\nDate : ${formatDate(email.received_at)}\nObjet : ${email.subject}\n\n${email.body_preview || ""}`;
+
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: forwardTo.split(",").map((e: string) => e.trim()),
+          subject,
+          body: forwardBody,
+          content_type: "text",
+        }),
+      });
+      if (res.ok) {
+        setShowForward(false);
+        setForwardTo("");
+        setForwardNote("");
+      }
+    } catch (err) {
+      console.error("[EmailDetail] Forward error:", err);
+    } finally {
+      setSendingForward(false);
+    }
+  }
+
+  // Delete email (move to Deleted Items in Outlook)
+  async function handleDeleteEmail() {
+    if (!email.outlook_message_id) return;
+    setDeleting(true);
+    try {
+      await fetch("/api/outlook/move-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outlook_message_id: email.outlook_message_id,
+          folder_name: "Deleted Items",
+        }),
+      });
+      onEmailUpdated?.();
+      onClose();
+    } catch (err) {
+      console.error("[EmailDetail] Delete error:", err);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // Bug 5 — Mark as urgent
   async function handleMarkUrgent() {
     setMarkingUrgent(true);
@@ -558,6 +649,113 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               )}
             </div>
           </div>
+
+          {/* ACTION BAR — Reply, Forward, Delete */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-[#27272A] pb-4">
+            <button
+              onClick={() => { setShowDirectReply(!showDirectReply); setShowForward(false); }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                showDirectReply
+                  ? "bg-[#F97316] text-white"
+                  : "bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 border border-[#F97316]/20"
+              )}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Répondre
+            </button>
+            <button
+              onClick={() => { setShowForward(!showForward); setShowDirectReply(false); }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border",
+                showForward
+                  ? "bg-[#3B82F6] text-white border-[#3B82F6]"
+                  : "text-[#A1A1AA] bg-[#27272A] hover:bg-[#3F3F46] border-[#3F3F46]"
+              )}
+            >
+              <Forward className="h-3.5 w-3.5" />
+              Transférer
+            </button>
+            <button
+              onClick={handleDeleteEmail}
+              disabled={deleting || !email.outlook_message_id}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 transition-colors disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Supprimer
+            </button>
+          </div>
+
+          {/* Direct Reply Compose */}
+          {showDirectReply && (
+            <div className="rounded-lg border border-[#F97316]/20 bg-[#F97316]/5 p-3 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#F97316]">
+                Répondre à {email.sender_name || email.sender_email}
+              </p>
+              <textarea
+                value={directReplyText}
+                onChange={(e) => setDirectReplyText(e.target.value)}
+                rows={5}
+                placeholder="Votre réponse..."
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]/20"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSendDirectReply}
+                  disabled={sendingDirectReply || !directReplyText.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#F97316] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+                >
+                  {sendingDirectReply ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  Envoyer
+                </button>
+                <button
+                  onClick={() => { setShowDirectReply(false); setDirectReplyText(""); }}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Forward Compose */}
+          {showForward && (
+            <div className="rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/5 p-3 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#3B82F6]">
+                Transférer cet email
+              </p>
+              <input
+                type="email"
+                value={forwardTo}
+                onChange={(e) => setForwardTo(e.target.value)}
+                placeholder="Destinataire(s) — séparer par des virgules"
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
+              />
+              <textarea
+                value={forwardNote}
+                onChange={(e) => setForwardNote(e.target.value)}
+                rows={3}
+                placeholder="Ajouter une note (optionnel)..."
+                className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] p-2.5 text-sm text-[#FAFAFA] placeholder:text-[#71717A] focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]/20"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSendForward}
+                  disabled={sendingForward || !forwardTo.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#3B82F6] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2563EB] disabled:opacity-50"
+                >
+                  {sendingForward ? <Loader2 className="h-3 w-3 animate-spin" /> : <Forward className="h-3 w-3" />}
+                  Transférer
+                </button>
+                <button
+                  onClick={() => { setShowForward(false); setForwardTo(""); setForwardNote(""); }}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Bug 8 — AI Summary: always visible, not collapsible */}
           {(detailedSummary || email.ai_summary) && detailedSummary !== "—" && (
