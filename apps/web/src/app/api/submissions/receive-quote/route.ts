@@ -38,9 +38,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items in this request" }, { status: 400 });
     }
 
+    // Resolve email body: use provided body, or auto-fetch from DB via tracking code
+    let resolvedBody = email_body || email_subject || "";
+    if (!resolvedBody || resolvedBody.length < 10) {
+      // Find the email record linked to this tracking code
+      const { data: linkedEmails } = await (admin as any)
+        .from("email_records")
+        .select("body_text, body_html, body_preview, subject")
+        .or(`body_preview.ilike.%${tracking_code.replace(/[%_,().]/g, "")}%,subject.ilike.%${tracking_code.replace(/[%_,().]/g, "")}%`)
+        .order("received_at", { ascending: false })
+        .limit(3);
+
+      if (linkedEmails && linkedEmails.length > 0) {
+        const e = linkedEmails[0];
+        resolvedBody = e.body_text || (e.body_html ? e.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "") || e.body_preview || "";
+      }
+    }
+
+    if (resolvedBody.length < 10) {
+      return NextResponse.json({ error: "No email body available for price extraction" }, { status: 400 });
+    }
+
     // Extract prices from email using Claude
     const extractedPrices = await extractPricesFromEmail(
-      email_body || email_subject || "",
+      resolvedBody,
       requestedItems
     );
 
@@ -77,6 +98,16 @@ export async function POST(request: NextRequest) {
           .update({ status: "quoted" })
           .in("id", quotedItemIds);
       }
+
+      // Mark linked email(s) as price_response with price_extracted
+      const sanitizedCode = tracking_code.replace(/[%_,().]/g, "");
+      await (admin as any)
+        .from("email_records")
+        .update({
+          email_category: "price_response",
+          price_extracted: true,
+        })
+        .or(`body_preview.ilike.%${sanitizedCode}%,subject.ilike.%${sanitizedCode}%`);
     }
 
     // Update request status to "responded" + track response time

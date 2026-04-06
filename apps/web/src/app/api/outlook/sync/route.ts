@@ -290,36 +290,107 @@ export async function POST(request: Request) {
             const trackingCode = subCodes[0];
             const { data: priceRequest } = await (adminClient as any)
               .from("submission_price_requests")
-              .select("id, submission_id, project_id, supplier_id")
+              .select("id, submission_id, project_id, supplier_id, items_requested, sent_at")
               .eq("tracking_code", trackingCode)
               .maybeSingle();
 
             if (priceRequest) {
-              // Classify email as action_required and link to project
+              // ── Price extraction: fetch full body and extract prices via Claude ──
+              let quotesInserted = 0;
+              const requestedItems = (priceRequest.items_requested as any[]) || [];
+
+              if (requestedItems.length > 0) {
+                try {
+                  // Fetch full email body from DB (stored during insert phase)
+                  const { data: fullEmail } = await (adminClient as any)
+                    .from("email_records")
+                    .select("body_text, body_html")
+                    .eq("id", email.id)
+                    .maybeSingle();
+
+                  let emailBody = fullEmail?.body_text || fullEmail?.body_html || email.body_preview || "";
+                  // Strip HTML tags if we only have body_html
+                  if (!fullEmail?.body_text && fullEmail?.body_html) {
+                    emailBody = fullEmail.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                  }
+
+                  // If no body in DB, try fetching from provider
+                  if (emailBody.length < 20 && email.outlook_message_id && getFullBody) {
+                    const fetchedBody = await getFullBody(email.outlook_message_id);
+                    if (fetchedBody) emailBody = fetchedBody;
+                  }
+
+                  if (emailBody.length > 10) {
+                    const extractedPrices = await extractPricesForL0b(emailBody, requestedItems);
+
+                    if (extractedPrices.length > 0) {
+                      const quotesToInsert = extractedPrices
+                        .filter((p: any) => p.unit_price_ht != null)
+                        .map((p: any) => ({
+                          request_id: priceRequest.id,
+                          submission_id: priceRequest.submission_id,
+                          item_id: p.item_id,
+                          unit_price_ht: p.unit_price_ht,
+                          total_ht: p.total_ht || null,
+                          currency: "CHF",
+                          raw_email_id: email.id,
+                          confidence: p.confidence || 0.8,
+                          extracted_at: new Date().toISOString(),
+                        }));
+
+                      const { error: quoteInsertErr } = await (adminClient as any)
+                        .from("submission_quotes")
+                        .insert(quotesToInsert);
+
+                      if (quoteInsertErr) {
+                        console.warn("[sync] L0b quote insert error:", quoteInsertErr.message);
+                      } else {
+                        quotesInserted = quotesToInsert.length;
+                      }
+                    }
+                  }
+                } catch (extractErr) {
+                  console.warn("[sync] L0b price extraction failed (non-fatal):", extractErr);
+                }
+              }
+
+              // Classify email as price_response and link to project
               await (adminClient as any)
                 .from("email_records")
                 .update({
                   classification: "action_required",
                   project_id: priceRequest.project_id || null,
                   classification_status: "auto_classified",
-                  email_category: "project",
-                  ai_reasoning: `Level 0b: Submission tracking code detected (${trackingCode})`,
-                  price_extracted: false,
+                  email_category: "price_response",
+                  ai_reasoning: `Level 0b: Submission tracking code detected (${trackingCode}). ${quotesInserted} prix extraits.`,
+                  price_extracted: quotesInserted > 0,
                 })
                 .eq("id", email.id);
 
-              // Update price request status
+              // Update price request status + response tracking
+              const responseReceivedAt = new Date().toISOString();
+              let responseTimeDays: number | null = null;
+              if (priceRequest.sent_at) {
+                const sentMs = new Date(priceRequest.sent_at).getTime();
+                responseTimeDays = Math.round(((Date.now() - sentMs) / (1000 * 60 * 60 * 24)) * 10) / 10;
+              }
+
               await (adminClient as any)
                 .from("submission_price_requests")
-                .update({ status: "responded" })
+                .update({
+                  status: "responded",
+                  response_received_at: responseReceivedAt,
+                  response_time_days: responseTimeDays,
+                })
                 .eq("id", priceRequest.id);
 
-              console.log(`[sync] Level 0b: Linked email "${email.subject}" to submission price request via ${trackingCode}`);
+              console.log(`[sync] Level 0b: Linked email "${email.subject}" to submission price request via ${trackingCode} (${quotesInserted} quotes extracted)`);
               emailsClassified++;
               continue;
             }
           }
-        } catch {
+        } catch (l0bErr) {
+          console.warn("[sync] Level 0b detection error:", l0bErr);
           // Level 0b failure must never block the rest of the pipeline
         }
       }
@@ -1050,4 +1121,68 @@ async function buildBodyFetcher(
     }
     return undefined;
   };
+}
+
+// ── Extract prices from email body for L0b (reuses receive-quote logic) ──
+
+async function extractPricesForL0b(
+  emailContent: string,
+  requestedItems: any[]
+): Promise<any[]> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return [];
+
+  const itemsList = requestedItems
+    .map((i: any) => `- ID: ${i.id} | N°${i.item_number} | ${i.description} | ${i.unit} | Qté: ${i.quantity}`)
+    .join("\n");
+
+  const prompt = `Tu es un expert en extraction de prix de construction suisse.
+
+Voici un email de réponse d'un fournisseur. Extrais les prix unitaires HT pour chaque poste demandé.
+
+## Postes demandés :
+${itemsList}
+
+## Email du fournisseur :
+${emailContent.substring(0, 8000)}
+
+## Instructions :
+- Cherche les prix dans le format "numéro_poste : prix" ou "numéro_poste = prix" ou tout autre format
+- Le prix peut être en CHF, EUR, ou sans devise (suppose CHF)
+- Retourne UNIQUEMENT le JSON, sans commentaire
+
+## Format de sortie (JSON strict) :
+[
+  {
+    "item_id": "UUID du poste",
+    "item_number": "numéro du poste",
+    "unit_price_ht": number,
+    "total_ht": number | null,
+    "confidence": number (0-1)
+  }
+]`;
+
+  try {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const client = new Anthropic({ apiKey, timeout: 30_000 });
+
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 2048,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = response.content.find((c: any) => c.type === "text");
+    if (!text || text.type !== "text") return [];
+
+    let jsonStr = text.text.trim();
+    const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) jsonStr = match[1].trim();
+    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (arrayMatch) jsonStr = arrayMatch[0];
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.warn("[sync] extractPricesForL0b Claude call failed:", err);
+    return [];
+  }
 }

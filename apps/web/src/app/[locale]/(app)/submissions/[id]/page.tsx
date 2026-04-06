@@ -875,6 +875,37 @@ function ComparisonTabContent({
   const [awarding, setAwarding] = useState(false);
   const [awardError, setAwardError] = useState<string | null>(null);
   const [awardSuccess, setAwardSuccess] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState<string | null>(null);
+
+  const respondedWithoutQuotes = priceRequests.filter(
+    (pr) => pr.status === "responded" && !quotes.some((q) => q.request_id === pr.id)
+  );
+
+  const handleExtractPrices = async () => {
+    setExtracting(true);
+    setExtractResult(null);
+    let totalExtracted = 0;
+    try {
+      for (const pr of respondedWithoutQuotes) {
+        const res = await fetch("/api/submissions/receive-quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tracking_code: pr.tracking_code }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          totalExtracted += json.quotes_extracted || 0;
+        }
+      }
+      setExtractResult(totalExtracted > 0 ? `${totalExtracted} prix extraits` : "Aucun prix trouvé dans les emails");
+      onRefresh();
+    } catch (err: any) {
+      setExtractResult(`Erreur: ${err.message}`);
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   const handleAward = async () => {
     if (!confirmAward) return;
@@ -902,11 +933,31 @@ function ComparisonTabContent({
   };
 
   if (quotes.length === 0) {
+    const hasRespondedRequests = respondedWithoutQuotes.length > 0;
     return (
       <div className="text-center py-16">
         <BarChart3 className="h-12 w-12 text-[#71717A] mx-auto mb-3" />
-        <p className="text-sm text-[#71717A]">Aucune offre reçue</p>
-        <p className="text-xs text-[#71717A] mt-1">Les résultats apparaîtront ici après réception des réponses fournisseurs</p>
+        <p className="text-sm text-[#71717A]">
+          {hasRespondedRequests ? `${respondedWithoutQuotes.length} réponse(s) reçue(s) — prix non encore extraits` : "Aucune offre reçue"}
+        </p>
+        <p className="text-xs text-[#71717A] mt-1">
+          {hasRespondedRequests
+            ? "Cliquez ci-dessous pour extraire automatiquement les prix des emails de réponse"
+            : "Les résultats apparaîtront ici après réception des réponses fournisseurs"}
+        </p>
+        {hasRespondedRequests && (
+          <button
+            onClick={handleExtractPrices}
+            disabled={extracting}
+            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#F97316] hover:bg-[#EA580C] rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            {extracting ? "Extraction en cours..." : "Extraire les prix"}
+          </button>
+        )}
+        {extractResult && (
+          <p className="text-xs mt-3 text-[#A1A1AA]">{extractResult}</p>
+        )}
       </div>
     );
   }
