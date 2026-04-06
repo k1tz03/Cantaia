@@ -290,6 +290,8 @@ export async function POST(request: Request) {
           let subCodes = extractTrackingCodes(emailText);
 
           // If not found, search full body from DB (tracking code is often in the quoted footer)
+          // IMPORTANT: body_text = bodyPreview (short ~500 chars), body_html = full HTML body.
+          // We must search body_html independently since body_text is truthy but incomplete.
           if (subCodes.length === 0) {
             const { data: fullEmailForTracking } = await (adminClient as any)
               .from("email_records")
@@ -297,10 +299,14 @@ export async function POST(request: Request) {
               .eq("id", email.id)
               .maybeSingle();
             if (fullEmailForTracking) {
-              const fullText = fullEmailForTracking.body_text
-                || (fullEmailForTracking.body_html ? fullEmailForTracking.body_html.replace(/<[^>]+>/g, " ") : "");
-              if (fullText) {
-                subCodes = extractTrackingCodes(fullText);
+              // Try body_text first (short preview)
+              if (fullEmailForTracking.body_text) {
+                subCodes = extractTrackingCodes(fullEmailForTracking.body_text);
+              }
+              // If still not found, search the full HTML body (stripped of tags)
+              if (subCodes.length === 0 && fullEmailForTracking.body_html) {
+                const strippedHtml = fullEmailForTracking.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+                subCodes = extractTrackingCodes(strippedHtml);
               }
             }
           }
@@ -327,10 +333,15 @@ export async function POST(request: Request) {
                     .eq("id", email.id)
                     .maybeSingle();
 
-                  let emailBody = fullEmail?.body_text || fullEmail?.body_html || email.body_preview || "";
-                  // Strip HTML tags if we only have body_html
-                  if (!fullEmail?.body_text && fullEmail?.body_html) {
+                  // IMPORTANT: body_text = bodyPreview (short ~500 chars), body_html = full HTML body.
+                  // Always prefer body_html (stripped) for price extraction since it has the complete content.
+                  let emailBody = "";
+                  if (fullEmail?.body_html) {
                     emailBody = fullEmail.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                  } else if (fullEmail?.body_text) {
+                    emailBody = fullEmail.body_text;
+                  } else {
+                    emailBody = email.body_preview || "";
                   }
 
                   // If no body in DB, try fetching from provider

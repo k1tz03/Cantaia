@@ -50,10 +50,10 @@ export async function GET(
       .eq("submission_id", id)
       .order("item_number", { ascending: true });
 
-    // Fetch price requests with supplier info (supplier_id can be null for manual suppliers)
+    // Fetch price requests (no FK join — submission_price_requests has no FK to suppliers)
     const { data: rawPriceRequests, error: prError } = await (admin as any)
       .from("submission_price_requests")
-      .select("*, suppliers(id, company_name, contact_name, email)")
+      .select("*")
       .eq("submission_id", id)
       .order("created_at", { ascending: false });
 
@@ -61,9 +61,27 @@ export async function GET(
       console.error("[submissions] Price requests query error:", prError.message, prError.details);
     }
 
-    // Normalize: for manual suppliers (supplier_id=null), populate suppliers from manual fields
+    // Fetch supplier info separately for non-manual suppliers
+    const supplierIds = (rawPriceRequests || [])
+      .map((pr: any) => pr.supplier_id)
+      .filter((sid: string | null) => sid != null);
+    let supplierMap: Record<string, any> = {};
+    if (supplierIds.length > 0) {
+      const { data: suppliers } = await admin
+        .from("suppliers")
+        .select("id, company_name, contact_name, email")
+        .in("id", supplierIds);
+      for (const s of suppliers || []) {
+        supplierMap[s.id] = s;
+      }
+    }
+
+    // Attach supplier info to each price request
     const priceRequests = (rawPriceRequests || []).map((pr: any) => {
-      if (!pr.suppliers && (pr.supplier_name_manual || pr.supplier_email_manual)) {
+      if (pr.supplier_id && supplierMap[pr.supplier_id]) {
+        return { ...pr, suppliers: supplierMap[pr.supplier_id] };
+      }
+      if (pr.supplier_name_manual || pr.supplier_email_manual) {
         return {
           ...pr,
           suppliers: {
@@ -74,7 +92,7 @@ export async function GET(
           },
         };
       }
-      return pr;
+      return { ...pr, suppliers: null };
     });
 
     // Fetch quotes
