@@ -18,6 +18,10 @@ import {
   Settings,
   SlidersHorizontal,
   Database,
+  FileSignature,
+  Eye,
+  EyeOff,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useFormSection } from "@/lib/hooks/use-form-section";
@@ -160,6 +164,14 @@ function ProfileSection() {
   const tAuth = useTranslations("auth");
   const { user } = useAuth();
 
+  // ─── Email Signature state ───
+  const [signature, setSignature] = useState("");
+  const [initialSignature, setInitialSignature] = useState("");
+  const [showSignaturePreview, setShowSignaturePreview] = useState(false);
+  const [signatureSaving, setSignatureSaving] = useState(false);
+  const [signatureSaved, setSignatureSaved] = useState(false);
+  const signatureDirty = signature !== initialSignature;
+
   const saveProfile = useCallback(async (data: Record<string, unknown>) => {
     const result = await updateProfileAction({
       first_name: data.first_name as string,
@@ -214,6 +226,11 @@ function ProfileSection() {
             age_range: data.profile.age_range || metaValues.age_range,
             gender: data.profile.gender || metaValues.gender,
           });
+          // Load email signature
+          if (data.profile.email_signature !== undefined) {
+            setSignature(data.profile.email_signature || "");
+            setInitialSignature(data.profile.email_signature || "");
+          }
         }
       })
       .catch(() => {});
@@ -346,6 +363,81 @@ function ProfileSection() {
           label={t("saveChanges")}
           savedLabel={t("savedSuccessfully")}
         />
+      </div>
+
+      {/* ─── Email Signature ─── */}
+      <div className="s-section border-t border-[#27272A] pt-6 mt-2">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#27272A]">
+          <div className="flex items-center gap-2">
+            <FileSignature className="h-4 w-4 text-[#F97316]" />
+            <span className="font-display text-[14px] font-bold text-[#FAFAFA]">Signature email</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSignaturePreview(!showSignaturePreview)}
+            className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+          >
+            {showSignaturePreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {showSignaturePreview ? "Masquer aperçu" : "Voir aperçu"}
+          </button>
+        </div>
+        <p className="text-[11px] text-[#71717A] mb-3">
+          Cette signature sera automatiquement ajoutée à tous vos emails sortants (composition, réponse, demandes de prix).
+        </p>
+
+        <textarea
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          placeholder={"Cordialement,\nJulien Ray\nChef de projet\n+41 79 123 45 67"}
+          rows={5}
+          className="block w-full rounded-lg border border-[#3F3F46] bg-[#18181B] px-[14px] py-[9px] text-[13px] text-[#D4D4D8] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none font-mono"
+        />
+
+        {showSignaturePreview && signature && (
+          <div className="mt-3 rounded-lg border border-[#27272A] bg-[#0F0F11] p-4">
+            <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-2">Aperçu dans l&apos;email</p>
+            <div className="border-t border-[#27272A] pt-3">
+              <div className="text-[13px] text-[#A1A1AA] whitespace-pre-wrap">{signature}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mt-3">
+          <button
+            type="button"
+            onClick={async () => {
+              setSignatureSaving(true);
+              setSignatureSaved(false);
+              try {
+                const res = await fetch("/api/user/profile", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email_signature: signature }),
+                });
+                if (res.ok) {
+                  setInitialSignature(signature);
+                  setSignatureSaved(true);
+                  setTimeout(() => setSignatureSaved(false), 3000);
+                }
+              } catch { /* ignore */ }
+              setSignatureSaving(false);
+            }}
+            disabled={signatureSaving || !signatureDirty}
+            className={`flex items-center gap-2 rounded-lg px-4 py-[7px] text-[12px] font-semibold text-white transition-colors disabled:opacity-50 ${
+              signatureDirty
+                ? "bg-[#F97316] hover:bg-[#EA580C]"
+                : "bg-[#27272A] cursor-not-allowed"
+            }`}
+          >
+            {signatureSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Enregistrer la signature
+          </button>
+          {signatureSaved && (
+            <span className="flex items-center gap-1 text-[11px] text-green-400">
+              <Check className="h-3.5 w-3.5" /> Signature enregistrée
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

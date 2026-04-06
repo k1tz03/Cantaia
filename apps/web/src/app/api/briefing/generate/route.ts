@@ -18,12 +18,29 @@ export async function POST() {
 
   const admin = createAdminClient();
 
-  // Get user profile
-  const { data: userProfile } = await (admin as any)
+  // Get user profile — use basic columns first, then try extended columns
+  let userProfile: any = null;
+  const { data: profile1 } = await (admin as any)
     .from("users")
-    .select("first_name, last_name, preferred_language, organization_id, briefing_enabled, briefing_projects")
+    .select("first_name, last_name, preferred_language, organization_id")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (profile1) {
+    userProfile = profile1;
+    // Try to fetch extended columns (may not exist if migration not applied)
+    try {
+      const { data: profile2 } = await (admin as any)
+        .from("users")
+        .select("briefing_enabled, briefing_projects")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile2) {
+        userProfile.briefing_enabled = profile2.briefing_enabled;
+        userProfile.briefing_projects = profile2.briefing_projects;
+      }
+    } catch { /* columns don't exist yet — ignore */ }
+  }
 
   if (!userProfile) {
     return NextResponse.json({ error: "User profile not found" }, { status: 404 });

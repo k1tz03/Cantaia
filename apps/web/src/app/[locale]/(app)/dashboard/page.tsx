@@ -183,22 +183,20 @@ export default function DashboardPage() {
 
     fetch("/api/briefing/today")
       .then(async (r) => {
-        if (r.status === 404) {
-          // No briefing for today — auto-generate one
-          setBriefingGenerating(true);
-          try {
-            const genRes = await fetch("/api/briefing/generate", { method: "POST" });
-            if (genRes.ok) {
-              const genData = await genRes.json();
-              if (genData.briefing) setBriefing(genData.briefing);
-            }
-          } catch { /* ignore */ }
-          setBriefingGenerating(false);
-          return;
+        if (r.ok) {
+          const d = await r.json();
+          if (d.briefing) { setBriefing(d.briefing); return; }
         }
-        if (!r.ok) throw new Error(`${r.status}`);
-        const d = await r.json();
-        if (d.briefing) setBriefing(d.briefing);
+        // Any non-ok response (404, 500, etc.) — try to auto-generate
+        setBriefingGenerating(true);
+        try {
+          const genRes = await fetch("/api/briefing/generate", { method: "POST" });
+          if (genRes.ok) {
+            const genData = await genRes.json();
+            if (genData.briefing) { setBriefing(genData.briefing); setBriefingGenerating(false); return; }
+          }
+        } catch { /* ignore */ }
+        setBriefingGenerating(false);
       })
       .catch(() => {});
 
@@ -287,40 +285,51 @@ export default function DashboardPage() {
 
   /* ---- Briefing highlights ---- */
   const briefingHighlights = useMemo(() => {
-    if (!briefing) return [];
-
-    // Primary: priority_alerts from the BriefingContent (AI or fallback)
-    if (briefing.priority_alerts?.length) {
-      return briefing.priority_alerts.slice(0, 3);
-    }
-
-    // Secondary: project summaries
-    if (briefing.projects?.length) {
-      return briefing.projects
-        .slice(0, 3)
-        .map((p) => `${p.status_emoji || "📋"} ${p.name}: ${p.summary}`);
-    }
-
-    // Tertiary: global_summary as a single item
-    if (briefing.global_summary) {
-      return [briefing.global_summary];
-    }
-
-    // Legacy fallback (old BriefingItem format)
-    if (briefing.content?.highlights?.length) return briefing.content.highlights.slice(0, 3);
-    if (briefing.content?.sections?.length) {
-      const items: string[] = [];
-      for (const sec of briefing.content.sections) {
-        for (const item of sec.items || []) {
-          items.push(item);
-          if (items.length >= 3) return items;
-        }
+    if (briefing) {
+      // Primary: priority_alerts from the BriefingContent (AI or fallback)
+      if (briefing.priority_alerts?.length) {
+        return briefing.priority_alerts.slice(0, 3);
       }
-      return items;
+      // Secondary: project summaries
+      if (briefing.projects?.length) {
+        return briefing.projects
+          .slice(0, 3)
+          .map((p) => `${p.status_emoji || "📋"} ${p.name}: ${p.summary}`);
+      }
+      // Tertiary: global_summary as a single item
+      if (briefing.global_summary) {
+        return [briefing.global_summary];
+      }
+      // Legacy fallback (old BriefingItem format)
+      if (briefing.content?.highlights?.length) return briefing.content.highlights.slice(0, 3);
+      if (briefing.content?.sections?.length) {
+        const items: string[] = [];
+        for (const sec of briefing.content.sections) {
+          for (const item of sec.items || []) {
+            items.push(item);
+            if (items.length >= 3) return items;
+          }
+        }
+        return items;
+      }
+    }
+
+    // Client-side fallback: build highlights from local data when API fails
+    if (!briefingGenerating && !loading && (tasks.length > 0 || projects.length > 0)) {
+      const items: string[] = [];
+      const overdue = tasks.filter((t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done" && t.status !== "cancelled");
+      if (overdue.length > 0) items.push(`${overdue.length} tâche(s) en retard`);
+      const dueToday = tasks.filter((t) => t.due_date && t.due_date.startsWith(new Date().toISOString().split("T")[0]) && t.status !== "done");
+      if (dueToday.length > 0) items.push(`${dueToday.length} tâche(s) à finir aujourd'hui`);
+      const activeProjects = projects.filter((p) => p.status === "active");
+      if (activeProjects.length > 0) items.push(`${activeProjects.length} projet(s) actif(s)`);
+      const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "cancelled");
+      if (items.length === 0 && openTasks.length > 0) items.push(`${openTasks.length} tâche(s) ouverte(s)`);
+      return items.slice(0, 3);
     }
 
     return [];
-  }, [briefing]);
+  }, [briefing, briefingGenerating, loading, tasks, projects]);
 
   /* ---- Sync action ---- */
   const handleSync = async () => {
