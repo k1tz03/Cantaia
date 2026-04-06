@@ -3102,7 +3102,9 @@
     "prix": "Preise",
     "planning": "Planung",
     "overview": "Übersicht",
-    "site-reports": "Bauberichte"
+    "site-reports": "Bauberichte",
+    "archiving": "Archivierung",
+    "closure": "Abschluss"
   },
   "support": {
     "title": "Support",

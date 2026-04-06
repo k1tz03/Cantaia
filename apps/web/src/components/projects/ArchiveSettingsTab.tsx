@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   FolderArchive,
   Download,
@@ -244,7 +245,7 @@ export function ArchiveSettingsTab({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("[ArchiveSettingsTab] Save error:", err);
-        alert(t("saveError") + ": " + (err.error || res.statusText));
+        toast.error(t("saveError") + ": " + (err.error || res.statusText));
         return;
       }
 
@@ -253,7 +254,7 @@ export function ArchiveSettingsTab({
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error("[ArchiveSettingsTab] Network error:", err);
-      alert(t("networkError"));
+      toast.error(t("networkError"));
     } finally {
       setSaving(false);
     }
@@ -288,10 +289,8 @@ export function ArchiveSettingsTab({
       folders.push(basePath);
     }
 
-    alert(
-      t("treeTitle") + "\n\n" +
-        folders.join("\n") +
-        "\n\n" + t("treeNote")
+    toast.info(
+      t("treeTitle") + ": " + folders.join(", ")
     );
   };
 
@@ -305,22 +304,22 @@ export function ArchiveSettingsTab({
       });
       const data = await res.json();
       if (res.ok) {
-        alert(
-          `${t("archiveExisting")} :\n• ${data.archived} ${t("emailsArchived")}\n• ${data.already_archived || 0} ${t("total")}\n\n${t("treeNote")}`
+        toast.success(
+          `${t("archiveExisting")} : ${data.archived} ${t("emailsArchived")}, ${data.already_archived || 0} ${t("total")}`
         );
         fetchStats();
       } else {
-        alert(t("saveError") + ": " + (data.error || res.statusText));
+        toast.error(t("saveError") + ": " + (data.error || res.statusText));
       }
     } catch {
-      alert(t("networkError"));
+      toast.error(t("networkError"));
     } finally {
       setArchiving(false);
     }
   };
 
   const handleDownloadZip = () => {
-    alert(t("downloadZipPlaceholder"));
+    toast.info(t("downloadZipPlaceholder"));
   };
 
   // ─── Render ───
@@ -380,7 +379,7 @@ export function ArchiveSettingsTab({
             className="rounded-md border border-[#27272A] p-2 text-[#71717A] hover:bg-[#27272A]"
             title={t("browse")}
             onClick={() =>
-              alert(t("browseDesktopOnly"))
+              toast.info(t("browseDesktopOnly"))
             }
           >
             <FolderOpen className="h-4 w-4" />

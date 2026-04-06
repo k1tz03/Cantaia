@@ -24,6 +24,16 @@ export async function GET() {
 
     const adminClient = createAdminClient();
 
+    // Restrict to superadmin
+    const { data: adminRow } = await adminClient
+      .from("users")
+      .select("is_superadmin")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!adminRow?.is_superadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Check users table
     const { data: profile, error: profileError } = await adminClient
       .from("users")
@@ -59,10 +69,7 @@ export async function GET() {
             organization_id: profile.organization_id,
             email: profile.email,
             has_microsoft_token: !!profile.microsoft_access_token,
-            token_prefix: profile.microsoft_access_token
-              ? profile.microsoft_access_token.substring(0, 10) + "..."
-              : null,
-            microsoft_token_expires_at: profile.microsoft_token_expires_at,
+            token_expires_at: profile.microsoft_token_expires_at,
             outlook_sync_enabled: profile.outlook_sync_enabled,
           }
         : null,

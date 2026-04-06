@@ -476,13 +476,14 @@ async function handleCrudAction(
       case "delete_task": {
         const { task_id } = body;
         if (!task_id) return NextResponse.json({ error: "task_id required" }, { status: 400 });
+        const safeTaskId = String(task_id).replace(/[^a-zA-Z0-9-]/g, "");
 
         // Also delete dependencies referencing this task
         await (admin as any)
           .from("planning_dependencies")
           .delete()
           .eq("planning_id", planningId)
-          .or(`predecessor_id.eq.${task_id},successor_id.eq.${task_id}`);
+          .or(`predecessor_id.eq.${safeTaskId},successor_id.eq.${safeTaskId}`);
 
         const { error } = await (admin as any)
           .from("planning_tasks")

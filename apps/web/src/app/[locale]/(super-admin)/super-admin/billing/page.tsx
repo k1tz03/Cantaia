@@ -11,10 +11,10 @@ const PLAN_PRICING: Record<string, number> = {
 };
 
 const planBadgeColors: Record<string, string> = {
-  trial: "bg-gray-100 text-gray-700",
-  starter: "bg-blue-100 text-blue-700",
-  pro: "bg-purple-100 text-purple-700",
-  enterprise: "bg-amber-100 text-amber-700",
+  trial: "bg-[#27272A] text-[#A1A1AA]",
+  starter: "bg-blue-900/30 text-blue-400",
+  pro: "bg-purple-900/30 text-purple-400",
+  enterprise: "bg-amber-900/30 text-amber-400",
 };
 
 interface OrgBilling {
@@ -71,50 +71,50 @@ export default function SuperAdminBillingPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
           <CreditCard className="h-6 w-6 text-amber-500" />
           Facturation & Revenue
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-[#A1A1AA]">
           Suivi des abonnements et facturation par organisation
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
             <DollarSign className="h-3.5 w-3.5" />
             MRR
           </div>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+          <p className="mt-1 text-2xl font-bold text-[#FAFAFA]">
             {loading ? "—" : `${mrr} CHF`}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
             <TrendingUp className="h-3.5 w-3.5" />
             ARR
           </div>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+          <p className="mt-1 text-2xl font-bold text-[#FAFAFA]">
             {loading ? "—" : `${arr.toLocaleString("fr-CH")} CHF`}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
             <Building2 className="h-3.5 w-3.5" />
             Organisations
           </div>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+          <p className="mt-1 text-2xl font-bold text-[#FAFAFA]">
             {loading ? "—" : orgs.length}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
             <Users className="h-3.5 w-3.5" />
             Utilisateurs
           </div>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+          <p className="mt-1 text-2xl font-bold text-[#FAFAFA]">
             {loading ? "—" : totalMembers}
           </p>
         </div>
@@ -122,16 +122,16 @@ export default function SuperAdminBillingPage() {
 
       {/* Plan distribution */}
       {!loading && planDistribution.length > 0 && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-gray-800 mb-3">Distribution des plans</h2>
+        <div className="mb-6 rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h2 className="text-sm font-semibold text-[#FAFAFA] mb-3">Distribution des plans</h2>
           <div className="flex gap-4">
             {planDistribution.map(([plan, count]) => (
               <div key={plan} className="flex items-center gap-2">
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${planBadgeColors[plan] || "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${planBadgeColors[plan] || "bg-[#27272A] text-[#A1A1AA]"}`}>
                   {plan.charAt(0).toUpperCase() + plan.slice(1)}
                 </span>
-                <span className="text-sm font-medium text-gray-700">{count}</span>
-                <span className="text-xs text-gray-400">({PLAN_PRICING[plan] || 0} CHF/mois)</span>
+                <span className="text-sm font-medium text-[#A1A1AA]">{count}</span>
+                <span className="text-xs text-[#71717A]">({PLAN_PRICING[plan] || 0} CHF/mois)</span>
               </div>
             ))}
           </div>
@@ -143,9 +143,9 @@ export default function SuperAdminBillingPage() {
           <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-[#27272A] bg-[#18181B]">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500">
+            <thead className="bg-[#1C1C1F] text-left text-xs font-medium text-[#A1A1AA]">
               <tr>
                 <th className="px-4 py-3">Organisation</th>
                 <th className="px-4 py-3">Plan</th>
@@ -156,7 +156,7 @@ export default function SuperAdminBillingPage() {
                 <th className="px-4 py-3">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#27272A]">
               {orgs.map((org) => {
                 const orgMrr = PLAN_PRICING[org.plan] || 0;
                 const orgStatus = org.status || "active";
@@ -166,33 +166,33 @@ export default function SuperAdminBillingPage() {
                   : null;
 
                 return (
-                  <tr key={org.id} className="hover:bg-gray-50">
+                  <tr key={org.id} className="hover:bg-[#27272A]">
                     <td className="px-4 py-3">
-                      <span className="flex items-center gap-2 font-medium text-gray-800">
-                        <Building2 className="h-4 w-4 text-gray-400" />
+                      <span className="flex items-center gap-2 font-medium text-[#FAFAFA]">
+                        <Building2 className="h-4 w-4 text-[#71717A]" />
                         {org.name}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${planBadgeColors[org.plan] || "bg-gray-100 text-gray-700"}`}>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${planBadgeColors[org.plan] || "bg-[#27272A] text-[#A1A1AA]"}`}>
                         {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)}
                       </span>
                       {isTrial && trialDays !== null && (
-                        <span className="ml-1.5 text-[10px] text-gray-400">
+                        <span className="ml-1.5 text-[10px] text-[#71717A]">
                           {trialDays}j restants
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-800">
+                    <td className="px-4 py-3 text-right font-medium text-[#FAFAFA]">
                       {orgMrr > 0 ? `${orgMrr} CHF` : "—"}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-600">
+                    <td className="px-4 py-3 text-center text-[#A1A1AA]">
                       {org.member_count || 1}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-600">
+                    <td className="px-4 py-3 text-center text-[#A1A1AA]">
                       {org.project_count || 0}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[#71717A]">
                       {org.created_at
                         ? new Date(org.created_at).toLocaleDateString("fr-CH")
                         : "—"}
@@ -201,10 +201,10 @@ export default function SuperAdminBillingPage() {
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           orgStatus === "active" || orgStatus === "trial"
-                            ? "bg-green-50 text-green-700"
+                            ? "bg-green-900/30 text-green-400"
                             : orgStatus === "suspended"
-                              ? "bg-red-50 text-red-700"
-                              : "bg-gray-100 text-gray-600"
+                              ? "bg-red-900/30 text-red-400"
+                              : "bg-[#27272A] text-[#A1A1AA]"
                         }`}
                       >
                         {orgStatus === "active"

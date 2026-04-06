@@ -783,11 +783,11 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
               </div>
             ) : emailBody ? (
               <div
-                className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-[#27272A] bg-white p-3"
+                className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-[#27272A] bg-white p-3 text-black"
               >
                 {emailBody.contentType === "html" ? (
                   <div
-                    className="prose prose-sm max-w-none text-[#FAFAFA] [&_a]:text-brand [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
+                    className="prose prose-sm max-w-none text-[#1A1A1A] [&_a]:text-blue-600 [&_a]:underline [&_img]:max-w-full [&_table]:text-xs"
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(emailBody.content, {
                         ALLOWED_TAGS: ["p", "br", "b", "i", "u", "strong", "em", "a", "ul", "ol", "li", "table", "tr", "td", "th", "thead", "tbody", "span", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img"],
@@ -797,7 +797,7 @@ export function EmailDetailPanel({ email, projects, onClose, onEmailUpdated, onC
                     }}
                   />
                 ) : (
-                  <pre className="whitespace-pre-wrap text-sm text-[#FAFAFA] font-sans">{emailBody.content}</pre>
+                  <pre className="whitespace-pre-wrap text-sm text-[#1A1A1A] font-sans">{emailBody.content}</pre>
                 )}
               </div>
             ) : email.body_preview ? (

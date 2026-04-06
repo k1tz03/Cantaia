@@ -71,11 +71,11 @@ export default function PublicPlanningPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center max-w-md p-8">
-          <AlertCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-medium text-gray-900 mb-2">
+          <AlertCircle className="h-16 w-16 text-[#52525B] mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-[#FAFAFA] mb-2">
             {t("share.expired")}
           </h2>
-          <p className="text-sm text-gray-500 mb-6">{error}</p>
+          <p className="text-sm text-[#A1A1AA] mb-6">{error}</p>
           <Link
             href="/register"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
@@ -93,16 +93,16 @@ export default function PublicPlanningPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Public header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+      <header className="bg-[#18181B] border-b border-[#27272A] px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">C</span>
             </div>
-            <span className="text-lg font-semibold text-gray-900">Cantaia</span>
+            <span className="text-lg font-semibold text-[#FAFAFA]">Cantaia</span>
           </div>
-          <span className="text-sm text-gray-400 hidden sm:inline">|</span>
-          <span className="text-sm text-gray-500 hidden sm:inline">
+          <span className="text-sm text-[#71717A] hidden sm:inline">|</span>
+          <span className="text-sm text-[#A1A1AA] hidden sm:inline">
             {t("poweredBy")}
           </span>
         </div>

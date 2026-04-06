@@ -422,9 +422,9 @@ export default function ReceptionFormPage() {
                       <option value="refused">{t("refused")}</option>
                     </select>
                   </div>
-                  {lot.final_amount !== lot.contract_amount && (
+                  {lot.final_amount !== lot.contract_amount && lot.contract_amount > 0 && (
                     <div className="flex items-end">
-                      <span className={`text-xs font-medium ${lot.final_amount > lot.contract_amount ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                      <span className={`text-xs font-medium ${lot.final_amount > lot.contract_amount ? "text-red-400" : "text-green-400"}`}>
                         {lot.final_amount > lot.contract_amount ? "+" : ""}
                         {((lot.final_amount - lot.contract_amount) / lot.contract_amount * 100).toFixed(1)}%
                       </span>

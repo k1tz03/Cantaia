@@ -118,11 +118,11 @@ export default function SuperAdminUsersPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
           <Users className="h-6 w-6 text-amber-500" />
           Tous les utilisateurs
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-[#A1A1AA]">
           {users.length} utilisateurs — Coût IA total: {totalCost.toFixed(2)} CHF
         </p>
       </div>
@@ -130,32 +130,32 @@ export default function SuperAdminUsersPage() {
       {/* Filters row */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#71717A]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher par nom, email ou organisation..."
-            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2.5 pl-10 pr-4 text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
           />
         </div>
         <select
           value={orgFilter}
           onChange={(e) => setOrgFilter(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-amber-400 focus:outline-none"
+          className="rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2.5 text-sm focus:border-amber-400 focus:outline-none"
         >
           <option value="all">Toutes les orgs</option>
           {orgOptions.map(([id, name]) => (
             <option key={id} value={id}>{name}</option>
           ))}
         </select>
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+        <div className="flex gap-1 rounded-lg bg-[#27272A] p-0.5">
           {(["7d", "30d", "90d"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                period === p ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                period === p ? "bg-[#18181B] text-[#FAFAFA] shadow-sm" : "text-[#A1A1AA] hover:text-[#A1A1AA]"
               }`}
             >
               {p === "7d" ? "7j" : p === "30d" ? "30j" : "90j"}
@@ -169,9 +169,9 @@ export default function SuperAdminUsersPage() {
           <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-[#27272A] bg-[#18181B]">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500">
+            <thead className="bg-[#1C1C1F] text-left text-xs font-medium text-[#A1A1AA]">
               <tr>
                 <th className="px-4 py-3">Utilisateur</th>
                 <th className="px-4 py-3">Email</th>
@@ -193,55 +193,55 @@ export default function SuperAdminUsersPage() {
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#27272A]">
               {filtered.map((u) => {
                 const cost = userCosts.get(u.id);
                 return (
-                  <tr key={u.id} className="hover:bg-gray-50">
+                  <tr key={u.id} className="hover:bg-[#27272A]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#27272A] text-[10px] font-semibold text-[#A1A1AA]">
                           {(u.first_name?.[0] || "").toUpperCase()}{(u.last_name?.[0] || "").toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-[#FAFAFA]">
                           {u.first_name} {u.last_name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-[#A1A1AA]">
                       <span className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
                         {u.email}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-[#A1A1AA]">
                       {u.org_name ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
                           <Building2 className="h-3 w-3" />
                           {u.org_name}
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                        <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium text-[#A1A1AA]">
                           Solo
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+                      <span className="inline-flex rounded-full bg-[#27272A] px-2 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
                         {u.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">
+                    <td className="px-4 py-3 text-right text-[#A1A1AA]">
                       {cost ? cost.calls : 0}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {cost && cost.cost > 0 ? (
-                        <span className="font-medium text-gray-800">{cost.cost.toFixed(4)} CHF</span>
+                        <span className="font-medium text-[#FAFAFA]">{cost.cost.toFixed(4)} CHF</span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-[#71717A]">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[#A1A1AA]">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {u.created_at ? new Date(u.created_at).toLocaleDateString("fr-CH") : "—"}
@@ -251,7 +251,7 @@ export default function SuperAdminUsersPage() {
                       <button
                         onClick={() => handleImpersonate(u.id)}
                         disabled={impersonatingId === u.id}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-[#27272A] disabled:opacity-50 transition-colors"
                         title="Se connecter en tant que cet utilisateur"
                       >
                         {impersonatingId === u.id ? (
@@ -267,7 +267,7 @@ export default function SuperAdminUsersPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-[#71717A]">
                     Aucun utilisateur trouvé
                   </td>
                 </tr>

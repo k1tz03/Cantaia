@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
 import {
@@ -55,15 +56,15 @@ export default function UploadSignedPVPage() {
 
   const handleFile = useCallback((f: File) => {
     if (!acceptedTypes.includes(f.type)) {
-      alert("Format non supporté. Utilisez PDF, JPG ou PNG.");
+      toast.error("Format non supporté. Utilisez PDF, JPG ou PNG.");
       return;
     }
     if (f.size > maxSize) {
-      alert("Fichier trop volumineux (max 20 MB).");
+      toast.error("Fichier trop volumineux (max 20 MB).");
       return;
     }
     if (f.size < minSize) {
-      alert("Fichier trop petit (min 10 KB). Le fichier semble vide.");
+      toast.error("Fichier trop petit (min 10 KB). Le fichier semble vide.");
       return;
     }
     setFile(f);

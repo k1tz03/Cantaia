@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+export const maxDuration = 120;
+
 interface ExtractedPosition {
   position_number: string;
   can_code: string | null;

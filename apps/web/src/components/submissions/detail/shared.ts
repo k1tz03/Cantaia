@@ -7,14 +7,14 @@ import type {
 export type Tab = "items" | "suppliers" | "tracking" | "comparison" | "negotiation" | "intelligence" | "documents";
 
 export const STATUS_COLORS: Record<SubmissionStatus, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  parsed: "bg-blue-50 text-blue-700",
-  requesting: "bg-amber-50 text-amber-700",
-  offers_received: "bg-green-50 text-green-700",
-  comparing: "bg-purple-50 text-purple-700",
-  negotiating: "bg-orange-50 text-orange-700",
-  awarded: "bg-emerald-50 text-emerald-700",
-  archived: "bg-gray-100 text-gray-500",
+  draft: "bg-[#27272A] text-[#A1A1AA]",
+  parsed: "bg-blue-500/10 text-blue-400",
+  requesting: "bg-amber-500/10 text-amber-400",
+  offers_received: "bg-green-500/10 text-green-400",
+  comparing: "bg-purple-500/10 text-purple-400",
+  negotiating: "bg-orange-500/10 text-orange-400",
+  awarded: "bg-emerald-500/10 text-emerald-400",
+  archived: "bg-[#27272A] text-[#71717A]",
 };
 
 export type TranslateFn = (key: string, values?: any) => string;

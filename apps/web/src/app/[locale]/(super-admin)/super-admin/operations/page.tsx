@@ -38,14 +38,14 @@ function ActionResultBanner({ result }: { result: ActionResult | null }) {
   if (!result) return null;
   if (result.success) {
     return (
-      <div className="mt-3 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+      <div className="mt-3 flex items-center gap-2 rounded-md bg-green-900/20 px-3 py-2 text-sm text-green-400">
         <CheckCircle className="h-4 w-4 shrink-0" />
         <span>{result.message || "Action executee avec succes"}</span>
       </div>
     );
   }
   return (
-    <div className="mt-3 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+    <div className="mt-3 flex items-center gap-2 rounded-md bg-red-900/20 px-3 py-2 text-sm text-red-400">
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span>{result.error || "Une erreur est survenue"}</span>
     </div>
@@ -243,36 +243,36 @@ export default function SuperAdminOperationsPage() {
     <div className="space-y-8 p-6">
       {/* Header */}
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
           <Wrench className="h-6 w-6 text-amber-500" />
           Operations
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-[#A1A1AA]">
           Outils d&apos;administration et actions manuelles
         </p>
       </div>
 
       {/* Section 1: Force Actions */}
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">
+        <h2 className="text-base font-semibold text-[#FAFAFA]">
           Actions forcees
         </h2>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Force Sync */}
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
               <RefreshCw className="h-4 w-4 text-blue-500" />
               Forcer sync email
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-[#A1A1AA]">
               Declenche une synchronisation Outlook pour un utilisateur
             </p>
             <div className="mt-3 space-y-2">
               <select
                 value={syncUserId}
                 onChange={(e) => setSyncUserId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-[#27272A] px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 disabled={loadingUsers}
               >
                 <option value="">
@@ -303,19 +303,19 @@ export default function SuperAdminOperationsPage() {
           </div>
 
           {/* Force Briefing */}
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
               <Newspaper className="h-4 w-4 text-amber-500" />
               Forcer briefing
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-[#A1A1AA]">
               Genere le briefing quotidien pour un utilisateur
             </p>
             <div className="mt-3 space-y-2">
               <select
                 value={briefingUserId}
                 onChange={(e) => setBriefingUserId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-[#27272A] px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 disabled={loadingUsers}
               >
                 <option value="">
@@ -347,12 +347,12 @@ export default function SuperAdminOperationsPage() {
         </div>
 
         {/* CRON Jobs */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
             <Clock className="h-4 w-4 text-violet-500" />
             Executer CRON manuellement
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[#A1A1AA]">
             Lance les taches CRON planifiees sans attendre leur horaire
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -363,15 +363,15 @@ export default function SuperAdminOperationsPage() {
               return (
                 <div
                   key={cron.name}
-                  className="rounded-md border border-gray-100 bg-gray-50 p-3"
+                  className="rounded-md border border-[#27272A] bg-[#1C1C1F] p-3"
                 >
                   <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-700">
+                    <Icon className="h-4 w-4 text-[#A1A1AA]" />
+                    <span className="text-sm font-medium text-[#A1A1AA]">
                       {cron.label}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">{cron.desc}</p>
+                  <p className="mt-1 text-xs text-[#A1A1AA]">{cron.desc}</p>
                   <button
                     onClick={() => handleRunCron(cron.name)}
                     disabled={isLoading}
@@ -409,15 +409,15 @@ export default function SuperAdminOperationsPage() {
 
       {/* Section 2: Impersonation */}
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">
+        <h2 className="text-base font-semibold text-[#FAFAFA]">
           Impersonation
         </h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#A1A1AA]">
             <UserCheck className="h-4 w-4 text-red-500" />
             Se connecter en tant que
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[#A1A1AA]">
             Genere un lien de connexion pour se connecter en tant qu&apos;un
             autre utilisateur (ouvre un nouvel onglet)
           </p>
@@ -426,7 +426,7 @@ export default function SuperAdminOperationsPage() {
               <select
                 value={impersonateUserId}
                 onChange={(e) => setImpersonateUserId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-[#27272A] px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 disabled={loadingUsers}
               >
                 <option value="">
@@ -455,7 +455,7 @@ export default function SuperAdminOperationsPage() {
             </button>
           </div>
           <ActionResultBanner result={impersonateResult} />
-          <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-900/20 px-3 py-2 text-xs text-amber-400">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
             <span>
               L&apos;impersonation est tracee dans les logs d&apos;audit. Chaque
@@ -467,30 +467,30 @@ export default function SuperAdminOperationsPage() {
 
       {/* Section 3: Diagnostics */}
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">Diagnostics</h2>
+        <h2 className="text-base font-semibold text-[#FAFAFA]">Diagnostics</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href="/super-admin"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-amber-300 hover:bg-amber-50"
+            className="flex items-center gap-3 rounded-lg border border-[#27272A] bg-[#18181B] p-4 transition-colors hover:border-amber-500/50 hover:bg-amber-900/20"
           >
             <Shield className="h-5 w-5 text-amber-500" />
             <div>
-              <p className="text-sm font-medium text-gray-800">
+              <p className="text-sm font-medium text-[#FAFAFA]">
                 Erreurs Sentry
               </p>
-              <p className="text-xs text-gray-500">Voir le dashboard</p>
+              <p className="text-xs text-[#A1A1AA]">Voir le dashboard</p>
             </div>
           </Link>
           <Link
             href="/debug"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300 hover:bg-blue-50"
+            className="flex items-center gap-3 rounded-lg border border-[#27272A] bg-[#18181B] p-4 transition-colors hover:border-blue-500/50 hover:bg-blue-900/20"
           >
             <Bug className="h-5 w-5 text-blue-500" />
             <div>
-              <p className="text-sm font-medium text-gray-800">
+              <p className="text-sm font-medium text-[#FAFAFA]">
                 Debug classification
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[#A1A1AA]">
                 Diagnostics classification emails
               </p>
             </div>
@@ -499,26 +499,26 @@ export default function SuperAdminOperationsPage() {
             href="/api/debug/microsoft-status"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-violet-300 hover:bg-violet-50"
+            className="flex items-center gap-3 rounded-lg border border-[#27272A] bg-[#18181B] p-4 transition-colors hover:border-violet-500/50 hover:bg-violet-900/20"
           >
             <ExternalLink className="h-5 w-5 text-violet-500" />
             <div>
-              <p className="text-sm font-medium text-gray-800">
+              <p className="text-sm font-medium text-[#FAFAFA]">
                 Statut Microsoft
               </p>
-              <p className="text-xs text-gray-500">OAuth tokens & connexions</p>
+              <p className="text-xs text-[#A1A1AA]">OAuth tokens & connexions</p>
             </div>
           </a>
           <a
             href="/api/debug/org-merge"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-rose-300 hover:bg-rose-50"
+            className="flex items-center gap-3 rounded-lg border border-[#27272A] bg-[#18181B] p-4 transition-colors hover:border-rose-500/50 hover:bg-rose-900/20"
           >
             <Merge className="h-5 w-5 text-rose-500" />
             <div>
-              <p className="text-sm font-medium text-gray-800">Merge orgs</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-[#FAFAFA]">Merge orgs</p>
+              <p className="text-xs text-[#A1A1AA]">
                 Outil de fusion organisations
               </p>
             </div>

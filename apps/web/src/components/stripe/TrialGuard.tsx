@@ -5,7 +5,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { UsageLimitBanner } from "./UsageLimitBanner";
 import { createClient } from "@/lib/supabase/client";
 import { Clock, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 
 /**
  * AI call limits per subscription plan (monthly).

@@ -151,7 +151,8 @@ export function useUserProfile(userId: string | undefined) {
     organization_id: string | null;
     outlook_sync_enabled: boolean;
     last_sync_at: string | null;
-    microsoft_access_token: string | null;
+    has_microsoft_token?: boolean;
+    microsoft_access_token?: string | null;
   } | null>(null);
   const [loaded, setLoaded] = useState(false);
 

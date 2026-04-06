@@ -216,22 +216,22 @@ export default function SuperAdminDashboardPage() {
   ];
 
   const colorMap: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-600",
-    indigo: "bg-indigo-50 text-indigo-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    violet: "bg-violet-50 text-violet-600",
-    amber: "bg-amber-50 text-amber-600",
-    green: "bg-green-50 text-green-600",
-    slate: "bg-slate-100 text-slate-600",
-    rose: "bg-rose-50 text-rose-600",
+    blue: "bg-blue-900/20 text-blue-400",
+    indigo: "bg-indigo-900/20 text-indigo-400",
+    emerald: "bg-emerald-900/20 text-emerald-400",
+    violet: "bg-violet-900/20 text-violet-400",
+    amber: "bg-amber-900/20 text-amber-400",
+    green: "bg-green-900/20 text-green-400",
+    slate: "bg-slate-800/50 text-slate-400",
+    rose: "bg-rose-900/20 text-rose-400",
   };
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t("platformDashboard")}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t("platformDashboardDesc")}</p>
+        <h1 className="text-2xl font-bold text-[#FAFAFA]">{t("platformDashboard")}</h1>
+        <p className="mt-1 text-sm text-[#A1A1AA]">{t("platformDashboardDesc")}</p>
       </div>
 
       {/* Metrics Grid */}
@@ -239,19 +239,19 @@ export default function SuperAdminDashboardPage() {
         {metricCards.map((card) => (
           <div
             key={card.label}
-            className="rounded-lg border border-gray-200 bg-white p-4"
+            className="rounded-lg border border-[#27272A] bg-[#18181B] p-4"
           >
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[card.color]}`}>
                 <card.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">{card.label}</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xs text-[#A1A1AA]">{card.label}</p>
+                <p className="text-xl font-bold text-[#FAFAFA]">
                   {loading ? "—" : card.value}
                 </p>
                 {card.sub && (
-                  <p className="text-xs text-gray-400">{card.sub}</p>
+                  <p className="text-xs text-[#71717A]">{card.sub}</p>
                 )}
               </div>
             </div>
@@ -261,27 +261,27 @@ export default function SuperAdminDashboardPage() {
 
       {/* Alerts */}
       {!loading && alerts.length > 0 && (
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
+        <div className="mb-8 rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="flex items-center gap-2 border-b border-[#27272A] px-5 py-3.5">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-800">
+            <h2 className="text-sm font-semibold text-[#FAFAFA]">
               Alertes ({alerts.length})
             </h2>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-[#27272A]">
             {alerts.map((alert) => {
               const colorClass =
                 alert.type === "payment_failed"
-                  ? "border-l-red-500 bg-red-50/50"
+                  ? "border-l-red-500 bg-red-900/20"
                   : alert.type === "trial_expiring"
-                    ? "border-l-amber-500 bg-amber-50/50"
-                    : "border-l-gray-400 bg-gray-50/50";
+                    ? "border-l-amber-500 bg-amber-900/20"
+                    : "border-l-[#52525B] bg-[#1C1C1F]/50";
               const dotColor =
                 alert.type === "payment_failed"
                   ? "bg-red-500"
                   : alert.type === "trial_expiring"
                     ? "bg-amber-500"
-                    : "bg-gray-400";
+                    : "bg-[#52525B]";
               return (
                 <div
                   key={alert.id}
@@ -289,8 +289,8 @@ export default function SuperAdminDashboardPage() {
                 >
                   <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-700">{alert.title}</p>
-                    <p className="truncate text-xs text-gray-500">{alert.description}</p>
+                    <p className="text-xs font-semibold text-[#A1A1AA]">{alert.title}</p>
+                    <p className="truncate text-xs text-[#A1A1AA]">{alert.description}</p>
                   </div>
                 </div>
               );
@@ -300,10 +300,10 @@ export default function SuperAdminDashboardPage() {
       )}
 
       {/* Sentry Errors */}
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
-          <ShieldAlert className="h-4 w-4 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-800">Erreurs production (Sentry)</h2>
+      <div className="mb-8 rounded-lg border border-[#27272A] bg-[#18181B]">
+        <div className="flex items-center gap-2 border-b border-[#27272A] px-5 py-3.5">
+          <ShieldAlert className="h-4 w-4 text-[#71717A]" />
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">Erreurs production (Sentry)</h2>
         </div>
 
         {sentryLoading ? (
@@ -312,33 +312,33 @@ export default function SuperAdminDashboardPage() {
           </div>
         ) : !sentry.configured ? (
           <div className="px-5 py-6 text-center">
-            <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-            <p className="text-sm text-gray-500">
+            <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-[#71717A]" />
+            <p className="text-sm text-[#A1A1AA]">
               Sentry non configuré — Ajoutez{" "}
-              <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">SENTRY_AUTH_TOKEN</code>{" "}
+              <code className="rounded bg-[#1C1C1F] px-1.5 py-0.5 text-xs font-mono">SENTRY_AUTH_TOKEN</code>{" "}
               dans les variables d&apos;environnement.
             </p>
           </div>
         ) : sentry.total === 0 ? (
           <div className="px-5 py-6 text-center">
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
+            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-900/20">
               <CheckCircle2 className="h-5 w-5 text-green-500" />
             </div>
-            <p className="text-sm font-medium text-green-700">Aucune erreur non résolue</p>
+            <p className="text-sm font-medium text-green-400">Aucune erreur non résolue</p>
           </div>
         ) : (
           <>
             <div className="px-5 py-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle className={`h-4 w-4 ${sentry.total > 5 ? "text-red-500" : "text-amber-500"}`} />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-[#A1A1AA]">
                   {sentry.total} erreur{sentry.total > 1 ? "s" : ""} non résolue{sentry.total > 1 ? "s" : ""}
                 </span>
                 <span
                   className={`ml-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                     sentry.total > 5
-                      ? "bg-red-100 text-red-700"
-                      : "bg-amber-100 text-amber-700"
+                      ? "bg-red-900/30 text-red-400"
+                      : "bg-amber-900/30 text-amber-400"
                   }`}
                 >
                   {sentry.total > 5 ? "critique" : "attention"}
@@ -348,32 +348,32 @@ export default function SuperAdminDashboardPage() {
 
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-t border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+                <tr className="border-t border-[#27272A] bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
                   <th className="px-5 py-2 font-medium">Erreur</th>
                   <th className="px-3 py-2 font-medium">Module</th>
                   <th className="px-3 py-2 font-medium text-right">Occ.</th>
                   <th className="px-5 py-2 font-medium text-right">Dernière fois</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {sentry.errors.slice(0, 5).map((issue) => (
                   <tr
                     key={issue.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-[#27272A]"
                     onClick={() => window.open(issue.permalink, "_blank")}
                   >
-                    <td className="max-w-[300px] truncate px-5 py-2.5 font-medium text-gray-800">
+                    <td className="max-w-[300px] truncate px-5 py-2.5 font-medium text-[#FAFAFA]">
                       {issue.title.length > 60 ? issue.title.slice(0, 60) + "..." : issue.title}
                     </td>
-                    <td className="max-w-[180px] truncate px-3 py-2.5 text-gray-500">
+                    <td className="max-w-[180px] truncate px-3 py-2.5 text-[#A1A1AA]">
                       {issue.culprit
                         ? issue.culprit.length > 30
                           ? issue.culprit.slice(0, 30) + "..."
                           : issue.culprit
                         : "—"}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{issue.count}</td>
-                    <td className="px-5 py-2.5 text-right text-gray-400">
+                    <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{issue.count}</td>
+                    <td className="px-5 py-2.5 text-right text-[#71717A]">
                       {formatSentryTime(issue.lastSeen)}
                     </td>
                   </tr>
@@ -381,7 +381,7 @@ export default function SuperAdminDashboardPage() {
               </tbody>
             </table>
 
-            <div className="border-t border-gray-100 px-5 py-3">
+            <div className="border-t border-[#27272A] px-5 py-3">
               <a
                 href="https://sentry.io/organizations/cantaia/issues/"
                 target="_blank"
@@ -397,10 +397,10 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <div className="rounded-lg border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
-          <Clock className="h-4 w-4 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-800">{t("recentActivity")}</h2>
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+        <div className="flex items-center gap-2 border-b border-[#27272A] px-5 py-3.5">
+          <Clock className="h-4 w-4 text-[#71717A]" />
+          <h2 className="text-sm font-semibold text-[#FAFAFA]">{t("recentActivity")}</h2>
         </div>
 
         {activitiesLoading ? (
@@ -409,35 +409,35 @@ export default function SuperAdminDashboardPage() {
           </div>
         ) : activities.length === 0 ? (
           <div className="py-12 text-center">
-            <Activity className="mx-auto h-8 w-8 text-gray-300" />
-            <p className="mt-2 text-sm text-gray-400">{t("noActivity")}</p>
+            <Activity className="mx-auto h-8 w-8 text-[#71717A]" />
+            <p className="mt-2 text-sm text-[#71717A]">{t("noActivity")}</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-[#27272A]">
             {activities.map((activity) => {
               const Icon = iconMap[activity.icon] || Activity;
               return (
                 <div
                   key={activity.id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50"
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-[#27272A]"
                 >
                   <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    activity.icon === "ai" ? "bg-amber-50" : activity.icon === "email" ? "bg-blue-50" : "bg-gray-100"
+                    activity.icon === "ai" ? "bg-amber-900/20" : activity.icon === "email" ? "bg-blue-900/20" : "bg-[#1C1C1F]"
                   }`}>
                     <Icon className={`h-4 w-4 ${
-                      activity.icon === "ai" ? "text-amber-500" : activity.icon === "email" ? "text-blue-500" : "text-gray-500"
+                      activity.icon === "ai" ? "text-amber-500" : activity.icon === "email" ? "text-blue-500" : "text-[#A1A1AA]"
                     }`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-[#A1A1AA]">
                       <span className="font-medium">{activity.orgName}</span>
                       {" — "}
                       <span>{activity.userName}</span>
                       {" : "}
-                      <span className="text-gray-500">{activity.description}</span>
+                      <span className="text-[#A1A1AA]">{activity.description}</span>
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-gray-400">
+                  <span className="shrink-0 text-xs text-[#71717A]">
                     {formatRelativeTime(activity.time)}
                   </span>
                 </div>

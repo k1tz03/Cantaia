@@ -47,7 +47,9 @@ export async function GET() {
     return NextResponse.json({ profile: null, user: { id: user.id } });
   }
 
-  return NextResponse.json({ profile, user: { id: user.id } });
+  // Strip sensitive token fields before returning to client
+  const { microsoft_access_token, microsoft_refresh_token: _refresh, microsoft_token_expires_at: _expires, ...safeProfile } = profile as any;
+  return NextResponse.json({ profile: { ...safeProfile, has_microsoft_token: !!microsoft_access_token }, user: { id: user.id } });
 }
 
 /**

@@ -47,24 +47,24 @@ export default function SuperAdminConfigPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
           <Settings className="h-6 w-6 text-amber-500" />
           Configuration plateforme
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-[#A1A1AA]">
           Variables d'environnement et état du système
         </p>
       </div>
 
       {/* Environment checks */}
-      <div className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-5 py-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <Key className="h-4 w-4 text-gray-400" />
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+        <div className="border-b border-[#27272A] px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+            <Key className="h-4 w-4 text-[#71717A]" />
             Variables d'environnement
           </h2>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[#27272A]">
           {checks.map((check) => (
             <div key={check.label} className="flex items-center justify-between px-5 py-3">
               <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export default function SuperAdminConfigPage() {
                 ) : (
                   <AlertCircle className="h-4 w-4 text-red-500" />
                 )}
-                <span className="text-sm font-mono text-gray-700">{check.label}</span>
+                <span className="text-sm font-mono text-[#A1A1AA]">{check.label}</span>
               </div>
               <span className={`text-xs ${check.ok ? "text-green-600" : "text-red-600"}`}>
                 {check.label === "NEXT_PUBLIC_SUPABASE_URL" && check.ok ? (
@@ -97,44 +97,44 @@ export default function SuperAdminConfigPage() {
       </div>
 
       {/* System info */}
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-5 py-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <Server className="h-4 w-4 text-gray-400" />
+      <div className="mt-6 rounded-lg border border-[#27272A] bg-[#18181B]">
+        <div className="border-b border-[#27272A] px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+            <Server className="h-4 w-4 text-[#71717A]" />
             Informations système
           </h2>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[#27272A]">
           <div className="flex items-center justify-between px-5 py-3">
-            <span className="text-sm text-gray-700">Framework</span>
-            <span className="text-xs text-gray-500">Next.js 15</span>
+            <span className="text-sm text-[#A1A1AA]">Framework</span>
+            <span className="text-xs text-[#71717A]">Next.js 15</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
-            <span className="text-sm text-gray-700">Base de données</span>
-            <span className="text-xs text-gray-500">Supabase (PostgreSQL)</span>
+            <span className="text-sm text-[#A1A1AA]">Base de données</span>
+            <span className="text-xs text-[#71717A]">Supabase (PostgreSQL)</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
-            <span className="text-sm text-gray-700">IA</span>
-            <span className="text-xs text-gray-500">Anthropic Claude</span>
+            <span className="text-sm text-[#A1A1AA]">IA</span>
+            <span className="text-xs text-[#71717A]">Anthropic Claude</span>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
-            <span className="text-sm text-gray-700">Paiements</span>
-            <span className="text-xs text-gray-500">{config?.hasStripeKey ? "Stripe (actif)" : "Stripe (non configuré)"}</span>
+            <span className="text-sm text-[#A1A1AA]">Paiements</span>
+            <span className="text-xs text-[#71717A]">{config?.hasStripeKey ? "Stripe (actif)" : "Stripe (non configuré)"}</span>
           </div>
         </div>
       </div>
 
       {/* Plan limits */}
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-5 py-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <Shield className="h-4 w-4 text-gray-400" />
+      <div className="mt-6 rounded-lg border border-[#27272A] bg-[#18181B]">
+        <div className="border-b border-[#27272A] px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+            <Shield className="h-4 w-4 text-[#71717A]" />
             Limites par plan
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500">
+            <thead className="bg-[#1C1C1F] text-left text-xs font-medium text-[#A1A1AA]">
               <tr>
                 <th className="px-4 py-2.5">Plan</th>
                 <th className="px-4 py-2.5 text-right">Appels IA</th>
@@ -147,20 +147,20 @@ export default function SuperAdminConfigPage() {
                 <th className="px-4 py-2.5 text-center">Export</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#27272A]">
               {(["trial", "starter", "pro", "enterprise"] as PlanName[]).map((planName) => {
                 const limits = PLAN_FEATURES[planName];
                 const formatLimit = (v: number) => v === Infinity ? "Illimité" : String(v);
                 const boolIcon = (v: boolean | string) => {
-                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
                   if (v === true || typeof v === "string") return <Check className="mx-auto h-3.5 w-3.5 text-green-500" />;
-                  return <Minus className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                  return <Minus className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
                 };
                 const planningLabel = (v: false | "basic" | "full") => {
-                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-gray-300" />;
+                  if (v === false) return <X className="mx-auto h-3.5 w-3.5 text-[#52525B]" />;
                   return (
                     <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                      v === "full" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"
+                      v === "full" ? "bg-green-900/30 text-green-400" : "bg-blue-900/30 text-blue-400"
                     }`}>
                       {v === "full" ? "Complet" : "Basique"}
                     </span>
@@ -168,19 +168,19 @@ export default function SuperAdminConfigPage() {
                 };
 
                 return (
-                  <tr key={planName} className="hover:bg-gray-50">
+                  <tr key={planName} className="hover:bg-[#27272A]">
                     <td className="px-4 py-2.5">
-                      <span className="font-medium text-gray-800">
+                      <span className="font-medium text-[#FAFAFA]">
                         {planName.charAt(0).toUpperCase() + planName.slice(1)}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">
+                    <td className="px-4 py-2.5 text-right text-[#A1A1AA]">
                       {formatLimit(limits.aiCalls)}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">
+                    <td className="px-4 py-2.5 text-right text-[#A1A1AA]">
                       {formatLimit(limits.maxUsers)}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">
+                    <td className="px-4 py-2.5 text-right text-[#A1A1AA]">
                       {formatLimit(limits.maxProjects)}
                     </td>
                     <td className="px-4 py-2.5 text-center">{boolIcon(limits.budgetAI)}</td>

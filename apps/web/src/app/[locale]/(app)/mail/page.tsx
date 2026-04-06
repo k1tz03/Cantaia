@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import {
   Mail,
@@ -798,7 +799,9 @@ function MailPageInner() {
                   setSummaryToast(t("summariesGenerated", { count: json.updated }));
                   if (json.updated > 0) fetchData();
                 }
-              } catch {}
+              } catch {
+                toast.error("Erreur lors de la génération des résumés");
+              }
               setGeneratingSummaries(false);
               setTimeout(() => setSummaryToast(null), 4000);
             }}

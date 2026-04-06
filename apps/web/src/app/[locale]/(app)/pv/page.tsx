@@ -1,3 +1,5 @@
+"use client";
+
 import { ComingSoonProduct } from "@/components/app/ComingSoonProduct";
 import { FileText } from "lucide-react";
 

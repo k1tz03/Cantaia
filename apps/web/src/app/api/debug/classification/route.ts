@@ -16,12 +16,18 @@ export async function GET() {
 
   const admin = createAdminClient();
 
-  // Get user's org
-  const { data: userOrg } = await admin
+  // Restrict to superadmin
+  const { data: adminRow } = await admin
     .from("users")
-    .select("organization_id")
+    .select("is_superadmin, organization_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (!adminRow?.is_superadmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Get user's org
+  const userOrg = adminRow;
 
   if (!userOrg?.organization_id) {
     return NextResponse.json({ error: "No organization found" }, { status: 404 });

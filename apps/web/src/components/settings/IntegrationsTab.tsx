@@ -102,7 +102,7 @@ export function IntegrationsTab() {
   const [saving, setSaving] = useState(false);
   const [checked, setChecked] = useState(false);
 
-  const isLegacyOutlook = !!profile?.profile?.microsoft_access_token;
+  const isLegacyOutlook = !!profile?.profile?.has_microsoft_token || !!profile?.profile?.microsoft_access_token;
   const hasConnection = !!connection || isLegacyOutlook;
   const loading = !checked && !hasConnection && !profile?.loaded;
 
@@ -147,7 +147,7 @@ export function IntegrationsTab() {
   async function handleConnectMicrosoft() {
     setConnecting(true);
     try {
-      if (profile?.profile?.microsoft_access_token) {
+      if (profile?.profile?.has_microsoft_token || profile?.profile?.microsoft_access_token) {
         try {
           const res = await fetch("/api/emails/get-connection");
           const data = await res.json();

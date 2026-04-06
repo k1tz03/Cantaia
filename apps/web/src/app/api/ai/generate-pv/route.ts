@@ -8,6 +8,8 @@ import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 const USE_MOCK_PV = process.env.USE_MOCK_PV === "true";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();

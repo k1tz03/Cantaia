@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildSupplierSearchPrompt, MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
 
+export const maxDuration = 60;
+
 /**
  * POST /api/suppliers/search
  * AI-powered supplier search using Claude.

@@ -83,7 +83,7 @@ export default function SuperAdminLayout({
 
   if (authorized === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-[#09090B]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
       </div>
     );
@@ -92,15 +92,15 @@ export default function SuperAdminLayout({
   if (!authorized) return null;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#0F0F11]">
       {/* Super Admin Sidebar — dark theme */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-gray-800 bg-gray-900 transition-all duration-200 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[#27272A] bg-[#111113] transition-all duration-200 ${
           collapsed ? "w-[60px]" : "w-[240px]"
         }`}
       >
         {/* Header */}
-        <div className="flex h-14 items-center gap-2.5 border-b border-gray-800 px-3">
+        <div className="flex h-14 items-center gap-2.5 border-b border-[#27272A] px-3">
           <Wrench className="h-5 w-5 shrink-0 text-amber-400" />
           {!collapsed && (
             <div className="flex flex-col">
@@ -112,7 +112,7 @@ export default function SuperAdminLayout({
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+            className="ml-auto rounded p-1 text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
@@ -133,13 +133,13 @@ export default function SuperAdminLayout({
                 className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
                   active
                     ? "bg-amber-500/10 font-medium text-amber-400"
-                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                    : "text-[#A1A1AA] hover:bg-[#27272A] hover:text-[#FAFAFA]"
                 }`}
                 title={collapsed ? t(item.labelKey) : undefined}
               >
                 <item.icon
                   className={`h-4 w-4 shrink-0 ${
-                    active ? "text-amber-400" : "text-gray-500"
+                    active ? "text-amber-400" : "text-[#71717A]"
                   }`}
                 />
                 {!collapsed && <span>{t(item.labelKey)}</span>}
@@ -149,15 +149,15 @@ export default function SuperAdminLayout({
         </nav>
 
         {/* User + Back to app */}
-        <div className="border-t border-gray-800 p-2">
+        <div className="border-t border-[#27272A] p-2">
           {!collapsed && userName && (
-            <div className="mb-2 px-2.5 py-1.5 text-xs text-gray-500">
-              {t("connectedAs")} <span className="font-medium text-gray-300">{userName}</span>
+            <div className="mb-2 px-2.5 py-1.5 text-xs text-[#71717A]">
+              {t("connectedAs")} <span className="font-medium text-[#FAFAFA]">{userName}</span>
             </div>
           )}
           <Link
             href="/dashboard"
-            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+            className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-[#71717A] hover:bg-[#27272A] hover:text-[#FAFAFA]"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             {!collapsed && <span>{t("backToApp")}</span>}

@@ -85,19 +85,19 @@ export interface AnalysisData {
 }
 
 export const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
-  active: { labelKey: "statusActive", color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
-  superseded: { labelKey: "statusSuperseded", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
-  withdrawn: { labelKey: "statusWithdrawn", color: "text-muted-foreground", bg: "bg-muted border-border", icon: XCircle },
-  for_approval: { labelKey: "statusForApproval", color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20", icon: Clock },
-  approved: { labelKey: "statusApproved", color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: CheckCircle },
-  rejected: { labelKey: "statusRejected", color: "text-red-600", bg: "bg-red-500/10 border-red-500/20", icon: AlertTriangle },
+  active: { labelKey: "statusActive", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
+  superseded: { labelKey: "statusSuperseded", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
+  withdrawn: { labelKey: "statusWithdrawn", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
+  for_approval: { labelKey: "statusForApproval", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", icon: Clock },
+  approved: { labelKey: "statusApproved", color: "text-[#F97316]", bg: "bg-[#F97316]/10 border-[#F97316]/20", icon: CheckCircle },
+  rejected: { labelKey: "statusRejected", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", icon: AlertTriangle },
 };
 
 export const VALIDATION_CONFIG: Record<PlanValidationStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
-  pending: { labelKey: "validationPending", color: "text-amber-600", bg: "bg-amber-500/10", icon: Clock },
-  approved: { labelKey: "validationApproved", color: "text-green-600", bg: "bg-green-500/10", icon: CheckCircle },
-  rejected: { labelKey: "validationRejected", color: "text-red-600", bg: "bg-red-500/10", icon: XCircle },
-  for_info: { labelKey: "validationForInfo", color: "text-primary", bg: "bg-primary/10", icon: Eye },
+  pending: { labelKey: "validationPending", color: "text-amber-400", bg: "bg-amber-500/10", icon: Clock },
+  approved: { labelKey: "validationApproved", color: "text-green-400", bg: "bg-green-500/10", icon: CheckCircle },
+  rejected: { labelKey: "validationRejected", color: "text-red-400", bg: "bg-red-500/10", icon: XCircle },
+  for_info: { labelKey: "validationForInfo", color: "text-[#F97316]", bg: "bg-[#F97316]/10", icon: Eye },
 };
 
 export const DISCIPLINE_KEYS: Record<string, string> = {

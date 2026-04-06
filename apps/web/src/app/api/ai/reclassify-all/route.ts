@@ -7,6 +7,8 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 import { learnFromClassificationAction } from "@cantaia/core/emails";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
+export const maxDuration = 300;
+
 /** Run promises in batches with concurrency limit */
 async function runWithConcurrency<T>(
   items: T[],

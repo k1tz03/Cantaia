@@ -96,23 +96,23 @@ const MODULE_LABELS: Record<string, string> = {
 
 const HEALTH_CONFIG = {
   healthy: {
-    color: "bg-emerald-50 text-emerald-700",
+    color: "bg-emerald-900/30 text-emerald-400",
     dot: "bg-emerald-500",
     label: "Pipeline actif",
   },
   warning: {
-    color: "bg-yellow-50 text-yellow-700",
+    color: "bg-yellow-900/30 text-yellow-400",
     dot: "bg-yellow-500",
     label: "Pipeline non configuré — Configurez CRON_SECRET pour activer le traitement automatique",
   },
   error: {
-    color: "bg-red-50 text-red-700",
+    color: "bg-red-900/30 text-red-400",
     dot: "bg-red-500",
     label: "Pipeline en erreur",
   },
   empty: {
-    color: "bg-gray-50 text-gray-600",
-    dot: "bg-gray-400",
+    color: "bg-[#1C1C1F] text-[#A1A1AA]",
+    dot: "bg-[#71717A]",
     label: "En attente de données",
   },
 };
@@ -180,14 +180,14 @@ export default function DataIntelligencePage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Data Intelligence</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-[#FAFAFA]">Data Intelligence</h1>
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             Monitoring du pipeline d&apos;intelligence collective — 3 couches (C1 → C2 → C3)
           </p>
         </div>
         <button
           onClick={loadAll}
-          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-sm text-[#A1A1AA] hover:bg-[#27272A]"
         >
           <RefreshCw className="h-4 w-4" />
           Actualiser
@@ -195,7 +195,7 @@ export default function DataIntelligencePage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 border-b border-gray-200">
+      <div className="mb-6 flex gap-1 border-b border-[#27272A]">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -203,7 +203,7 @@ export default function DataIntelligencePage() {
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
                 ? "border-amber-400 text-amber-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                : "border-transparent text-[#A1A1AA] hover:border-[#3F3F46] hover:text-[#FAFAFA]"
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -235,25 +235,25 @@ function PipelineSection({ data }: { data: PipelineData | null }) {
       label: "En attente",
       value: data.pending_count,
       icon: Clock,
-      color: "bg-amber-50 text-amber-600",
+      color: "bg-amber-900/30 text-amber-400",
     },
     {
       label: "Traités",
       value: data.processed_count,
       icon: CheckCircle,
-      color: "bg-emerald-50 text-emerald-600",
+      color: "bg-emerald-900/30 text-emerald-400",
     },
     {
       label: "Dernier CRON horaire",
       value: formatDate(data.last_hourly_cron),
       icon: RefreshCw,
-      color: "bg-blue-50 text-blue-600",
+      color: "bg-blue-900/30 text-blue-400",
     },
     {
       label: "Dernier CRON hebdo",
       value: formatDate(data.last_weekly_cron),
       icon: Sparkles,
-      color: "bg-violet-50 text-violet-600",
+      color: "bg-violet-900/30 text-violet-400",
     },
   ];
 
@@ -274,7 +274,7 @@ function PipelineSection({ data }: { data: PipelineData | null }) {
         {cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-lg border border-gray-200 bg-white p-4"
+            className="rounded-lg border border-[#27272A] bg-[#18181B] p-4"
           >
             <div className="flex items-center gap-3">
               <div
@@ -283,8 +283,8 @@ function PipelineSection({ data }: { data: PipelineData | null }) {
                 <card.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">{card.label}</p>
-                <p className="text-xl font-bold text-gray-900">{card.value}</p>
+                <p className="text-xs text-[#A1A1AA]">{card.label}</p>
+                <p className="text-xl font-bold text-[#FAFAFA]">{card.value}</p>
               </div>
             </div>
           </div>
@@ -293,18 +293,18 @@ function PipelineSection({ data }: { data: PipelineData | null }) {
 
       {/* Queue breakdown */}
       {breakdownEntries.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-3 text-sm font-semibold text-gray-800">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-3 text-sm font-semibold text-[#FAFAFA]">
             File d&apos;attente par source
           </h3>
           <div className="space-y-2">
             {breakdownEntries.map(([table, count]) => (
               <div
                 key={table}
-                className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2"
+                className="flex items-center justify-between rounded-md bg-[#1C1C1F] px-3 py-2"
               >
-                <span className="text-sm text-gray-600">{table}</span>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm text-[#A1A1AA]">{table}</span>
+                <span className="text-sm font-medium text-[#FAFAFA]">
                   {count}
                 </span>
               </div>
@@ -315,12 +315,12 @@ function PipelineSection({ data }: { data: PipelineData | null }) {
 
       {/* Empty state */}
       {data.health === "empty" && (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-          <Database className="mx-auto h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-sm font-medium text-gray-600">
+        <div className="rounded-lg border-2 border-dashed border-[#27272A] bg-[#1C1C1F] p-8 text-center">
+          <Database className="mx-auto h-10 w-10 text-[#71717A]" />
+          <p className="mt-3 text-sm font-medium text-[#A1A1AA]">
             Aucun événement dans la file d&apos;attente
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-[#71717A]">
             Les triggers insèreront des événements lors de l&apos;utilisation de
             la plateforme (corrections, feedbacks, nouvelles offres...).
           </p>
@@ -338,17 +338,17 @@ function ConsentSection({ data }: { data: ConsentData | null }) {
   return (
     <div className="space-y-6">
       {/* Global rate */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Taux global d&apos;opt-in</p>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-sm text-[#A1A1AA]">Taux global d&apos;opt-in</p>
+            <p className="text-3xl font-bold text-[#FAFAFA]">
               {data.total_opt_in_rate}%
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">Organisations</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-sm text-[#A1A1AA]">Organisations</p>
+            <p className="text-2xl font-bold text-[#FAFAFA]">
               {data.total_orgs}
             </p>
           </div>
@@ -356,8 +356,8 @@ function ConsentSection({ data }: { data: ConsentData | null }) {
       </div>
 
       {/* Per module */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-800">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+        <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
           Consentement par module
         </h3>
         <div className="space-y-3">
@@ -369,14 +369,14 @@ function ConsentSection({ data }: { data: ConsentData | null }) {
             return (
               <div key={mod.module}>
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-[#A1A1AA]">
                     {MODULE_LABELS[mod.module] || mod.module}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-[#71717A]">
                     {mod.opted_in} / {mod.total_orgs} orgs
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-gray-100">
+                <div className="h-2 rounded-full bg-[#27272A]">
                   <div
                     className="h-2 rounded-full bg-amber-400 transition-all"
                     style={{ width: `${pct}%` }}
@@ -389,7 +389,7 @@ function ConsentSection({ data }: { data: ConsentData | null }) {
       </div>
 
       {data.total_orgs === 0 && (
-        <p className="text-center text-sm text-gray-400">
+        <p className="text-center text-sm text-[#71717A]">
           Aucune organisation inscrite. Les organisations peuvent activer le
           partage dans Paramètres → Partage de données.
         </p>
@@ -407,21 +407,21 @@ function C2CoverageSection({ data }: { data: C2Data | null }) {
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Total entrées C2</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Total entrées C2</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.total_c2_records}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Codes CFC couverts</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Codes CFC couverts</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.cfc_coverage}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Règles normalisation</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Règles normalisation</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.tables.find((t) => t.table === "normalization_rules")
               ?.count ?? 0}
           </p>
@@ -429,8 +429,8 @@ function C2CoverageSection({ data }: { data: C2Data | null }) {
       </div>
 
       {/* Table counts */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-800">
+      <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+        <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
           Tables C2 — Couverture
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -439,14 +439,14 @@ function C2CoverageSection({ data }: { data: C2Data | null }) {
               key={t.table}
               className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
                 t.count > 0
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "border-gray-200 bg-gray-50"
+                  ? "border-emerald-700 bg-emerald-900/30"
+                  : "border-[#27272A] bg-[#1C1C1F]"
               }`}
             >
-              <span className="text-sm text-gray-700">{t.label}</span>
+              <span className="text-sm text-[#A1A1AA]">{t.label}</span>
               <span
                 className={`text-sm font-bold ${
-                  t.count > 0 ? "text-emerald-700" : "text-gray-400"
+                  t.count > 0 ? "text-emerald-400" : "text-[#71717A]"
                 }`}
               >
                 {t.count}
@@ -457,12 +457,12 @@ function C2CoverageSection({ data }: { data: C2Data | null }) {
       </div>
 
       {data.total_c2_records === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-          <BarChart3 className="mx-auto h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-sm font-medium text-gray-600">
+        <div className="rounded-lg border-2 border-dashed border-[#27272A] bg-[#1C1C1F] p-8 text-center">
+          <BarChart3 className="mx-auto h-10 w-10 text-[#71717A]" />
+          <p className="mt-3 text-sm font-medium text-[#A1A1AA]">
             Aucune donnée C2 encore agrégée
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-[#71717A]">
             Les benchmarks seront générés quand ≥3 organisations contribueront
             au même module et que le CRON horaire s&apos;exécutera.
           </p>
@@ -486,27 +486,27 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Métriques IA</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Métriques IA</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.total_metrics}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Patterns appris</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Patterns appris</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.total_patterns}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Modules avec métriques</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Modules avec métriques</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {moduleKeys.length}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">Optimisations prompts</p>
-          <p className="text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
+          <p className="text-xs text-[#A1A1AA]">Optimisations prompts</p>
+          <p className="text-2xl font-bold text-[#FAFAFA]">
             {data.recent_optimizations.length}
           </p>
         </div>
@@ -514,33 +514,33 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
 
       {/* Metrics by module */}
       {hasMetrics && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-800">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
             Métriques qualité par module
           </h3>
           <div className="space-y-4">
             {moduleKeys.map((mod) => (
               <div key={mod}>
-                <h4 className="mb-2 text-sm font-medium capitalize text-gray-700">
+                <h4 className="mb-2 text-sm font-medium capitalize text-[#A1A1AA]">
                   {MODULE_LABELS[mod] || mod}
                 </h4>
-                <div className="overflow-hidden rounded-lg border border-gray-100">
+                <div className="overflow-hidden rounded-lg border border-[#27272A]">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <tr className="bg-[#1C1C1F]">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-[#A1A1AA]">
                           Métrique
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Valeur
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Précédent
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Trend
                         </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                        <th className="px-3 py-2 text-right text-xs font-medium text-[#A1A1AA]">
                           Période
                         </th>
                       </tr>
@@ -549,17 +549,17 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
                       {data.metrics_by_module[mod].map((m) => (
                         <tr
                           key={m.metric_type}
-                          className="border-t border-gray-50"
+                          className="border-t border-[#27272A]"
                         >
-                          <td className="px-3 py-2 text-gray-700">
+                          <td className="px-3 py-2 text-[#A1A1AA]">
                             {m.metric_type}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
+                          <td className="px-3 py-2 text-right font-mono font-medium text-[#FAFAFA]">
                             {typeof m.current_value === "number"
                               ? m.current_value.toFixed(3)
                               : m.current_value}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-500">
+                          <td className="px-3 py-2 text-right font-mono text-[#71717A]">
                             {m.previous_value !== null
                               ? m.previous_value.toFixed(3)
                               : "—"}
@@ -567,7 +567,7 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
                           <td className="px-3 py-2 text-right">
                             <TrendBadge value={m.trend} />
                           </td>
-                          <td className="px-3 py-2 text-right text-xs text-gray-400">
+                          <td className="px-3 py-2 text-right text-xs text-[#71717A]">
                             {m.current_period}
                           </td>
                         </tr>
@@ -583,8 +583,8 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
 
       {/* Pattern library */}
       {hasPatterns && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-800">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
             Bibliothèque de patterns
           </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -613,21 +613,21 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
 
       {/* Recent prompt optimizations */}
       {data.recent_optimizations.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-800">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#FAFAFA]">
             Optimisations de prompts récentes
           </h3>
           <div className="space-y-2">
             {data.recent_optimizations.map((opt: any) => (
               <div
                 key={opt.id}
-                className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2"
+                className="flex items-center justify-between rounded-md bg-[#1C1C1F] px-3 py-2"
               >
                 <div>
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-[#A1A1AA]">
                     {opt.module}
                   </span>
-                  <span className="ml-2 text-xs text-gray-500">
+                  <span className="ml-2 text-xs text-[#71717A]">
                     v{opt.prompt_version}
                   </span>
                 </div>
@@ -635,7 +635,7 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
                   {opt.improvement_pct != null && (
                     <TrendBadge value={opt.improvement_pct} />
                   )}
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-[#71717A]">
                     {formatDate(opt.deployed_at)}
                   </span>
                 </div>
@@ -647,12 +647,12 @@ function C3QualitySection({ data }: { data: C3Data | null }) {
 
       {/* Empty state */}
       {!hasMetrics && !hasPatterns && (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-          <Sparkles className="mx-auto h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-sm font-medium text-gray-600">
+        <div className="rounded-lg border-2 border-dashed border-[#27272A] bg-[#1C1C1F] p-8 text-center">
+          <Sparkles className="mx-auto h-10 w-10 text-[#71717A]" />
+          <p className="mt-3 text-sm font-medium text-[#A1A1AA]">
             Aucune métrique IA encore calculée
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-[#71717A]">
             Le CRON hebdomadaire génèrera les premières métriques dimanche à 3h
             du matin, à partir des corrections et feedbacks utilisateurs.
           </p>
@@ -716,7 +716,7 @@ function ActionsSection({ onRefresh }: { onRefresh: () => void }) {
         <button
           onClick={() => triggerCron("trigger-aggregate")}
           disabled={triggering !== null}
-          className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-4 py-3 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
         >
           {triggering === "trigger-aggregate" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -728,7 +728,7 @@ function ActionsSection({ onRefresh }: { onRefresh: () => void }) {
         <button
           onClick={() => triggerCron("trigger-patterns")}
           disabled={triggering !== null}
-          className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-4 py-3 text-sm font-medium text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
         >
           {triggering === "trigger-patterns" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -748,10 +748,10 @@ function ActionsSection({ onRefresh }: { onRefresh: () => void }) {
               : "border-red-200 bg-red-50"
           }`}
         >
-          <p className="mb-2 text-sm font-medium text-gray-700">
+          <p className="mb-2 text-sm font-medium text-[#A1A1AA]">
             Résultat — {result.action}
           </p>
-          <pre className="overflow-x-auto rounded bg-white/80 p-3 text-xs text-gray-800">
+          <pre className="overflow-x-auto rounded bg-[#0F0F11]/80 p-3 text-xs text-[#FAFAFA]">
             {JSON.stringify(result.data, null, 2)}
           </pre>
         </div>
@@ -764,7 +764,7 @@ function ActionsSection({ onRefresh }: { onRefresh: () => void }) {
 
 function TrendBadge({ value }: { value: number | null }) {
   if (value === null)
-    return <Minus className="inline h-4 w-4 text-gray-300" />;
+    return <Minus className="inline h-4 w-4 text-[#52525B]" />;
   if (value > 0)
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-600">
@@ -779,7 +779,7 @@ function TrendBadge({ value }: { value: number | null }) {
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+    <span className="inline-flex items-center gap-0.5 text-xs text-[#71717A]">
       <Minus className="h-3 w-3" />
       0%
     </span>

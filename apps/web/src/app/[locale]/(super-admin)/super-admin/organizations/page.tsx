@@ -37,17 +37,17 @@ const PLAN_PRICING: Record<string, number> = {
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  setup: { bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-400" },
-  trial: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-400" },
-  active: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-400" },
-  suspended: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-400" },
+  setup: { bg: "bg-yellow-500/10", text: "text-yellow-400", dot: "bg-yellow-400" },
+  trial: { bg: "bg-blue-500/10", text: "text-blue-400", dot: "bg-blue-400" },
+  active: { bg: "bg-green-500/10", text: "text-green-400", dot: "bg-green-400" },
+  suspended: { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
 };
 
 const PLAN_LABELS: Record<string, string> = {
   trial: "Trial",
-  starter: "Starter (49 CHF/mois)",
-  pro: "Pro (149 CHF/mois)",
-  enterprise: "Enterprise",
+  starter: "Starter (149 CHF/mois)",
+  pro: "Pro (349 CHF/mois)",
+  enterprise: "Enterprise (790 CHF/mois)",
 };
 
 export default function SuperAdminOrganizationsPage() {
@@ -108,8 +108,8 @@ export default function SuperAdminOrganizationsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("organizations")}</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-[#FAFAFA]">{t("organizations")}</h1>
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             {organizations.length} {t("organizations").toLowerCase()}
           </p>
         </div>
@@ -128,10 +128,10 @@ export default function SuperAdminOrganizationsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
         </div>
       ) : organizations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-20">
-          <Building2 className="h-12 w-12 text-gray-300" />
-          <p className="mt-3 text-lg font-medium text-gray-500">{t("noOrganizations")}</p>
-          <p className="mt-1 text-sm text-gray-400">{t("noOrganizationsDesc")}</p>
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#27272A] py-20">
+          <Building2 className="h-12 w-12 text-[#52525B]" />
+          <p className="mt-3 text-lg font-medium text-[#A1A1AA]">{t("noOrganizations")}</p>
+          <p className="mt-1 text-sm text-[#71717A]">{t("noOrganizationsDesc")}</p>
           <Link
             href="/super-admin/organizations/create"
             className="mt-4 flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
@@ -148,22 +148,22 @@ export default function SuperAdminOrganizationsPage() {
             return (
               <div
                 key={org.id}
-                className="rounded-lg border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow"
+                className="rounded-lg border border-[#27272A] bg-[#18181B] p-5 hover:border-[#3F3F46] transition-all"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                      <Building2 className="h-5 w-5 text-blue-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Building2 className="h-5 w-5 text-blue-400" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-gray-900">{org.name}</h3>
+                        <h3 className="text-base font-semibold text-[#FAFAFA]">{org.name}</h3>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
                           {t(`status${orgStatus.charAt(0).toUpperCase() + orgStatus.slice(1)}`)}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                      <div className="mt-1 flex items-center gap-4 text-sm text-[#A1A1AA]">
                         {org.subdomain && (
                           <span className="flex items-center gap-1">
                             <Globe className="h-3.5 w-3.5" />
@@ -172,7 +172,7 @@ export default function SuperAdminOrganizationsPage() {
                         )}
                         <span>Plan : {PLAN_LABELS[org.plan] || org.plan}</span>
                       </div>
-                      <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[#71717A]">
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
                           {org.member_count} {t("members")}
@@ -195,7 +195,7 @@ export default function SuperAdminOrganizationsPage() {
                               <Sparkles className="h-3 w-3" />
                               {cost?.calls || 0} appels IA
                             </span>
-                            <span className="flex items-center gap-1 text-gray-500">
+                            <span className="flex items-center gap-1 text-[#71717A]">
                               <DollarSign className="h-3 w-3" />
                               {aiCost > 0 ? `${aiCost.toFixed(2)} CHF` : "0 CHF"}
                             </span>
@@ -214,21 +214,21 @@ export default function SuperAdminOrganizationsPage() {
                   <div className="flex items-center gap-1.5">
                     <Link
                       href={`/super-admin/organizations/${org.id}`}
-                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       {t("modify")}
                     </Link>
                     <Link
                       href={`/super-admin/organizations/${org.id}?tab=members`}
-                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <Users className="h-3.5 w-3.5" />
                       {t("tabMembers")}
                     </Link>
                     <Link
                       href={`/super-admin/organizations/${org.id}?tab=stats`}
-                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA] hover:bg-[#27272A]"
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
                       {t("stats")}
@@ -237,8 +237,8 @@ export default function SuperAdminOrganizationsPage() {
                       onClick={() => handleSuspend(org.id)}
                       className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                         orgStatus === "suspended"
-                          ? "text-green-600 hover:bg-green-50"
-                          : "text-red-600 hover:bg-red-50"
+                          ? "text-green-400 hover:bg-green-500/10"
+                          : "text-red-400 hover:bg-red-500/10"
                       }`}
                     >
                       {orgStatus === "suspended" ? (

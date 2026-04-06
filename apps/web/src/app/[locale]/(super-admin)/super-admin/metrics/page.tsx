@@ -87,12 +87,12 @@ export default function SuperAdminMetricsPage() {
   ];
 
   const colorMap: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    violet: "bg-violet-50 text-violet-600",
-    amber: "bg-amber-50 text-amber-600",
-    rose: "bg-rose-50 text-rose-600",
-    cyan: "bg-cyan-50 text-cyan-600",
+    blue: "bg-blue-900/20 text-blue-400",
+    emerald: "bg-emerald-900/20 text-emerald-400",
+    violet: "bg-violet-900/20 text-violet-400",
+    amber: "bg-amber-900/20 text-amber-400",
+    rose: "bg-rose-900/20 text-rose-400",
+    cyan: "bg-cyan-900/20 text-cyan-400",
   };
 
   const ov = analytics?.overview || { total_cost_chf: 0, total_calls: 0, avg_cost_per_call: 0, projected_monthly: 0 };
@@ -102,21 +102,21 @@ export default function SuperAdminMetricsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
             <BarChart3 className="h-6 w-6 text-amber-500" />
             Métriques plateforme
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             Données agrégées de toutes les organisations
           </p>
         </div>
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+        <div className="flex gap-1 rounded-lg bg-[#1C1C1F] p-0.5">
           {(["7d", "30d", "90d"] as const).map((p) => (
             <button
               key={p}
               onClick={() => { setLoading(true); setPeriod(p); }}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                period === p ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                period === p ? "bg-[#18181B] text-[#FAFAFA] shadow-sm" : "text-[#A1A1AA] hover:text-[#A1A1AA]"
               }`}
             >
               {p === "7d" ? "7 jours" : p === "30d" ? "30 jours" : "90 jours"}
@@ -127,36 +127,36 @@ export default function SuperAdminMetricsPage() {
 
       {/* Top-level counts */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-5 text-center">
-          <p className="text-3xl font-bold text-gray-900">{metrics?.totalOrgs || 0}</p>
-          <p className="text-xs text-gray-500">Organisations</p>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5 text-center">
+          <p className="text-3xl font-bold text-[#FAFAFA]">{metrics?.totalOrgs || 0}</p>
+          <p className="text-xs text-[#A1A1AA]">Organisations</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-5 text-center">
-          <p className="text-3xl font-bold text-gray-900">{metrics?.totalUsers || 0}</p>
-          <p className="text-xs text-gray-500">Utilisateurs</p>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5 text-center">
+          <p className="text-3xl font-bold text-[#FAFAFA]">{metrics?.totalUsers || 0}</p>
+          <p className="text-xs text-[#A1A1AA]">Utilisateurs</p>
         </div>
-        <div className="col-span-2 sm:col-span-1 rounded-lg border border-gray-200 bg-white p-5 text-center">
-          <p className="text-3xl font-bold text-gray-900">{ov.projected_monthly.toFixed(2)} CHF</p>
-          <p className="text-xs text-gray-500">Coût IA projeté/mois</p>
+        <div className="col-span-2 sm:col-span-1 rounded-lg border border-[#27272A] bg-[#18181B] p-5 text-center">
+          <p className="text-3xl font-bold text-[#FAFAFA]">{ov.projected_monthly.toFixed(2)} CHF</p>
+          <p className="text-xs text-[#A1A1AA]">Coût IA projeté/mois</p>
         </div>
       </div>
 
       {/* AI KPI cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
-          { icon: DollarSign, label: "Coût IA total", value: `${ov.total_cost_chf.toFixed(2)} CHF`, color: "bg-blue-50 text-blue-600" },
-          { icon: Sparkles, label: "Appels IA", value: ov.total_calls.toLocaleString(), color: "bg-amber-50 text-amber-600" },
-          { icon: Calculator, label: "Coût moyen/appel", value: `${ov.avg_cost_per_call.toFixed(4)} CHF`, color: "bg-violet-50 text-violet-600" },
-          { icon: TrendingUp, label: "Projection mensuelle", value: `${ov.projected_monthly.toFixed(2)} CHF`, color: "bg-emerald-50 text-emerald-600" },
+          { icon: DollarSign, label: "Coût IA total", value: `${ov.total_cost_chf.toFixed(2)} CHF`, color: "bg-blue-900/20 text-blue-400" },
+          { icon: Sparkles, label: "Appels IA", value: ov.total_calls.toLocaleString(), color: "bg-amber-900/20 text-amber-400" },
+          { icon: Calculator, label: "Coût moyen/appel", value: `${ov.avg_cost_per_call.toFixed(4)} CHF`, color: "bg-violet-900/20 text-violet-400" },
+          { icon: TrendingUp, label: "Projection mensuelle", value: `${ov.projected_monthly.toFixed(2)} CHF`, color: "bg-emerald-900/20 text-emerald-400" },
         ].map((c) => (
-          <div key={c.label} className="rounded-lg border border-gray-200 bg-white p-4">
+          <div key={c.label} className="rounded-lg border border-[#27272A] bg-[#18181B] p-4">
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${c.color}`}>
                 <c.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">{c.label}</p>
-                <p className="text-xl font-bold text-gray-900">{c.value}</p>
+                <p className="text-xs text-[#A1A1AA]">{c.label}</p>
+                <p className="text-xl font-bold text-[#FAFAFA]">{c.value}</p>
               </div>
             </div>
           </div>
@@ -165,11 +165,11 @@ export default function SuperAdminMetricsPage() {
 
       {/* Daily trend chart */}
       {(analytics?.daily_trend?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">Évolution quotidienne — Coûts & appels</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">Évolution quotidienne — Coûts & appels</h3>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={analytics!.daily_trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
               <YAxis yAxisId="cost" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
               <YAxis yAxisId="calls" orientation="right" tick={{ fontSize: 10 }} />
@@ -191,11 +191,11 @@ export default function SuperAdminMetricsPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Top actions by cost */}
         {(analytics?.per_action?.length || 0) > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h3 className="mb-4 text-sm font-semibold text-gray-700">Top fonctions par coût</h3>
+          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+            <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">Top fonctions par coût</h3>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={analytics!.per_action.slice(0, 8)} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                 <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
                 <YAxis type="category" dataKey="action_type" tick={{ fontSize: 9 }} width={110} tickFormatter={(v: string) => v.replace(/_/g, " ")} />
                 <Tooltip formatter={(v: number) => [`${v.toFixed(4)} CHF`, "Coût"]} />
@@ -206,11 +206,11 @@ export default function SuperAdminMetricsPage() {
         )}
 
         {/* Hourly distribution */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">Distribution horaire</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">Distribution horaire</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={analytics?.hourly_distribution || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis dataKey="hour" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v}h`} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip formatter={(v: number) => [v, "Appels"]} labelFormatter={(l: number) => `${l}h - ${l + 1}h`} />
@@ -220,11 +220,11 @@ export default function SuperAdminMetricsPage() {
         </div>
 
         {/* Day of week */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">Distribution par jour</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">Distribution par jour</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={analytics?.dow_distribution || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip formatter={(v: number) => [v, "Appels"]} />
@@ -236,13 +236,13 @@ export default function SuperAdminMetricsPage() {
 
       {/* Org profitability table */}
       {(analytics?.per_org?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-gray-700">Rentabilité par organisation</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="border-b border-[#27272A] px-5 py-3.5">
+            <h3 className="text-sm font-semibold text-[#A1A1AA]">Rentabilité par organisation</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500">
+              <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
                 <tr>
                   <th className="px-5 py-2 font-medium">Organisation</th>
                   <th className="px-3 py-2 font-medium">Plan</th>
@@ -254,31 +254,31 @@ export default function SuperAdminMetricsPage() {
                   <th className="px-5 py-2 font-medium text-right">Marge</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {analytics!.per_org.map((o) => {
                   const margin = o.revenue_monthly > 0 ? ((o.profit / o.revenue_monthly) * 100) : 0;
                   return (
-                    <tr key={o.org_id} className="hover:bg-gray-50">
-                      <td className="px-5 py-2.5 font-medium text-gray-800">{o.org_name}</td>
+                    <tr key={o.org_id} className="hover:bg-[#1C1C1F]">
+                      <td className="px-5 py-2.5 font-medium text-[#FAFAFA]">{o.org_name}</td>
                       <td className="px-3 py-2.5">
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-600">{o.plan}</span>
+                        <span className="rounded-full bg-[#1C1C1F] px-2 py-0.5 text-xs font-medium capitalize text-[#A1A1AA]">{o.plan}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{o.member_count}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{o.calls}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{o.cost.toFixed(2)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{o.revenue_monthly} CHF</td>
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{o.member_count}</td>
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{o.calls}</td>
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{o.cost.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{o.revenue_monthly} CHF</td>
                       <td className={`px-3 py-2.5 text-right font-medium ${o.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {o.profit >= 0 ? "+" : ""}{o.profit.toFixed(2)} CHF
                       </td>
                       <td className="px-5 py-2.5 text-right">
                         {o.revenue_monthly > 0 ? (
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            margin >= 50 ? "bg-green-50 text-green-700" : margin >= 0 ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"
+                            margin >= 50 ? "bg-green-900/20 text-green-400" : margin >= 0 ? "bg-yellow-900/20 text-yellow-400" : "bg-red-900/20 text-red-400"
                           }`}>
                             {margin.toFixed(0)}%
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <span className="text-xs text-[#71717A]">—</span>
                         )}
                       </td>
                     </tr>
@@ -292,12 +292,12 @@ export default function SuperAdminMetricsPage() {
 
       {/* Top users table */}
       {(analytics?.per_user?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-gray-700">Top utilisateurs par coût IA</h3>
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="border-b border-[#27272A] px-5 py-3.5">
+            <h3 className="text-sm font-semibold text-[#A1A1AA]">Top utilisateurs par coût IA</h3>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs text-gray-500">
+            <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
               <tr>
                 <th className="px-5 py-2 font-medium">Utilisateur</th>
                 <th className="px-3 py-2 font-medium">Email</th>
@@ -306,14 +306,14 @@ export default function SuperAdminMetricsPage() {
                 <th className="px-5 py-2 font-medium text-right">Coût (CHF)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-[#27272A]">
               {analytics!.per_user.slice(0, 20).map((u) => (
-                <tr key={u.user_id} className="hover:bg-gray-50">
-                  <td className="px-5 py-2.5 font-medium text-gray-800">{u.name}</td>
-                  <td className="px-3 py-2.5 text-gray-500">{u.email}</td>
-                  <td className="px-3 py-2.5 text-gray-500">{u.org_name || "—"}</td>
-                  <td className="px-3 py-2.5 text-right text-gray-600">{u.calls}</td>
-                  <td className="px-5 py-2.5 text-right font-medium text-gray-800">{u.cost.toFixed(4)}</td>
+                <tr key={u.user_id} className="hover:bg-[#1C1C1F]">
+                  <td className="px-5 py-2.5 font-medium text-[#FAFAFA]">{u.name}</td>
+                  <td className="px-3 py-2.5 text-[#A1A1AA]">{u.email}</td>
+                  <td className="px-3 py-2.5 text-[#A1A1AA]">{u.org_name || "—"}</td>
+                  <td className="px-3 py-2.5 text-right text-[#A1A1AA]">{u.calls}</td>
+                  <td className="px-5 py-2.5 text-right font-medium text-[#FAFAFA]">{u.cost.toFixed(4)}</td>
                 </tr>
               ))}
             </tbody>
@@ -323,19 +323,19 @@ export default function SuperAdminMetricsPage() {
 
       {/* Data volume cards */}
       <div>
-        <h3 className="mb-4 text-sm font-semibold text-gray-700">Volume de données</h3>
+        <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">Volume de données</h3>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           {dataCards.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="rounded-lg border border-gray-200 bg-white p-5">
+              <div key={card.label} className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
                 <div className="flex items-center gap-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[card.color]}`}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{card.value.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">{card.label}</p>
+                    <p className="text-2xl font-bold text-[#FAFAFA]">{card.value.toLocaleString()}</p>
+                    <p className="text-xs text-[#A1A1AA]">{card.label}</p>
                   </div>
                 </div>
               </div>

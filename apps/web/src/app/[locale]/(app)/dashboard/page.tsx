@@ -158,7 +158,7 @@ export default function DashboardPage() {
   /* ---- Fetch data ---- */
   useEffect(() => {
     fetch("/api/user/profile")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then((d) => {
         if (d.profile?.first_name) setProfileName(d.profile.first_name);
         if (d.profile?.role) setProfileRole(d.profile.role);
@@ -167,25 +167,16 @@ export default function DashboardPage() {
       .catch(() => {});
 
     fetch("/api/briefing/today")
-      .then(async (r) => {
-        if (r.ok) {
-          const d = await r.json();
-          if (d.briefing) setBriefing(d.briefing);
-        } else if (r.status === 404) {
-          // No briefing yet today — auto-generate
-          const genRes = await fetch("/api/briefing/generate", { method: "POST" });
-          if (genRes.ok) {
-            const d = await genRes.json();
-            if (d.briefing) setBriefing(d.briefing);
-          }
-        }
+      .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then((d) => {
+        if (d.briefing) setBriefing(d.briefing);
       })
       .catch(() => {});
 
     Promise.all([
-      fetch("/api/tasks").then((r) => r.json()).catch(() => ({ tasks: [] })),
-      fetch("/api/pv").then((r) => r.json()).catch(() => ({ meetings: [] })),
-      fetch("/api/projects/list").then((r) => r.json()).catch(() => ({ projects: [] })),
+      fetch("/api/tasks").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ tasks: [] })),
+      fetch("/api/pv").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ meetings: [] })),
+      fetch("/api/projects/list").then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); }).catch(() => ({ projects: [] })),
     ]).then(([tasksRes, pvsRes, projectsRes]) => {
       setTasks(tasksRes.tasks || []);
       setMeetings(pvsRes.meetings || []);

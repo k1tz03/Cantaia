@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 
 interface UsageLimitBannerProps {
   current: number;

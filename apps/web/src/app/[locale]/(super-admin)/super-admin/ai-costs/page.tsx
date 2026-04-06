@@ -90,23 +90,23 @@ export default function SuperAdminAICostsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-[#FAFAFA]">
             <DollarSign className="h-6 w-6 text-amber-500" />
             Couts IA
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#A1A1AA]">
             Analyse des couts et de la consommation IA de la plateforme
           </p>
         </div>
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+        <div className="flex gap-1 rounded-lg bg-[#27272A] p-0.5">
           {(["7d", "30d", "90d"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 period === p
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-[#18181B] text-[#FAFAFA] shadow-sm"
+                  : "text-[#A1A1AA] hover:text-[#A1A1AA]"
               }`}
             >
               {p === "7d" ? "7 jours" : p === "30d" ? "30 jours" : "90 jours"}
@@ -122,30 +122,30 @@ export default function SuperAdminAICostsPage() {
             icon: DollarSign,
             label: "Cout IA total",
             value: `${ov.total_cost_chf.toFixed(2)} CHF`,
-            color: "bg-blue-50 text-blue-600",
+            color: "bg-blue-500/10 text-blue-400",
           },
           {
             icon: Sparkles,
             label: "Appels IA",
             value: ov.total_calls.toLocaleString(),
-            color: "bg-amber-50 text-amber-600",
+            color: "bg-amber-500/10 text-amber-400",
           },
           {
             icon: Calculator,
             label: "Cout moyen/appel",
             value: `${ov.avg_cost_per_call.toFixed(4)} CHF`,
-            color: "bg-violet-50 text-violet-600",
+            color: "bg-violet-500/10 text-violet-400",
           },
           {
             icon: TrendingUp,
             label: "Projection mensuelle",
             value: `${ov.projected_monthly.toFixed(2)} CHF`,
-            color: "bg-emerald-50 text-emerald-600",
+            color: "bg-emerald-500/10 text-emerald-400",
           },
         ].map((c) => (
           <div
             key={c.label}
-            className="rounded-lg border border-gray-200 bg-white p-4"
+            className="rounded-lg border border-[#27272A] bg-[#18181B] p-4"
           >
             <div className="flex items-center gap-3">
               <div
@@ -154,8 +154,8 @@ export default function SuperAdminAICostsPage() {
                 <c.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">{c.label}</p>
-                <p className="text-xl font-bold text-gray-900">{c.value}</p>
+                <p className="text-xs text-[#A1A1AA]">{c.label}</p>
+                <p className="text-xl font-bold text-[#FAFAFA]">{c.value}</p>
               </div>
             </div>
           </div>
@@ -164,13 +164,13 @@ export default function SuperAdminAICostsPage() {
 
       {/* Daily trend chart */}
       {(analytics?.daily_trend?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">
             Evolution quotidienne — Couts & appels
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={analytics!.daily_trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
@@ -198,7 +198,7 @@ export default function SuperAdminAICostsPage() {
                 type="monotone"
                 dataKey="cost"
                 stroke="#2563eb"
-                fill="#dbeafe"
+                fill="#2563eb20"
                 strokeWidth={2}
               />
               <Area
@@ -206,7 +206,7 @@ export default function SuperAdminAICostsPage() {
                 type="monotone"
                 dataKey="calls"
                 stroke="#f59e0b"
-                fill="#fef3c7"
+                fill="#f59e0b20"
                 strokeWidth={2}
               />
             </AreaChart>
@@ -216,15 +216,15 @@ export default function SuperAdminAICostsPage() {
 
       {/* Per organization table */}
       {(analytics?.per_org?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="border-b border-[#27272A] px-5 py-3.5">
+            <h3 className="text-sm font-semibold text-[#A1A1AA]">
               Par organisation
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500">
+              <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
                 <tr>
                   <th className="px-5 py-2 font-medium">Organisation</th>
                   <th className="px-3 py-2 font-medium">Plan</th>
@@ -242,32 +242,32 @@ export default function SuperAdminAICostsPage() {
                   <th className="px-5 py-2 font-medium text-right">Marge</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {analytics!.per_org.map((o) => {
                   const margin =
                     o.revenue_monthly > 0
                       ? (o.profit / o.revenue_monthly) * 100
                       : 0;
                   return (
-                    <tr key={o.org_id} className="hover:bg-gray-50">
-                      <td className="px-5 py-2.5 font-medium text-gray-800">
+                    <tr key={o.org_id} className="hover:bg-[#27272A]">
+                      <td className="px-5 py-2.5 font-medium text-[#FAFAFA]">
                         {o.org_name}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-600">
+                        <span className="rounded-full bg-[#27272A] px-2 py-0.5 text-xs font-medium capitalize text-[#A1A1AA]">
                           {o.plan}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                         {o.member_count}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                         {o.calls}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                         {o.cost.toFixed(2)}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">
+                      <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                         {o.revenue_monthly} CHF
                       </td>
                       <td
@@ -283,16 +283,16 @@ export default function SuperAdminAICostsPage() {
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                               margin >= 50
-                                ? "bg-green-50 text-green-700"
+                                ? "bg-green-500/10 text-green-400"
                                 : margin >= 0
-                                  ? "bg-yellow-50 text-yellow-700"
-                                  : "bg-red-50 text-red-700"
+                                  ? "bg-yellow-500/10 text-yellow-400"
+                                  : "bg-red-500/10 text-red-400"
                             }`}
                           >
                             {margin.toFixed(0)}%
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <span className="text-xs text-[#71717A]">—</span>
                         )}
                       </td>
                     </tr>
@@ -306,15 +306,15 @@ export default function SuperAdminAICostsPage() {
 
       {/* Per user table */}
       {(analytics?.per_user?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="border-b border-[#27272A] px-5 py-3.5">
+            <h3 className="text-sm font-semibold text-[#A1A1AA]">
               Par utilisateur
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500">
+              <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
                 <tr>
                   <th className="px-5 py-2 font-medium">Utilisateur</th>
                   <th className="px-3 py-2 font-medium">Email</th>
@@ -325,20 +325,20 @@ export default function SuperAdminAICostsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {analytics!.per_user.slice(0, 30).map((u) => (
-                  <tr key={u.user_id} className="hover:bg-gray-50">
-                    <td className="px-5 py-2.5 font-medium text-gray-800">
+                  <tr key={u.user_id} className="hover:bg-[#27272A]">
+                    <td className="px-5 py-2.5 font-medium text-[#FAFAFA]">
                       {u.name}
                     </td>
-                    <td className="px-3 py-2.5 text-gray-500">{u.email}</td>
-                    <td className="px-3 py-2.5 text-gray-500">
+                    <td className="px-3 py-2.5 text-[#A1A1AA]">{u.email}</td>
+                    <td className="px-3 py-2.5 text-[#A1A1AA]">
                       {u.org_name || "—"}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">
+                    <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                       {u.calls}
                     </td>
-                    <td className="px-5 py-2.5 text-right font-medium text-gray-800">
+                    <td className="px-5 py-2.5 text-right font-medium text-[#FAFAFA]">
                       {u.cost.toFixed(4)}
                     </td>
                   </tr>
@@ -351,15 +351,15 @@ export default function SuperAdminAICostsPage() {
 
       {/* Per function table */}
       {(analytics?.per_action?.length || 0) > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3.5">
-            <h3 className="text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B]">
+          <div className="border-b border-[#27272A] px-5 py-3.5">
+            <h3 className="text-sm font-semibold text-[#A1A1AA]">
               Par fonction IA
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs text-gray-500">
+              <thead className="bg-[#1C1C1F] text-left text-xs text-[#A1A1AA]">
                 <tr>
                   <th className="px-5 py-2 font-medium">Fonction</th>
                   <th className="px-3 py-2 font-medium text-right">Appels</th>
@@ -369,19 +369,19 @@ export default function SuperAdminAICostsPage() {
                   <th className="px-5 py-2 font-medium text-right">% Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {analytics!.per_action.map((a) => (
-                  <tr key={a.action_type} className="hover:bg-gray-50">
-                    <td className="px-5 py-2.5 font-medium text-gray-800">
+                  <tr key={a.action_type} className="hover:bg-[#27272A]">
+                    <td className="px-5 py-2.5 font-medium text-[#FAFAFA]">
                       {a.action_type.replace(/_/g, " ")}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">
+                    <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                       {a.calls}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">
+                    <td className="px-3 py-2.5 text-right text-[#A1A1AA]">
                       {a.cost.toFixed(4)}
                     </td>
-                    <td className="px-5 py-2.5 text-right text-gray-600">
+                    <td className="px-5 py-2.5 text-right text-[#A1A1AA]">
                       {totalActionCost > 0
                         ? ((a.cost / totalActionCost) * 100).toFixed(1)
                         : "0"}
@@ -398,13 +398,13 @@ export default function SuperAdminAICostsPage() {
       {/* Charts row: hourly + dow */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Hourly distribution */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">
             Distribution horaire
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={analytics?.hourly_distribution || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis
                 dataKey="hour"
                 tick={{ fontSize: 10 }}
@@ -425,13 +425,13 @@ export default function SuperAdminAICostsPage() {
         </div>
 
         {/* Day of week */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-700">
+        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-5">
+          <h3 className="mb-4 text-sm font-semibold text-[#A1A1AA]">
             Distribution par jour
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={analytics?.dow_distribution || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip formatter={(v: number) => [v, "Appels"]} />

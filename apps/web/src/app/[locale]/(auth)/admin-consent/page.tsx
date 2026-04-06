@@ -119,38 +119,38 @@ Cordialement`,
     <div className="w-full max-w-2xl mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4">
           <Shield className="h-8 w-8 text-blue-600" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[#FAFAFA]">
           Approbation administrateur requise
         </h1>
-        <p className="text-gray-500 mt-2 max-w-md mx-auto">
+        <p className="text-[#A1A1AA] mt-2 max-w-md mx-auto">
           Votre organisation Microsoft 365 nécessite l&apos;approbation d&apos;un
           administrateur IT pour autoriser Cantaia.
         </p>
       </div>
 
       {/* Steps */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+      <div className="bg-[#18181B] rounded-xl border border-[#27272A] shadow-sm divide-y divide-[#27272A]">
         {/* Step 1 */}
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm shrink-0">
               1
             </div>
             <div className="flex-1">
-              <h2 className="font-semibold text-gray-900">
+              <h2 className="font-semibold text-[#FAFAFA]">
                 Copiez le lien d&apos;approbation
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-[#A1A1AA] mt-1">
                 Ce lien permet à votre administrateur IT d&apos;approuver
                 Cantaia pour toute votre organisation en un clic.
               </p>
               {adminConsentUrl ? (
                 <div className="mt-3">
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <code className="text-xs text-gray-600 break-all flex-1 select-all">
+                  <div className="flex items-center gap-2 p-3 bg-[#1C1C1F] rounded-lg border border-[#27272A]">
+                    <code className="text-xs text-[#A1A1AA] break-all flex-1 select-all">
                       {adminConsentUrl.substring(0, 80)}...
                     </code>
                     <button
@@ -172,7 +172,7 @@ Cordialement`,
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                <p className="mt-3 text-sm text-amber-400 bg-amber-500/10 p-3 rounded-lg">
                   Configuration Microsoft non disponible. Contactez le support
                   Cantaia.
                 </p>
@@ -184,21 +184,21 @@ Cordialement`,
         {/* Step 2 */}
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm shrink-0">
               2
             </div>
             <div className="flex-1">
-              <h2 className="font-semibold text-gray-900">
+              <h2 className="font-semibold text-[#FAFAFA]">
                 Envoyez-le à votre administrateur IT
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-[#A1A1AA] mt-1">
                 Transmettez le lien à la personne qui gère Microsoft 365 dans
                 votre entreprise. Nous avons préparé un email type.
               </p>
               <div className="mt-3 flex gap-2">
                 <a
                   href={`mailto:?subject=${emailSubject}&body=${emailBody}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#27272A] text-[#A1A1AA] text-sm font-medium hover:bg-[#3F3F46] transition-colors"
                 >
                   <Mail className="h-4 w-4" />
                   Ouvrir un email pré-rempli
@@ -211,14 +211,14 @@ Cordialement`,
         {/* Step 3 */}
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm shrink-0">
               3
             </div>
             <div className="flex-1">
-              <h2 className="font-semibold text-gray-900">
+              <h2 className="font-semibold text-[#FAFAFA]">
                 Une fois approuvé, reconnectez-vous
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-[#A1A1AA] mt-1">
                 Après l&apos;approbation par votre admin, revenez sur Cantaia et
                 connectez-vous normalement avec Microsoft 365.
               </p>
@@ -237,44 +237,44 @@ Cordialement`,
       </div>
 
       {/* Permissions detail (collapsible) */}
-      <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div className="mt-6 bg-[#18181B] rounded-xl border border-[#27272A] shadow-sm">
         <button
           onClick={() => setShowScopes(!showScopes)}
           className="w-full flex items-center justify-between p-4 text-left"
         >
           <div className="flex items-center gap-2">
-            <HelpCircle className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">
+            <HelpCircle className="h-4 w-4 text-[#71717A]" />
+            <span className="text-sm font-medium text-[#A1A1AA]">
               Quelles permissions sont demandées ?
             </span>
           </div>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-[#71717A]">
             {showScopes ? "Masquer" : "Voir le détail"}
           </span>
         </button>
         {showScopes && (
-          <div className="px-4 pb-4 border-t border-gray-100">
+          <div className="px-4 pb-4 border-t border-[#27272A]">
             <table className="w-full text-sm mt-3">
               <thead>
-                <tr className="text-left text-gray-400 text-xs uppercase">
+                <tr className="text-left text-[#71717A] text-xs uppercase">
                   <th className="pb-2 font-medium">Permission</th>
                   <th className="pb-2 font-medium">Utilisation</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#27272A]">
                 {SCOPES.map((scope) => (
                   <tr key={scope}>
-                    <td className="py-2 text-gray-700 font-mono text-xs">
+                    <td className="py-2 text-[#A1A1AA] font-mono text-xs">
                       {SCOPE_DESCRIPTIONS[scope]?.fr || scope}
                     </td>
-                    <td className="py-2 text-gray-500 text-xs">
+                    <td className="py-2 text-[#A1A1AA] text-xs">
                       {SCOPE_DESCRIPTIONS[scope]?.why || ""}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="text-xs text-gray-400 mt-3">
+            <p className="text-xs text-[#71717A] mt-3">
               Toutes les permissions sont de type &quot;déléguées&quot; — Cantaia
               n&apos;accède qu&apos;aux données de l&apos;utilisateur connecté,
               jamais à celles d&apos;autres utilisateurs.
@@ -284,12 +284,12 @@ Cordialement`,
       </div>
 
       {/* Security note */}
-      <p className="text-center text-xs text-gray-400 mt-6">
+      <p className="text-center text-xs text-[#71717A] mt-6">
         Cantaia est hébergé en Europe. Vos données restent privées.
         <br />
         <a
           href="https://cantaia.io/fr/legal/privacy"
-          className="underline hover:text-gray-600"
+          className="underline hover:text-[#A1A1AA]"
         >
           Politique de confidentialité
         </a>

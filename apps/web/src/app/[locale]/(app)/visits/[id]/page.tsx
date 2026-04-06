@@ -168,7 +168,7 @@ export default function VisitDetailPage() {
               </button>
               <button
                 onClick={() => updateStatus("lost")}
-                className="rounded-lg bg-gray-500 px-3 py-2 text-xs font-medium text-white hover:bg-gray-600"
+                className="rounded-lg bg-[#52525B] px-3 py-2 text-xs font-medium text-white hover:bg-[#71717A]"
               >
                 {t("markLost")}
               </button>

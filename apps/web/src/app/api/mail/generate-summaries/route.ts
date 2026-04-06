@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
+export const maxDuration = 120;
+
 /**
  * POST /api/mail/generate-summaries
  * Generates AI summaries for emails that don't have one yet.

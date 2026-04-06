@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
+export const maxDuration = 60;
+
 interface ClientRequest {
   description: string;
   category: string;

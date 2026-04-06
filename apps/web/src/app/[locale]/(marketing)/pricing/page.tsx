@@ -116,10 +116,10 @@ export default function PricingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
       />
 
-      <h1 className="font-display text-3xl font-bold text-slate-900 sm:text-4xl">
+      <h1 className="font-display text-3xl font-bold text-[#FAFAFA] sm:text-4xl">
         {t("title")}
       </h1>
-      <p className="mt-4 text-lg text-slate-500">{t("subtitle")}</p>
+      <p className="mt-4 text-lg text-[#A1A1AA]">{t("subtitle")}</p>
 
       <div className="mt-16 grid w-full max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3">
         {PLANS.map(({ key, featuresKeys, highlight }) => {
@@ -131,10 +131,10 @@ export default function PricingPage() {
           return (
             <div
               key={key}
-              className={`relative rounded-2xl border bg-white p-8 shadow-sm transition-shadow duration-200 hover:shadow-lg ${
+              className={`relative rounded-2xl border bg-[#18181B] p-8 shadow-sm transition-shadow duration-200 hover:shadow-lg ${
                 highlight
                   ? "border-[#2563EB] border-2 shadow-md"
-                  : "border-slate-200"
+                  : "border-[#27272A]"
               }`}
             >
               {highlight && (
@@ -143,15 +143,15 @@ export default function PricingPage() {
                 </div>
               )}
 
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-[#FAFAFA]">
                 {t(nameKey)}
               </h3>
-              <p className="mt-2 text-sm text-slate-500">{t(descKey)}</p>
+              <p className="mt-2 text-sm text-[#A1A1AA]">{t(descKey)}</p>
 
-              <p className="mt-6 text-3xl font-bold text-slate-900">
+              <p className="mt-6 text-3xl font-bold text-[#FAFAFA]">
                 <>
                   {t("currency")} {t(priceKey)}
-                  <span className="text-sm font-normal text-slate-500">
+                  <span className="text-sm font-normal text-[#A1A1AA]">
                     {t("perMonth")}
                   </span>
                 </>
@@ -171,7 +171,7 @@ export default function PricingPage() {
                         clipRule="evenodd"
                       />
                     </svg>
-                    <span className="text-slate-700">
+                    <span className="text-[#A1A1AA]">
                       {t(`${key}Features.${fk}`)}
                     </span>
                   </li>
@@ -183,7 +183,7 @@ export default function PricingPage() {
                 className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-all duration-200 ${
                   highlight
                     ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/25 hover:bg-[#1D4ED8]"
-                    : "border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50"
+                    : "border border-[#27272A] bg-[#18181B] text-[#FAFAFA] hover:border-[#3F3F46] hover:bg-[#27272A]"
                 }`}
               >
                 {isEnterprise ? t("contactUs") : t("choosePlan")}
@@ -193,7 +193,7 @@ export default function PricingPage() {
         })}
       </div>
 
-      <p className="mt-8 text-center text-sm text-slate-500">
+      <p className="mt-8 text-center text-sm text-[#A1A1AA]">
         {t("noCommitment")}
       </p>
     </main>

@@ -175,7 +175,7 @@ function SourceDistributionBar({ repartition }: { repartition: Record<string, nu
     { key: "ratio_estimation_pct", label: "Ratio", color: "bg-orange-400" },
     { key: "estimation_ia_pct", label: "IA", color: "bg-red-400" },
     { key: "consensus_multi_ia_pct", label: "Consensus IA", color: "bg-orange-500" },
-    { key: "prix_non_disponible_pct", label: "Non dispo.", color: "bg-gray-300" },
+    { key: "prix_non_disponible_pct", label: "Non dispo.", color: "bg-[#52525B]" },
   ].filter((s) => (repartition[s.key] ?? 0) > 0);
 
   return (
