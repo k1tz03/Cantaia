@@ -11,6 +11,12 @@ interface ManualSupplierInfo {
   contact_name?: string;
 }
 
+interface AttachmentData {
+  filename: string;
+  contentType: string;
+  content: string; // base64
+}
+
 interface SendRequest {
   groups: Array<{
     material_group: string;
@@ -20,8 +26,10 @@ interface SendRequest {
   deadline?: string;
   language?: "fr" | "en" | "de";
   attachment_urls?: string[];
+  attachments?: AttachmentData[]; // inline base64 attachments
   custom_subject?: string;
   custom_body?: string;
+  custom_bodies?: Record<string, string>; // per-supplier body overrides (supplier_id → body text)
   manual_suppliers?: ManualSupplierInfo[];
 }
 
@@ -233,11 +241,14 @@ export async function POST(
             let subject: string;
             let htmlContent: string;
 
-            if (body.custom_body) {
+            // Check per-supplier body override, then global custom_body
+            const effectiveCustomBody = body.custom_bodies?.[supplierId] || body.custom_body;
+
+            if (effectiveCustomBody) {
               // Use custom content from editable preview
               subject = body.custom_subject || `Demande de prix — ${projectName} — ${group.material_group}`;
               const itemsTableHtml = generateItemsTableHtml(groupItems);
-              htmlContent = customBodyToHtml(body.custom_body, itemsTableHtml, trackingCode);
+              htmlContent = customBodyToHtml(effectiveCustomBody, itemsTableHtml, trackingCode);
               console.log("[SEND] Using custom email body for supplier:", supplierEmail);
             } else {
               const emailBody = generatePriceRequestEmail({
@@ -257,14 +268,14 @@ export async function POST(
               htmlContent = emailBody.html;
             }
 
-            console.log("[SEND] Sending email to:", supplierEmail, "subject:", subject);
+            console.log("[SEND] Sending email to:", supplierEmail, "subject:", subject, "attachments:", body.attachments?.length || 0);
             await sendEmailViaGraph(
               tokenResult.accessToken,
               supplierEmail,
               subject,
               htmlContent,
               userProfile.email,
-              body.attachment_urls
+              body.attachments
             );
             console.log("[SEND] Email sent successfully to:", supplierEmail);
 
@@ -431,7 +442,7 @@ async function sendEmailViaGraph(
   subject: string,
   htmlBody: string,
   from: string,
-  _attachmentUrls?: string[] // eslint-disable-line @typescript-eslint/no-unused-vars
+  attachments?: AttachmentData[]
 ) {
   const message: any = {
     subject,
@@ -440,8 +451,14 @@ async function sendEmailViaGraph(
     from: { emailAddress: { address: from } },
   };
 
-  // Note: attachment handling for Graph API would require downloading from Storage
-  // and converting to base64. Simplified for now.
+  if (attachments && attachments.length > 0) {
+    message.attachments = attachments.map((a) => ({
+      "@odata.type": "#microsoft.graph.fileAttachment",
+      name: a.filename,
+      contentType: a.contentType,
+      contentBytes: a.content,
+    }));
+  }
 
   const response = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
     method: "POST",
