@@ -5,7 +5,7 @@ import {
   Search, Send, Eye, Trash2, X, Plus, Check,
   ChevronDown, ChevronRight, Zap, Paperclip,
   CheckCircle2, Loader2, Package as PackageIcon,
-  Camera, XCircle, Sparkles, Undo2,
+  Camera, XCircle, Sparkles, Undo2, AlertTriangle,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -146,6 +146,10 @@ function nextPkgId(): string {
   return `pkg-${Date.now()}-${++pkgCounter}`;
 }
 
+/** Graph API inline base64 attachment limits */
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
+const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB total per email
+
 /* ═══════════════════════════════════════════════════════════════
    Main Component
    ═══════════════════════════════════════════════════════════════ */
@@ -183,9 +187,9 @@ export function PriceRequestV2({
   const [editedBodies, setEditedBodies] = useState<Record<string, string>>({});
   const [editedSubjects, setEditedSubjects] = useState<Record<string, string>>({});
 
-  // ── Attachments (per-group, shared across all suppliers in the same material group) ──
-  const [groupAttachments, setGroupAttachments] = useState<Record<string, AttachmentFile[]>>({});
-  const [attachTargetGroup, setAttachTargetGroup] = useState<string | null>(null);
+  // ── Attachments (per-package — each supplier package has its own attachments) ──
+  const [packageAttachments, setPackageAttachments] = useState<Record<string, AttachmentFile[]>>({});
+  const [attachTargetPkg, setAttachTargetPkg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Send state ──────────────────────────────────────────────
@@ -413,29 +417,14 @@ export function PriceRequestV2({
   // const removeItemFromPackage = useCallback((pkgId: string, itemId: string) => { ... }, []);
 
   const deletePackage = useCallback((pkgId: string) => {
-    setPackages((prev) => {
-      const updated = prev.filter((p) => p.id !== pkgId);
-      // Clean up group attachments for groups that no longer have any supplier
-      const removedPkg = prev.find((p) => p.id === pkgId);
-      if (removedPkg) {
-        const removedGroups = new Set(
-          removedPkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean)
-        );
-        const stillUsedGroups = new Set(
-          updated.flatMap((p) => p.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean))
-        );
-        const orphanGroups = Array.from(removedGroups).filter((g) => !stillUsedGroups.has(g!));
-        if (orphanGroups.length > 0) {
-          setGroupAttachments((prev) => {
-            const next = { ...prev };
-            for (const g of orphanGroups) if (g) delete next[g];
-            return next;
-          });
-        }
-      }
-      return updated;
+    setPackages((prev) => prev.filter((p) => p.id !== pkgId));
+    // Clean up per-package attachments
+    setPackageAttachments((prev) => {
+      const next = { ...prev };
+      delete next[pkgId];
+      return next;
     });
-  }, [itemsById]);
+  }, []);
 
   const removeSupplierFromItem = useCallback((supplierId: string, itemId: string) => {
     setPackages((prev) =>
@@ -447,29 +436,34 @@ export function PriceRequestV2({
     );
   }, []);
 
-  // ── Attachments (per-group — shared across all suppliers in the same material group) ──
+  // ── Attachments (per-package) ──
 
-  const addFilesToGroup = useCallback((groupName: string, files: FileList | null) => {
+  const addFilesToPackage = useCallback((pkgId: string, files: FileList | null) => {
     if (!files) return;
-    const newFiles: AttachmentFile[] = [];
-    for (const file of Array.from(files)) {
-      if (file.size > 10 * 1024 * 1024) continue; // 10MB max
-      newFiles.push({ file, name: file.name, size: file.size });
-    }
-    setGroupAttachments((prev) => ({
+    setPackageAttachments((prev) => {
+      const existing = prev[pkgId] || [];
+      const currentSize = existing.reduce((s, f) => s + f.size, 0);
+      let remaining = MAX_TOTAL_SIZE - currentSize;
+      const added: AttachmentFile[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_FILE_SIZE) continue; // 10MB per file
+        if (file.size > remaining) continue; // Would exceed 25MB total
+        added.push({ file, name: file.name, size: file.size });
+        remaining -= file.size;
+      }
+      if (added.length === 0) return prev;
+      return { ...prev, [pkgId]: [...existing, ...added] };
+    });
+  }, []);
+
+  const removePackageAttachment = useCallback((pkgId: string, index: number) => {
+    setPackageAttachments((prev) => ({
       ...prev,
-      [groupName]: [...(prev[groupName] || []), ...newFiles],
+      [pkgId]: (prev[pkgId] || []).filter((_, i) => i !== index),
     }));
   }, []);
 
-  const removeGroupAttachment = useCallback((groupName: string, index: number) => {
-    setGroupAttachments((prev) => ({
-      ...prev,
-      [groupName]: (prev[groupName] || []).filter((_, i) => i !== index),
-    }));
-  }, []);
-
-  const captureScreenForGroup = useCallback(async (groupName: string) => {
+  const captureScreenForPackage = useCallback(async (pkgId: string) => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const video = document.createElement("video");
@@ -487,10 +481,13 @@ export function PriceRequestV2({
       canvas.toBlob((blob) => {
         if (!blob) return;
         const file = new File([blob], `capture-${Date.now()}.png`, { type: "image/png" });
-        setGroupAttachments((prev) => ({
-          ...prev,
-          [groupName]: [...(prev[groupName] || []), { file, name: file.name, size: file.size }],
-        }));
+        if (file.size > MAX_FILE_SIZE) return; // 10MB per file
+        setPackageAttachments((prev) => {
+          const existing = prev[pkgId] || [];
+          const currentSize = existing.reduce((s, f) => s + f.size, 0);
+          if (currentSize + file.size > MAX_TOTAL_SIZE) return prev; // 25MB total
+          return { ...prev, [pkgId]: [...existing, { file, name: file.name, size: file.size }] };
+        });
       }, "image/png");
     } catch {
       // User cancelled or API not supported
@@ -619,19 +616,20 @@ export function PriceRequestV2({
           }
         }
 
-        // Collect per-group attachments for the groups in this package
+        // Collect per-package attachments (sent with all group emails from this package)
         const groupAttBase64: Record<string, Array<{ filename: string; contentType: string; content: string }>> = {};
-        for (const g of groups) {
-          const gAtts = groupAttachments[g.material_group] || [];
-          if (gAtts.length > 0) {
-            groupAttBase64[g.material_group] = [];
-            for (const att of gAtts) {
-              const buffer = await att.file.arrayBuffer();
-              const base64 = btoa(
-                new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-              );
-              groupAttBase64[g.material_group].push({ filename: att.name, contentType: att.file.type, content: base64 });
-            }
+        const pkgAtts = packageAttachments[pkg.id] || [];
+        if (pkgAtts.length > 0) {
+          const convertedAtts: Array<{ filename: string; contentType: string; content: string }> = [];
+          for (const att of pkgAtts) {
+            const buffer = await att.file.arrayBuffer();
+            const base64 = btoa(
+              new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+            );
+            convertedAtts.push({ filename: att.name, contentType: att.file.type, content: base64 });
+          }
+          for (const g of groups) {
+            groupAttBase64[g.material_group] = convertedAtts;
           }
         }
 
@@ -675,7 +673,7 @@ export function PriceRequestV2({
     } finally {
       setSending(false);
     }
-  }, [packages, itemsById, groupAttachments, editedSubjects, deadline, submissionId, onComplete]);
+  }, [packages, itemsById, packageAttachments, editedSubjects, deadline, submissionId, onComplete]);
 
   // ── Supplier picker data ────────────────────────────────────
 
@@ -1020,7 +1018,7 @@ export function PriceRequestV2({
                 )}
               </div>
 
-              <div className="max-h-[380px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
+              <div className="max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#27272A #18181B" }}>
                 {packages.length === 0 ? (
                   <div className="py-10 text-center">
                     <PackageIcon className="h-8 w-8 text-[#27272A] mx-auto mb-2" />
@@ -1029,71 +1027,80 @@ export function PriceRequestV2({
                   </div>
                 ) : (
                   <div className="divide-y divide-[#27272A]">
-                    {/* Group packages by material_group for display */}
-                    {(() => {
-                      // Build group → packages map
-                      const groupMap = new Map<string, AssignmentPackage[]>();
-                      for (const pkg of packages) {
-                        const groups = Array.from(new Set(
-                          pkg.itemIds.map((id) => itemsById.get(id)?.material_group).filter(Boolean)
-                        )) as string[];
-                        for (const g of groups) {
-                          const list = groupMap.get(g) || [];
-                          if (!list.some(p => p.id === pkg.id)) list.push(pkg);
-                          groupMap.set(g, list);
-                        }
-                      }
-                      return Array.from(groupMap.entries()).map(([groupName, groupPkgs]) => {
-                        const gFiles = groupAttachments[groupName] || [];
-                        const allItemIds = new Set(groupPkgs.flatMap(p =>
-                          p.itemIds.filter(id => itemsById.get(id)?.material_group === groupName)
-                        ));
-                        return (
-                          <div key={groupName} className="p-3">
-                            {/* Group header */}
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-semibold text-[#F97316] uppercase tracking-wide truncate">{groupName}</span>
-                              <span className="text-[10px] text-[#52525B]">{allItemIds.size} poste{allItemIds.size > 1 ? "s" : ""}</span>
-                            </div>
+                    {packages.map((pkg) => {
+                      const pkgItems = pkg.itemIds
+                        .map((id) => itemsById.get(id))
+                        .filter(Boolean) as WizardItem[];
+                      const pkgAtts = packageAttachments[pkg.id] || [];
+                      const totalSize = pkgAtts.reduce((s, f) => s + f.size, 0);
+                      const sizePercent = (totalSize / MAX_TOTAL_SIZE) * 100;
+                      const isOverLimit = totalSize > MAX_TOTAL_SIZE;
 
-                            {/* Suppliers in this group */}
-                            <div className="space-y-1.5 mb-2">
-                              {groupPkgs.map((pkg) => (
-                                <div key={pkg.id} className="flex items-center justify-between rounded-md bg-[#1C1C1F] px-2.5 py-1.5">
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-medium text-[#FAFAFA] truncate">{pkg.supplierName}</div>
-                                    <div className="text-[10px] text-[#52525B] truncate">{pkg.supplierEmail || "Pas d'email"}</div>
-                                  </div>
-                                  <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                                    <button
-                                      onClick={() => openPreview(pkg.id)}
-                                      className="p-1 rounded hover:bg-[#27272A] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
-                                      title="Prévisualiser"
-                                    >
-                                      <Eye className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => deletePackage(pkg.id)}
-                                      className="p-1 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
-                                      title="Supprimer"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
+                      return (
+                        <div key={pkg.id} className="p-3">
+                          {/* Supplier header + actions */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-[#FAFAFA] truncate">{pkg.supplierName}</div>
+                              <div className="text-[10px] text-[#52525B] truncate">{pkg.supplierEmail || "Pas d'email"}</div>
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                              <button
+                                onClick={() => openPreview(pkg.id)}
+                                className="p-1 rounded hover:bg-[#27272A] text-[#71717A] hover:text-[#FAFAFA] transition-colors"
+                                title="Prévisualiser"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => deletePackage(pkg.id)}
+                                className="p-1 rounded hover:bg-red-500/10 text-[#71717A] hover:text-red-400 transition-colors"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Item descriptions */}
+                          <div className="space-y-1 mb-2">
+                            {pkgItems.map((item) => (
+                              <div key={item.id} className="flex items-start gap-2 px-2 py-1.5 rounded bg-[#0F0F11]">
+                                <span className="text-[10px] text-[#52525B] font-mono shrink-0 mt-0.5 w-8 text-right">
+                                  {item.item_number || "—"}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[11px] text-[#A1A1AA] leading-tight line-clamp-2">{item.description}</div>
+                                  <div className="flex gap-2 mt-0.5">
+                                    {item.quantity != null && (
+                                      <span className="text-[9px] text-[#52525B]">
+                                        {Number(item.quantity).toLocaleString("fr-CH")} {item.unit || ""}
+                                      </span>
+                                    )}
+                                    {item.cfc_code && (
+                                      <span className="text-[9px] text-[#52525B]">CFC {item.cfc_code}</span>
+                                    )}
                                   </div>
                                 </div>
-                              ))}
+                              </div>
+                            ))}
+                            <div className="text-[10px] text-[#3F3F46] px-2">
+                              {pkgItems.length} poste{pkgItems.length > 1 ? "s" : ""}
                             </div>
+                          </div>
 
-                            {/* Shared attachments for this group */}
-                            <div className="pt-2 border-t border-[#27272A]/50">
-                              {gFiles.length > 0 && (
+                          {/* Per-package attachments */}
+                          <div className="pt-2 border-t border-[#27272A]/50">
+                            {pkgAtts.length > 0 && (
+                              <>
                                 <div className="flex flex-wrap gap-1 mb-1.5">
-                                  {gFiles.map((att, i) => (
-                                    <span key={i} className="inline-flex items-center gap-1 max-w-[150px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
+                                  {pkgAtts.map((att, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 max-w-[160px] px-1.5 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400">
                                       <Paperclip className="h-2.5 w-2.5 shrink-0" />
                                       <span className="truncate">{att.name}</span>
+                                      <span className="text-[#52525B] shrink-0">({formatFileSize(att.size)})</span>
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); removeGroupAttachment(groupName, i); }}
+                                        onClick={(e) => { e.stopPropagation(); removePackageAttachment(pkg.id, i); }}
                                         className="shrink-0 hover:text-red-400 transition-colors"
                                       >
                                         <X className="h-2.5 w-2.5" />
@@ -1101,78 +1108,98 @@ export function PriceRequestV2({
                                     </span>
                                   ))}
                                 </div>
-                              )}
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setAttachTargetGroup(groupName); fileInputRef.current?.click(); }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                  title="Ajouter fichier"
-                                >
-                                  <Plus className="h-2.5 w-2.5" /> Fichier
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); captureScreenForGroup(groupName); }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
-                                  title="Capture d'écran"
-                                >
-                                  <Camera className="h-2.5 w-2.5" /> Capture
-                                </button>
-                              </div>
-                              {gFiles.length === 0 && groupPkgs.length > 1 && (
-                                <p className="text-[9px] text-[#3F3F46] mt-1">
-                                  Partagé entre les {groupPkgs.length} fournisseurs
-                                </p>
-                              )}
+                                {/* Size progress bar */}
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <div className="flex-1 h-1 rounded-full bg-[#27272A] overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${isOverLimit ? "bg-red-500" : sizePercent > 80 ? "bg-amber-500" : "bg-[#F97316]"}`}
+                                      style={{ width: `${Math.min(sizePercent, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-[9px] shrink-0 ${isOverLimit ? "text-red-400" : sizePercent > 80 ? "text-amber-400" : "text-[#52525B]"}`}>
+                                    {formatFileSize(totalSize)} / 25 Mo
+                                  </span>
+                                  {isOverLimit && <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />}
+                                </div>
+                              </>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setAttachTargetPkg(pkg.id); fileInputRef.current?.click(); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                title="Ajouter fichier"
+                              >
+                                <Plus className="h-2.5 w-2.5" /> Fichier
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); captureScreenForPackage(pkg.id); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] hover:bg-[#3F3F46] text-[10px] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+                                title="Capture d'écran"
+                              >
+                                <Camera className="h-2.5 w-2.5" /> Capture
+                              </button>
                             </div>
                           </div>
-                        );
-                      });
-                    })()}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Hidden file input (shared, target group set via attachTargetGroup) */}
+            {/* Hidden file input (shared, target pkg set via attachTargetPkg) */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
               className="hidden"
               onChange={(e) => {
-                if (attachTargetGroup) addFilesToGroup(attachTargetGroup, e.target.files);
-                setAttachTargetGroup(null);
+                if (attachTargetPkg) addFilesToPackage(attachTargetPkg, e.target.files);
+                setAttachTargetPkg(null);
                 if (e.target) e.target.value = "";
               }}
             />
 
             {/* Send */}
-            {packages.length > 0 && (
-              <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-3">
-                <p className="text-xs text-[#71717A] mb-3">
-                  {totalEmails} email{totalEmails > 1 ? "s" : ""} à {packages.length} fournisseur{packages.length > 1 ? "s" : ""}
-                  {" "}pour {new Set(packages.flatMap((p) => p.itemIds)).size} postes
-                </p>
-                {sendError && (
-                  <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-                    <XCircle className="h-3.5 w-3.5 shrink-0" />
-                    {sendError}
-                  </div>
-                )}
-                <button
-                  onClick={handleSend}
-                  disabled={sending}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
+            {packages.length > 0 && (() => {
+              const hasOversizedPkg = packages.some((pkg) => {
+                const total = (packageAttachments[pkg.id] || []).reduce((s, f) => s + f.size, 0);
+                return total > MAX_TOTAL_SIZE;
+              });
+              return (
+                <div className="bg-[#18181B] border border-[#27272A] rounded-lg p-3">
+                  <p className="text-xs text-[#71717A] mb-3">
+                    {totalEmails} email{totalEmails > 1 ? "s" : ""} à {packages.length} fournisseur{packages.length > 1 ? "s" : ""}
+                    {" "}pour {new Set(packages.flatMap((p) => p.itemIds)).size} postes
+                  </p>
+                  {hasOversizedPkg && (
+                    <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Les pièces jointes dépassent la limite de 25 Mo sur un ou plusieurs paquets
+                    </div>
                   )}
-                  {sending ? "Envoi en cours..." : `Envoyer tout (${totalEmails})`}
-                </button>
-              </div>
-            )}
+                  {sendError && (
+                    <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" />
+                      {sendError}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSend}
+                    disabled={sending || hasOversizedPkg}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {sending ? "Envoi en cours..." : `Envoyer tout (${totalEmails})`}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -1428,18 +1455,23 @@ export function PriceRequestV2({
                         className="w-full p-3 bg-[#0F0F11] border border-[#27272A] rounded-lg text-xs text-[#FAFAFA] font-mono leading-relaxed focus:outline-none focus:border-[#F97316]/50 resize-y"
                       />
                     </div>
-                    {/* Attachments for this group */}
-                    {previewData[previewTab] && (groupAttachments[previewData[previewTab].group] || []).length > 0 && (
+                    {/* Attachments for this package */}
+                    {previewPkgId && (packageAttachments[previewPkgId] || []).length > 0 && (
                       <div>
-                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">Pièces jointes ({previewData[previewTab].group})</label>
+                        <label className="text-[10px] font-medium text-[#52525B] uppercase tracking-wider">
+                          Pièces jointes ({(packageAttachments[previewPkgId] || []).length})
+                        </label>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {(groupAttachments[previewData[previewTab].group] || []).map((att, i) => (
+                          {(packageAttachments[previewPkgId] || []).map((att, i) => (
                             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#27272A] text-[10px] text-[#A1A1AA]">
                               <Paperclip className="h-2.5 w-2.5" />
                               {att.name}
                               <span className="text-[#52525B]">({formatFileSize(att.size)})</span>
                             </span>
                           ))}
+                        </div>
+                        <div className="text-[9px] text-[#52525B] mt-1">
+                          Total : {formatFileSize((packageAttachments[previewPkgId] || []).reduce((s, f) => s + f.size, 0))} / 25 Mo
                         </div>
                       </div>
                     )}
