@@ -14,38 +14,53 @@ interface PlanSelectorProps {
 const PLANS = [
   {
     id: "starter",
-    price: 149,
+    pricePerUser: 49,
+    minUsers: 1,
+    maxUsers: 5,
     features: [
-      "5 utilisateurs",
-      "10 projets",
-      "Classification emails IA",
-      "PV de chantier",
-      "Support email",
+      "1-5 utilisateurs",
+      "5 projets",
+      "Mail IA (1 boite)",
+      "Chat IA (200 msg/mois)",
+      "Briefing quotidien",
+      "Fournisseurs (50 max)",
+      "Support email (48h)",
     ],
   },
   {
     id: "pro",
-    price: 349,
+    pricePerUser: 89,
+    minUsers: 5,
+    maxUsers: 30,
     popular: true,
     features: [
-      "20 utilisateurs",
-      "50 projets",
-      "Classification + analyse prix IA",
-      "PV + soumissions + plans",
-      "Briefing quotidien",
-      "Support prioritaire",
+      "5-30 utilisateurs",
+      "30 projets",
+      "Tout le Starter +",
+      "Soumissions completes",
+      "PV + transcription vocale",
+      "Planning IA + Gantt",
+      "Portail terrain (PIN)",
+      "Plans + analyse IA",
+      "Chat IA (1000 msg/mois)",
+      "Support prioritaire (24h)",
     ],
   },
   {
     id: "enterprise",
-    price: 790,
+    pricePerUser: 119,
+    minUsers: 15,
+    maxUsers: Infinity,
     features: [
-      "Utilisateurs illimites",
+      "15+ utilisateurs",
       "Projets illimites",
-      "Toutes les fonctionnalites",
-      "SSO + integrations custom",
-      "Accompagnement personnalise",
-      "SLA garanti",
+      "Tout le Pro +",
+      "Direction & rentabilite",
+      "Data Intelligence",
+      "Branding custom",
+      "API access",
+      "Chat IA illimite",
+      "Support dedie (<4h)",
     ],
   },
 ];
@@ -61,7 +76,6 @@ export default function PlanSelector({
 
   async function handleSelectPlan(planId: string) {
     if (planId === "enterprise") {
-      // Open contact form or mailto
       window.open("mailto:contact@cantaia.io?subject=Cantaia Enterprise", "_blank");
       return;
     }
@@ -81,10 +95,8 @@ export default function PlanSelector({
       const data = await res.json();
 
       if (data.url) {
-        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else if (data.success) {
-        // Plan updated successfully
         onSuccess();
         onClose();
       }
@@ -120,7 +132,7 @@ export default function PlanSelector({
                 key={plan.id}
                 className={`relative rounded-lg border-2 p-5 ${
                   plan.popular
-                    ? "border-blue-500 shadow-md"
+                    ? "border-[#F97316] shadow-md shadow-[#F97316]/10"
                     : isCurrent
                       ? "border-green-300 bg-green-500/10"
                       : "border-[#27272A]"
@@ -129,7 +141,7 @@ export default function PlanSelector({
                 {/* Popular badge */}
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-0.5 text-xs font-medium text-white">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-3 py-0.5 text-xs font-medium text-white">
                       <Sparkles className="h-3 w-3" />
                       Populaire
                     </span>
@@ -149,10 +161,15 @@ export default function PlanSelector({
 
                 <div className="mt-2">
                   <p className="text-2xl font-bold text-[#FAFAFA]">
-                    {plan.price} CHF
+                    {plan.pricePerUser} CHF
                     <span className="text-sm font-normal text-[#71717A]">
-                      {t("perMonth")}
+                      /utilisateur/mois
                     </span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-[#52525B]">
+                    {plan.minUsers === 1
+                      ? `des ${plan.pricePerUser} CHF/mois`
+                      : `min. ${plan.minUsers} utilisateurs = ${plan.pricePerUser * plan.minUsers} CHF/mois`}
                   </p>
                 </div>
 
@@ -160,9 +177,9 @@ export default function PlanSelector({
                   {plan.features.map((feature, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-sm text-[#71717A]"
+                      className="flex items-start gap-2 text-sm text-[#A1A1AA]"
                     >
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#22C55E]" />
                       {feature}
                     </li>
                   ))}
@@ -177,8 +194,8 @@ export default function PlanSelector({
                       : isEnterprise
                         ? "border border-[#27272A] bg-[#0F0F11] text-[#FAFAFA] hover:bg-[#27272A]"
                         : plan.popular
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-foreground text-background hover:bg-foreground/90"
+                          ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-[#F97316]/25 hover:shadow-xl"
+                          : "bg-[#FAFAFA] text-[#0F0F11] hover:bg-[#A1A1AA]"
                   } disabled:opacity-50`}
                 >
                   {loading === plan.id ? (

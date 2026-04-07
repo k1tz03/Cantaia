@@ -18,11 +18,12 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: "Enterprise",
 };
 
-const PLAN_PRICES: Record<string, number> = {
+// Per-user pricing (CHF/user/month)
+const PLAN_PRICES_PER_USER: Record<string, number> = {
   trial: 0,
-  starter: 149,
-  pro: 349,
-  enterprise: 790,
+  starter: 49,
+  pro: 89,
+  enterprise: 119,
 };
 
 interface OrgData {
@@ -138,7 +139,7 @@ export default function AdminSubscriptionTab() {
 
   const plan = org?.subscription_plan || "trial";
   const planLabel = PLAN_LABELS[plan] || plan;
-  const planPrice = PLAN_PRICES[plan] || 0;
+  const planPricePerUser = PLAN_PRICES_PER_USER[plan] || 0;
   const hasSubscription = !!org?.stripe_subscription_id;
   const isTrial = plan === "trial";
 
@@ -179,11 +180,11 @@ export default function AdminSubscriptionTab() {
               >
                 {planLabel}
               </span>
-              {planPrice > 0 && (
+              {planPricePerUser > 0 && (
                 <span className="ml-3 text-2xl font-bold text-[#FAFAFA]">
-                  {planPrice} CHF
+                  {planPricePerUser} CHF
                   <span className="text-sm font-normal text-[#71717A]">
-                    {t("perMonth")}
+                    {" "}/ utilisateur {t("perMonth")}
                   </span>
                 </span>
               )}

@@ -22,25 +22,38 @@ export interface PlanLimits {
   export: boolean;
 }
 
+/**
+ * Pricing (CHF/user/month):
+ *   Starter: 49 | Pro: 89 | Enterprise: 119
+ *
+ * Per-user model — min users: Starter 1, Pro 5, Enterprise 15
+ */
+export const PLAN_PRICING: Record<PlanName, { pricePerUser: number; minUsers: number; maxUsers: number }> = {
+  trial:      { pricePerUser: 0,   minUsers: 1,  maxUsers: 3 },
+  starter:    { pricePerUser: 49,  minUsers: 1,  maxUsers: 5 },
+  pro:        { pricePerUser: 89,  minUsers: 5,  maxUsers: 30 },
+  enterprise: { pricePerUser: 119, minUsers: 15, maxUsers: Infinity },
+};
+
 export const PLAN_FEATURES: Record<PlanName, PlanLimits> = {
   trial: {
-    maxProjects: 2, maxUsers: 1, aiCalls: 20, maxEmailsSync: 50,
-    maxPlanAnalyses: 2, maxSubmissions: 1, maxStorage: 100_000_000,
+    maxProjects: 2, maxUsers: 3, aiCalls: 50, maxEmailsSync: 50,
+    maxPlanAnalyses: 2, maxSubmissions: 1, maxStorage: 1_000_000_000,
     budgetAI: false, planning: false, dataIntel: false, branding: false, export: false,
   },
   starter: {
-    maxProjects: 5, maxUsers: 1, aiCalls: 200, maxEmailsSync: 500,
-    maxPlanAnalyses: 10, maxSubmissions: 5, maxStorage: 2_000_000_000,
-    budgetAI: true, planning: "basic", dataIntel: false, branding: false, export: true,
+    maxProjects: 5, maxUsers: 5, aiCalls: 200, maxEmailsSync: 500,
+    maxPlanAnalyses: 5, maxSubmissions: 3, maxStorage: 5_000_000_000,
+    budgetAI: false, planning: false, dataIntel: false, branding: false, export: true,
   },
   pro: {
-    maxProjects: Infinity, maxUsers: 3, aiCalls: 1000, maxEmailsSync: Infinity,
-    maxPlanAnalyses: 50, maxSubmissions: Infinity, maxStorage: 10_000_000_000,
-    budgetAI: true, planning: "full", dataIntel: true, branding: true, export: true,
+    maxProjects: 30, maxUsers: 30, aiCalls: 1000, maxEmailsSync: Infinity,
+    maxPlanAnalyses: 50, maxSubmissions: Infinity, maxStorage: 50_000_000_000,
+    budgetAI: true, planning: "full", dataIntel: false, branding: false, export: true,
   },
   enterprise: {
     maxProjects: Infinity, maxUsers: Infinity, aiCalls: Infinity, maxEmailsSync: Infinity,
-    maxPlanAnalyses: Infinity, maxSubmissions: Infinity, maxStorage: Infinity,
+    maxPlanAnalyses: Infinity, maxSubmissions: Infinity, maxStorage: 500_000_000_000,
     budgetAI: true, planning: "full", dataIntel: true, branding: true, export: true,
   },
 };

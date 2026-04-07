@@ -8,47 +8,48 @@ import { Check } from "lucide-react";
 const PLANS = [
   {
     key: "starter" as const,
-    price: "149",
+    price: 49,
     featuresKeys: [
       "users",
       "projects",
-      "emailClassification",
-      "basicPV",
+      "mail",
+      "chat",
+      "briefing",
       "tasks",
-      "plans",
+      "suppliers",
       "emailSupport",
     ],
     highlight: false,
   },
   {
     key: "pro" as const,
-    price: "349",
+    price: 89,
     featuresKeys: [
-      "users",
-      "projects",
-      "emailClassification",
-      "advancedPV",
-      "dailyBriefing",
+      "allStarter",
       "submissions",
-      "intelligence",
+      "pv",
+      "planning",
+      "portal",
+      "plans",
       "visits",
-      "archiving",
+      "reports",
+      "chat1000",
       "prioritySupport",
     ],
     highlight: true,
   },
   {
     key: "enterprise" as const,
-    price: "790",
+    price: 119,
     featuresKeys: [
-      "users",
-      "projects",
-      "allProFeatures",
-      "subdomain",
+      "allPro",
+      "direction",
+      "dataIntel",
       "branding",
-      "customIntegrations",
+      "api",
+      "chatUnlimited",
+      "multiOrg",
       "dedicatedSupport",
-      "training",
     ],
     highlight: false,
   },
@@ -87,6 +88,7 @@ export function PricingSection() {
             {PLANS.map(({ key, price, featuresKeys, highlight }) => {
               const nameKey = `${key}Name` as const;
               const descKey = `${key}Desc` as const;
+              const minKey = `${key}Min` as const;
               const isEnterprise = key === "enterprise";
 
               return (
@@ -111,8 +113,9 @@ export function PricingSection() {
 
                   <p className="mt-6 flex items-baseline gap-1">
                     <span className="text-4xl font-bold text-white">{t("currency")} {price}</span>
-                    <span className="text-sm text-[#71717A]">{t("perMonth")}</span>
+                    <span className="text-sm text-[#71717A]">/{t("perUser")}</span>
                   </p>
+                  <p className="mt-1 text-xs text-[#52525B]">{t(minKey)}</p>
 
                   <ul className="mt-8 space-y-3">
                     {featuresKeys.map((fk) => (
@@ -135,7 +138,7 @@ export function PricingSection() {
                         : "border border-[#27272A] bg-transparent text-white hover:bg-[#27272A] hover:border-[#3F3F46]"
                     }`}
                   >
-                    {isEnterprise ? t("contactUs") : t("choosePlan")}
+                    {isEnterprise ? t("contactUs") : t("startTrial")}
                   </Link>
                 </div>
               );

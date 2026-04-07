@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { Check } from "lucide-react";
 
 const pricingSeo: Record<string, { title: string; description: string }> = {
   fr: {
-    title: "Tarifs Cantaia — Plans dès 149 CHF/mois",
+    title: "Tarifs Cantaia — Plans de 49 a 119 CHF/utilisateur/mois",
     description:
-      "3 plans adaptés : Starter (149 CHF), Pro (349 CHF), Enterprise (790 CHF). Triage email IA, PV automatiques, soumissions CFC, estimation de prix, gestion des plans. Essai gratuit 14 jours.",
+      "3 plans par utilisateur : Starter (49 CHF), Pro (89 CHF), Enterprise (119 CHF). Mail IA, soumissions, PV, planning, portail terrain, chat IA. Essai gratuit 14 jours.",
   },
   en: {
-    title: "Cantaia Pricing — Plans from CHF 149/month",
+    title: "Cantaia Pricing — Plans from CHF 49 to 119/user/month",
     description:
-      "3 tailored plans: Starter (CHF 149), Pro (CHF 349), Enterprise (CHF 790). AI email triage, automatic meeting minutes, CFC submissions, price estimation, plan management. Free 14-day trial.",
+      "3 per-user plans: Starter (CHF 49), Pro (CHF 89), Enterprise (CHF 119). AI Mail, submissions, meeting minutes, planning, field portal, AI chat. Free 14-day trial.",
   },
   de: {
-    title: "Cantaia Preise — Pläne ab CHF 149/Monat",
+    title: "Cantaia Preise — Plane von CHF 49 bis 119/Benutzer/Monat",
     description:
-      "3 passende Pläne: Starter (CHF 149), Pro (CHF 349), Enterprise (CHF 790). KI-E-Mail-Triage, automatische Sitzungsprotokolle, CFC-Ausschreibungen, Preisschätzung, Planverwaltung. 14 Tage kostenlos.",
+      "3 Plane pro Benutzer: Starter (CHF 49), Pro (CHF 89), Enterprise (CHF 119). KI-Mail, Submissionen, Protokolle, Planung, Baustellenportal, KI-Chat. 14 Tage kostenlos.",
   },
 };
 
@@ -47,14 +48,14 @@ const pricingJsonLd = {
   "@type": "Product",
   name: "Cantaia",
   description:
-    "AI-powered construction management: email triage, meeting minutes, CFC submissions, price estimation, plan management.",
+    "AI-powered construction management: email triage, submissions, meeting minutes, planning, field portal, AI chat.",
   brand: { "@type": "Brand", name: "Cantaia" },
   offers: {
     "@type": "AggregateOffer",
     url: "https://cantaia.io/fr/pricing",
     priceCurrency: "CHF",
-    lowPrice: "149",
-    highPrice: "790",
+    lowPrice: "49",
+    highPrice: "119",
     offerCount: "3",
     availability: "https://schema.org/InStock",
   },
@@ -63,44 +64,48 @@ const pricingJsonLd = {
 const PLANS = [
   {
     key: "starter" as const,
+    price: 49,
     featuresKeys: [
       "users",
       "projects",
-      "emailClassification",
-      "basicPV",
+      "mail",
+      "chat",
+      "briefing",
       "tasks",
-      "plans",
+      "suppliers",
       "emailSupport",
     ],
     highlight: false,
   },
   {
     key: "pro" as const,
+    price: 89,
     featuresKeys: [
-      "users",
-      "projects",
-      "emailClassification",
-      "advancedPV",
-      "dailyBriefing",
+      "allStarter",
       "submissions",
-      "intelligence",
+      "pv",
+      "planning",
+      "portal",
+      "plans",
       "visits",
-      "archiving",
+      "reports",
+      "chat1000",
       "prioritySupport",
     ],
     highlight: true,
   },
   {
     key: "enterprise" as const,
+    price: 119,
     featuresKeys: [
-      "users",
-      "projects",
-      "allProFeatures",
-      "subdomain",
+      "allPro",
+      "direction",
+      "dataIntel",
       "branding",
-      "customIntegrations",
+      "api",
+      "chatUnlimited",
+      "multiOrg",
       "dedicatedSupport",
-      "training",
     ],
     highlight: false,
   },
@@ -122,10 +127,10 @@ export default function PricingPage() {
       <p className="mt-4 text-lg text-[#A1A1AA]">{t("subtitle")}</p>
 
       <div className="mt-16 grid w-full max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3">
-        {PLANS.map(({ key, featuresKeys, highlight }) => {
+        {PLANS.map(({ key, price, featuresKeys, highlight }) => {
           const nameKey = `${key}Name` as const;
           const descKey = `${key}Desc` as const;
-          const priceKey = `${key}Price` as const;
+          const minKey = `${key}Min` as const;
           const isEnterprise = key === "enterprise";
 
           return (
@@ -133,12 +138,12 @@ export default function PricingPage() {
               key={key}
               className={`relative rounded-2xl border bg-[#18181B] p-8 shadow-sm transition-shadow duration-200 hover:shadow-lg ${
                 highlight
-                  ? "border-[#2563EB] border-2 shadow-md"
+                  ? "border-[#F97316] border-2 shadow-md shadow-[#F97316]/10"
                   : "border-[#27272A]"
               }`}
             >
               {highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#2563EB] px-4 py-1 text-xs font-semibold text-white">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#F97316] to-[#EA580C] px-4 py-1 text-xs font-semibold text-white">
                   {t("popular")}
                 </div>
               )}
@@ -148,29 +153,22 @@ export default function PricingPage() {
               </h3>
               <p className="mt-2 text-sm text-[#A1A1AA]">{t(descKey)}</p>
 
-              <p className="mt-6 text-3xl font-bold text-[#FAFAFA]">
-                <>
-                  {t("currency")} {t(priceKey)}
-                  <span className="text-sm font-normal text-[#A1A1AA]">
-                    {t("perMonth")}
-                  </span>
-                </>
+              <p className="mt-6 flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-[#FAFAFA]">
+                  {t("currency")} {price}
+                </span>
+                <span className="text-sm text-[#A1A1AA]">
+                  /{t("perUser")}
+                </span>
               </p>
+              <p className="mt-1 text-xs text-[#52525B]">{t(minKey)}</p>
 
               <ul className="mt-8 space-y-3">
                 {featuresKeys.map((fk) => (
                   <li key={fk} className="flex items-start gap-3 text-sm">
-                    <svg
-                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#10B981]"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#22C55E]/10 flex-shrink-0 mt-0.5">
+                      <Check className="h-3.5 w-3.5 text-[#22C55E]" />
+                    </div>
                     <span className="text-[#A1A1AA]">
                       {t(`${key}Features.${fk}`)}
                     </span>
@@ -180,13 +178,13 @@ export default function PricingPage() {
 
               <Link
                 href={isEnterprise ? "mailto:contact@cantaia.io" : "/register"}
-                className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-all duration-200 ${
+                className={`mt-8 block w-full rounded-xl py-3 text-center text-sm font-semibold transition-all duration-200 ${
                   highlight
-                    ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/25 hover:bg-[#1D4ED8]"
+                    ? "bg-gradient-to-r from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-[#F97316]/25 hover:shadow-xl hover:shadow-[#F97316]/30"
                     : "border border-[#27272A] bg-[#18181B] text-[#FAFAFA] hover:border-[#3F3F46] hover:bg-[#27272A]"
                 }`}
               >
-                {isEnterprise ? t("contactUs") : t("choosePlan")}
+                {isEnterprise ? t("contactUs") : t("startTrial")}
               </Link>
             </div>
           );
