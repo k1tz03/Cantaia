@@ -220,7 +220,11 @@ export async function checkLocalRules(
   const senderLower = senderEmail.toLowerCase();
   const senderDomain = senderLower.split("@")[1];
 
-  // Check exact sender email rules first (highest priority)
+  // Check exact sender email rules first (highest priority).
+  // Requires times_confirmed >= 3 (i.e., 3 distinct emails from this sender were
+  // confirmed for the same project). This prevents a single high-confidence AI
+  // classification from creating an overly broad rule that captures ALL emails
+  // from a sender who works across multiple projects.
   const { data: emailRules } = await supabase
     .from("email_classification_rules")
     .select("*")
@@ -231,7 +235,7 @@ export async function checkLocalRules(
     .order("times_confirmed", { ascending: false })
     .limit(1);
 
-  if (emailRules?.[0] && emailRules[0].project_id && emailRules[0].times_confirmed >= 2) {
+  if (emailRules?.[0] && emailRules[0].project_id && emailRules[0].times_confirmed >= 3) {
     const rule = emailRules[0];
     // High confidence if confirmed multiple times and rarely overridden
     const reliability = rule.times_confirmed / (rule.times_confirmed + rule.times_overridden);

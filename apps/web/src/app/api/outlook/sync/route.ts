@@ -211,10 +211,14 @@ export async function POST(request: Request) {
     projects = (projectsData || []) as ProjectForClassification[];
   }
 
-  // Get unprocessed emails
+  // Get unprocessed emails that haven't been classified yet.
+  // IMPORTANT: Only classify emails with no classification_status (newly synced)
+  // or explicitly marked as "unprocessed" (failed previous classification).
+  // This prevents re-classification of already-classified emails by learned rules
+  // which can cascade incorrectly (e.g., a sender rule overriding AI classification).
   const { data: unprocessedEmails } = await (adminClient as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, body_preview, received_at, project_id, classification, is_processed, has_attachments, outlook_message_id, recipients")
+    .select("id, subject, sender_email, sender_name, body_preview, received_at, project_id, classification, classification_status, is_processed, has_attachments, outlook_message_id, recipients")
     .eq("user_id", user.id)
     .eq("is_processed", false)
     .order("received_at", { ascending: false })
@@ -224,6 +228,14 @@ export async function POST(request: Request) {
 
   for (const email of unprocessedEmails || []) {
     try {
+      // Skip emails already classified by a previous sync — they have a classification_status set.
+      // Only process fresh emails (null) or previously failed ones ("unprocessed").
+      // This prevents L1 learned rules from overriding correct AI classifications
+      // when the same sender sends emails about multiple different projects.
+      if (email.classification_status && email.classification_status !== "unprocessed") {
+        continue;
+      }
+
       const senderEmail = email.sender_email || "";
 
       // ═══════════════════════════════════════════════════════════
@@ -658,7 +670,13 @@ export async function POST(request: Request) {
 
       emailsClassified++;
 
-      // Learn from high-confidence AI classification
+      // Learn from high-confidence AI classification.
+      // NOTE: We intentionally only confirm ONCE per email classification.
+      // The previous "double-confirm" pattern (for confidence >= 0.90) was removed because
+      // it immediately promoted sender rules to times_confirmed=2, which caused ALL emails
+      // from that sender to be captured by L1 rules regardless of content — even when the
+      // same sender sends emails about multiple different projects.
+      // Rules now build up naturally: times_confirmed increments once per distinct email.
       if (result.confidence >= 0.85 && result.project_id && userOrg?.organization_id) {
         try {
           const { learnFromClassificationAction } = await import("@cantaia/core/emails");
@@ -670,20 +688,6 @@ export async function POST(request: Request) {
             projectId: result.project_id,
             action: "confirm",
           });
-
-          // Very high confidence (>= 0.90): double-confirm to auto-promote the sender rule.
-          // This immediately reaches the times_confirmed >= 2 threshold in checkLocalRules,
-          // so next time this sender emails about this project, Claude is skipped entirely.
-          if (result.confidence >= 0.90) {
-            await learnFromClassificationAction({
-              supabase: adminClient,
-              organizationId: userOrg.organization_id,
-              senderEmail,
-              subject: email.subject,
-              projectId: result.project_id,
-              action: "confirm",
-            });
-          }
         } catch { /* learning must never block sync */ }
       }
 
