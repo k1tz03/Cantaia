@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
-import { flushSync } from "react-dom";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -113,36 +112,79 @@ export default function ChatPage() {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  /** Append a token to the last assistant message immediately.
-   *  flushSync forces React to render synchronously after each token,
-   *  bypassing React 18 automatic batching for smooth streaming. */
+  // ── Streaming token buffer ──────────────────────────────────
+  // Tokens arrive at ~200/sec from SSE. Instead of rendering each one
+  // synchronously (flushSync), we accumulate in a ref and flush to React
+  // state via requestAnimationFrame (~60fps). This eliminates jank.
+  const tokenBufferRef = useRef("");
+  const rafIdRef = useRef<number>(0);
+
+  /** Append a token to the streaming buffer.
+   *  Tokens are accumulated in a ref and flushed to React state once per
+   *  animation frame (~60fps) instead of once per token (~200+/sec).
+   *  This prevents the "block scrolling" jank caused by flushSync. */
   const appendToken = useCallback((token: string) => {
-    flushSync(() => {
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last && last.role === "assistant") {
-          updated[updated.length - 1] = {
-            ...last,
-            content: last.content + token,
-          };
+    tokenBufferRef.current += token;
+
+    // Schedule exactly one RAF per frame — subsequent tokens within the
+    // same frame just append to the ref without scheduling again.
+    if (!rafIdRef.current) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        const buffered = tokenBufferRef.current;
+        tokenBufferRef.current = "";
+        rafIdRef.current = 0;
+
+        if (buffered) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last && last.role === "assistant") {
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content + buffered,
+              };
+            }
+            return updated;
+          });
         }
-        return updated;
+
+        // Auto-scroll in the same frame (no queuing, no smooth animation fights)
+        const el = scrollContainerRef.current;
+        if (el) {
+          const nearBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+          if (nearBottom) {
+            el.scrollTop = el.scrollHeight;
+          }
+        }
       });
-    });
+    }
   }, []);
 
-  // Auto-scroll to bottom
+  // Scroll helpers — separated from streaming to avoid animation fights
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
+  // Auto-scroll only on non-streaming events (loading history, sending msg).
+  // During streaming, the RAF callback in appendToken handles scrolling.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (!isStreaming) {
+      scrollToBottom();
+    }
+  }, [messages, isStreaming, scrollToBottom]);
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
 
   // Load conversations on mount
   useEffect(() => {
@@ -219,13 +261,13 @@ export default function ChatPage() {
     setInput("");
     setIsStreaming(true);
 
-    // Add user message optimistically
+    // Add user message + empty assistant placeholder
     const userMsg: Message = { role: "user", content: msg };
-    setMessages((prev) => [...prev, userMsg]);
-
-    // Add empty assistant message for streaming
     const assistantMsg: Message = { role: "assistant", content: "" };
-    setMessages((prev) => [...prev, assistantMsg]);
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+
+    // Scroll to show the new messages immediately
+    requestAnimationFrame(() => scrollToBottom());
 
     // Auto-resize textarea back
     if (textareaRef.current) {
@@ -313,6 +355,23 @@ export default function ChatPage() {
         return updated;
       });
     } finally {
+      // Flush any remaining buffered tokens (stream ended between RAF frames)
+      if (tokenBufferRef.current) {
+        const remaining = tokenBufferRef.current;
+        tokenBufferRef.current = "";
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = 0;
+        }
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === "assistant") {
+            updated[updated.length - 1] = { ...last, content: last.content + remaining };
+          }
+          return updated;
+        });
+      }
       setIsStreaming(false);
       abortRef.current = null;
     }
@@ -594,7 +653,7 @@ export default function ChatPage() {
           </div>
 
           {/* ── Messages Area ── */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
             {messages.length === 0 && !loadingMessages ? (
               /* ── Empty State ── */
               <div className="flex h-full flex-col items-center justify-center -mt-4">
