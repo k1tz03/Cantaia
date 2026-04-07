@@ -402,6 +402,7 @@ function MailPageInner() {
   const [orgProjects, setOrgProjects] = useState<{ id: string; name: string; code: string | null; color: string | null }[]>([]);
   const [generatingSummaries, setGeneratingSummaries] = useState(false);
   const [summaryToast, setSummaryToast] = useState<string | null>(null);
+  const [reclassifying, setReclassifying] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"decisions" | "inbox" | "sent" | "trash" | "drafts" | "folder">("decisions");
@@ -810,6 +811,31 @@ function MailPageInner() {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? t("syncing") : t("sync")}
+          </button>
+
+          {/* Reclassify all button */}
+          <button
+            onClick={async () => {
+              setReclassifying(true);
+              try {
+                const res = await fetch("/api/ai/reclassify-all", { method: "POST" });
+                const json = await res.json();
+                if (json.success || json.reclassified !== undefined) {
+                  toast.success(`${json.reclassified ?? 0} emails reclassifiés`);
+                  fetchData();
+                } else {
+                  toast.error(json.error || "Erreur de reclassification");
+                }
+              } catch {
+                toast.error("Erreur lors de la reclassification");
+              }
+              setReclassifying(false);
+            }}
+            disabled={reclassifying}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#18181B] border border-[#27272A] rounded-lg hover:bg-[#27272A] disabled:opacity-50 transition-colors"
+          >
+            {reclassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+            Reclassifier
           </button>
 
           {/* AI Summaries button */}
