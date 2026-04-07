@@ -116,73 +116,87 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── Streaming token buffer ──────────────────────────────────
-  // Tokens arrive at ~200/sec from SSE. Instead of rendering each one
-  // synchronously (flushSync), we accumulate in a ref and flush to React
-  // state via requestAnimationFrame (~60fps). This eliminates jank.
-  const tokenBufferRef = useRef("");
-  const rafIdRef = useRef<number>(0);
+  // ── Typewriter streaming engine ────────────────────────────
+  // TCP always delivers data in bursts, regardless of server-side fixes.
+  // Instead of rendering tokens as they arrive (which creates block effect),
+  // we buffer ALL incoming text and reveal it character-by-character at a
+  // smooth, fixed rate via requestAnimationFrame. This is the same technique
+  // used by ChatGPT, Claude.ai, and every polished AI chat UI.
+  const pendingTextRef = useRef("");   // text waiting to be revealed
+  const revealedTextRef = useRef("");  // text already shown on screen
+  const animFrameRef = useRef<number>(0);
+  const streamDoneRef = useRef(false); // true when SSE stream has ended
 
-  /** Append a token to the streaming buffer.
-   *  Tokens are accumulated in a ref and flushed to React state once per
-   *  animation frame (~60fps) instead of once per token (~200+/sec).
-   *  This prevents the "block scrolling" jank caused by flushSync. */
-  const appendToken = useCallback((token: string) => {
-    tokenBufferRef.current += token;
-
-    // Schedule exactly one RAF per frame — subsequent tokens within the
-    // same frame just append to the ref without scheduling again.
-    if (!rafIdRef.current) {
-      rafIdRef.current = requestAnimationFrame(() => {
-        const buffered = tokenBufferRef.current;
-        tokenBufferRef.current = "";
-        rafIdRef.current = 0;
-
-        if (buffered) {
-          setMessages((prev) => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last && last.role === "assistant") {
-              updated[updated.length - 1] = {
-                ...last,
-                content: last.content + buffered,
-              };
-            }
-            return updated;
-          });
-        }
-
-        // Auto-scroll in the same frame (no queuing, no smooth animation fights)
-        const el = scrollContainerRef.current;
-        if (el) {
-          const nearBottom =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-          if (nearBottom) {
-            el.scrollTop = el.scrollHeight;
-          }
-        }
-      });
+  /** Reveal loop — runs at 60fps while there is pending text. */
+  const tickReveal = useCallback(() => {
+    const pending = pendingTextRef.current;
+    if (pending.length === 0) {
+      animFrameRef.current = 0; // stop loop, restart on next appendToken
+      return;
     }
+
+    // Adaptive speed: reveal faster when the buffer is large (catching up)
+    // or when the stream is done (drain remaining text quickly).
+    let charsThisFrame: number;
+    if (streamDoneRef.current) {
+      charsThisFrame = Math.max(8, Math.ceil(pending.length / 10));
+    } else if (pending.length > 300) {
+      charsThisFrame = 8;
+    } else if (pending.length > 100) {
+      charsThisFrame = 5;
+    } else {
+      charsThisFrame = 3; // ~180 chars/sec at 60fps — smooth default
+    }
+
+    const chars = pending.slice(0, charsThisFrame);
+    pendingTextRef.current = pending.slice(charsThisFrame);
+    revealedTextRef.current += chars;
+
+    const revealed = revealedTextRef.current;
+    setMessages((prev) => {
+      const updated = [...prev];
+      const last = updated[updated.length - 1];
+      if (last && last.role === "assistant") {
+        updated[updated.length - 1] = { ...last, content: revealed };
+      }
+      return updated;
+    });
+
+    // Auto-scroll
+    const el = scrollContainerRef.current;
+    if (el) {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+      if (nearBottom) el.scrollTop = el.scrollHeight;
+    }
+
+    // Continue animation
+    animFrameRef.current = requestAnimationFrame(tickReveal);
   }, []);
 
-  // Scroll helpers — separated from streaming to avoid animation fights
+  /** Called by the SSE reader for each token — just buffers, never renders. */
+  const appendToken = useCallback((token: string) => {
+    pendingTextRef.current += token;
+    // Start the reveal animation if not already running
+    if (!animFrameRef.current) {
+      animFrameRef.current = requestAnimationFrame(tickReveal);
+    }
+  }, [tickReveal]);
+
+  /** Flush remaining text instantly (e.g. when loading history). */
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  // Auto-scroll only on non-streaming events (loading history, sending msg).
-  // During streaming, the RAF callback in appendToken handles scrolling.
+  // Auto-scroll only on non-streaming events (loading history)
   useEffect(() => {
-    if (!isStreaming) {
-      scrollToBottom();
-    }
+    if (!isStreaming) scrollToBottom();
   }, [messages, isStreaming, scrollToBottom]);
 
-  // Cleanup RAF on unmount
+  // Cleanup animation frame on unmount
   useEffect(() => {
     return () => {
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
 
@@ -260,6 +274,15 @@ export default function ChatPage() {
 
     setInput("");
     setIsStreaming(true);
+
+    // Reset typewriter engine for new message
+    pendingTextRef.current = "";
+    revealedTextRef.current = "";
+    streamDoneRef.current = false;
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
 
     // Add user message + empty assistant placeholder
     const userMsg: Message = { role: "user", content: msg };
@@ -355,22 +378,12 @@ export default function ChatPage() {
         return updated;
       });
     } finally {
-      // Flush any remaining buffered tokens (stream ended between RAF frames)
-      if (tokenBufferRef.current) {
-        const remaining = tokenBufferRef.current;
-        tokenBufferRef.current = "";
-        if (rafIdRef.current) {
-          cancelAnimationFrame(rafIdRef.current);
-          rafIdRef.current = 0;
-        }
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.role === "assistant") {
-            updated[updated.length - 1] = { ...last, content: last.content + remaining };
-          }
-          return updated;
-        });
+      // Signal typewriter engine that all tokens have arrived.
+      // It will drain remaining pending text at accelerated speed.
+      streamDoneRef.current = true;
+      // Kick the reveal loop if it stopped between the last token and now
+      if (!animFrameRef.current && pendingTextRef.current.length > 0) {
+        animFrameRef.current = requestAnimationFrame(tickReveal);
       }
       setIsStreaming(false);
       abortRef.current = null;
