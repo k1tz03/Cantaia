@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       try {
         // Fetch attachments — include contentBytes to test the full chain
         const attRes = await fetch(
-          `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(email.outlook_message_id)}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name,size`,
+          `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(email.outlook_message_id)}/attachments`,
           { headers: { Authorization: `Bearer ${tokenResult.accessToken}` } }
         );
 

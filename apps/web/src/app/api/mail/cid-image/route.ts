@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   try {
     // Fetch all inline attachments for this message
     const attRes = await fetch(
-      `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(msgId)}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name`,
+      `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(msgId)}/attachments`,
       { headers: { Authorization: `Bearer ${tokenResult.accessToken}` } }
     );
 

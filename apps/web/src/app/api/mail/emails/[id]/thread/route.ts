@@ -86,7 +86,7 @@ export async function GET(
       if (token && record.outlook_message_id && body.includes("cid:")) {
         try {
           const attRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${record.outlook_message_id}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name`,
+            `https://graph.microsoft.com/v1.0/me/messages/${record.outlook_message_id}/attachments`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (attRes.ok) {
@@ -273,7 +273,7 @@ export async function GET(
         if (contentType === "html" && bodyContent.includes("cid:")) {
           try {
             const attRes = await fetch(
-              `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=id,contentId,contentType,contentBytes,isInline,name`,
+              `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments`,
               { headers: { Authorization: `Bearer ${accessToken}` } }
             );
             if (attRes.ok) {
