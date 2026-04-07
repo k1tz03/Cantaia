@@ -223,102 +223,118 @@ export async function POST(request: NextRequest) {
     projectCode,
   });
 
-  // Stream response via SSE
+  // ── Stream response via SSE ─────────────────────────────────
+  // Uses TransformStream instead of ReadableStream.start() because
+  // writer.write() returns a Promise that resolves only when the chunk
+  // is consumed by the reader side, ensuring per-chunk delivery.
+  // ReadableStream.start() + controller.enqueue() does NOT guarantee
+  // immediate network flushing on Vercel's runtime.
+
   let fullResponse = "";
   let finalUsage = { input_tokens: 0, output_tokens: 0 };
 
   const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      try {
-        // Send conversation_id as first event
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "conversation_id", data: conversationId })}\n\n`,
-          ),
-        );
+  const { readable, writable } = new TransformStream();
 
-        for await (const chunk of streamChatResponse(
-          anthropicApiKey,
-          systemPrompt,
-          messages,
-        )) {
-          if (chunk.type === "text") {
-            fullResponse += chunk.data;
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: "text", data: chunk.data })}\n\n`,
-              ),
-            );
-          } else if (chunk.type === "done") {
-            finalUsage = chunk.data as {
-              input_tokens: number;
-              output_tokens: number;
-            };
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: "done", data: finalUsage })}\n\n`,
-              ),
-            );
-          }
+  // Write SSE events in a detached async context so the Response
+  // is returned immediately while tokens stream in background.
+  const streamPromise = (async () => {
+    const writer = writable.getWriter();
+    try {
+      // ── Initial padding ──
+      // Proxies/CDNs (nginx, Vercel edge, CloudFront) often buffer the
+      // first ~1-4KB before switching to streaming mode. This 2KB SSE
+      // comment forces them to flush and start real-time delivery.
+      await writer.write(encoder.encode(`: ${" ".repeat(2048)}\n\n`));
+
+      // Send conversation_id
+      await writer.write(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "conversation_id", data: conversationId })}\n\n`,
+        ),
+      );
+
+      for await (const chunk of streamChatResponse(
+        anthropicApiKey,
+        systemPrompt,
+        messages,
+      )) {
+        if (chunk.type === "text") {
+          fullResponse += chunk.data;
+          await writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "text", data: chunk.data })}\n\n`,
+            ),
+          );
+        } else if (chunk.type === "done") {
+          finalUsage = chunk.data as {
+            input_tokens: number;
+            output_tokens: number;
+          };
+          await writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "done", data: finalUsage })}\n\n`,
+            ),
+          );
         }
-      } catch (err: any) {
-        const aiErr = classifyAIError(err);
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "error", data: aiErr.message, status: aiErr.status })}\n\n`,
-          ),
-        );
-      } finally {
-        controller.close();
-
-        // Save assistant message + track usage (fire and forget)
-        if (fullResponse) {
-          (admin as any)
-            .from("chat_messages")
-            .insert({
-              conversation_id: conversationId,
-              role: "assistant",
-              content: fullResponse,
-              model: MODEL_FOR_TASK.chat,
-              input_tokens: finalUsage.input_tokens,
-              output_tokens: finalUsage.output_tokens,
-            })
-            .then(() => {})
-            .catch((e: any) => console.error("[chat] Failed to save assistant message:", e));
-
-          trackApiUsage({
-            supabase: admin,
-            userId: user.id,
-            organizationId: userOrg.organization_id,
-            actionType: "chat_message",
-            apiProvider: "anthropic",
-            model: MODEL_FOR_TASK.chat,
-            inputTokens: finalUsage.input_tokens,
-            outputTokens: finalUsage.output_tokens,
-            metadata: { conversation_id: conversationId },
-          });
-        }
-
-        // Update conversation timestamp
-        (admin as any)
-          .from("chat_conversations")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", conversationId)
-          .then(() => {})
-          .catch((e: any) => console.error("[chat] Failed to update conversation timestamp:", e));
       }
-    },
-  });
+    } catch (err: any) {
+      const aiErr = classifyAIError(err);
+      await writer.write(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "error", data: aiErr.message, status: aiErr.status })}\n\n`,
+        ),
+      ).catch(() => {});
+    } finally {
+      await writer.close().catch(() => {});
+
+      // Save assistant message + track usage (fire and forget)
+      if (fullResponse) {
+        (admin as any)
+          .from("chat_messages")
+          .insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: fullResponse,
+            model: MODEL_FOR_TASK.chat,
+            input_tokens: finalUsage.input_tokens,
+            output_tokens: finalUsage.output_tokens,
+          })
+          .then(() => {})
+          .catch((e: any) => console.error("[chat] Failed to save assistant message:", e));
+
+        trackApiUsage({
+          supabase: admin,
+          userId: user.id,
+          organizationId: userOrg.organization_id,
+          actionType: "chat_message",
+          apiProvider: "anthropic",
+          model: MODEL_FOR_TASK.chat,
+          inputTokens: finalUsage.input_tokens,
+          outputTokens: finalUsage.output_tokens,
+          metadata: { conversation_id: conversationId },
+        });
+      }
+
+      // Update conversation timestamp
+      (admin as any)
+        .from("chat_conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", conversationId)
+        .then(() => {})
+        .catch((e: any) => console.error("[chat] Failed to update conversation timestamp:", e));
+    }
+  })();
+
+  // Don't await streamPromise — let it run while the response streams
+  void streamPromise;
 
   return new Response(readable, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
-      // Disable proxy/CDN buffering (nginx, Vercel edge, CloudFront)
       "X-Accel-Buffering": "no",
-      // Prevent gzip/brotli compression which batches small chunks
       "Content-Encoding": "none",
     },
   });
