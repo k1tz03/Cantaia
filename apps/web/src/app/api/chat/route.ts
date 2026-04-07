@@ -12,6 +12,7 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -312,9 +313,13 @@ export async function POST(request: NextRequest) {
 
   return new Response(readable, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      // Disable proxy/CDN buffering (nginx, Vercel edge, CloudFront)
+      "X-Accel-Buffering": "no",
+      // Prevent gzip/brotli compression which batches small chunks
+      "Content-Encoding": "none",
     },
   });
 }
