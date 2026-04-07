@@ -47,11 +47,13 @@ const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"),
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-/** Sanitize HTML email body — allows images (data:image/*), styles, links */
-function sanitizeEmailHtml(html: string): string {
+/** Sanitize HTML email body — allows images (data:image/*), styles, links.
+ *  Pass outlookMsgId to resolve cid: images via our proxy (instead of hiding them).
+ */
+function sanitizeEmailHtml(html: string, outlookMsgId?: string | null): string {
   if (typeof window === "undefined") return ""; // SSR: don't render unsanitized HTML
-  // Step 1: Fix image URLs (proxy Microsoft, remove unresolved cid:)
-  const fixed = fixEmailImages(html);
+  // Step 1: Fix image URLs (proxy Microsoft, resolve cid: via proxy or fallback)
+  const fixed = fixEmailImages(html, outlookMsgId);
   // Step 2: Sanitize HTML
   return DOMPurify.sanitize(fixed, {
     ALLOWED_TAGS: [
@@ -68,7 +70,7 @@ function sanitizeEmailHtml(html: string): string {
       "bgcolor", "color", "size", "face",
       "colspan", "rowspan",
     ],
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|\/api\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ADD_ATTR: ["target"],
   });
 }
@@ -99,11 +101,14 @@ const MS_IMG_DOMAINS = [
 
 /**
  * Rewrite Microsoft-hosted image URLs → our proxy route.
- * Convert unresolved cid: images to transparent 1×1 pixel (instead of removing).
+ * Resolve cid: images via our CID proxy when outlookMsgId is available,
+ * otherwise fall back to transparent 1×1 pixel.
  */
-function fixEmailImages(html: string): string {
+function fixEmailImages(html: string, outlookMsgId?: string | null): string {
   if (!html) return html;
-  // Proxy Microsoft image URLs that need auth
+  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+  // 1. Proxy Microsoft image URLs that need auth
   let result = html.replace(
     /(<img\s[^>]*?\bsrc\s*=\s*["'])(https?:\/\/[^"']+)(["'])/gi,
     (_match, before, url, after) => {
@@ -119,15 +124,21 @@ function fixEmailImages(html: string): string {
       return `${before}${url}${after}`;
     }
   );
-  // Convert unresolved cid: references to transparent 1×1 pixel.
-  // This preserves the element in the DOM (for layout) but makes it invisible.
-  // The server-side thread API already resolves cid: → data: URIs when possible;
-  // any remaining cid: refs are truly unresolvable.
-  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-  result = result.replace(
-    /(\bsrc\s*=\s*["'])cid:[^"']*?(["'])/gi,
-    `$1${TRANSPARENT_PIXEL}$2`
-  );
+
+  // 2. Resolve cid: references — use proxy if we have the Outlook message ID,
+  //    otherwise fall back to transparent pixel (no way to fetch the attachment).
+  if (outlookMsgId) {
+    result = result.replace(
+      /(\bsrc\s*=\s*["'])cid:([^"']*?)(["'])/gi,
+      (_m, before, cidRef, after) =>
+        `${before}/api/mail/cid-image?msgId=${encodeURIComponent(outlookMsgId)}&cid=${encodeURIComponent(cidRef)}${after}`
+    );
+  } else {
+    result = result.replace(
+      /(\bsrc\s*=\s*["'])cid:[^"']*?(["'])/gi,
+      `$1${TRANSPARENT_PIXEL}$2`
+    );
+  }
   return result;
 }
 
@@ -1504,6 +1515,8 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
         sender_email: email.sender_email,
         subject: email.subject,
         body_preview: email.body_preview,
+        project_id: email.project_id,
+        project_name: email.project_name,
         folders: folders.map((f) => ({ id: f.id, name: f.name })),
       }),
     })
@@ -1843,7 +1856,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                 return (
                   <div className="bg-[#18181B] rounded-xl border border-[#27272A] p-5">
                     {isHtml ? (
-                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(mainMsg.body?.content)) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(mainMsg.body?.content), mainMsg.id || email.outlook_message_id) }} />
                     ) : (
                       <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{safeStr(mainMsg.body?.content)}</div>
                     )}
@@ -1872,7 +1885,7 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
                   <Loader2 className="w-4 h-4 animate-spin" />{t("email.loadingContent")}
                 </div>
               ) : fallbackIsHtml ? (
-                <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody)) }} />
+                <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody), email.outlook_message_id) }} />
               ) : (
                 <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap leading-relaxed">{safeStr(fallbackBody)}</div>
               )}
@@ -1961,7 +1974,7 @@ function ThreadView({ thread, currentUserEmail }: {
                 </div>
                 <div className="px-4 py-4">
                   {isHtml ? (
-                    <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(msg.body?.content)) }} />
+                    <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(msg.body?.content), msg.id) }} />
                   ) : (
                     <div className="text-[13px] text-[#D4D4D8] whitespace-pre-wrap">{safeStr(msg.body?.content)}</div>
                   )}
@@ -2148,7 +2161,7 @@ function ReplyModal({ email, signature, onClose, onDone }: {
                         <Loader2 className="w-4 h-4 animate-spin" />{t("email.loading")}
                       </div>
                     ) : fallbackIsHtml ? (
-                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody)) }} />
+                      <div className="prose prose-sm max-w-none rounded-lg p-4 email-content email-content-dark" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(fallbackBody), email.outlook_message_id) }} />
                     ) : (
                       <div className="text-sm text-[#A1A1AA] whitespace-pre-wrap">{safeStr(fallbackBody)}</div>
                     )}
