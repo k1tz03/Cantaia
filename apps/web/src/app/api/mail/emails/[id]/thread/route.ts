@@ -95,6 +95,8 @@ export async function GET(
             const cidAtts = (attData.value || []).filter(
               (a: any) => a.contentBytes && (a.isInline || a.contentId)
             );
+
+            // Strategy 1: Match by contentId / name
             for (const att of cidAtts) {
               const cid = att.contentId || att.name;
               if (cid && att.contentBytes) {
@@ -109,6 +111,31 @@ export async function GET(
                 if (att.name && att.name !== cid && att.name !== cidClean) {
                   body = body
                     .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                }
+              }
+            }
+
+            // Strategy 2: Positional fallback for unmatched CID references
+            if (body.includes("cid:")) {
+              const remainingCids = body.match(/cid:[^"'\s]*/gi) || [];
+              const inlineImages = cidAtts.filter(
+                (a: any) => a.contentType?.startsWith("image/")
+              );
+              if (remainingCids.length > 0 && inlineImages.length > 0) {
+                const usedAttIds = new Set<string>();
+                for (const att of cidAtts) {
+                  if (body.includes(`data:${att.contentType};base64,`)) {
+                    usedAttIds.add(att.id);
+                  }
+                }
+                const unusedImages = inlineImages.filter((a: any) => !usedAttIds.has(a.id));
+                let posIdx = 0;
+                for (const cidRef of remainingCids) {
+                  if (posIdx >= unusedImages.length) break;
+                  const att = unusedImages[posIdx++];
+                  const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
+                  const escapedCid = cidRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                  body = body.replace(new RegExp(escapedCid, "gi"), dataUri);
                 }
               }
             }
@@ -257,6 +284,8 @@ export async function GET(
               const cidAtts = (attData.value || []).filter(
                 (a: any) => a.contentBytes && (a.isInline || a.contentId)
               );
+
+              // Strategy 1: Try matching by contentId and name
               for (const att of cidAtts) {
                 const cid = att.contentId || att.name;
                 if (cid && att.contentBytes) {
@@ -274,6 +303,38 @@ export async function GET(
                   if (att.name && att.name !== cid && att.name !== cidClean) {
                     bodyContent = bodyContent
                       .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
+                  }
+                }
+              }
+
+              // Strategy 2: Positional fallback for unmatched CID references.
+              // Outlook/Graph often uses different CID formats in body_html vs. attachment
+              // contentId (e.g., UUID in HTML but "image001.png@01DB..." in contentId).
+              // Match remaining cid: refs to inline image attachments by position order.
+              if (bodyContent.includes("cid:")) {
+                const remainingCids = bodyContent.match(/cid:[^"'\s]*/gi) || [];
+                const inlineImages = cidAtts.filter(
+                  (a: any) => a.contentType?.startsWith("image/")
+                );
+
+                if (remainingCids.length > 0 && inlineImages.length > 0) {
+                  // Build a set of already-used attachment IDs (those that matched above)
+                  const usedAttIds = new Set<string>();
+                  for (const att of cidAtts) {
+                    const dataUriCheck = `data:${att.contentType};base64,`;
+                    if (bodyContent.includes(dataUriCheck)) {
+                      usedAttIds.add(att.id);
+                    }
+                  }
+                  const unusedImages = inlineImages.filter((a: any) => !usedAttIds.has(a.id));
+
+                  let posIdx = 0;
+                  for (const cidRef of remainingCids) {
+                    if (posIdx >= unusedImages.length) break;
+                    const att = unusedImages[posIdx++];
+                    const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
+                    const escapedCid = cidRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    bodyContent = bodyContent.replace(new RegExp(escapedCid, "gi"), dataUri);
                   }
                 }
               }

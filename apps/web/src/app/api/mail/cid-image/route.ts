@@ -3,17 +3,27 @@ import { createClient } from "@/lib/supabase/server";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 
 /**
- * GET /api/mail/cid-image?msgId=OUTLOOK_MSG_ID&cid=image001.png@01D...
+ * GET /api/mail/cid-image?msgId=OUTLOOK_MSG_ID&cid=image001.png@01D...&idx=0
  *
  * Proxies CID (Content-ID) inline images from Microsoft Graph.
  * Outlook embeds signature images as cid: references — the browser can't resolve
  * these directly, so this route fetches the attachment from Graph and serves it.
+ *
+ * Matching strategy (in order):
+ *  1. Exact contentId match (with/without angle brackets)
+ *  2. Exact name match
+ *  3. Loose name-base match (filename without extension)
+ *  4. Positional fallback: idx parameter = Nth inline image attachment
+ *     This handles the common case where Outlook/Graph uses different CID formats
+ *     in body_html vs. attachment contentId (e.g., UUID in HTML but
+ *     "image001.png@01DB..." in contentId).
  *
  * Caches for 7 days (signature images never change).
  */
 export async function GET(request: NextRequest) {
   const msgId = request.nextUrl.searchParams.get("msgId");
   const cid = request.nextUrl.searchParams.get("cid");
+  const idx = parseInt(request.nextUrl.searchParams.get("idx") || "-1", 10);
 
   if (!msgId || !cid) {
     return new NextResponse("Missing msgId or cid parameter", { status: 400 });
@@ -69,29 +79,53 @@ export async function GET(request: NextRequest) {
         return attName === cidBase;
       });
 
-      if (!looseMatch) {
-        console.warn(`[cid-image] No matching attachment for cid=${cid}, available:`,
-          attachments.map((a: any) => ({ contentId: a.contentId, name: a.name, isInline: a.isInline }))
-        );
-        // Return transparent pixel instead of 404 (prevents broken image icon)
-        const transparentGif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
-        return new NextResponse(transparentGif, {
+      if (looseMatch) {
+        // Use loose match
+        const body = Buffer.from(looseMatch.contentBytes, "base64");
+        return new NextResponse(body, {
           status: 200,
           headers: {
-            "Content-Type": "image/gif",
-            "Cache-Control": "private, max-age=86400",
+            "Content-Type": looseMatch.contentType || "image/png",
+            "Cache-Control": "private, max-age=604800",
+            "X-Content-Type-Options": "nosniff",
           },
         });
       }
 
-      // Use loose match
-      const body = Buffer.from(looseMatch.contentBytes, "base64");
-      return new NextResponse(body, {
+      // Positional fallback: when CID format doesn't match (common with Outlook
+      // where body has UUID-style CIDs but attachments use image001.png@... format),
+      // use the idx parameter to return the Nth inline image attachment.
+      if (idx >= 0) {
+        const inlineImages = attachments.filter((att: any) =>
+          att.contentBytes &&
+          att.contentType?.startsWith("image/") &&
+          (att.isInline || att.contentId)
+        );
+
+        if (idx < inlineImages.length) {
+          console.log(`[cid-image] Positional match: cid=${cid} → attachment[${idx}] name=${inlineImages[idx].name}`);
+          const body = Buffer.from(inlineImages[idx].contentBytes, "base64");
+          return new NextResponse(body, {
+            status: 200,
+            headers: {
+              "Content-Type": inlineImages[idx].contentType || "image/png",
+              "Cache-Control": "private, max-age=604800",
+              "X-Content-Type-Options": "nosniff",
+            },
+          });
+        }
+      }
+
+      console.warn(`[cid-image] No matching attachment for cid=${cid} idx=${idx}, available:`,
+        attachments.map((a: any) => ({ contentId: a.contentId, name: a.name, isInline: a.isInline }))
+      );
+      // Return transparent pixel instead of 404 (prevents broken image icon)
+      const transparentGif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+      return new NextResponse(transparentGif, {
         status: 200,
         headers: {
-          "Content-Type": looseMatch.contentType || "image/png",
-          "Cache-Control": "private, max-age=604800", // 7 days
-          "X-Content-Type-Options": "nosniff",
+          "Content-Type": "image/gif",
+          "Cache-Control": "private, max-age=86400",
         },
       });
     }

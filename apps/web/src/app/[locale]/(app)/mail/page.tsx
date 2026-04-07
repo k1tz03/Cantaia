@@ -127,11 +127,17 @@ function fixEmailImages(html: string, outlookMsgId?: string | null): string {
 
   // 2. Resolve cid: references — use proxy if we have the Outlook message ID,
   //    otherwise fall back to transparent pixel (no way to fetch the attachment).
+  //    Pass idx (position index) for each CID so the proxy can use positional
+  //    fallback when contentId format doesn't match (common with Outlook signatures
+  //    where body has UUID CIDs but attachments use image001.png@... format).
   if (outlookMsgId) {
+    let cidIndex = 0;
     result = result.replace(
       /(\bsrc\s*=\s*["'])cid:([^"']*?)(["'])/gi,
-      (_m, before, cidRef, after) =>
-        `${before}/api/mail/cid-image?msgId=${encodeURIComponent(outlookMsgId)}&cid=${encodeURIComponent(cidRef)}${after}`
+      (_m, before, cidRef, after) => {
+        const url = `/api/mail/cid-image?msgId=${encodeURIComponent(outlookMsgId)}&cid=${encodeURIComponent(cidRef)}&idx=${cidIndex++}`;
+        return `${before}${url}${after}`;
+      }
     );
   } else {
     result = result.replace(
