@@ -6,6 +6,7 @@ import { ProblemSection } from "@/components/landing/ProblemSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TrustSection } from "@/components/landing/FAQSection";
+import { PricingSection } from "@/components/landing/PricingSection";
 import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
 const homeSeo: Record<string, { title: string; description: string; keywords: string[] }> = {
@@ -126,6 +127,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <HowItWorksSection />
       <TrustSection />
+      <PricingSection />
       <FinalCTASection />
     </>
   );
