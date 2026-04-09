@@ -5,6 +5,7 @@ import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import CookieConsent from "@/components/CookieConsent";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "../globals.css";
 
 const inter = Inter({
@@ -146,6 +147,7 @@ export default async function LocaleLayout({
             <Toaster position="bottom-right" richColors closeButton theme="dark" />
             <CookieConsent />
           </NextIntlClientProvider>
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
