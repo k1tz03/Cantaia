@@ -1,0 +1,298 @@
+/**
+ * Waitlist confirmation email template.
+ *
+ * Sent via Resend from `/api/waitlist/subscribe` when a visitor signs up on the
+ * pre-launch teaser page at `/soon`. Dark-themed, table-based HTML that renders
+ * correctly in Outlook, Gmail, Apple Mail, and mobile clients.
+ *
+ * The HTML is exported as a template literal constant so Next.js bundles it
+ * directly with the serverless function — no filesystem reads at runtime.
+ *
+ * Source: apps/web/emails/waitlist-confirmation.html
+ */
+
+export const WAITLIST_CONFIRMATION_SUBJECT = "Vous êtes sur la liste — Cantaia";
+
+/**
+ * Resend requires the `from` domain to be verified in the Resend dashboard.
+ * We send from `julien@cantaia.io` — the only real inbox on the domain, so
+ * any user reply lands somewhere a human reads.
+ *
+ * Before this actually sends in production, Julien must:
+ *   1. Create a Resend account at https://resend.com (free tier: 3k/mo, 100/day)
+ *   2. Add + verify the `cantaia.io` domain (SPF/DKIM/DMARC DNS records)
+ *   3. Generate an API key and set `RESEND_API_KEY` on Vercel for
+ *      Production + Preview + Development environments
+ *
+ * Until then, `sendConfirmationEmail()` in the subscribe route logs
+ * `waitlist_email_skipped` and returns silently — the insert still succeeds,
+ * so no signups are lost while Resend is being provisioned.
+ */
+export const WAITLIST_CONFIRMATION_FROM = "Cantaia <julien@cantaia.io>";
+
+export const WAITLIST_CONFIRMATION_HTML = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="dark only" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>Vous etes sur la liste &mdash; Cantaia</title>
+  <!--[if mso]>
+  <xml>
+    <o:OfficeDocumentSettings>
+      <o:AllowPNG/>
+      <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings>
+  </xml>
+  <![endif]-->
+  <style type="text/css">
+    /* ---------- Reset ---------- */
+    body, html { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    a { text-decoration: none; }
+
+    /* ---------- Mobile ---------- */
+    @media only screen and (max-width: 620px) {
+      .container { width: 100% !important; max-width: 100% !important; }
+      .px { padding-left: 24px !important; padding-right: 24px !important; }
+      .hero-title { font-size: 38px !important; line-height: 1.05 !important; }
+      .hero-sub { font-size: 16px !important; }
+      .date-big { font-size: 22px !important; letter-spacing: 2px !important; }
+    }
+
+    /* ---------- Force dark in Gmail / iOS (where supported) ---------- */
+    @media (prefers-color-scheme: dark) {
+      .bg-outer { background-color: #09090B !important; }
+      .bg-card { background-color: #0F0F11 !important; }
+      .text-white { color: #FAFAFA !important; }
+      .text-muted { color: #A1A1AA !important; }
+    }
+  </style>
+</head>
+<body class="bg-outer" style="margin:0;padding:0;background-color:#09090B;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+
+  <!-- Preheader (hidden preview text shown in inbox) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#09090B;">
+    Rendez-vous le mercredi 22 avril 2026 a 07h00 CEST. 12 modules. 3 IA. 100% chantier suisse.
+  </div>
+
+  <!-- Outer wrapper -->
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="bg-outer" style="background-color:#09090B;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <!-- Container (600px max, dark card) -->
+        <table role="presentation" class="container bg-card" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#0F0F11;border:1px solid #1F1F22;border-radius:16px;">
+
+          <!-- Header: wordmark + countdown -->
+          <tr>
+            <td class="px" style="padding:40px 48px 24px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="font-family:'Plus Jakarta Sans','Segoe UI',Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:4px;color:#FAFAFA;text-transform:uppercase;">
+                    CANTAIA
+                  </td>
+                  <td align="right" style="font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:11px;font-weight:700;color:#71717A;letter-spacing:1.5px;text-transform:uppercase;">
+                    J &mdash; 13
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td class="px" style="padding:0 48px 32px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td height="1" style="background-color:#27272A;line-height:1px;font-size:1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- "Inscription confirmee" badge -->
+          <tr>
+            <td class="px" style="padding:0 48px 24px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#1A0F08;border:1px solid #3F1F08;border-radius:999px;padding:8px 16px;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:11px;font-weight:700;color:#F97316;letter-spacing:1.5px;text-transform:uppercase;">
+                    &#10003;&nbsp;&nbsp;Inscription confirmee
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Hero title -->
+          <tr>
+            <td class="px" style="padding:0 48px 16px 48px;">
+              <h1 class="hero-title text-white" style="margin:0 0 20px 0;font-family:'Plus Jakarta Sans','Segoe UI',Arial,sans-serif;font-size:48px;line-height:1.0;font-weight:800;color:#FAFAFA;letter-spacing:-1.5px;">
+                Vous etes sur<br>
+                <span style="color:#F97316;">la liste.</span>
+              </h1>
+
+              <p class="hero-sub text-muted" style="margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.6;color:#A1A1AA;">
+                Merci pour votre confiance. Nous vous previendrons des que Cantaia sera en ligne &mdash; ni avant, ni apres.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Date block -->
+          <tr>
+            <td class="px" style="padding:32px 48px 32px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#18181B;border:1px solid #27272A;border-radius:12px;">
+                <tr>
+                  <td align="center" style="padding:28px 24px;">
+                    <p style="margin:0 0 10px 0;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:10px;font-weight:700;color:#71717A;letter-spacing:2px;text-transform:uppercase;">
+                      Rendez-vous le
+                    </p>
+                    <p class="date-big text-white" style="margin:0 0 8px 0;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:26px;font-weight:800;color:#FAFAFA;letter-spacing:3px;">
+                      22 &middot; 04 &middot; 2026
+                    </p>
+                    <p class="text-muted" style="margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:500;color:#A1A1AA;">
+                      Mercredi &middot; 07h00 CEST
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Section label -->
+          <tr>
+            <td class="px" style="padding:0 48px 16px 48px;">
+              <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:10px;font-weight:700;color:#71717A;letter-spacing:2px;text-transform:uppercase;">
+                &mdash; Ce qui vous attend
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pitch -->
+          <tr>
+            <td class="px" style="padding:0 48px 24px 48px;">
+              <p class="text-white" style="margin:0 0 10px 0;font-family:'Plus Jakarta Sans','Segoe UI',Arial,sans-serif;font-size:22px;line-height:1.3;font-weight:700;color:#FAFAFA;">
+                L'IA au service du chantier suisse.
+              </p>
+              <p class="text-muted" style="margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.6;color:#A1A1AA;">
+                12 modules. 3 IA. 100% adapte aux codes CFC, aux normes suisses et a votre quotidien de chef de projet.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Feature pills (in a table so Outlook renders them inline) -->
+          <tr>
+            <td class="px" style="padding:8px 48px 32px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:4px 6px 4px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Mail IA
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td style="padding:4px 6px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Soumissions
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td style="padding:4px 6px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Planning IA
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 6px 4px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Plans
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td style="padding:4px 6px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Portail chef
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td style="padding:4px 6px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#18181B;border:1px solid #27272A;border-radius:999px;padding:8px 14px;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:500;color:#A1A1AA;white-space:nowrap;">
+                          Direction
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td class="px" style="padding:0 48px 24px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td height="1" style="background-color:#27272A;line-height:1px;font-size:1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td class="px" style="padding:0 48px 40px 48px;">
+              <p class="text-muted" style="margin:0 0 6px 0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:14px;line-height:1.6;color:#A1A1AA;">
+                A tres vite,
+              </p>
+              <p class="text-white" style="margin:0;font-family:'Plus Jakarta Sans','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;color:#FAFAFA;">
+                L'equipe Cantaia
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+        <!-- Footer (outside the card) -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="container" style="max-width:600px;width:100%;">
+          <tr>
+            <td class="px" style="padding:24px 48px 8px 48px;" align="center">
+              <p style="margin:0 0 6px 0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:12px;line-height:1.6;color:#52525B;">
+                Cantaia &middot; L'IA au service du chantier suisse
+              </p>
+              <p style="margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;font-size:11px;line-height:1.6;color:#52525B;">
+                Vous recevez cet email car vous vous etes inscrit a la liste d'attente sur
+                <a href="https://cantaia.io" style="color:#71717A;text-decoration:underline;">cantaia.io</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`;
