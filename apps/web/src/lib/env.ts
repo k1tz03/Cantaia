@@ -14,6 +14,10 @@ const serverSchema = z.object({
   MICROSOFT_CLIENT_SECRET: z.string().min(10).optional(),
   MICROSOFT_TOKEN_ENCRYPTION_KEY: z.string().length(64).optional(),
   OUTLOOK_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Pre-launch teaser bypass. Visiting cantaia.io/?preview=<secret> sets a
+  // 30-day httpOnly cookie so Julien (and anyone with the secret) can reach
+  // the real site while the /soon countdown is gating public traffic.
+  CANTAIA_PREVIEW_SECRET: z.string().min(16).optional(),
   BASE_DOMAIN: z.string().default("cantaia.io"),
 });
 
