@@ -40,8 +40,12 @@ import {
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
+import { useAgent } from "@/lib/hooks/use-agent";
+import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
 
 const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
+
+const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -403,6 +407,8 @@ function MailPageInner() {
   const [generatingSummaries, setGeneratingSummaries] = useState(false);
   const [summaryToast, setSummaryToast] = useState<string | null>(null);
   const [reclassifying, setReclassifying] = useState(false);
+  const classifierAgent = useAgent("email-classifier");
+  const classifierActiveRef = useRef(false);
   const [syncing, setSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"decisions" | "inbox" | "sent" | "trash" | "drafts" | "folder">("decisions");
@@ -490,6 +496,69 @@ function MailPageInner() {
       .then((d) => { if (d.profile?.email_signature) setUserSignature(d.profile.email_signature); })
       .catch(() => {});
   }, [fetchData]);
+
+  // ── Legacy reclassification (direct API call) ──
+  const handleLegacyReclassify = useCallback(async () => {
+    setReclassifying(true);
+    try {
+      const res = await fetch("/api/ai/reclassify-all", { method: "POST" });
+      const json = await res.json();
+      if (json.success || json.reclassified !== undefined) {
+        toast.success(`${json.emails_classified ?? json.reclassified ?? 0} emails reclassifiés`);
+        fetchData();
+      } else {
+        toast.error(json.error || "Erreur de reclassification");
+      }
+    } catch {
+      toast.error("Erreur lors de la reclassification");
+    }
+    setReclassifying(false);
+  }, [fetchData]);
+
+  // ── Agent classifier completion handler ──
+  useEffect(() => {
+    if (!USE_MANAGED_AGENTS) return;
+    if (classifierAgent.status === "completed") {
+      // Agent finished — refresh email list to show new classifications
+      classifierActiveRef.current = false;
+      setReclassifying(false);
+      // Extract count from agent events (look for save_classifications result)
+      const saveEvent = classifierAgent.events.find(
+        (e) => e.type === "custom_tool_result" && e.data?.tool_name === "save_classifications"
+      );
+      const savedCount = saveEvent?.data?.result_preview
+        ? (() => { const m = String(saveEvent.data!.result_preview).match(/"saved"\s*:\s*(\d+)/); return m ? parseInt(m[1], 10) : 0; })()
+        : 0;
+      toast.success(`${savedCount} emails classifiés par l'agent IA`);
+      fetchData();
+    } else if (classifierAgent.status === "failed") {
+      // Agent failed — fall back to legacy reclassification
+      // Do NOT call setReclassifying(false) here — handleLegacyReclassify manages its own state
+      classifierActiveRef.current = false;
+      handleLegacyReclassify();
+    } else if (classifierAgent.status === "cancelled") {
+      classifierActiveRef.current = false;
+      setReclassifying(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classifierAgent.status, handleLegacyReclassify]);
+
+  // ── Agent-powered reclassification ──
+  const handleAgentReclassify = useCallback(async () => {
+    if (classifierAgent.isRunning) return;
+    classifierActiveRef.current = true;
+    setReclassifying(true);
+    await classifierAgent.start(
+      {},
+      `Reclassifie tous les emails de l'utilisateur. ` +
+        `Appelle get_projects_list pour récupérer les projets, ` +
+        `puis appelle fetch_emails_batch avec mode="all" et batch_size="200" pour charger tous les emails récents, ` +
+        `puis classifie chaque email et appelle save_classifications avec le JSON complet.`,
+      "Reclassification emails"
+    );
+  }, [classifierAgent]);
+
+  const handleReclassify = USE_MANAGED_AGENTS ? handleAgentReclassify : handleLegacyReclassify;
 
   const syncEmails = useCallback(async () => {
     setSyncing(true);
@@ -815,23 +884,8 @@ function MailPageInner() {
 
           {/* Reclassify all button */}
           <button
-            onClick={async () => {
-              setReclassifying(true);
-              try {
-                const res = await fetch("/api/ai/reclassify-all", { method: "POST" });
-                const json = await res.json();
-                if (json.success || json.reclassified !== undefined) {
-                  toast.success(`${json.reclassified ?? 0} emails reclassifiés`);
-                  fetchData();
-                } else {
-                  toast.error(json.error || "Erreur de reclassification");
-                }
-              } catch {
-                toast.error("Erreur lors de la reclassification");
-              }
-              setReclassifying(false);
-            }}
-            disabled={reclassifying}
+            onClick={handleReclassify}
+            disabled={reclassifying || classifierAgent.isRunning}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] bg-[#18181B] border border-[#27272A] rounded-lg hover:bg-[#27272A] disabled:opacity-50 transition-colors"
           >
             {reclassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -871,6 +925,22 @@ function MailPageInner() {
           <div className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[12px] text-emerald-400 flex items-center gap-2">
             <Check className="w-3.5 h-3.5" />{syncToast || summaryToast}
           </div>
+        </div>
+      )}
+
+      {/* ═══ AGENT CLASSIFICATION PANEL ═══ */}
+      {USE_MANAGED_AGENTS && classifierAgent.status !== "idle" && (
+        <div className="flex-shrink-0">
+          <AgentAnalysisPanel
+            status={classifierAgent.status}
+            events={classifierAgent.events}
+            lastMessage={classifierAgent.lastMessage}
+            result={classifierAgent.result}
+            error={classifierAgent.error}
+            isRunning={classifierAgent.isRunning}
+            onCancel={classifierAgent.cancel}
+            agentType="email-classifier"
+          />
         </div>
       )}
 

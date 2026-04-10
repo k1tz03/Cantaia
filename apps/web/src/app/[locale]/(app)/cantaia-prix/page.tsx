@@ -21,6 +21,11 @@ import { EstimateTab } from "@/components/cantaia-prix/EstimateTab";
 import { HistoryTab } from "@/components/cantaia-prix/HistoryTab";
 import { ImportTab } from "@/components/cantaia-prix/ImportTab";
 import { AnalysisTab } from "@/components/cantaia-prix/AnalysisTab";
+import { useAgent } from "@/lib/hooks/use-agent";
+import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
+
+// Feature flag: when true, use Managed Agent for price extraction instead of legacy batch pipeline
+const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
 
 // ── Page ──
 
@@ -67,6 +72,69 @@ export default function CantaiaPrixPage() {
 
   // Projects list for filter
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+
+  // ── Managed Agent (price-extractor) ──
+  const extractorAgent = useAgent("price-extractor");
+  // Upload errors happen BEFORE the agent starts, so useAgent can't capture them.
+  // This local state surfaces upload failures to the user.
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Start the agent with uploaded file paths
+  const handleAgentExtract = useCallback(
+    async (files: File[]) => {
+      if (!files.length || extractorAgent.isRunning) return;
+      setUploadError(null); // Clear any previous upload error
+
+      try {
+        // Step 1: Upload files to Supabase Storage
+        const formData = new FormData();
+        for (const file of files) {
+          formData.append("files", file);
+        }
+        const uploadRes = await fetch("/api/pricing/upload-for-extraction", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          throw new Error(err.error || `Échec de l'upload (${uploadRes.status})`);
+        }
+        const uploadData = await uploadRes.json();
+        const uploadedFiles = uploadData.files as {
+          file_name: string;
+          storage_path: string;
+          file_type: string;
+        }[];
+
+        if (!uploadedFiles.length) {
+          throw new Error("Aucun fichier valide après upload.");
+        }
+
+        // Step 2: Build the file list for the agent message
+        const fileList = uploadedFiles
+          .map(
+            (f) =>
+              `- ${f.file_name} (type: ${f.file_type}, path: ${f.storage_path})`
+          )
+          .join("\n");
+
+        // Step 3: Start the agent
+        await extractorAgent.start(
+          { file_count: uploadedFiles.length },
+          `Analyse les ${uploadedFiles.length} fichier(s) suivants et extrais tous les prix :\n\n${fileList}\n\n` +
+            `Pour chaque fichier, appelle fetch_file_content avec file_url=<storage_path> et file_type=<type>. ` +
+            `Puis regroupe tous les prix trouvés et appelle save_extracted_prices en un seul appel.`,
+          `Extraction de prix — ${uploadedFiles.length} fichier(s)`
+        );
+      } catch (err) {
+        console.error("[CantaiaPrix] Agent extract error:", err);
+        // FIX: Surface upload errors (which happen BEFORE agent.start) to the user.
+        // The useAgent hook only captures errors from the agent session itself.
+        setUploadError(err instanceof Error ? err.message : "Erreur lors de l'upload des fichiers");
+      }
+    },
+    [extractorAgent]
+  );
 
   // ── Load config from API ──
   useEffect(() => {
@@ -178,6 +246,15 @@ export default function CantaiaPrixPage() {
       loadBenchmark();
     }
   }, [activeTab]);
+
+  // Refresh benchmark data after agent completes
+  useEffect(() => {
+    if (!USE_MANAGED_AGENTS) return;
+    if (extractorAgent.status === "completed") {
+      // Agent saved prices to DB — refresh benchmark data
+      loadBenchmark();
+    }
+  }, [extractorAgent.status, loadBenchmark]);
 
   // ── Load single estimate detail ──
   const openHistoryDetail = useCallback((estimateId: string) => {
@@ -358,11 +435,36 @@ export default function CantaiaPrixPage() {
           />
         )}
 
+        {/* Agent Analysis Panel — shown above tab content during agent processing */}
+        {USE_MANAGED_AGENTS && extractorAgent.status !== "idle" && (
+          <div className="mb-4 -mx-4 sm:-mx-6">
+            <AgentAnalysisPanel
+              status={extractorAgent.status}
+              events={extractorAgent.events}
+              lastMessage={extractorAgent.lastMessage}
+              result={extractorAgent.result}
+              error={extractorAgent.error}
+              isRunning={extractorAgent.isRunning}
+              onCancel={extractorAgent.cancel}
+              agentType="price-extractor"
+            />
+          </div>
+        )}
+
         {/* TAB 2: Import prix */}
         {activeTab === "import" && (
           <ImportTab
             projects={projects}
             loadBenchmark={loadBenchmark}
+            // Managed Agent integration
+            useAgentFlow={USE_MANAGED_AGENTS}
+            onAgentExtract={handleAgentExtract}
+            agentIsRunning={extractorAgent.isRunning}
+            agentStatus={extractorAgent.status}
+            agentError={extractorAgent.error}
+            onAgentReset={extractorAgent.reset}
+            uploadError={uploadError}
+            onClearUploadError={() => setUploadError(null)}
           />
         )}
 

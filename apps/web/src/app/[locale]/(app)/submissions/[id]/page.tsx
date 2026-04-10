@@ -33,6 +33,8 @@ import MonteCarloChart from "@/components/submissions/MonteCarloChart";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 import { PriceRequestV2 } from "@/components/submissions/detail/PriceRequestV2";
+import { useAgent } from "@/lib/hooks/use-agent";
+import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -175,6 +177,10 @@ export default function SubmissionDetailPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [sentRequestsCollapsed, setSentRequestsCollapsed] = useState(true);
 
+  // ── Managed Agent integration (feature-flagged) ──────────
+  const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
+  const agent = useAgent("submission-analyzer");
+
   const { setActiveProject } = useActiveProject();
 
   useEffect(() => {
@@ -206,6 +212,28 @@ export default function SubmissionDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // When the agent finishes (completed or failed), refresh data
+  useEffect(() => {
+    if (!USE_MANAGED_AGENTS) return;
+    if (agent.status === "completed") {
+      // Agent's save_analysis_result already updated DB — just refresh UI
+      fetchData();
+      // Release mutex so polling useEffect doesn't interfere
+      reanalyzeActiveRef.current = false;
+    } else if (agent.status === "failed") {
+      setSubmission((prev) =>
+        prev
+          ? { ...prev, analysis_status: "error", analysis_error: agent.error || "L'agent a échoué" }
+          : prev
+      );
+      reanalyzeActiveRef.current = false;
+    } else if (agent.status === "cancelled") {
+      // User cancelled or hook internally aborted — release mutex
+      reanalyzeActiveRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent.status]);
 
   // Load org suppliers for the price request wizard
   useEffect(() => {
@@ -410,6 +438,37 @@ export default function SubmissionDetailPage() {
     }
   };
 
+  // ── Agent-powered analysis (replaces handleReanalyze when feature flag is on) ──
+  const handleAgentAnalyze = async () => {
+    if (!submission || agent.isRunning) return;
+
+    // Claim mutex so polling useEffect yields
+    reanalyzeActiveRef.current = true;
+    // Clear local error state and set "analyzing" in UI immediately
+    setSubmission((prev) => (prev ? { ...prev, analysis_status: "analyzing", analysis_error: null } : prev));
+
+    // Persist "analyzing" status in DB so other users see progress
+    try {
+      await fetch(`/api/submissions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-analysis-status", analysis_status: "analyzing" }),
+      });
+    } catch {
+      // Non-blocking — the agent will set the final status via save_analysis_result
+    }
+
+    // Start the agent session
+    await agent.start(
+      { submission_id: id },
+      `Analyse la soumission ${id}. Le fichier est "${submission.file_name || "document"}". ` +
+        `Commence par appeler get_submission_context pour comprendre le contexte du projet, ` +
+        `puis fetch_submission_file pour lire le document, ` +
+        `et enfin save_analysis_result avec tous les postes extraits.`,
+      `Analyse soumission: ${submission.file_name || id}`
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -479,14 +538,14 @@ export default function SubmissionDetailPage() {
                 Planning
               </Link>
             )}
-            {(submission.analysis_status === "done" || submission.analysis_status === "error") && (
+            {(submission.analysis_status === "done" || submission.analysis_status === "error" || submission.analysis_status === "pending") && (
               <button
-                onClick={handleReanalyze}
-                disabled={analyzing}
+                onClick={USE_MANAGED_AGENTS ? handleAgentAnalyze : handleReanalyze}
+                disabled={analyzing || agent.isRunning}
                 className="text-xs px-3 py-1.5 border border-[#27272A] rounded-lg hover:bg-[#1C1C1F] text-[#71717A] flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <RefreshCw className="h-3 w-3" />
-                Ré-analyser
+                <RefreshCw className={`h-3 w-3 ${(analyzing || agent.isRunning) ? "animate-spin" : ""}`} />
+                {submission.analysis_status === "pending" ? "Analyser" : "Ré-analyser"}
               </button>
             )}
           </div>
@@ -519,9 +578,25 @@ export default function SubmissionDetailPage() {
         </div>
       </div>
 
-      {/* Analysis in progress — shown either when handleReanalyze is running (analyzing=true)
-           OR when the page loaded with a stale "analyzing" DB state from a killed server run */}
-      {(analyzing || submission?.analysis_status === "analyzing") && (
+      {/* Agent analysis panel — real-time event feed (when managed agents enabled) */}
+      {USE_MANAGED_AGENTS && agent.status !== "idle" && (
+        <AgentAnalysisPanel
+          agentType="submission-analyzer"
+          status={agent.status}
+          events={agent.events}
+          lastMessage={agent.lastMessage}
+          result={agent.result}
+          error={agent.error}
+          isRunning={agent.isRunning}
+          onCancel={() => {
+            agent.cancel();
+            reanalyzeActiveRef.current = false;
+          }}
+        />
+      )}
+
+      {/* Legacy analysis progress — shown when NOT using managed agents */}
+      {(!USE_MANAGED_AGENTS) && (analyzing || submission?.analysis_status === "analyzing") && (
         <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />

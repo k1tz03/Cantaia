@@ -11,9 +11,12 @@ import {
   Mail,
   Database,
   Package,
+  Bot,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import { ExtractionReviewList } from "./ExtractionReviewList";
+import type { SessionStatus } from "@cantaia/core/agents";
 
 const ACCEPTED_EXTENSIONS = [".eml", ".msg", ".pdf", ".txt", ".html", ".htm"];
 const BATCH_SIZE = 2;
@@ -21,9 +24,30 @@ const BATCH_SIZE = 2;
 interface ImportTabProps {
   projects: { id: string; name: string }[];
   loadBenchmark: (projectFilter?: string) => void;
+  // Managed Agent props (optional — only when USE_MANAGED_AGENTS=true)
+  useAgentFlow?: boolean;
+  onAgentExtract?: (files: File[]) => Promise<void>;
+  agentIsRunning?: boolean;
+  agentStatus?: SessionStatus | "idle" | "starting";
+  agentError?: string | null;
+  onAgentReset?: () => void;
+  // Upload errors happen before the agent starts — separate from agentError
+  uploadError?: string | null;
+  onClearUploadError?: () => void;
 }
 
-export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
+export function ImportTab({
+  projects,
+  loadBenchmark,
+  useAgentFlow,
+  onAgentExtract,
+  agentIsRunning,
+  agentStatus,
+  agentError,
+  onAgentReset,
+  uploadError,
+  onClearUploadError,
+}: ImportTabProps) {
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -208,8 +232,73 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
         </div>
       )}
 
-      {/* Upload zone */}
-      {!extractionRunning && extractionStatus !== "preview_ready" && (
+      {/* Agent completion state */}
+      {useAgentFlow && agentStatus === "completed" && (
+        <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-green-400" />
+            <h3 className="text-sm font-semibold text-green-300">Extraction terminée</h3>
+          </div>
+          <p className="text-xs text-[#A1A1AA] mb-3">
+            Les prix extraits ont été enregistrés dans votre base de données.
+            Consultez l'onglet <strong>Analyse prix</strong> pour voir les résultats.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onAgentReset?.();
+              setUploadedFiles([]);
+            }}
+            className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Importer d'autres fichiers
+          </button>
+        </div>
+      )}
+
+      {/* Agent error state — show whenever failed, even if agentError is null */}
+      {useAgentFlow && agentStatus === "failed" && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-sm font-semibold text-red-300">Erreur d'extraction</h3>
+          </div>
+          <p className="text-xs text-red-400/80 mb-3">{agentError || "Une erreur inconnue est survenue lors de l'extraction."}</p>
+          <button
+            type="button"
+            onClick={() => {
+              onAgentReset?.();
+            }}
+            className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Upload error — shown when file upload to Storage fails (before agent starts) */}
+      {useAgentFlow && uploadError && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-sm font-semibold text-red-300">Erreur d&apos;upload</h3>
+          </div>
+          <p className="text-xs text-red-400/80 mb-3">{uploadError}</p>
+          <button
+            type="button"
+            onClick={() => onClearUploadError?.()}
+            className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Upload zone — hidden when extraction is running (legacy) or agent is running/completed */}
+      {!extractionRunning && extractionStatus !== "preview_ready" && !(useAgentFlow && (agentIsRunning || agentStatus === "completed")) && (
         <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-start gap-4 mb-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
@@ -306,11 +395,27 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
               </div>
               <button
                 type="button"
-                onClick={startExtraction}
-                className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand/90"
+                onClick={
+                  useAgentFlow && onAgentExtract
+                    ? () => onAgentExtract(uploadedFiles)
+                    : startExtraction
+                }
+                disabled={agentIsRunning}
+                className={cn(
+                  "mt-4 inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium text-white transition-colors",
+                  agentIsRunning
+                    ? "bg-[#27272A] cursor-not-allowed opacity-60"
+                    : "bg-brand hover:bg-brand/90"
+                )}
               >
-                <Sparkles className="h-4 w-4" />
-                Analyser {uploadedFiles.length} fichier{uploadedFiles.length > 1 ? "s" : ""}
+                {useAgentFlow ? (
+                  <Bot className="h-4 w-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {agentIsRunning
+                  ? "Extraction en cours..."
+                  : `Analyser ${uploadedFiles.length} fichier${uploadedFiles.length > 1 ? "s" : ""}`}
               </button>
             </div>
           )}
@@ -346,8 +451,8 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
         </div>
       )}
 
-      {/* Progress bar */}
-      {extractionRunning && (
+      {/* Progress bar — legacy flow only (agent has AgentAnalysisPanel) */}
+      {!useAgentFlow && extractionRunning && (
         <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">
           <div className="flex items-center gap-3 mb-4">
             <Loader2 className="h-5 w-5 animate-spin text-brand" />
@@ -385,8 +490,8 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
         </div>
       )}
 
-      {/* Review results */}
-      {extractionStatus === "preview_ready" && extractionResults.length > 0 && (
+      {/* Review results — legacy flow only (agent saves directly) */}
+      {!useAgentFlow && extractionStatus === "preview_ready" && extractionResults.length > 0 && (
         <ExtractionReviewList
           extractionResults={extractionResults}
           selectedExtractions={selectedExtractions}
@@ -401,8 +506,8 @@ export function ImportTab({ projects, loadBenchmark }: ImportTabProps) {
         />
       )}
 
-      {/* No results found */}
-      {extractionStatus === "preview_ready" && extractionResults.length === 0 && !importResult && (
+      {/* No results found — legacy flow only */}
+      {!useAgentFlow && extractionStatus === "preview_ready" && extractionResults.length === 0 && !importResult && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#27272A] bg-[#0F0F11] py-12">
           <FileText className="h-10 w-10 text-[#71717A]" />
           <h3 className="mt-3 text-sm font-medium text-[#71717A]">Aucune offre de prix trouvée</h3>

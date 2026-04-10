@@ -10,6 +10,62 @@ import { checkUsageLimit } from "@cantaia/config/plan-features";
 export const maxDuration = 300;
 
 /**
+ * GET /api/plans/estimate-v2?plan_id=xxx
+ * Fetch the latest saved estimation for a plan (used after agent completion).
+ */
+export async function GET(request: NextRequest) {
+  const planId = request.nextUrl.searchParams.get("plan_id");
+  if (!planId) {
+    return NextResponse.json({ error: "plan_id required" }, { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const adminClient = createAdminClient();
+
+  const { data: userOrg } = await adminClient
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!userOrg?.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
+  }
+
+  // Verify plan belongs to the user's org
+  const { data: plan } = await (adminClient as any)
+    .from("plan_registry")
+    .select("id, organization_id")
+    .eq("id", planId)
+    .eq("organization_id", userOrg.organization_id)
+    .maybeSingle();
+
+  if (!plan) {
+    return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  }
+
+  // Fetch the latest estimation
+  const { data: estimate } = await (adminClient as any)
+    .from("plan_estimates")
+    .select("id, plan_id, estimate_result, grand_total, confidence_summary, created_at")
+    .eq("plan_id", planId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!estimate) {
+    return NextResponse.json({ error: "No estimation found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ estimation: estimate.estimate_result });
+}
+
+/**
  * POST /api/plans/estimate-v2
  * Lance le pipeline d'estimation multi-modèle 4 passes
  */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -22,6 +22,8 @@ import type { BriefingContent } from "@cantaia/database";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
 import { PlanAlertsBanner } from "@/components/plans/PlanAlertsBanner";
 import { createClient } from "@/lib/supabase/client";
+import { useAgent } from "@/lib/hooks/use-agent";
+import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
 
 interface RecentVisit {
   id: string;
@@ -96,6 +98,8 @@ async function buildDataOnlyBriefing(): Promise<BriefingContent> {
   };
 }
 
+const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
+
 export default function BriefingPage() {
   const t = useTranslations("briefing");
   const tv = useTranslations("visits");
@@ -105,8 +109,40 @@ export default function BriefingPage() {
     new Date().toISOString().split("T")[0]
   );
   const [recentVisits, setRecentVisits] = useState<RecentVisit[]>([]);
+  const agent = useAgent("briefing-generator");
+  const agentActiveRef = useRef(false);
+
+  // When the agent finishes, fetch the saved briefing from DB
+  useEffect(() => {
+    if (!USE_MANAGED_AGENTS) return;
+    if (agent.status === "completed") {
+      // Agent's save_briefing already wrote to DB — fetch the fresh briefing
+      fetch(`/api/briefing/today?date=${selectedDate}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.briefing) setBriefing(data.briefing);
+        })
+        .catch(() => {})
+        .finally(() => {
+          setLoading(false);
+          agentActiveRef.current = false;
+        });
+    } else if (agent.status === "failed") {
+      // Agent failed — fall back to legacy generation
+      agentActiveRef.current = false;
+      setLoading(false); // Safety net — handleLegacyRegenerate sets it too
+      handleLegacyRegenerate();
+    } else if (agent.status === "cancelled") {
+      setLoading(false);
+      agentActiveRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent.status]);
 
   useEffect(() => {
+    // Skip initial fetch if the agent is actively generating
+    if (agentActiveRef.current) return;
+
     const fetchBriefing = async () => {
       setLoading(true);
       try {
@@ -114,7 +150,7 @@ export default function BriefingPage() {
         const res = await fetch(`/api/briefing/today?date=${selectedDate}`);
         if (res.ok) {
           const data = await res.json();
-          setBriefing(data.briefing);
+          if (!agentActiveRef.current) setBriefing(data.briefing);
           return;
         }
         if (res.status === 404 && selectedDate === new Date().toISOString().split("T")[0]) {
@@ -123,7 +159,7 @@ export default function BriefingPage() {
             const genRes = await fetch("/api/briefing/generate", { method: "POST" });
             if (genRes.ok) {
               const data = await genRes.json();
-              setBriefing(data.briefing);
+              if (!agentActiveRef.current) setBriefing(data.briefing);
               return;
             }
           } catch {
@@ -135,14 +171,17 @@ export default function BriefingPage() {
       }
 
       // Fallback: build a data-only briefing from real stats instead of showing zeros
+      if (agentActiveRef.current) return;
       try {
         const fallbackBriefing = await buildDataOnlyBriefing();
-        setBriefing(fallbackBriefing);
+        if (!agentActiveRef.current) setBriefing(fallbackBriefing);
       } catch {
-        setBriefing(getMockBriefing(t));
+        if (!agentActiveRef.current) setBriefing(getMockBriefing(t));
       }
     };
-    fetchBriefing().finally(() => setLoading(false));
+    fetchBriefing().finally(() => {
+      if (!agentActiveRef.current) setLoading(false);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
@@ -179,7 +218,22 @@ export default function BriefingPage() {
 
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
 
-  const handleRegenerate = async () => {
+  // ── Agent-powered regeneration (when managed agents enabled) ──
+  const handleAgentRegenerate = async () => {
+    if (agent.isRunning) return;
+    agentActiveRef.current = true;
+    setLoading(true);
+    await agent.start(
+      {},
+      `Génère le briefing quotidien pour la date du ${selectedDate}. ` +
+        `Appelle fetch_cantaia_context pour récupérer les données, ` +
+        `puis appelle save_briefing avec briefing_date="${selectedDate}" et le JSON du briefing structuré.`,
+      `Briefing du ${selectedDate}`
+    );
+  };
+
+  // ── Legacy regeneration (direct API call) ──
+  const handleLegacyRegenerate = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/briefing/generate", { method: "POST" });
@@ -200,6 +254,8 @@ export default function BriefingPage() {
       setLoading(false);
     }
   };
+
+  const handleRegenerate = USE_MANAGED_AGENTS ? handleAgentRegenerate : handleLegacyRegenerate;
 
   if (!briefing) {
     return (
@@ -231,10 +287,10 @@ export default function BriefingPage() {
         {isToday && (
           <button
             onClick={handleRegenerate}
-            disabled={loading}
+            disabled={loading || agent.isRunning}
             className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A] disabled:opacity-50"
           >
-            {loading ? (
+            {(loading || agent.isRunning) ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
@@ -277,6 +333,26 @@ export default function BriefingPage() {
           </button>
         )}
       </div>
+
+      {/* Agent progress panel — shown during managed agent generation */}
+      {USE_MANAGED_AGENTS && agent.status !== "idle" && (
+        <div className="-mx-6 lg:-mx-8">
+          <AgentAnalysisPanel
+            agentType="briefing-generator"
+            status={agent.status}
+            events={agent.events}
+            lastMessage={agent.lastMessage}
+            result={agent.result}
+            error={agent.error}
+            isRunning={agent.isRunning}
+            onCancel={() => {
+              agent.cancel();
+              agentActiveRef.current = false;
+              setLoading(false);
+            }}
+          />
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">

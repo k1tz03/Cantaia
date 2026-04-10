@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, History, Info, Sparkles } from "lucide-react";
+import { Eye, History, Info, Sparkles, Calculator } from "lucide-react";
 import { cn } from "@cantaia/ui";
 
 export type PlanTab = "viewer" | "versions" | "info" | "analysis" | "estimation";
@@ -9,13 +9,16 @@ export function PlanDetailTabs({
   activeTab,
   setActiveTab,
   versionsCount,
-  estimationScore: _estimationScore, // eslint-disable-line @typescript-eslint/no-unused-vars
+  estimationScore,
+  showEstimationTab,
   t,
 }: {
   activeTab: PlanTab;
   setActiveTab: (tab: PlanTab) => void;
   versionsCount: number;
   estimationScore: string | null;
+  /** When true (managed agents enabled), show the estimation tab */
+  showEstimationTab?: boolean;
   t: (key: string, values?: any) => string;
 }) {
   const tabs: { key: PlanTab; icon: React.ElementType; label: string; badge?: string | null }[] = [
@@ -23,8 +26,10 @@ export function PlanDetailTabs({
     { key: "versions", icon: History, label: `${t("tabVersions")} (${versionsCount})` },
     { key: "info", icon: Info, label: t("tabInfo") },
     { key: "analysis", icon: Sparkles, label: t("tabAnalysis") },
-    // HIDDEN: Budget estimation temporarily disabled — prices unreliable
-    // { key: "estimation", icon: Calculator, label: "Estimation V2", badge: estimationScore },
+    // Estimation tab: shown when managed agents feature flag is enabled
+    ...(showEstimationTab
+      ? [{ key: "estimation" as PlanTab, icon: Calculator, label: "Estimation IA", badge: estimationScore ? String(estimationScore) : null }]
+      : []),
   ];
 
   return (

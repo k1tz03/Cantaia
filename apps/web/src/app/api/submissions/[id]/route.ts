@@ -159,6 +159,24 @@ export async function PATCH(
 
     const body = await request.json();
 
+    // ── Set analysis status (used by Managed Agent flow) ────
+    if (body.action === "set-analysis-status") {
+      const { analysis_status, analysis_error } = body;
+      const VALID_STATUSES = ["pending", "analyzing", "done", "error"];
+      if (!analysis_status || !VALID_STATUSES.includes(analysis_status)) {
+        return NextResponse.json({ error: "Invalid analysis_status" }, { status: 400 });
+      }
+      await (admin as any)
+        .from("submissions")
+        .update({
+          analysis_status,
+          analysis_error: analysis_error || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      return NextResponse.json({ success: true, analysis_status });
+    }
+
     // ── Award action ─────────────────────────────────────────
     if (body.action === "award") {
       const { price_request_id } = body;

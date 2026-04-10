@@ -159,7 +159,12 @@ export type ApiActionType =
   | "price_estimate"
   | "price_extract"
   | "supplier_enrichment"
-  | "supplier_search";
+  | "supplier_search"
+  | "agent_submission-analyzer"
+  | "agent_plan-estimator"
+  | "agent_email-classifier"
+  | "agent_price-extractor"
+  | "agent_briefing-generator";
 
 export type PlanType =
   | "execution"

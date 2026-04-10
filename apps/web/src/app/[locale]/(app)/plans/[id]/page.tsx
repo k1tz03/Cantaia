@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -19,6 +19,10 @@ import PriceCalibrationModal from "@/components/plans/PriceCalibrationModal";
 import type { CrossPlanData } from "@/components/plans/PlanAlertsBanner";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
+import { useAgent } from "@/lib/hooks/use-agent";
+import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
+
+const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
 
 export default function PlanDetailPage() {
   const params = useParams();
@@ -41,6 +45,15 @@ export default function PlanDetailPage() {
 
   const [correctionPoste, setCorrectionPoste] = useState<any>(null);
   const [calibrationPoste, setCalibrationPoste] = useState<any>(null);
+
+  // ── Managed Agent integration (feature-flagged) ──────────
+  const estimatorAgent = useAgent("plan-estimator");
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -67,6 +80,65 @@ export default function PlanDetailPage() {
       setActiveProject(plan.project_id);
     }
   }, [plan?.project_id, setActiveProject]);
+
+  // ── Agent completion effect ──────────────────────────────
+  const fetchSavedEstimation = useCallback(async (retries = 3) => {
+    if (!planId) return;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      // FIX: Abort retry loop if component unmounted (prevents setState on unmounted component)
+      if (!mountedRef.current) return;
+      try {
+        const res = await fetch(`/api/plans/estimate-v2?plan_id=${planId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.estimation && mountedRef.current) {
+            setEstimationV2(json.estimation);
+            return; // Success — stop retrying
+          }
+        }
+        // 404 or no estimation — wait before retrying (DB write may still be in-flight)
+        if (attempt < retries - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      } catch {
+        if (attempt < retries - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
+    }
+  }, [planId]);
+
+  useEffect(() => {
+    if (!USE_MANAGED_AGENTS) return;
+    if (estimatorAgent.status === "completed") {
+      setEstimatingV2(false);
+      // Agent's save_estimation stored the result in DB — fetch with retry
+      // (the DB write may still be committing when the stream signals completion)
+      fetchSavedEstimation(3);
+    } else if (estimatorAgent.status === "failed") {
+      setEstimatingV2(false);
+      setEstimationV2Error(estimatorAgent.error || "L'agent d'estimation a échoué");
+    } else if (estimatorAgent.status === "cancelled") {
+      setEstimatingV2(false);
+    }
+  }, [estimatorAgent.status, estimatorAgent.error, fetchSavedEstimation]);
+
+  // ── Agent-powered estimation handler ─────────────────────
+  const handleAgentEstimate = useCallback(async () => {
+    if (!plan || estimatorAgent.isRunning) return;
+    setEstimatingV2(true);
+    setEstimationV2Error("");
+    setEstimationV2(null);
+    await estimatorAgent.start(
+      { plan_id: plan.id },
+      `Analyse le plan "${plan.plan_title || plan.id}" et produis une estimation chiffrée complète. ` +
+        `Appelle fetch_plan_image avec plan_id="${plan.id}" pour télécharger l'image, ` +
+        `analyse visuellement le plan (identification + métré par CFC), ` +
+        `puis appelle query_reference_prices avec les postes extraits, ` +
+        `et enfin appelle save_estimation avec plan_id="${plan.id}" et le résultat JSON complet.`,
+      `Estimation plan ${plan.plan_title || plan.id}`
+    );
+  }, [plan, estimatorAgent]);
 
   const autoFillPlanInfo = async (result: any) => {
     if (!plan) return;
@@ -214,6 +286,9 @@ export default function PlanDetailPage() {
     setCalibrationPoste(null);
   };
 
+  // Switch estimation handler based on feature flag
+  const handleEstimate = USE_MANAGED_AGENTS ? handleAgentEstimate : handleEstimateV2;
+
   useEffect(() => {
     if (activeTab === "analysis" && plan && !analysis && !analyzing) {
       handleAnalyze(false);
@@ -265,9 +340,28 @@ export default function PlanDetailPage() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           versionsCount={versions.length}
-          estimationScore={estimationV2?.passe4?.analyse_fiabilite?.score_global ?? null}
+          estimationScore={estimationV2?.passe4?.analyse_fiabilite?.score_global != null
+            ? `${Math.round(Math.min(estimationV2.passe4.analyse_fiabilite.score_global, 1) * 100)}%`
+            : null}
+          showEstimationTab={USE_MANAGED_AGENTS}
           t={t}
         />
+
+        {/* Agent activity panel — shown when agent is active */}
+        {USE_MANAGED_AGENTS && estimatorAgent.status !== "idle" && (
+          <div className="mb-4">
+            <AgentAnalysisPanel
+              status={estimatorAgent.status}
+              events={estimatorAgent.events}
+              lastMessage={estimatorAgent.lastMessage}
+              result={estimatorAgent.result}
+              error={estimatorAgent.error}
+              isRunning={estimatorAgent.isRunning}
+              onCancel={estimatorAgent.cancel}
+              agentType="plan-estimator"
+            />
+          </div>
+        )}
 
         {activeTab === "viewer" && (
           <PlanViewer version={currentVersion} t={t} />
@@ -288,22 +382,22 @@ export default function PlanDetailPage() {
             analysisError={analysisError}
             onAnalyze={handleAnalyze}
             onAnalysisUpdated={setAnalysis}
-            onSwitchToEstimation={() => {
+            onSwitchToEstimation={USE_MANAGED_AGENTS ? () => {
               setActiveTab("estimation");
-              if (!estimationV2 && !estimatingV2) handleEstimateV2();
-            }}
+              if (!estimationV2 && !estimatingV2) handleEstimate();
+            } : () => { /* Feature disabled — estimation hidden */ }}
             t={t}
           />
         )}
 
-        {/* HIDDEN: Budget estimation temporarily disabled — prices unreliable */}
-        {false && activeTab === "estimation" && (
+        {/* Estimation tab: shown when managed agents are enabled, otherwise hidden (prices unreliable in legacy pipeline) */}
+        {(USE_MANAGED_AGENTS ? activeTab === "estimation" : false && activeTab === "estimation") && (
           <PlanEstimationTab
             estimationV2={estimationV2}
-            estimatingV2={estimatingV2}
+            estimatingV2={estimatingV2 || estimatorAgent.isRunning}
             estimationV2Error={estimationV2Error}
             hasAnalysis={!!analysis}
-            onEstimate={handleEstimateV2}
+            onEstimate={handleEstimate}
             onGoToAnalysis={() => {
               setActiveTab("analysis");
               if (!analysis && !analyzing) handleAnalyze(false);

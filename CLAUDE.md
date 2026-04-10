@@ -194,12 +194,15 @@ RESEND_API_KEY
 ADMIN_SECRET_KEY
 ```
 
-### Vercel CRON (`vercel.json`)
+### Vercel CRON (`apps/web/vercel.json`)
 ```json
 { "path": "/api/cron/briefing",              "schedule": "45 6 * * *"  }  // Daily 6h45
 { "path": "/api/email/sync/cron",            "schedule": "0 7 * * *"   }  // Daily 7h
-{ "path": "/api/cron/aggregate-benchmarks",   "schedule": "0 2 * * *"   }  // Daily 2h
-{ "path": "/api/cron/extract-patterns",       "schedule": "0 3 * * 0"   }  // Weekly dim 3h
+{ "path": "/api/cron/aggregate-benchmarks",  "schedule": "0 2 * * *"   }  // Daily 2h
+{ "path": "/api/cron/extract-patterns",      "schedule": "0 3 * * 0"   }  // Weekly dim 3h
+{ "path": "/api/cron/aggregate-activity",    "schedule": "0 1 * * *"   }  // Daily 1h — agrégation user_activity_daily
+{ "path": "/api/cron/refresh-intelligence",  "schedule": "30 3 * * *"  }  // Daily 3h30 — refresh mv_supplier_daily_metrics + mv_labor_productivity
+{ "path": "/api/cron/sync-financials",       "schedule": "0 4 * * *"   }  // Daily 4h — sync project financials
 ```
 
 ---
@@ -1162,10 +1165,10 @@ pnpm clean
 
 ## 13. État Actuel (Avril 2026)
 
-- **Build** : ~90 pages, ~195 routes API, 0 erreurs
-- **Migrations** : 001-062 (62 fichiers SQL)
-- **Composants** : 160+ fichiers dans 27 dossiers
-- **Core** : ~95 fichiers TypeScript
+- **Build** : 68 pages, 217 routes API, 0 erreurs
+- **Migrations** : 001-072 (72 fichiers SQL — attention : 3 migrations numérotées `070_*` en conflit : `070_email_signature.sql`, `070_offer_line_items_remarks.sql`, `070_waitlist.sql` — renuméroter avant d'appliquer en séquence stricte)
+- **Composants** : 187 fichiers dans ~30 dossiers
+- **Core** : ~100 fichiers TypeScript
 - **Post-login redirect** : `/mail`
 - **Domaine** : cantaia.io (principal, migré depuis cantaia.ch le 2026-03-19)
 - **Admin** : panneau unifié 4 onglets (Overview, Membres, Abonnement, Paramètres), visible aux org admins (role=admin) + superadmins
@@ -1232,22 +1235,29 @@ Le module `/mail-test` (prototype décision-based) a été promu en module `/mai
 
 ---
 
-## 13b. Plans Tarifaires
+## 13b. Plans Tarifaires (par utilisateur)
+
+**Restructuré en avril 2026** : passage d'un forfait mensuel fixe à un modèle **prix par utilisateur/mois** avec minimums et maximums par plan.
 
 | | **Trial** | **Starter** | **Pro** | **Enterprise** |
 |---|-----------|-------------|---------|----------------|
-| **Prix** | 0 CHF | 149 CHF/mois | 349 CHF/mois | 790 CHF/mois |
+| **Prix/user/mois** | 0 CHF | **49 CHF** | **89 CHF** | **119 CHF** |
+| **Min. utilisateurs** | 1 | 1 | 5 | 15 |
+| **Max. utilisateurs** | 3 | 5 | 30 | ∞ |
 | **Durée trial** | 14 jours | — | — | — |
-| **Utilisateurs** | 2 | 5 | 20 | Illimité |
-| **Projets** | 3 | 10 | 50 | Illimité |
-| **Appels IA/mois** | 50 | 500 | 2000 | Illimité |
+| **Projets** | 2 | 5 | 30 | ∞ |
+| **Appels IA/mois** | 50 | 200 | 1 000 | ∞ |
 | **Stockage** | 1 GB | 10 GB | 50 GB | 500 GB |
-| **Estimation plans** | Non | Oui | Oui | Oui |
-| **Data intelligence** | Non | Non | Oui | Oui |
+| **Budget IA** | Non | Non | Oui | Oui |
+| **Planning** | Basique | Basique | Complet | Complet |
+| **Data intelligence** | Non | Non | Non | Oui |
+| **Branding custom** | Non | Non | Non | Oui |
 | **Support** | — | Email | Prioritaire | Dédié |
 | **Env var Stripe** | — | `STRIPE_PRICE_STARTER` | `STRIPE_PRICE_PRO` | `STRIPE_PRICE_ENTERPRISE` |
 
-Config source : `packages/config/src/plan-features.ts`
+**Calcul total mensuel** : `PLAN_PRICING[plan].pricePerUser × nombre_de_sièges`
+
+Config source : `packages/config/plan-features.ts` (exports `PLAN_PRICING`, `PLAN_FEATURES`, `canAccess`, `checkUsageLimit`)
 
 ---
 
@@ -2521,3 +2531,178 @@ Fix multi-couche pour les images embarquées dans les emails HTML.
 - État persisté dans `localStorage` clé `cantaia_sidebar_collapsed`
 - Mode réduit : initiales avatar, icônes sans labels, tooltips au survol
 - Fix `h-screen` → `h-full` pour que le bouton collapse soit visible
+
+---
+
+## 29. Session 2026-04-01 → 2026-04-09 — Pre-Launch Sprint (J-12)
+
+**Lancement produit** : mercredi 22 avril 2026, 07h00 CEST.
+**Migrations côté code** : 063-072 (10 nouvelles — voir §29.2 pour le conflit des 3 migrations `070_*`).
+
+### 29.1 Pre-Launch Teaser Gate (`apps/web/src/middleware.ts`)
+
+Avant le lancement public, toutes les routes redirigent vers `/soon` sauf :
+- **Allowlist** (regex) : `/(fr|en|de)/(soon|login|register|forgot-password|reset-password|admin-consent)`
+- **Routes publiques tokenisées** : `/(fr|en|de)/(planning|portal)/[token]` (liens de partage déjà émis)
+- **Bypass cookie** : `cantaia_preview` (set via query param `?preview=SECRET`), TTL 30 jours
+- **Sessions Supabase actives** : les utilisateurs connectés bypassent (détection par cookies `sb-*-auth-token` sans round-trip DB)
+
+Sécurité :
+- `timingSafeEqual()` pour la comparaison du secret preview (prévention timing attacks)
+- `hasSupabaseSession()` lit uniquement les cookies, pas d'appel réseau
+- Var env : `CANTAIA_PREVIEW_SECRET` (requise en production pour le bypass)
+
+### 29.2 Conflit des 3 migrations numérotées 070
+
+Trois migrations partagent le même numéro `070_*` et doivent être renumérotées avant application en séquence stricte :
+- `070_email_signature.sql` → ajoute `users.email_signature TEXT`
+- `070_offer_line_items_remarks.sql` → ajoute `offer_line_items.supplier_remarks TEXT`
+- `070_waitlist.sql` → crée la table `waitlist` + RLS
+
+À résoudre : renuméroter 2 des 3 avant d'appliquer `apply_all_missing.sql`.
+
+### 29.3 Pre-Launch Teaser Page (`/soon`)
+
+Fichier : `apps/web/src/app/[locale]/(public)/soon/page.tsx`
+- `robots: { index: false, follow: false }`, `themeColor: "#0F0F11"`
+- Fonts locales : Inter, Plus Jakarta Sans (400/600/700/800), JetBrains Mono (600/700/800)
+- Client component `CountdownTeaser` (countdown jusqu'au 2026-04-22 07:00 CEST)
+- Accessible hors teaser gate (présent dans l'allowlist)
+
+### 29.4 Waitlist (`070_waitlist.sql`)
+
+Table `waitlist` :
+- Colonnes : `email`, `email_lower` (GENERATED), `locale`, `source`, `ip_address`, `user_agent`, `confirmed_at`, `notified_at`
+- RLS : superadmin read-only, writes via service role uniquement
+- Emails de confirmation envoyés via Resend — `RESEND_API_KEY` doit être défini sur Vercel
+
+### 29.5 Restructuration Pricing (per-user model)
+
+Voir §13b pour la table complète et les calculs.
+
+**Changements côté config** (`packages/config/plan-features.ts`) :
+- Nouvel export `PLAN_PRICING: Record<PlanName, { pricePerUser: number; minUsers: number; maxUsers: number }>`
+- Modèle passé de forfait fixe (149/349/790 CHF/mois) à **per-user** (49/89/119 CHF/user/mois)
+- Min/max utilisateurs par plan : trial 1-3, starter 1-5, pro 5-30, enterprise 15-∞
+- Limites ajustées : trial `maxProjects` 3→2, starter `aiCalls` 500→200, pro `aiCalls` 2000→1000
+- `budgetAI` désormais réservé à Pro/Enterprise (retiré de Starter)
+- `dataIntel` et `branding` réservés à Enterprise uniquement
+
+### 29.6 Email Signature Rich Editor
+
+- **Migration `070_email_signature`** : `users.email_signature TEXT DEFAULT ''`
+- Composant `components/settings/RichSignatureEditor.tsx` : éditeur contenteditable rich HTML
+- Settings > Profil : nouvelle section "Signature email" avec preview live
+- Auto-injectée dans ComposeModal et Reply/Forward flows
+
+### 29.7 Email Archiving (génération .eml RFC 2822)
+
+- **Migration `072_email_archive_storage`** : ajoute `storage_path`, `storage_bucket DEFAULT 'email-archives'`, `file_size` sur `email_archives`
+- `packages/core/src/emails/eml-generator.ts` :
+  - `generateEml(email: EmlEmailData): Buffer` — génération MIME RFC 2822
+  - Types : `EmlEmailData` (messageId, subject, from, to, cc, date, bodyText, bodyHtml, attachments)
+  - `EmlAttachment` supporte `contentId` pour images inline (cid:xxx)
+- `packages/core/src/emails/archive-storage.ts` :
+  - Interface `ArchiveableEmail`
+  - Upload .eml vers bucket Storage `email-archives`
+  - Download attachments depuis Microsoft Graph API
+  - Dedup automatique des filenames
+
+### 29.8 Multi-Supplier Packages (Soumissions)
+
+- **Migration `070_offer_line_items_remarks`** : `offer_line_items.supplier_remarks TEXT`
+- **Migration `071_submission_quotes_remarks`** : `supplier_remarks` sur `submission_quotes` + `conditions_text` sur `submission_price_requests`
+- Le wizard de demandes de prix permet de composer plusieurs paquets distincts et de les envoyer à des fournisseurs différents dans la même soumission
+- Comparaison tabulaire enrichie avec les remarques et conditions par fournisseur
+
+### 29.9 Onboarding Wizard 6 Étapes
+
+- **Migration `065_onboarding_profile`** :
+  - `users.onboarding_data JSONB DEFAULT '{}'::jsonb`
+  - `users.onboarding_current_step INTEGER DEFAULT 1`
+  - `users.company_size TEXT`, `users.project_types TEXT[]`
+  - `projects.project_type TEXT`
+- **Composants** (`components/onboarding/`) :
+  - Shell : `OnboardingShell.tsx`, `OnboardingProgressBar.tsx`, `OnboardingTransitions.tsx`, `OnboardingLogo.tsx`, `OnboardingConfetti.tsx`
+  - Steps (`components/onboarding/steps/`) : `Welcome.tsx`, `Profile.tsx`, `EmailConnection.tsx`, `FirstProject.tsx`, `FeatureDiscovery.tsx`, `Celebration.tsx`
+- État persisté à chaque étape → reprise automatique sur la dernière étape visitée
+
+### 29.10 User Activity Tracking
+
+- **Migration `063_user_activity_tracking`** :
+  - Extension `usage_events` : `session_id`, `page`, `feature`, `action`, `duration_ms`, `referrer_page`
+  - Table `user_activity_daily` : pré-agrégée par user+date (sessions, pages, features, total_duration_ms)
+- **CRON** : `/api/cron/aggregate-activity` quotidien 1h00 → remplit `user_activity_daily` depuis `usage_events`
+
+### 29.11 Email Folder Rules (archivage appris)
+
+- **Migration `069_email_folder_rules`** :
+  - Table `email_folder_rules` : `rule_type` (sender|keyword|domain), `rule_value`, `folder_id`, `times_confirmed`, `times_overridden`
+- Routes :
+  - `POST /api/email/suggest-folder` — suggère un dossier d'archivage basé sur l'historique
+  - `POST /api/email/folder-learn` — incrémente `times_confirmed` ou `times_overridden` selon le comportement utilisateur
+- Promotion auto : après seuil de confirmations, la règle devient prioritaire dans la suggestion
+
+### 29.12 Public Shareable Site Reports
+
+- **Migration `066_site_report_shares`** : table `site_report_shares` (report_id, token, expires_at, created_by)
+- Route publique `/rapports/[token]` : vue lecture seule d'un rapport chantier (partageable sans compte)
+
+### 29.13 Data Enrichment & Materialized Views
+
+- **Migration `064_data_enrichment`** :
+  - `client_visits.prospect_converted BOOLEAN`, `client_visits.converted_project_id UUID`
+  - `projects.intelligence_metadata JSONB`
+  - Table `submission_corrections` + trigger `notify_submission_correction`
+  - **MATERIALIZED VIEW `mv_supplier_daily_metrics`** : `response_rate`, `avg_response_days`, `avg_price_vs_market`
+  - **MATERIALIZED VIEW `mv_labor_productivity`** : heures par CFC
+- **CRON** : `/api/cron/refresh-intelligence` quotidien 3h30 → `REFRESH MATERIALIZED VIEW` des 2 vues
+- **CRON** : `/api/cron/sync-financials` quotidien 4h → sync financials projets
+
+### 29.14 Migrations 067-068 (Submissions improvements)
+
+- **`067_submission_items_analysis_fields`** : ajoute `item_number`, `material_group DEFAULT 'Divers'`, `status DEFAULT 'pending'`, `metadata JSONB` sur `submission_items`
+- **`068_submissions_bucket_setup`** : configure le bucket Storage `submissions` en **PRIVÉ 50 MB** avec policies RLS (service_role full access + authenticated scoped par organisation)
+
+### 29.15 Nouvelles pages & routes
+
+**Nouvelles pages** (4) :
+- `/soon` — Pre-launch teaser (public, hors gate)
+- `/rapports/[token]` — Rapport chantier public tokenisé
+- `/super-admin/data-pipeline` — Monitoring agrégations C2/C3 + état MVs
+- `/super-admin/user-analytics` — Dashboard activity tracking (user_activity_daily)
+
+**Nouvelles routes API** (~22+) couvrant :
+- Waitlist : `POST /api/waitlist`, `GET /api/waitlist/confirm`
+- Email folder rules : `POST /api/email/suggest-folder`, `POST /api/email/folder-learn`
+- Email archive : routes d'archivage .eml + retrieval
+- User signature : `GET/POST /api/user/signature`
+- Site report share : `POST /api/site-reports/[id]/share`, `GET /api/site-reports/public/[token]`
+- Onboarding state : `GET/PATCH /api/user/onboarding-state`
+- Analytics super-admin : `GET /api/super-admin/user-analytics`, `GET /api/super-admin/data-pipeline`
+- CRON : `/api/cron/aggregate-activity`, `/api/cron/refresh-intelligence`, `/api/cron/sync-financials`
+
+**Nouveaux composants majeurs** :
+- `components/tour/TourOverlay.tsx` — Tour guidé produit
+- `components/onboarding/**` — Wizard 6 étapes (voir §29.9)
+- `components/settings/RichSignatureEditor.tsx` — Éditeur signature email
+
+### 29.16 Compteurs actuels (avril 2026)
+
+- **Pages** : 68
+- **Routes API** : 217
+- **Composants** : 187 (dans ~30 dossiers)
+- **Core** : ~100 fichiers TypeScript
+- **Migrations** : 72 fichiers (001-072, avec 3 conflits à 070)
+
+### 29.17 TODO Techniques (nouveaux, à ajouter à la liste §21)
+
+26. Résoudre le conflit des 3 migrations `070_*` avant application séquentielle (renuméroter)
+27. Appliquer migrations 063-072 sur Supabase (dans l'ordre post-renumérotation)
+28. Créer bucket Storage `email-archives` (privé, 50 MB) pour les fichiers .eml
+29. Vérifier bucket `submissions` en privé 50 MB (policies définies par migration 068, confirmer sur Supabase Dashboard)
+30. Définir `RESEND_API_KEY` sur Vercel (emails de confirmation waitlist)
+31. Définir `CANTAIA_PREVIEW_SECRET` sur Vercel (bypass teaser gate en production)
+32. Retirer le teaser gate le 2026-04-22 07:00 CEST (ou automatiser via check `Date.now() >= LAUNCH_DATE` dans `middleware.ts`)
+33. Communiquer aux utilisateurs existants : reconnexion Microsoft nécessaire pour scopes `People.Read` + `Contacts.Read` (voir §28.2)
+34. Monitoring post-lancement : alertes sur erreurs des CRON `refresh-intelligence` et `sync-financials`
