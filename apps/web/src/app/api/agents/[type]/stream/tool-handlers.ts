@@ -109,34 +109,89 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     let extractedText = "";
 
     if (ext === "xlsx" || ext === "xls" || mime.includes("spreadsheet") || mime.includes("excel")) {
-      // Dynamic import to avoid bundling xlsx on client
-      const XLSX = await import("xlsx");
-      const workbook = XLSX.read(buffer, { type: "buffer" });
+      try {
+        const XLSX = await import("xlsx");
+        const workbook = XLSX.read(buffer, { type: "buffer" });
 
-      for (const sheetName of workbook.SheetNames) {
-        const sheet = workbook.Sheets[sheetName];
-        const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
-        // Filter empty lines
-        const lines = csv.split("\n").filter((l: string) => l.replace(/,/g, "").trim().length > 0);
-        if (lines.length > 1) {
-          extractedText += `\n=== Sheet: ${sheetName} ===\n${lines.join("\n")}`;
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+          const lines = csv.split("\n").filter((l: string) => l.replace(/,/g, "").trim().length > 0);
+          if (lines.length > 0) {
+            extractedText += `\n=== Sheet: ${sheetName} ===\n${lines.join("\n")}`;
+          }
         }
+      } catch (e: any) {
+        console.warn("[fetch_submission_file] Excel parse failed:", e.message);
       }
     } else if (ext === "pdf" || mime.includes("pdf")) {
-      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const pages: string[] = [];
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
-        const textContent = await page.getTextContent();
-        const text = textContent.items
-          .map((item: any) => ("str" in item ? item.str : ""))
-          .join(" ");
-        if (text.trim()) pages.push(text);
+      // Try pdfjs text extraction first (fast, no API cost)
+      try {
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i);
+          const textContent = await page.getTextContent();
+          const text = textContent.items
+            .map((item: any) => ("str" in item ? item.str : ""))
+            .join(" ");
+          if (text.trim()) pages.push(text);
+        }
+        extractedText = pages.join("\n\n");
+      } catch (e: any) {
+        console.warn("[fetch_submission_file] pdfjs parse failed:", e.message);
       }
-      extractedText = pages.join("\n\n");
+
+      // Check if PDF is scanned (< 100 meaningful chars) → use Anthropic Vision OCR
+      const meaningfulChars = (extractedText.match(/[a-zA-Z0-9àâäéèêëîïôöùûüçæœ]/gi) || []).length;
+      if (meaningfulChars < 100) {
+        console.log(`[fetch_submission_file] PDF has ${meaningfulChars} meaningful chars — using Vision OCR`);
+        try {
+          const Anthropic = (await import("@anthropic-ai/sdk")).default;
+          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+          const response = await client.messages.create({
+            model: "claude-sonnet-4-5-20250929",
+            max_tokens: 16000,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: {
+                    type: "base64",
+                    media_type: "application/pdf",
+                    data: buffer.toString("base64"),
+                  },
+                } as any,
+                {
+                  type: "text",
+                  text: "Extrais TOUT le texte de ce document PDF de soumission de construction. Retourne uniquement le texte brut fidèlement, ligne par ligne, sans résumé ni reformulation. Inclus tous les numéros de postes, descriptions, unités et quantités.",
+                },
+              ],
+            }],
+          });
+          const visionText = response.content
+            .filter((b: any) => b.type === "text")
+            .map((b: any) => b.text)
+            .join("\n");
+          if (visionText.length > extractedText.length) {
+            extractedText = visionText;
+            console.log(`[fetch_submission_file] Vision OCR: ${visionText.length} chars extracted`);
+          }
+        } catch (e: any) {
+          console.warn("[fetch_submission_file] Vision OCR failed:", e.message);
+        }
+      }
     } else {
       extractedText = buffer.toString("utf-8");
+    }
+
+    if (extractedText.length === 0) {
+      return {
+        error: true,
+        message: `Le fichier "${submission.file_name}" n'a produit aucun texte extractible. Le document est peut-être vide ou dans un format non supporté.`,
+      };
     }
 
     return {
@@ -238,17 +293,19 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       }
     }
 
-    // Map agent output fields to actual DB columns:
-    // - "designation" (from agent prompt) → "description" (DB column)
-    // - lot/chapter hierarchy → stored in "metadata" JSONB (not flat columns)
-    // - cfc_code preserved from agent extraction
+    // Map agent output fields to actual DB columns.
+    // CRITICAL column names (must match DB schema exactly):
+    //   - "designation" (agent prompt) → "description" (DB)
+    //   - "cfc_code" (agent prompt) → "cfc_subcode" (DB — NOT cfc_code!)
+    //   - "project_id" must be included (required by DB)
     const dbItems = items.map((item: any, idx: number) => ({
       submission_id: submissionId,
+      project_id: submission.project_id,
       item_number: item.item_number || String(idx + 1),
       description: item.designation || item.description || "",
       unit: item.unit || null,
       quantity: item.quantity != null ? Number(item.quantity) : null,
-      cfc_code: item.cfc_code || null,
+      cfc_subcode: item.cfc_code || item.cfc_subcode || null,
       material_group: item.material_group || "Divers",
       product_name: item.product_name || null,
       status: "pending",
@@ -688,15 +745,19 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     switch (true) {
       case ft === "pdf" || ft.includes("pdf"): {
-        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-        const doc = await pdfjs.getDocument({ data: buffer }).promise;
-        const pages: string[] = [];
-        for (let i = 1; i <= doc.numPages; i++) {
-          const page = await doc.getPage(i);
-          const content = await page.getTextContent();
-          pages.push(content.items.map((item: any) => item.str || "").join(" "));
+        try {
+          const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+          const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+          const pages: string[] = [];
+          for (let i = 1; i <= doc.numPages; i++) {
+            const page = await doc.getPage(i);
+            const content = await page.getTextContent();
+            pages.push(content.items.map((item: any) => item.str || "").join(" "));
+          }
+          text = pages.join("\n\n");
+        } catch (e: any) {
+          console.warn("[fetch_file_content] pdfjs parse failed:", e.message);
         }
-        text = pages.join("\n\n");
         break;
       }
       case ft === "xlsx" || ft === "xls" || ft.includes("spreadsheet") || ft.includes("excel"): {
