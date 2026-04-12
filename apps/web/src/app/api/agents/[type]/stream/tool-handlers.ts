@@ -101,12 +101,14 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     }
 
     // Extract text based on file type
-    const fileType = submission.file_type || submission.file_name?.split(".").pop() || "unknown";
+    // Prefer extension from filename (reliable), fall back to MIME type detection
+    const ext = submission.file_name?.split(".").pop()?.toLowerCase() || "";
+    const mime = (submission.file_type || "").toLowerCase();
     const buffer = Buffer.from(await fileData.arrayBuffer());
 
     let extractedText = "";
 
-    if (fileType === "xlsx" || fileType === "xls") {
+    if (ext === "xlsx" || ext === "xls" || mime.includes("spreadsheet") || mime.includes("excel")) {
       // Dynamic import to avoid bundling xlsx on client
       const XLSX = await import("xlsx");
       const workbook = XLSX.read(buffer, { type: "buffer" });
@@ -120,7 +122,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
           extractedText += `\n=== Sheet: ${sheetName} ===\n${lines.join("\n")}`;
         }
       }
-    } else if (fileType === "pdf") {
+    } else if (ext === "pdf" || mime.includes("pdf")) {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       const doc = await pdfjs.getDocument({ data: buffer }).promise;
       const pages: string[] = [];
@@ -139,7 +141,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     return {
       file_name: submission.file_name,
-      file_type: fileType,
+      file_type: ext || mime,
       text_length: extractedText.length,
       content: extractedText.slice(0, 200_000), // 200K chars max (~50K tokens)
     };
@@ -680,11 +682,12 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       buffer = Buffer.from(await data.arrayBuffer());
     }
 
-    // Parse based on type
+    // Parse based on type — normalize MIME types to extensions
+    const ft = (fileType || "").toLowerCase();
     let text = "";
 
-    switch (fileType) {
-      case "pdf": {
+    switch (true) {
+      case ft === "pdf" || ft.includes("pdf"): {
         const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
         const doc = await pdfjs.getDocument({ data: buffer }).promise;
         const pages: string[] = [];
@@ -696,8 +699,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         text = pages.join("\n\n");
         break;
       }
-      case "xlsx":
-      case "xls": {
+      case ft === "xlsx" || ft === "xls" || ft.includes("spreadsheet") || ft.includes("excel"): {
         const XLSX = await import("xlsx");
         const wb = XLSX.read(buffer, { type: "buffer" });
         for (const name of wb.SheetNames) {
@@ -707,7 +709,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         }
         break;
       }
-      case "msg": {
+      case ft === "msg": {
         const { default: MsgReader } = await import("@kenjiuno/msgreader");
         const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
         const reader = new MsgReader(arrayBuffer as ArrayBuffer);
