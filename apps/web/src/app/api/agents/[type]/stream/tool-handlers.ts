@@ -60,20 +60,28 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   fetch_submission_file: async (input, ctx) => {
     const submissionId = input.submission_id as string;
 
-    // Get submission with file info
+    // Get submission (no join — avoids ambiguous FK with portal_submission_id)
     const { data: submission, error } = await (ctx.admin as any)
       .from("submissions")
-      .select("id, title, file_url, file_name, file_type, project_id, projects!inner(organization_id)")
+      .select("id, title, file_url, file_name, file_type, project_id")
       .eq("id", submissionId)
       .maybeSingle();
 
     if (error || !submission) {
+      console.error("[tool:fetch_submission_file] Query error:", error?.message);
       return { error: true, message: `Submission ${submissionId} not found` };
     }
 
-    // IDOR check
-    if (submission.projects?.organization_id !== ctx.organizationId) {
-      return { error: true, message: "Access denied" };
+    // IDOR check via project
+    if (submission.project_id) {
+      const { data: project } = await (ctx.admin as any)
+        .from("projects")
+        .select("organization_id")
+        .eq("id", submission.project_id)
+        .maybeSingle();
+      if (!project || project.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Access denied" };
+      }
     }
 
     if (!submission.file_url) {
@@ -140,17 +148,30 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_submission_context: async (input, ctx) => {
     const submissionId = input.submission_id as string;
 
-    const { data: submission } = await (ctx.admin as any)
+    // Separate queries to avoid ambiguous FK (portal_submission_id)
+    const { data: submission, error } = await (ctx.admin as any)
       .from("submissions")
-      .select(`
-        id, title, reference, status, deadline,
-        project_id, projects!inner(name, code, organization_id)
-      `)
+      .select("id, title, reference, status, deadline, project_id")
       .eq("id", submissionId)
       .maybeSingle();
 
-    if (!submission || submission.projects?.organization_id !== ctx.organizationId) {
-      return { error: true, message: "Submission not found or access denied" };
+    if (error || !submission) {
+      console.error("[tool:get_submission_context] Query error:", error?.message);
+      return { error: true, message: "Submission not found" };
+    }
+
+    // Fetch project separately for IDOR check + context
+    let projectData: { name: string; code: string } | null = null;
+    if (submission.project_id) {
+      const { data: project } = await (ctx.admin as any)
+        .from("projects")
+        .select("name, code, organization_id")
+        .eq("id", submission.project_id)
+        .maybeSingle();
+      if (!project || project.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Access denied" };
+      }
+      projectData = { name: project.name, code: project.code };
     }
 
     // Get existing items count
@@ -173,10 +194,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         status: submission.status,
         deadline: submission.deadline,
       },
-      project: {
-        name: submission.projects.name,
-        code: submission.projects.code,
-      },
+      project: projectData || { name: "Unknown", code: "" },
       existing_items_count: itemsCount || 0,
       existing_lots: lots || [],
     };
@@ -196,15 +214,26 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { error: true, message: "Items array is empty" };
     }
 
-    // Verify org ownership
+    // Verify org ownership (separate queries to avoid ambiguous FK)
     const { data: submission } = await (ctx.admin as any)
       .from("submissions")
-      .select("id, project_id, projects!inner(organization_id)")
+      .select("id, project_id")
       .eq("id", submissionId)
       .maybeSingle();
 
-    if (!submission || submission.projects?.organization_id !== ctx.organizationId) {
-      return { error: true, message: "Access denied" };
+    if (!submission) {
+      return { error: true, message: "Submission not found" };
+    }
+
+    if (submission.project_id) {
+      const { data: project } = await (ctx.admin as any)
+        .from("projects")
+        .select("organization_id")
+        .eq("id", submission.project_id)
+        .maybeSingle();
+      if (!project || project.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Access denied" };
+      }
     }
 
     // Map agent output fields to actual DB columns:
