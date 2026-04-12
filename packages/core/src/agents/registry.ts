@@ -8,7 +8,6 @@ import type {
   CantaiaAgentConfig,
   MACustomTool,
 } from "./types";
-import { MA_TOOLSET } from "./types";
 
 // ── Custom Tool Definitions ─────────────────────────────────
 
@@ -307,17 +306,11 @@ RÈGLES CRITIQUES :
 - Si le document a des onglets/feuilles multiples, traite-les TOUS
 - Identifie les codes CFC suisses quand la numérotation le permet (2xx = gros-œuvre, 27x = menuiserie, 28x = revêtements...)`,
     tools: [
-      { type: MA_TOOLSET },
       TOOL_FETCH_SUBMISSION_FILE,
       TOOL_SAVE_ANALYSIS_RESULT,
       TOOL_GET_SUBMISSION_CONTEXT,
     ],
     maxDurationMs: 10 * 60 * 1000, // 10 minutes
-    sharedEnvironment: true,
-    environmentConfig: {
-      type: "cloud",
-      networking: { type: "restricted" },
-    },
   },
 
   "briefing-generator": {
@@ -378,16 +371,10 @@ RÈGLES :
 - Ton ton est professionnel mais humain. Tu tutoies l'utilisateur. Sois concis.
 - NE PAS inventer de données — utilise UNIQUEMENT les données de fetch_cantaia_context`,
     tools: [
-      { type: MA_TOOLSET },
       TOOL_FETCH_CANTAIA_CONTEXT,
       TOOL_SAVE_BRIEFING,
     ],
     maxDurationMs: 5 * 60 * 1000, // 5 minutes
-    sharedEnvironment: true,
-    environmentConfig: {
-      type: "cloud",
-      networking: { type: "unrestricted" }, // Needs web access for weather
-    },
   },
 
   "email-classifier": {
@@ -439,17 +426,11 @@ RÈGLES CRITIQUES :
 - ai_reasoning doit expliquer le matching projet ET la classification
 - NE PAS inventer de project_id — utilise UNIQUEMENT les IDs de get_projects_list`,
     tools: [
-      { type: MA_TOOLSET },
       TOOL_FETCH_EMAILS_BATCH,
       TOOL_GET_PROJECTS_LIST,
       TOOL_SAVE_CLASSIFICATIONS,
     ],
     maxDurationMs: 10 * 60 * 1000, // 10 minutes
-    sharedEnvironment: true,
-    environmentConfig: {
-      type: "cloud",
-      networking: { type: "restricted" },
-    },
   },
 
   "plan-estimator": {
@@ -561,24 +542,11 @@ RÈGLES CRITIQUES :
 - Extrais TOUS les postes visibles sur le plan, même approximatifs
 - Codes CFC suisses : 2xx gros-œuvre, 25x isolation/étanchéité, 27x menuiserie, 28x revêtements, 23x électricité, 24x CVC, 22x installations sanitaires`,
     tools: [
-      {
-        type: MA_TOOLSET,
-        configs: [
-          { name: "bash", enabled: false },
-          { name: "write", enabled: false },
-          { name: "edit", enabled: false },
-        ],
-      },
       TOOL_FETCH_PLAN_IMAGE,
       TOOL_QUERY_REFERENCE_PRICES,
       TOOL_SAVE_ESTIMATION,
     ],
     maxDurationMs: 15 * 60 * 1000, // 15 minutes
-    sharedEnvironment: true,
-    environmentConfig: {
-      type: "cloud",
-      networking: { type: "restricted" },
-    },
   },
 
   "price-extractor": {
@@ -622,23 +590,10 @@ GESTION MULTI-FICHIERS :
 - Regroupe TOUS les prix de tous les fichiers en un seul appel save_extracted_prices
 - Si un fichier ne contient pas de prix (ex: courrier d'accompagnement), passe au suivant`,
     tools: [
-      {
-        type: MA_TOOLSET,
-        configs: [
-          { name: "bash", enabled: false },
-          { name: "write", enabled: false },
-          { name: "edit", enabled: false },
-        ],
-      },
       TOOL_FETCH_FILE_CONTENT,
       TOOL_SAVE_EXTRACTED_PRICES,
     ],
     maxDurationMs: 10 * 60 * 1000, // 10 minutes
-    sharedEnvironment: true,
-    environmentConfig: {
-      type: "cloud",
-      networking: { type: "restricted" },
-    },
   },
 };
 

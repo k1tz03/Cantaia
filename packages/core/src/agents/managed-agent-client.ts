@@ -1,309 +1,266 @@
 // ============================================================
-// Managed Agent Client — Wrapper around Anthropic MA API
-// Handles: agent creation, environment creation, session lifecycle,
-// SSE streaming, custom tool responses
+// Agent Runner — Agentic tool-use loop via Anthropic Messages API
+//
+// Pattern: message → tool_use → execute tool → tool_result → repeat
+// No persistent sessions on Anthropic's side — each API call is stateless.
+// The "loop" is managed server-side by our stream route.
 // ============================================================
 
 import type {
-  AgentType,
-  MAAgentCreateResponse,
-  MAEnvironmentCreateResponse,
-  MASessionCreateResponse,
-  MAStreamEvent,
-  MASendableEvent,
-  CantaiaAgentConfig,
-  AgentConfigRecord,
+  AgentModel,
+  MACustomTool,
+  AgentLoopResult,
+  OnAgentEvent,
+  ToolExecutor,
 } from "./types";
-import { MA_BETA_HEADER } from "./types";
-import { getAgentConfig } from "./registry";
+import { convertToolsForAPI } from "./types";
 
 // ── Configuration ───────────────────────────────────────────
 
-const ANTHROPIC_API_BASE = "https://api.anthropic.com/v1";
+const MAX_ITERATIONS = 25;
+const MAX_DURATION_MS = 270_000; // 4.5 min (leave 30s buffer for Vercel cleanup)
+const MAX_TOKENS_PER_TURN = 8192;
 
-interface ManagedAgentClientOptions {
-  apiKey: string;
-  /** Optional: override API base URL (for testing) */
-  apiBase?: string;
-}
-
-// ── Client Class ────────────────────────────────────────────
-
-export class ManagedAgentClient {
-  private apiKey: string;
-  private apiBase: string;
-
-  constructor(options: ManagedAgentClientOptions) {
-    this.apiKey = options.apiKey;
-    this.apiBase = options.apiBase || ANTHROPIC_API_BASE;
-  }
-
-  // ── HTTP helpers ────────────────────────────────────────
-
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown
-  ): Promise<T> {
-    const url = `${this.apiBase}${path}`;
-    const headers: Record<string, string> = {
-      "x-api-key": this.apiKey,
-      "anthropic-beta": MA_BETA_HEADER,
-      "content-type": "application/json",
-    };
-
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      throw new ManagedAgentError(
-        `MA API ${method} ${path} failed: ${response.status} ${response.statusText}`,
-        response.status,
-        errorText
-      );
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  // ── Agent Management ────────────────────────────────────
-
-  /**
-   * Create or retrieve an agent on Anthropic's infrastructure.
-   * Agents are created once and reused across sessions.
-   */
-  async createAgent(config: CantaiaAgentConfig): Promise<MAAgentCreateResponse> {
-    return this.request<MAAgentCreateResponse>("POST", "/agents", {
-      name: config.name,
-      model: config.model,
-      system: config.systemPrompt,
-      tools: config.tools,
-    });
-  }
-
-  /**
-   * Create a container environment for agent sessions.
-   */
-  async createEnvironment(
-    config: CantaiaAgentConfig
-  ): Promise<MAEnvironmentCreateResponse> {
-    return this.request<MAEnvironmentCreateResponse>("POST", "/environments", {
-      name: `${config.type}-env`,
-      config: config.environmentConfig,
-    });
-  }
-
-  // ── Session Lifecycle ───────────────────────────────────
-
-  /**
-   * Start a new session for an agent.
-   * Returns session metadata (not the stream — use streamEvents for that).
-   */
-  async createSession(
-    agentId: string,
-    environmentId: string,
-    title?: string
-  ): Promise<MASessionCreateResponse> {
-    return this.request<MASessionCreateResponse>("POST", "/sessions", {
-      agent: agentId,
-      environment_id: environmentId,
-      title,
-    });
-  }
-
-  /**
-   * Send events to a running session (user messages, tool results).
-   */
-  async sendEvents(
-    sessionId: string,
-    events: MASendableEvent[]
-  ): Promise<void> {
-    await this.request("POST", `/sessions/${sessionId}/events`, { events });
-  }
-
-  /**
-   * Send a user message to start the agent working.
-   */
-  async sendUserMessage(sessionId: string, text: string): Promise<void> {
-    await this.sendEvents(sessionId, [
-      {
-        type: "user.message",
-        content: [{ type: "text", text }],
-      },
-    ]);
-  }
-
-  /**
-   * Send a tool result back to the agent (after executing a custom tool).
-   */
-  async sendToolResult(
-    sessionId: string,
-    toolUseId: string,
-    result: string
-  ): Promise<void> {
-    await this.sendEvents(sessionId, [
-      {
-        type: "tool_result",
-        tool_use_id: toolUseId,
-        content: result,
-      },
-    ]);
-  }
-
-  // ── SSE Streaming ───────────────────────────────────────
-
-  /**
-   * Open an SSE stream for a session.
-   * Returns a ReadableStream of MAStreamEvent objects.
-   * The caller is responsible for reading events and handling custom tools.
-   */
-  async openStream(sessionId: string): Promise<ReadableStream<MAStreamEvent>> {
-    const url = `${this.apiBase}/sessions/${sessionId}/stream`;
-    const headers: Record<string, string> = {
-      "x-api-key": this.apiKey,
-      "anthropic-beta": MA_BETA_HEADER,
-      Accept: "text/event-stream",
-    };
-
-    const response = await fetch(url, { method: "GET", headers });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      throw new ManagedAgentError(
-        `MA SSE stream failed: ${response.status}`,
-        response.status,
-        errorText
-      );
-    }
-
-    if (!response.body) {
-      throw new ManagedAgentError("No response body for SSE stream", 0, "");
-    }
-
-    // Transform the raw SSE byte stream into parsed MAStreamEvent objects
-    return response.body
-      .pipeThrough(new TextDecoderStream())
-      .pipeThrough(new SSEParserTransform());
-  }
-
-  // ── High-Level: Provision Agent ─────────────────────────
-
-  /**
-   * Ensure an agent and environment exist on Anthropic's infra.
-   * Creates them if they don't exist, returns cached IDs if they do.
-   *
-   * @param agentType - The Cantaia agent type
-   * @param cachedConfig - Optional cached config from DB (avoids re-creation)
-   * @returns { agentId, environmentId } ready to create sessions
-   */
-  async provisionAgent(
-    agentType: AgentType,
-    cachedConfig?: AgentConfigRecord | null
-  ): Promise<{ agentId: string; environmentId: string }> {
-    // If we have a cached config, use it directly
-    if (cachedConfig?.is_active) {
-      return {
-        agentId: cachedConfig.agent_id,
-        environmentId: cachedConfig.environment_id,
-      };
-    }
-
-    // Create from scratch
-    const config = getAgentConfig(agentType);
-    const [agent, environment] = await Promise.all([
-      this.createAgent(config),
-      this.createEnvironment(config),
-    ]);
-
-    return {
-      agentId: agent.id,
-      environmentId: environment.id,
-    };
-  }
-}
-
-// ── SSE Parser Transform Stream ─────────────────────────────
+// ── Main Agentic Loop ───────────────────────────────────────
 
 /**
- * TransformStream that parses raw SSE text into MAStreamEvent objects.
- * Handles the standard SSE format: "event: type\ndata: json\n\n"
+ * Run an agentic tool-use loop using the Anthropic Messages API.
+ *
+ * Flow:
+ * 1. Send system prompt + user message + tools to Claude
+ * 2. Claude responds with text and/or tool_use blocks
+ * 3. If tool_use → execute tools, add results to messages, goto 1
+ * 4. If end_turn → done
+ *
+ * Events are emitted via the `onEvent` callback for SSE forwarding.
  */
-class SSEParserTransform extends TransformStream<string, MAStreamEvent> {
-  constructor() {
-    let buffer = "";
-    let currentEvent: string | null = null;
-    let currentData: string[] = [];
+export async function runAgentLoop(params: {
+  apiKey: string;
+  model: AgentModel;
+  systemPrompt: string;
+  tools: MACustomTool[];
+  initialMessage: string;
+  toolExecutor: ToolExecutor;
+  onEvent: OnAgentEvent;
+  maxIterations?: number;
+  maxDurationMs?: number;
+}): Promise<AgentLoopResult> {
+  const {
+    apiKey,
+    model,
+    systemPrompt,
+    tools,
+    initialMessage,
+    toolExecutor,
+    onEvent,
+    maxIterations = MAX_ITERATIONS,
+    maxDurationMs = MAX_DURATION_MS,
+  } = params;
 
-    super({
-      transform(chunk, controller) {
-        buffer += chunk;
-        const lines = buffer.split("\n");
-        // Keep the last incomplete line in the buffer
-        buffer = lines.pop() || "";
+  // Dynamic import to avoid bundling on client side
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
+  const client = new Anthropic({ apiKey });
 
-        for (const line of lines) {
-          if (line.startsWith("event:")) {
-            currentEvent = line.slice(6).trim();
-          } else if (line.startsWith("data:")) {
-            currentData.push(line.slice(5).trim());
-          } else if (line === "" && currentEvent) {
-            // Empty line = end of event
-            const dataStr = currentData.join("\n");
-            try {
-              const parsed = JSON.parse(dataStr);
-              const event: MAStreamEvent = {
-                type: currentEvent as MAStreamEvent["type"],
-                timestamp: parsed.timestamp,
-                ...parsed,
-              };
-              controller.enqueue(event);
-            } catch {
-              // Non-JSON data — emit as raw text event
-              controller.enqueue({
-                type: currentEvent as MAStreamEvent["type"],
-                data: dataStr,
-              });
-            }
-            currentEvent = null;
-            currentData = [];
-          }
+  const apiTools = convertToolsForAPI(tools);
+
+  // Build initial messages array
+  const messages: Array<{ role: string; content: any }> = [
+    { role: "user", content: initialMessage },
+  ];
+
+  // Metrics
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let toolCallsCount = 0;
+  let customToolCallsCount = 0;
+  let eventsCount = 0;
+  const toolsUsed = new Set<string>();
+  const startTime = Date.now();
+
+  try {
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+      // Check timeout
+      if (Date.now() - startTime > maxDurationMs) {
+        onEvent("error", { error: "Agent loop timed out" });
+        return buildResult("failed", "Agent loop timed out after " + Math.round((Date.now() - startTime) / 1000) + "s");
+      }
+
+      // Call Anthropic Messages API
+      const response = await client.messages.create({
+        model,
+        max_tokens: MAX_TOKENS_PER_TURN,
+        system: systemPrompt,
+        tools: apiTools as any,
+        messages: messages as any,
+      });
+
+      // Track token usage
+      inputTokens += response.usage?.input_tokens || 0;
+      outputTokens += response.usage?.output_tokens || 0;
+
+      // Process response content blocks
+      const toolUseBlocks: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+
+      for (const block of response.content) {
+        eventsCount++;
+
+        if (block.type === "text" && block.text) {
+          onEvent("agent.message", {
+            content: [{ type: "text", text: block.text }],
+          });
+        } else if (block.type === "tool_use") {
+          toolCallsCount++;
+          customToolCallsCount++;
+          toolsUsed.add(block.name);
+
+          toolUseBlocks.push({
+            id: block.id,
+            name: block.name,
+            input: block.input as Record<string, unknown>,
+          });
+
+          // Emit tool_use event to client
+          onEvent("agent.tool_use", {
+            tool_name: block.name,
+            tool_use_id: block.id,
+            tool_input: block.input,
+          });
         }
-      },
-      flush(controller) {
-        // Handle any remaining buffered data
-        if (currentEvent && currentData.length > 0) {
-          const dataStr = currentData.join("\n");
-          try {
-            const parsed = JSON.parse(dataStr);
-            controller.enqueue({
-              type: currentEvent as MAStreamEvent["type"],
-              ...parsed,
-            });
-          } catch {
-            controller.enqueue({
-              type: currentEvent as MAStreamEvent["type"],
-              data: dataStr,
-            });
-          }
+      }
+
+      // If no tool calls, we're done
+      if (response.stop_reason !== "tool_use" || toolUseBlocks.length === 0) {
+        // Agent finished
+        onEvent("session.status_completed", { status: "completed" });
+        return buildResult("completed");
+      }
+
+      // Execute tools and collect results
+      // Add the assistant response to messages first
+      messages.push({ role: "assistant", content: response.content });
+
+      const toolResults: Array<{
+        type: "tool_result";
+        tool_use_id: string;
+        content: string | Array<{ type: string; [key: string]: unknown }>;
+      }> = [];
+
+      for (const toolBlock of toolUseBlocks) {
+        try {
+          const result = await toolExecutor(toolBlock.name, toolBlock.input);
+
+          // Format the result — handle images specially for Vision
+          const formattedContent = formatToolResult(result);
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolBlock.id,
+            content: formattedContent,
+          });
+
+          // Emit tool result to client
+          const preview = typeof result === "string"
+            ? result.slice(0, 500)
+            : JSON.stringify(result).slice(0, 500);
+          onEvent("custom_tool_result", {
+            tool_name: toolBlock.name,
+            tool_use_id: toolBlock.id,
+            result_preview: preview,
+          });
+        } catch (toolError) {
+          console.error(`[agent-loop] Tool ${toolBlock.name} failed:`, toolError);
+
+          const errorMsg = toolError instanceof Error
+            ? toolError.message
+            : "Tool execution failed";
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolBlock.id,
+            content: JSON.stringify({ error: true, message: errorMsg }),
+          });
+
+          onEvent("custom_tool_result", {
+            tool_name: toolBlock.name,
+            tool_use_id: toolBlock.id,
+            result_preview: `Error: ${errorMsg}`,
+            is_error: true,
+          });
         }
-      },
-    });
+      }
+
+      // Add tool results as user message and continue the loop
+      messages.push({ role: "user", content: toolResults });
+    }
+
+    // Exceeded max iterations
+    onEvent("error", { error: "Max iterations reached" });
+    return buildResult("failed", `Agent exceeded ${maxIterations} iterations`);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Unknown agent error";
+    console.error("[agent-loop] Fatal error:", err);
+    onEvent("session.status_failed", { status: "failed", error: errorMsg });
+    return buildResult("failed", errorMsg);
   }
+
+  // Helper to build the result object
+  function buildResult(status: "completed" | "failed", error?: string): AgentLoopResult {
+    return {
+      status,
+      inputTokens,
+      outputTokens,
+      toolCallsCount,
+      customToolCallsCount,
+      eventsCount,
+      toolsUsed: Array.from(toolsUsed),
+      ...(error ? { error } : {}),
+    };
+  }
+}
+
+// ── Tool Result Formatting ──────────────────────────────────
+
+/**
+ * Format a tool result for the Messages API.
+ * Handles images specially: if the result contains `image_base64` with a data URI,
+ * it's sent as an image content block so Claude can "see" it via Vision.
+ */
+function formatToolResult(
+  result: string | Record<string, unknown>
+): string | Array<{ type: string; [key: string]: unknown }> {
+  if (typeof result === "string") return result;
+
+  // Check for image content (e.g., from fetch_plan_image)
+  if (result.image_base64 && typeof result.image_base64 === "string") {
+    const match = (result.image_base64 as string).match(
+      /^data:(.+?);base64,(.+)$/
+    );
+    if (match) {
+      const [, mediaType, data] = match;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { image_base64, ...rest } = result;
+      return [
+        {
+          type: "image",
+          source: { type: "base64", media_type: mediaType, data },
+        },
+        { type: "text", text: JSON.stringify(rest) },
+      ];
+    }
+  }
+
+  return JSON.stringify(result);
 }
 
 // ── Error Class ─────────────────────────────────────────────
 
-export class ManagedAgentError extends Error {
+export class AgentError extends Error {
   public status: number;
   public responseBody: string;
 
   constructor(message: string, status: number, responseBody: string) {
     super(message);
-    this.name = "ManagedAgentError";
+    this.name = "AgentError";
     this.status = status;
     this.responseBody = responseBody;
   }
@@ -313,16 +270,5 @@ export class ManagedAgentError extends Error {
   }
 }
 
-// ── Factory ─────────────────────────────────────────────────
-
-/**
- * Create a ManagedAgentClient instance.
- * Uses ANTHROPIC_API_KEY from environment.
- */
-export function createManagedAgentClient(): ManagedAgentClient {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is required for Managed Agents");
-  }
-  return new ManagedAgentClient({ apiKey });
-}
+/** @deprecated Use AgentError instead */
+export const ManagedAgentError = AgentError;

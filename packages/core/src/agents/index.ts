@@ -6,21 +6,10 @@
 export type {
   AgentType,
   SessionStatus,
-  MAModel,
-  MAToolsetConfig,
+  AgentModel,
+  MAModel, // deprecated alias
   MACustomTool,
-  MATool,
-  MAAgentCreateRequest,
-  MAAgentCreateResponse,
-  MAEnvironmentCreateRequest,
-  MAEnvironmentCreateResponse,
-  MASessionCreateRequest,
-  MASessionCreateResponse,
-  MAEventType,
-  MAStreamEvent,
-  MAUserMessageEvent,
-  MAToolResultEvent,
-  MASendableEvent,
+  MessagesAPITool,
   MATextContent,
   MAToolUseContent,
   MAToolResultContent,
@@ -28,17 +17,16 @@ export type {
   CantaiaAgentConfig,
   AgentSessionRecord,
   AgentConfigRecord,
+  AgentLoopResult,
+  OnAgentEvent,
+  ToolExecutor,
 } from "./types";
 
-// Constants
-export { AGENT_TYPES, MA_BETA_HEADER, MA_TOOLSET } from "./types";
+// Functions
+export { AGENT_TYPES, convertToolsForAPI } from "./types";
 
 // Registry
 export { AGENT_REGISTRY, getAgentConfig, getRegisteredAgentTypes } from "./registry";
 
-// Client
-export {
-  ManagedAgentClient,
-  ManagedAgentError,
-  createManagedAgentClient,
-} from "./managed-agent-client";
+// Agent runner (agentic tool-use loop)
+export { runAgentLoop, AgentError, ManagedAgentError } from "./managed-agent-client";

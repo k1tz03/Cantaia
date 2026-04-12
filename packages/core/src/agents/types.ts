@@ -1,6 +1,6 @@
 // ============================================================
-// Managed Agents — Type definitions
-// Covers: agent config, session lifecycle, SSE events, custom tools
+// Agent Types — Type definitions for Cantaia agents
+// Uses standard Anthropic Messages API (agentic tool-use loop)
 // ============================================================
 
 // ── Agent Types (Cantaia-specific) ──────────────────────────
@@ -31,27 +31,16 @@ export type SessionStatus =
   | "failed"      // Session errored
   | "cancelled";  // User cancelled
 
-// ── Anthropic API Types ─────────────────────────────────────
+// ── Models ──────────────────────────────────────────────────
 
-/** Beta header required for all MA endpoints */
-export const MA_BETA_HEADER = "managed-agents-2026-04-01";
+export type AgentModel = "claude-sonnet-4-6" | "claude-sonnet-4-5-20250929";
 
-/** Built-in toolset identifier */
-export const MA_TOOLSET = "agent_toolset_20260401";
+/** @deprecated Use AgentModel instead */
+export type MAModel = AgentModel;
 
-/** Models supported by Managed Agents */
-export type MAModel = "claude-sonnet-4-6" | "claude-sonnet-4-5-20250929";
+// ── Tool Definitions ────────────────────────────────────────
 
-/** Tool configuration for built-in toolset */
-export interface MAToolsetConfig {
-  type: typeof MA_TOOLSET;
-  configs?: Array<{
-    name: string;
-    enabled: boolean;
-  }>;
-}
-
-/** Custom tool definition */
+/** Custom tool definition (compatible with Anthropic Messages API) */
 export interface MACustomTool {
   type: "custom";
   name: string;
@@ -67,75 +56,28 @@ export interface MACustomTool {
   };
 }
 
-/** Union of all tool types */
-export type MATool = MAToolsetConfig | MACustomTool;
-
-/** Agent creation request */
-export interface MAAgentCreateRequest {
+/** Messages API tool format (what we send to Anthropic) */
+export interface MessagesAPITool {
   name: string;
-  model: MAModel;
-  system: string;
-  tools: MATool[];
-}
-
-/** Agent creation response */
-export interface MAAgentCreateResponse {
-  id: string;
-  name: string;
-  model: string;
-  created_at: string;
-}
-
-/** Environment creation request */
-export interface MAEnvironmentCreateRequest {
-  name: string;
-  config: {
-    type: "cloud";
-    networking: { type: "unrestricted" | "restricted" };
-    packages?: {
-      pip?: string[];
-      npm?: string[];
-      apt?: string[];
-    };
+  description: string;
+  input_schema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
   };
 }
 
-/** Environment creation response */
-export interface MAEnvironmentCreateResponse {
-  id: string;
-  name: string;
-  created_at: string;
+/** Convert our tool definitions to Messages API format */
+export function convertToolsForAPI(tools: MACustomTool[]): MessagesAPITool[] {
+  return tools.map(({ name, description, input_schema }) => ({
+    name,
+    description,
+    input_schema,
+  }));
 }
 
-/** Session creation request */
-export interface MASessionCreateRequest {
-  agent: string;         // agent_id
-  environment_id: string;
-  title?: string;
-}
+// ── Content Blocks ──────────────────────────────────────────
 
-/** Session creation response */
-export interface MASessionCreateResponse {
-  id: string;
-  agent: string;
-  environment_id: string;
-  status: string;
-  created_at: string;
-}
-
-// ── SSE Event Types ─────────────────────────────────────────
-
-export type MAEventType =
-  | "user.message"
-  | "agent.message"
-  | "agent.tool_use"
-  | "agent.tool_result"
-  | "session.status_running"
-  | "session.status_idle"
-  | "session.status_completed"
-  | "session.status_failed";
-
-/** Content block in messages */
 export interface MATextContent {
   type: "text";
   text: string;
@@ -151,40 +93,10 @@ export interface MAToolUseContent {
 export interface MAToolResultContent {
   type: "tool_result";
   tool_use_id: string;
-  content: string;
+  content: string | Array<{ type: string; [key: string]: unknown }>;
 }
 
 export type MAContentBlock = MATextContent | MAToolUseContent | MAToolResultContent;
-
-/** SSE event from the stream */
-export interface MAStreamEvent {
-  type: MAEventType;
-  timestamp?: string;
-  content?: MAContentBlock[];
-  /** For agent.tool_use — the tool being called */
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  tool_use_id?: string;
-  /** For status events */
-  status?: string;
-  /** Raw event data */
-  data?: unknown;
-}
-
-/** User message event (sent TO the agent) */
-export interface MAUserMessageEvent {
-  type: "user.message";
-  content: MAContentBlock[];
-}
-
-/** Tool result event (sent TO the agent after custom tool execution) */
-export interface MAToolResultEvent {
-  type: "tool_result";
-  tool_use_id: string;
-  content: string;
-}
-
-export type MASendableEvent = MAUserMessageEvent | MAToolResultEvent;
 
 // ── Cantaia Agent Config ────────────────────────────────────
 
@@ -193,17 +105,38 @@ export interface CantaiaAgentConfig {
   type: AgentType;
   name: string;
   description: string;
-  model: MAModel;
+  model: AgentModel;
   systemPrompt: string;
-  tools: MATool[];
-  /** Disable specific built-in tools */
-  disabledBuiltinTools?: string[];
+  tools: MACustomTool[];
   /** Max session duration before auto-cancel (ms) */
   maxDurationMs: number;
-  /** Whether to create a shared environment or per-session */
-  sharedEnvironment: boolean;
-  environmentConfig: MAEnvironmentCreateRequest["config"];
 }
+
+// ── Agentic Loop Types ──────────────────────────────────────
+
+/** Result of running the agentic tool-use loop */
+export interface AgentLoopResult {
+  status: "completed" | "failed";
+  inputTokens: number;
+  outputTokens: number;
+  toolCallsCount: number;
+  customToolCallsCount: number;
+  eventsCount: number;
+  toolsUsed: string[];
+  error?: string;
+}
+
+/** Callback for emitting SSE events during the loop */
+export type OnAgentEvent = (
+  eventType: string,
+  data: Record<string, unknown>
+) => void;
+
+/** Function that executes a custom tool and returns the result */
+export type ToolExecutor = (
+  toolName: string,
+  toolInput: Record<string, unknown>
+) => Promise<string | Record<string, unknown>>;
 
 // ── DB Record Types ─────────────────────────────────────────
 

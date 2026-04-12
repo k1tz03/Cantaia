@@ -1,13 +1,16 @@
 // ============================================================
 // POST /api/agents/[type]/respond
-// Send a follow-up user message or tool result to a running session.
-// Used when the client needs to steer the agent mid-execution.
+// Send a follow-up user message to an agent session.
+//
+// NOTE: With the Messages API architecture, the agentic loop runs
+// entirely within the stream route. This route is reserved for
+// future multi-turn support (e.g., user sends a follow-up after
+// the agent completes). Currently, all 5 agents are single-turn.
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createManagedAgentClient } from "@cantaia/core/agents";
 import { AGENT_TYPES } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 
@@ -16,11 +19,7 @@ export const dynamic = "force-dynamic";
 
 interface RespondBody {
   session_id: string;
-  /** User message to send */
   message?: string;
-  /** Tool result to send back (for manual tool approval flows) */
-  tool_use_id?: string;
-  tool_result?: string;
 }
 
 export async function POST(
@@ -61,13 +60,6 @@ export async function POST(
     );
   }
 
-  if (!body.message && !body.tool_use_id) {
-    return NextResponse.json(
-      { error: "Either message or tool_use_id + tool_result required" },
-      { status: 400 }
-    );
-  }
-
   // ── Verify session ownership ────────────────────────────
   const admin = createAdminClient();
 
@@ -81,15 +73,6 @@ export async function POST(
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  // FIX #10: Guard — don't send messages to terminal sessions
-  const activeStatuses = ["running", "tool_pending", "idle", "pending"];
-  if (!activeStatuses.includes(sessionRecord.status)) {
-    return NextResponse.json(
-      { error: `Session is ${sessionRecord.status} and cannot receive messages` },
-      { status: 409 }
-    );
-  }
-
   const { data: userProfile } = await (admin as any)
     .from("users")
     .select("organization_id")
@@ -100,32 +83,16 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // ── Send event ──────────────────────────────────────────
-  try {
-    const maClient = createManagedAgentClient();
-
-    if (body.message) {
-      await maClient.sendUserMessage(body.session_id, body.message);
-    } else if (body.tool_use_id && body.tool_result) {
-      await maClient.sendToolResult(
-        body.session_id,
-        body.tool_use_id,
-        body.tool_result
-      );
-    }
-
-    // Update session status
-    await (admin as any)
-      .from("agent_sessions")
-      .update({ status: "running" })
-      .eq("session_id", body.session_id);
-
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[agents/respond] Error:", err);
-    return NextResponse.json(
-      { error: "Failed to send event to agent" },
-      { status: 500 }
-    );
-  }
+  // ── Check session status ────────────────────────────────
+  // The agentic loop runs within the stream route. Follow-up messages
+  // are not supported during an active loop. This route is for future
+  // multi-turn support only.
+  return NextResponse.json(
+    {
+      error: "Follow-up messages are not supported during agent execution. " +
+        "The agent runs autonomously until completion.",
+      session_status: sessionRecord.status,
+    },
+    { status: 409 }
+  );
 }

@@ -1,19 +1,26 @@
 // ============================================================
 // GET /api/agents/[type]/stream?session_id=xxx
-// Opens an SSE stream to the Managed Agent session.
-// Proxies events from Anthropic → client, handling custom tools
-// in between by delegating to tool handlers.
+// Runs the agentic tool-use loop via Anthropic Messages API.
+//
+// Flow:
+// 1. Auth + read session from DB (including initial message)
+// 2. Get agent config (system prompt + tools) from registry
+// 3. Run agentic loop: message → tool_use → execute → tool_result → repeat
+// 4. Forward all events to client as SSE
+// 5. Update DB with metrics on completion
+//
+// The loop runs entirely server-side. Custom tools are executed via
+// tool-handlers.ts. The client receives SSE events for real-time UI.
 // ============================================================
 
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createManagedAgentClient } from "@cantaia/core/agents";
-import { AGENT_TYPES } from "@cantaia/core/agents";
+import { AGENT_TYPES, getAgentConfig, runAgentLoop } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "./tool-handlers";
 
-export const maxDuration = 300; // 5 min — the stream itself runs on Anthropic's infra
+export const maxDuration = 300; // 5 min — the agentic loop can take a while
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -53,7 +60,7 @@ export async function GET(
   // Verify the session belongs to the user's org
   const { data: sessionRecord } = await (admin as any)
     .from("agent_sessions")
-    .select("id, organization_id, user_id, agent_type, session_id, started_at")
+    .select("id, organization_id, user_id, agent_type, session_id, input_payload, started_at")
     .eq("session_id", sessionId)
     .maybeSingle();
 
@@ -75,157 +82,115 @@ export async function GET(
     });
   }
 
-  // ── Open SSE stream ─────────────────────────────────────
-  const maClient = createManagedAgentClient();
+  // ── Read initial message & config ───────────────────────
   const agentType = type as AgentType;
+  const agentConfig = getAgentConfig(agentType);
 
+  const initialMessage = sessionRecord.input_payload?._initial_message;
+  if (!initialMessage || typeof initialMessage !== "string") {
+    return new Response(JSON.stringify({ error: "No initial message in session" }), {
+      status: 400,
+    });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+      status: 500,
+    });
+  }
+
+  // ── Mark session as running ─────────────────────────────
+  await (admin as any)
+    .from("agent_sessions")
+    .update({ status: "running" })
+    .eq("session_id", sessionId);
+
+  // ── Setup SSE stream ────────────────────────────────────
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
     async start(controller) {
-      let toolCallsCount = 0;
-      let customToolCallsCount = 0;
-      let eventsCount = 0;
-      let lastEventType = "";
-      const toolsUsed = new Set<string>();
+      // SSE emitter helper
+      function emit(eventType: string, data: Record<string, unknown>) {
+        const sseData = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+        try {
+          controller.enqueue(encoder.encode(sseData));
+        } catch {
+          // Controller may be closed if client disconnected
+        }
+      }
 
       try {
-        const stream = await maClient.openStream(sessionId);
-        const reader = stream.getReader();
-
-        while (true) {
-          const { done, value: event } = await reader.read();
-          if (done) break;
-
-          eventsCount++;
-          lastEventType = event.type;
-
-          // Forward event to client as SSE
-          const sseData = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-          controller.enqueue(encoder.encode(sseData));
-
-          // Handle custom tool calls — execute and send result back
-          if (event.type === "agent.tool_use" && event.tool_name) {
-            toolCallsCount++;
-            toolsUsed.add(event.tool_name);
-
-            // Check if this is a custom tool (not built-in)
-            const isCustomTool = !isBuiltinTool(event.tool_name);
-
-            if (isCustomTool && event.tool_use_id) {
-              customToolCallsCount++;
-
-              // Execute the custom tool
-              try {
-                const toolResult = await executeCustomTool(
-                  agentType,
-                  event.tool_name,
-                  event.tool_input || {},
-                  {
-                    userId: user.id,
-                    organizationId: sessionRecord.organization_id,
-                    sessionId: sessionRecord.id,
-                    admin,
-                  }
-                );
-
-                // Send result back to the agent
-                await maClient.sendToolResult(
-                  sessionId,
-                  event.tool_use_id,
-                  typeof toolResult === "string"
-                    ? toolResult
-                    : JSON.stringify(toolResult)
-                );
-
-                // Forward the tool result as SSE to client
-                const resultEvent = `event: custom_tool_result\ndata: ${JSON.stringify({
-                  tool_name: event.tool_name,
-                  tool_use_id: event.tool_use_id,
-                  result_preview: typeof toolResult === "string"
-                    ? toolResult.slice(0, 500)
-                    : JSON.stringify(toolResult).slice(0, 500),
-                })}\n\n`;
-                controller.enqueue(encoder.encode(resultEvent));
-              } catch (toolError) {
-                console.error(
-                  `[agents/stream] Tool ${event.tool_name} failed:`,
-                  toolError
-                );
-                // Send error back to agent so it can adapt
-                await maClient.sendToolResult(
-                  sessionId,
-                  event.tool_use_id,
-                  JSON.stringify({
-                    error: true,
-                    message:
-                      toolError instanceof Error
-                        ? toolError.message
-                        : "Tool execution failed",
-                  })
-                );
+        // Run the agentic tool-use loop
+        const result = await runAgentLoop({
+          apiKey,
+          model: agentConfig.model,
+          systemPrompt: agentConfig.systemPrompt,
+          tools: agentConfig.tools,
+          initialMessage,
+          onEvent: emit,
+          toolExecutor: (toolName, toolInput) =>
+            executeCustomTool(
+              agentType,
+              toolName,
+              toolInput,
+              {
+                userId: user.id,
+                organizationId: sessionRecord.organization_id,
+                sessionId: sessionRecord.id,
+                admin,
               }
-            }
-          }
+            ),
+        });
 
-          // Session completed — update DB and close
-          if (
-            event.type === "session.status_idle" ||
-            event.type === "session.status_completed" ||
-            event.type === "session.status_failed"
-          ) {
-            const finalStatus =
-              event.type === "session.status_failed" ? "failed" : "completed";
+        // Update session record in DB with metrics
+        await (admin as any)
+          .from("agent_sessions")
+          .update({
+            status: result.status,
+            completed_at: new Date().toISOString(),
+            duration_ms: sessionRecord.started_at
+              ? Date.now() - new Date(sessionRecord.started_at).getTime()
+              : null,
+            input_tokens: result.inputTokens,
+            output_tokens: result.outputTokens,
+            events_count: result.eventsCount,
+            last_event_type: result.status === "completed" ? "session.status_completed" : "session.status_failed",
+            last_event_at: new Date().toISOString(),
+            tool_calls_count: result.toolCallsCount,
+            custom_tool_calls_count: result.customToolCallsCount,
+            tools_used: result.toolsUsed,
+            ...(result.error ? { error_message: result.error } : {}),
+          })
+          .eq("session_id", sessionId);
 
-            // Update session record in DB
-            await (admin as any)
-              .from("agent_sessions")
-              .update({
-                status: finalStatus,
-                completed_at: new Date().toISOString(),
-                duration_ms: sessionRecord.started_at
-                  ? Date.now() - new Date(sessionRecord.started_at).getTime()
-                  : null,
-                events_count: eventsCount,
-                last_event_type: lastEventType,
-                last_event_at: new Date().toISOString(),
-                tool_calls_count: toolCallsCount,
-                custom_tool_calls_count: customToolCallsCount,
-                tools_used: Array.from(toolsUsed),
-              })
-              .eq("session_id", sessionId);
-
-            // Send final status to client
-            const doneEvent = `event: done\ndata: ${JSON.stringify({
-              status: finalStatus,
-              events_count: eventsCount,
-              tool_calls_count: toolCallsCount,
-              custom_tool_calls_count: customToolCallsCount,
-            })}\n\n`;
-            controller.enqueue(encoder.encode(doneEvent));
-
-            break;
-          }
-        }
+        // Send final status to client
+        emit("done", {
+          status: result.status,
+          events_count: result.eventsCount,
+          tool_calls_count: result.toolCallsCount,
+          custom_tool_calls_count: result.customToolCallsCount,
+          input_tokens: result.inputTokens,
+          output_tokens: result.outputTokens,
+        });
       } catch (err) {
-        console.error("[agents/stream] Stream error:", err);
+        console.error("[agents/stream] Fatal error:", err);
+
+        const errorMsg = err instanceof Error ? err.message : "Stream error";
 
         // Update session as failed
         await (admin as any)
           .from("agent_sessions")
           .update({
             status: "failed",
-            error_message:
-              err instanceof Error ? err.message : "Stream error",
+            error_message: errorMsg,
             completed_at: new Date().toISOString(),
           })
           .eq("session_id", sessionId);
 
         // Send error to client
-        const errorEvent = `event: error\ndata: ${JSON.stringify({
-          error: err instanceof Error ? err.message : "Stream error",
-        })}\n\n`;
-        controller.enqueue(encoder.encode(errorEvent));
+        emit("error", { error: errorMsg });
       } finally {
         controller.close();
       }
@@ -237,24 +202,7 @@ export async function GET(
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "X-Accel-Buffering": "no", // Disable nginx buffering
+      "X-Accel-Buffering": "no",
     },
   });
-}
-
-// ── Built-in tool check ───────────────────────────────────────
-
-const BUILTIN_TOOLS = new Set([
-  "bash",
-  "read",
-  "write",
-  "edit",
-  "glob",
-  "grep",
-  "web_fetch",
-  "web_search",
-]);
-
-function isBuiltinTool(name: string): boolean {
-  return BUILTIN_TOOLS.has(name);
 }
