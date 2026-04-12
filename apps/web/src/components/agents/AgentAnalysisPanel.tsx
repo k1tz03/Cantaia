@@ -17,8 +17,8 @@ import {
   Wrench,
   ChevronDown,
   Clock,
-  Zap,
   Bot,
+  Globe,
 } from "lucide-react";
 import type { AgentEvent, AgentResult } from "@/lib/hooks/use-agent";
 import type { AgentType, SessionStatus } from "@cantaia/core/agents";
@@ -48,7 +48,7 @@ const TOOL_LABELS: Record<string, { label: string; icon: React.ElementType }> = 
   bash: { label: "Exécution de commande", icon: Wrench },
   read: { label: "Lecture de fichier", icon: FileSearch },
   write: { label: "Écriture de fichier", icon: Save },
-  web_fetch: { label: "Requête web", icon: Zap },
+  web_fetch: { label: "Requête web", icon: Globe },
 };
 
 function getToolInfo(toolName: string) {
@@ -272,12 +272,6 @@ export function AgentAnalysisPanel({
             <Wrench className="h-3 w-3" />
             {result.metrics.tool_calls_count} appels d&apos;outil
           </span>
-          {result.metrics.estimated_cost_chf != null && (
-            <span className="flex items-center gap-1">
-              <Zap className="h-3 w-3" />
-              ~{result.metrics.estimated_cost_chf.toFixed(3)} CHF
-            </span>
-          )}
         </div>
       )}
     </div>
@@ -376,8 +370,13 @@ function extractItemsCount(events: AgentEvent[]): number {
   // Look for any save tool result with a count field.
   // Handles multiple agents:
   //   save_analysis_result  → "items_saved": N  (submission-analyzer)
-  //   save_classifications  → "saved": N        (email-classifier)
+  //   save_classifications  → "saved": N, "total": M  (email-classifier)
   //   save_extracted_prices → "saved": N        (price-extractor)
+  //
+  // We use Math.max(total, saved) because:
+  // - "total" = items the agent processed/attempted
+  // - "saved" = items successfully written to DB
+  // The user cares about how many were processed, not DB write success count.
   const SAVE_TOOLS = new Set([
     "save_analysis_result",
     "save_classifications",
@@ -387,9 +386,12 @@ function extractItemsCount(events: AgentEvent[]): number {
     const e = events[i];
     if (e.type === "custom_tool_result" && SAVE_TOOLS.has(e.data?.tool_name as string)) {
       const preview = (e.data?.result_preview as string) || "";
-      // Match "items_saved": N or "saved": N
-      const match = preview.match(/"(?:items_)?saved"\s*:\s*(\d+)/);
-      if (match) return parseInt(match[1], 10);
+      const savedMatch = preview.match(/"(?:items_)?saved"\s*:\s*(\d+)/);
+      const totalMatch = preview.match(/"total"\s*:\s*(\d+)/);
+      const saved = savedMatch ? parseInt(savedMatch[1], 10) : 0;
+      const total = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+      const count = Math.max(total, saved);
+      if (count > 0) return count;
     }
   }
   return 0;
