@@ -19,7 +19,7 @@ import { convertToolsForAPI } from "./types";
 
 const MAX_ITERATIONS = 25;
 const MAX_DURATION_MS = 270_000; // 4.5 min (leave 30s buffer for Vercel cleanup)
-const MAX_TOKENS_PER_TURN = 8192;
+const MAX_TOKENS_PER_TURN = 16384;
 
 // ── Main Agentic Loop ───────────────────────────────────────
 
@@ -128,9 +128,41 @@ export async function runAgentLoop(params: {
         }
       }
 
-      // If no tool calls, we're done
-      if (response.stop_reason !== "tool_use" || toolUseBlocks.length === 0) {
-        // Agent finished
+      // ── Handle stop_reason ──
+      // "max_tokens" = response was TRUNCATED mid-generation (e.g., tool_use JSON
+      // for save_analysis_result was too large). We must NOT treat this as
+      // "completed" — the tool call was never finished, so nothing was saved.
+      // Instead, append the partial response and ask Claude to continue.
+      if (response.stop_reason === "max_tokens") {
+        console.warn(
+          `[agent-loop] Iteration ${iteration}: max_tokens hit (${MAX_TOKENS_PER_TURN}). ` +
+          `Tool blocks found: ${toolUseBlocks.length}. Asking Claude to continue.`
+        );
+
+        // If we got complete tool_use blocks before truncation, execute them
+        if (toolUseBlocks.length > 0) {
+          // Fall through to tool execution below — same as "tool_use" stop_reason
+        } else {
+          // No complete tool calls — Claude was mid-generation.
+          // Add the partial assistant message and ask it to continue.
+          messages.push({ role: "assistant", content: response.content });
+          messages.push({
+            role: "user",
+            content: "Tu as été interrompu car la réponse était trop longue. Continue exactement là où tu t'es arrêté. Si tu étais en train d'appeler save_analysis_result, rappelle-le avec les items.",
+          });
+          continue; // next iteration of the loop
+        }
+      }
+
+      // If no tool calls and not truncated, we're done
+      if (response.stop_reason !== "tool_use" && response.stop_reason !== "max_tokens") {
+        // Agent finished normally (end_turn)
+        onEvent("session.status_completed", { status: "completed" });
+        return buildResult("completed");
+      }
+
+      // No complete tool blocks despite tool_use stop_reason (shouldn't happen but safeguard)
+      if (toolUseBlocks.length === 0) {
         onEvent("session.status_completed", { status: "completed" });
         return buildResult("completed");
       }

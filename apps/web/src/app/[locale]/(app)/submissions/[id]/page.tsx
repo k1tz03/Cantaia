@@ -218,7 +218,10 @@ export default function SubmissionDetailPage() {
     if (!USE_MANAGED_AGENTS) return;
     if (agent.status === "completed") {
       // Agent's save_analysis_result already updated DB — just refresh UI
-      fetchData();
+      // Use .then() to log the result for diagnosis
+      fetchData().then(() => {
+        console.log("[Agent] fetchData completed after agent success. Items will re-render.");
+      });
       // Release mutex so polling useEffect doesn't interfere
       reanalyzeActiveRef.current = false;
     } else if (agent.status === "failed") {
@@ -588,6 +591,7 @@ export default function SubmissionDetailPage() {
           result={agent.result}
           error={agent.error}
           isRunning={agent.isRunning}
+          itemsSaved={agent.status === "completed" ? items.length : undefined}
           onCancel={() => {
             agent.cancel();
             reanalyzeActiveRef.current = false;
