@@ -17,6 +17,7 @@ const protectedPaths = [
   "/super-admin",
   "/submissions",
   "/mail",
+  "/calendar",
   "/pv",
   "/pv-chantier",
   "/suppliers",

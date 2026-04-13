@@ -167,7 +167,11 @@ export type ApiActionType =
   | "agent_briefing-generator"
   | "agent_email-drafter"
   | "agent_followup-engine"
-  | "agent_supplier-monitor";
+  | "agent_supplier-monitor"
+  | "agent_project-memory"
+  | "agent_meeting-prep"
+  | "calendar_ai_command"
+  | "calendar_sync";
 
 export type PlanType =
   | "execution"

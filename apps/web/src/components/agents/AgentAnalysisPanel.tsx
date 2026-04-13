@@ -111,6 +111,18 @@ const AGENT_DISPLAY: Record<AgentType, {
     startingTitle: "Démarrage du Supplier Monitor...",
     defaultActivity: "Évaluation des performances fournisseurs",
   },
+  "project-memory": {
+    completedTitle: (n) => `${n} projets analysés`,
+    runningTitle: "Analyse des projets en cours...",
+    startingTitle: "Démarrage de l'analyse projet...",
+    defaultActivity: "Scan cross-module des projets",
+  },
+  "meeting-prep": {
+    completedTitle: (n) => `${n} préparations générées`,
+    runningTitle: "Préparation des réunions en cours...",
+    startingTitle: "Démarrage de la préparation...",
+    defaultActivity: "Génération des dossiers de réunion",
+  },
 };
 
 const DEFAULT_DISPLAY = AGENT_DISPLAY["submission-analyzer"];

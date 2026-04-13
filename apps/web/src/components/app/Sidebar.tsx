@@ -20,6 +20,7 @@ import {
   Shield,
   LayoutDashboard,
   Mail,
+  CalendarDays,
   Truck,
   MessageSquare,
   MoreHorizontal,
@@ -136,6 +137,7 @@ export function Sidebar() {
   const dailyItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", dataTour: "nav-dashboard" },
     { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: (mailUnprocessed + draftCount) > 0 ? String(mailUnprocessed + draftCount) : undefined, badgeColor: draftCount > 0 ? "orange" : "orange", dataTour: "nav-mail" },
+    { href: "/calendar", labelKey: "calendar", icon: CalendarDays, status: "active", dataTour: "nav-calendar" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", dataTour: "nav-briefing" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", dataTour: "nav-tasks" },
   ];

@@ -13,7 +13,9 @@ export type AgentType =
   | "briefing-generator"
   | "email-drafter"
   | "followup-engine"
-  | "supplier-monitor";
+  | "supplier-monitor"
+  | "project-memory"
+  | "meeting-prep";
 
 export const AGENT_TYPES: AgentType[] = [
   "submission-analyzer",
@@ -24,6 +26,8 @@ export const AGENT_TYPES: AgentType[] = [
   "email-drafter",
   "followup-engine",
   "supplier-monitor",
+  "project-memory",
+  "meeting-prep",
 ];
 
 // ── Session Lifecycle ───────────────────────────────────────

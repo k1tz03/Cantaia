@@ -442,6 +442,201 @@ const TOOL_SAVE_SUPPLIER_ALERTS: MACustomTool = {
   },
 };
 
+// ── Project Memory Tools ──────────────────────────────────
+
+const TOOL_FETCH_ORG_PROJECTS: MACustomTool = {
+  type: "custom",
+  name: "fetch_org_projects",
+  description:
+    "Fetch all active projects for the organization with their IDs, names, codes, statuses, and last_updated timestamps. Used to iterate and build memory for each project. Org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+};
+
+const TOOL_FETCH_PROJECT_FULL_STATE: MACustomTool = {
+  type: "custom",
+  name: "fetch_project_full_state",
+  description:
+    "Fetch comprehensive cross-module state for a single project: recent emails (last 7 days), open tasks, active submissions with deadlines, plan analyses, upcoming meetings, site reports, visit notes, planning tasks with delays, reserves. Returns all data needed to build the project memory snapshot.",
+  input_schema: {
+    type: "object",
+    properties: {
+      project_id: {
+        type: "string",
+        description: "UUID of the project to analyze",
+      },
+    },
+    required: ["project_id"],
+  },
+};
+
+const TOOL_SAVE_PROJECT_MEMORY: MACustomTool = {
+  type: "custom",
+  name: "save_project_memory",
+  description:
+    "Save or update the AI-aggregated project memory snapshot to the database. Upserts by project_id + organization_id. Call once per project after analysis.",
+  input_schema: {
+    type: "object",
+    properties: {
+      project_id: {
+        type: "string",
+        description: "UUID of the project",
+      },
+      summary: {
+        type: "string",
+        description: "2-3 sentence summary of the current project state",
+      },
+      key_facts: {
+        type: "string",
+        description:
+          'JSON string of array: [{fact, source ("email"|"task"|"submission"|"plan"|"meeting"|"report"|"visit"|"planning"), date, importance ("high"|"medium"|"low")}]',
+      },
+      active_risks: {
+        type: "string",
+        description:
+          'JSON string of array: [{risk, severity ("critical"|"high"|"medium"|"low"), source, detected_at, mitigation}]',
+      },
+      pending_decisions: {
+        type: "string",
+        description:
+          'JSON string of array: [{decision, context, deadline, stakeholders: string[], source}]',
+      },
+      open_items: {
+        type: "string",
+        description:
+          'JSON string of array: [{item, type ("task"|"reserve"|"submission"|"followup"), status, assigned_to, due_date, priority}]',
+      },
+      supplier_status: {
+        type: "string",
+        description:
+          'JSON string of array: [{supplier_name, status ("active"|"waiting"|"issue"), last_interaction, pending_items: string[], notes}]',
+      },
+      timeline_events: {
+        type: "string",
+        description:
+          'JSON string of array: [{event, date, type ("milestone"|"delay"|"deadline"|"meeting"), impact}]',
+      },
+    },
+    required: ["project_id", "summary", "key_facts", "active_risks", "open_items"],
+  },
+};
+
+// ── Meeting Prep Tools ────────────────────────────────────
+
+const TOOL_FETCH_MEETINGS_NEEDING_PREP: MACustomTool = {
+  type: "custom",
+  name: "fetch_meetings_needing_prep",
+  description:
+    "Fetch calendar events happening in the next 2-3 hours that don't have a meeting preparation yet (or whose prep is stale). Returns event details: id, title, start_at, end_at, project_id, attendees, event_type, location. Org/user resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {
+      hours_ahead: {
+        type: "string",
+        description: "How many hours ahead to look (default: 3)",
+      },
+    },
+    required: [],
+  },
+};
+
+const TOOL_FETCH_PROJECT_MEMORY_FOR_PREP: MACustomTool = {
+  type: "custom",
+  name: "fetch_project_memory_for_prep",
+  description:
+    "Fetch the existing project memory snapshot for a specific project. Returns the latest AI-aggregated summary, risks, decisions, open items, supplier status, and timeline events. Returns null if no memory exists yet.",
+  input_schema: {
+    type: "object",
+    properties: {
+      project_id: {
+        type: "string",
+        description: "UUID of the project",
+      },
+    },
+    required: ["project_id"],
+  },
+};
+
+const TOOL_FETCH_MEETING_SPECIFIC_DATA: MACustomTool = {
+  type: "custom",
+  name: "fetch_meeting_specific_data",
+  description:
+    "Fetch data specific to the meeting context: unread/action_required emails for the project (last 7 days), overdue tasks, open reserves, pending submissions with deadlines, attendee info (role, last seen, org membership). Returns targeted data for prep generation.",
+  input_schema: {
+    type: "object",
+    properties: {
+      event_id: {
+        type: "string",
+        description: "UUID of the calendar event",
+      },
+      project_id: {
+        type: "string",
+        description: "UUID of the project (null if no project linked)",
+      },
+    },
+    required: ["event_id"],
+  },
+};
+
+const TOOL_SAVE_MEETING_PREP: MACustomTool = {
+  type: "custom",
+  name: "save_meeting_prep",
+  description:
+    "Save the generated meeting preparation to the database. Call once per meeting event. The prep will be displayed in the calendar intelligence panel 2h before the meeting.",
+  input_schema: {
+    type: "object",
+    properties: {
+      event_id: {
+        type: "string",
+        description: "UUID of the calendar event",
+      },
+      project_summary: {
+        type: "string",
+        description: "Brief project status summary tailored for this meeting (2-3 sentences)",
+      },
+      unread_emails: {
+        type: "string",
+        description:
+          'JSON string of array: [{email_id, subject, sender_name, received_at, urgency ("high"|"medium"|"low"), one_line_summary}] — max 10 most relevant',
+      },
+      overdue_tasks: {
+        type: "string",
+        description:
+          'JSON string of array: [{task_id, title, assigned_to, due_date, days_overdue, lot_code}] — sorted by urgency',
+      },
+      open_reserves: {
+        type: "string",
+        description:
+          'JSON string of array: [{reserve_id, description, severity ("minor"|"major"|"blocking"), location, deadline}]',
+      },
+      pending_submissions: {
+        type: "string",
+        description:
+          'JSON string of array: [{submission_id, title, deadline, days_remaining, offers_received, offers_expected}]',
+      },
+      key_points: {
+        type: "string",
+        description:
+          'JSON string of array: [{point, source ("email"|"task"|"reserve"|"submission"|"report"|"planning"), urgency ("high"|"medium"|"low"), context}] — things to bring up during the meeting',
+      },
+      suggested_agenda: {
+        type: "string",
+        description:
+          'JSON string of array: [{topic, duration_minutes, priority ("must_discuss"|"should_discuss"|"if_time"), rationale}]',
+      },
+      attendee_context: {
+        type: "string",
+        description:
+          'JSON string of array: [{name, email, role, company, last_interaction, pending_items: string[]}]',
+      },
+    },
+    required: ["event_id", "key_points", "suggested_agenda"],
+  },
+};
+
 // ── Agent Configurations ────────────────────────────────────
 
 export const AGENT_REGISTRY: Record<AgentType, CantaiaAgentConfig> = {
@@ -958,6 +1153,157 @@ RÈGLES CRITIQUES :
       TOOL_SAVE_SUPPLIER_ALERTS,
     ],
     maxDurationMs: 15 * 60 * 1000, // 15 minutes
+  },
+
+  // ── Intelligence Agents (Calendar Hub IA) ────────────────
+
+  "project-memory": {
+    type: "project-memory",
+    name: "Cantaia Project Memory",
+    description:
+      "Cross-module intelligence aggregator. Scans all project data (emails, tasks, submissions, plans, meetings, reports, visits, planning) and builds a structured memory snapshot for each active project.",
+    model: "claude-sonnet-4-6",
+    systemPrompt: `Tu es le moteur de mémoire projet de Cantaia, un SaaS de gestion de chantier suisse.
+Ta mission : scanner TOUTES les données de chaque projet actif et construire un snapshot de mémoire structuré.
+
+PROCÉDURE :
+1. Appelle fetch_org_projects pour lister tous les projets actifs de l'organisation
+2. Pour CHAQUE projet actif, appelle fetch_project_full_state pour obtenir l'état complet cross-module
+3. Analyse les données et construis la mémoire structurée :
+   - Résumé (2-3 phrases, état actuel, prochaines étapes, points d'attention)
+   - Faits clés (événements récents importants)
+   - Risques actifs (détectés depuis les données)
+   - Décisions en attente
+   - Items ouverts (tâches, réserves, soumissions en cours)
+   - Statut fournisseurs (qui est actif, qui fait attendre, qui pose problème)
+   - Événements timeline (jalons, retards, deadlines)
+4. Appelle save_project_memory pour chaque projet analysé
+
+ANALYSE CROSS-MODULE — Tu croises les données de 8 modules :
+1. EMAILS : emails non traités, tendances (volume, urgences), sujets récurrents
+2. TÂCHES : tâches en retard, charge par lot, taux de complétion
+3. SOUMISSIONS : deadlines approchantes, offres en attente, comparaisons en cours
+4. PLANS : analyses récentes, estimations, corrections en attente
+5. RÉUNIONS/PV : décisions prises, points reportés, actions assignées
+6. RAPPORTS CHANTIER : heures cumulées, anomalies, tendances productivité
+7. VISITES : observations récentes, notes manuscrites, problèmes relevés
+8. PLANNING : tâches en retard vs baseline, chemin critique, risques IA
+
+DÉTECTION DE RISQUES — Génère un risque si :
+- Tâche en retard > 5 jours (high), > 14 jours (critical)
+- Soumission deadline < 5 jours avec offres manquantes
+- Email urgent non traité > 48h
+- Réserve blocking sans deadline
+- Planning : tâche sur chemin critique en retard
+- Fournisseur : score < 50 ou réponse > 14 jours
+- Budget : écart > 15% vs estimation
+
+FAITS CLÉS — Conserve les événements significatifs des 7 derniers jours :
+- Nouvelles offres reçues, attributions, décisions PV
+- Problèmes signalés en rapport chantier ou visite
+- Changements de planning, nouveaux risques IA
+- Emails importants (demandes client, problèmes urgents)
+
+RÈGLES CRITIQUES :
+- Traite TOUS les projets actifs, pas juste ceux avec activité récente
+- Le résumé doit être actionnable : "Retard CVC de 8 jours, relancer Klima AG" > "Le projet avance"
+- Les risques doivent avoir une mitigation suggérée
+- Les décisions en attente doivent lister les stakeholders
+- NE PAS inventer de données — utilise UNIQUEMENT les données de fetch_project_full_state
+- Si un projet n'a aucune activité récente (7+ jours), mentionne-le dans le résumé
+- Maximum 50 faits clés, 10 risques, 10 décisions, 30 items ouverts par projet`,
+    tools: [
+      TOOL_FETCH_ORG_PROJECTS,
+      TOOL_FETCH_PROJECT_FULL_STATE,
+      TOOL_SAVE_PROJECT_MEMORY,
+    ],
+    maxDurationMs: 15 * 60 * 1000, // 15 minutes
+  },
+
+  "meeting-prep": {
+    type: "meeting-prep",
+    name: "Cantaia Meeting Prep",
+    description:
+      "Generates AI meeting preparation 2h before each scheduled meeting: project summary, unread emails, overdue tasks, open reserves, key discussion points, suggested agenda, attendee context.",
+    model: "claude-sonnet-4-6",
+    systemPrompt: `Tu es le préparateur de réunions de Cantaia, un SaaS de gestion de chantier suisse.
+Ta mission : préparer un dossier complet pour chaque réunion qui commence dans les 2-3 prochaines heures.
+
+PROCÉDURE :
+1. Appelle fetch_meetings_needing_prep pour lister les réunions proches sans préparation
+2. Pour CHAQUE réunion :
+   a. Si project_id existe, appelle fetch_project_memory_for_prep pour la mémoire projet agrégée
+   b. Appelle fetch_meeting_specific_data pour les données spécifiques au meeting (emails récents, tâches, réserves)
+   c. Synthétise toutes les informations en un dossier de préparation structuré
+   d. Appelle save_meeting_prep pour sauvegarder la préparation
+3. Si aucune réunion ne nécessite de préparation, termine immédiatement.
+
+STRUCTURE DE LA PRÉPARATION :
+
+1. RÉSUMÉ PROJET (project_summary) :
+   - 2-3 phrases sur l'état du projet PERTINENTES pour cette réunion
+   - Basé sur la mémoire projet si disponible, sinon sur les données brutes
+   - Mentionner le contexte : "Réunion de coordination CVC" → focus sur le lot CVC
+
+2. EMAILS NON LUS (unread_emails) :
+   - Top 10 emails pertinents pour le projet (action_required + urgent en priorité)
+   - Résumé en une ligne pour chaque email
+   - Triés par urgence puis date
+
+3. TÂCHES EN RETARD (overdue_tasks) :
+   - Toutes les tâches en retard liées au projet
+   - Triées par jours de retard desc
+
+4. RÉSERVES OUVERTES (open_reserves) :
+   - Réserves blocking > major > minor
+   - Inclure location et deadline
+
+5. SOUMISSIONS EN COURS (pending_submissions) :
+   - Soumissions avec deadline proche
+   - Ratio offres reçues / attendues
+
+6. POINTS CLÉS À ABORDER (key_points) — C'EST LE CŒUR DE LA PRÉPARATION :
+   - Croiser TOUTES les sources pour identifier les sujets importants
+   - Chaque point doit avoir un contexte clair et une source traçable
+   - Prioriser : impact chantier > impact budget > impact planning > information
+   - Exemples de bons points :
+     * "Retard livraison acier de 8 jours (email Stahl AG du 10/04) — impact planning dalles N2"
+     * "3 réserves blocking en façade — deadline réception provisoire le 25/04"
+     * "Offre CVC de Klima AG 15% au-dessus du budget — décision attribution en attente"
+
+7. ORDRE DU JOUR SUGGÉRÉ (suggested_agenda) :
+   - 4-8 points d'agenda réalistes
+   - Durée estimée par point
+   - Commencer par les must_discuss, finir par les if_time
+   - Format : point 1 = tour de table/statut (5 min), point 2 = sujet urgent 1, etc.
+   - Le dernier point = "Points divers & prochaines étapes" (5 min)
+
+8. CONTEXTE PARTICIPANTS (attendee_context) :
+   - Pour chaque participant : rôle, entreprise, dernière interaction, items en attente
+   - Si un participant a des items en retard, le mentionner (le PM saura quoi demander)
+
+PAR TYPE DE RÉUNION :
+- Coordination chantier : focus tâches, planning, réserves, météo
+- Réunion client : focus budget, avancement global, décisions attendues
+- Réunion fournisseur : focus offres, délais, qualité, prix
+- Visite de chantier : focus réserves, photos récentes, sécurité
+- Réunion interne : focus charge équipe, priorités, blocages
+
+RÈGLES CRITIQUES :
+- Chaque point clé DOIT avoir une source traçable (email, tâche, rapport, etc.)
+- L'agenda suggéré doit être réaliste (durée totale = durée de la réunion)
+- NE PAS inventer d'informations — si les données sont limitées, dis-le
+- Si le projet n'a pas de mémoire (project_memory null), base-toi uniquement sur les données brutes
+- Priorise la PERTINENCE : une réunion CVC n'a pas besoin du détail des réserves façade
+- Le ton est factuel et concis — le PM lit ça 10 min avant la réunion
+- Max 15 points clés, 8 items d'agenda par réunion`,
+    tools: [
+      TOOL_FETCH_MEETINGS_NEEDING_PREP,
+      TOOL_FETCH_PROJECT_MEMORY_FOR_PREP,
+      TOOL_FETCH_MEETING_SPECIFIC_DATA,
+      TOOL_SAVE_MEETING_PREP,
+    ],
+    maxDurationMs: 10 * 60 * 1000, // 10 minutes
   },
 };
 

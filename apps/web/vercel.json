@@ -39,6 +39,14 @@
     {
       "path": "/api/cron/supplier-monitor",
       "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/project-memory",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/meeting-prep",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
