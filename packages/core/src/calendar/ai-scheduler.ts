@@ -5,6 +5,7 @@
 // Claude Haiku for fast, low-cost parsing.
 
 import type { AICommandResult } from "./types";
+import { AI_MODELS } from "../ai/ai-utils";
 
 // ── Parse Natural Language Command ─────────────────────────
 
@@ -61,7 +62,7 @@ Regles:
 
   try {
     const response = await client.messages.create({
-      model: "claude-haiku-3-20240307",
+      model: AI_MODELS.HAIKU,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: command }],
@@ -96,8 +97,11 @@ Regles:
         end_at: parsed.event.end_at,
         event_type: parsed.event.event_type || "meeting",
         location: parsed.event.location || undefined,
+        description: parsed.event.description || undefined,
         attendees: parsed.event.attendees || [],
-      };
+        // Pass-through for project resolution in the route
+        project_id_hint: parsed.event.project_id_hint || undefined,
+      } as any;
     }
 
     if (parsed.action === "find_slot" && parsed.slots) {
@@ -109,11 +113,15 @@ Regles:
     }
 
     return result;
-  } catch (error) {
-    console.error("[ai-scheduler] Error parsing command:", error);
+  } catch (error: any) {
+    console.error("[ai-scheduler] Error parsing command:", error?.message || error?.status || error);
+    const statusCode = error?.status || error?.statusCode;
+    const isModelError = statusCode === 404 || statusCode === 400;
     return {
       action: "unknown",
-      message: "Erreur lors de l'analyse de la commande. Reessayez.",
+      message: isModelError
+        ? "Erreur de configuration IA. Contactez le support."
+        : "Erreur lors de l'analyse de la commande. Reessayez.",
     };
   }
 }
