@@ -323,13 +323,14 @@ export async function PATCH(
       }
 
       if (corrections.length > 0) {
-        (admin as any).from("submission_corrections").insert(corrections)
-          .then(() => {
-            console.log(`[submissions/[id]] Logged ${corrections.length} corrections`);
-          })
-          .catch((err: any) => {
-            console.error("[submissions/[id]] Failed to log corrections:", err?.message);
-          });
+        const { error: corrInsertError } = await (admin as any)
+          .from("submission_corrections")
+          .insert(corrections);
+        if (corrInsertError) {
+          console.error("[submissions/[id]] Failed to log corrections:", corrInsertError.message);
+        } else {
+          console.log(`[submissions/[id]] Logged ${corrections.length} corrections`);
+        }
       }
     } catch (corrErr) {
       console.error("[submissions/[id]] Correction tracking error:", corrErr);

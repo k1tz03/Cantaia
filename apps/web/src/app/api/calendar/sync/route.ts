@@ -174,15 +174,15 @@ export async function POST() {
                 responded_at: null,
               }));
 
-              await (admin as any)
+              const { error: invError } = await (admin as any)
                 .from("calendar_invitations")
-                .insert(invRows)
-                .catch((err: any) => {
-                  console.error(
-                    "[calendar/sync] Insert invitations error:",
-                    err
-                  );
-                });
+                .insert(invRows);
+              if (invError) {
+                console.error(
+                  "[calendar/sync] Insert invitations error:",
+                  invError
+                );
+              }
             }
           }
         }

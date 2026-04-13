@@ -65,14 +65,16 @@ export async function POST(request: NextRequest) {
       status: cronResponse.status,
     }));
 
-    await (admin as any)
+    const { error: logError } = await (admin as any)
       .from("admin_activity_logs")
       .insert({
         user_id: user.id,
         action: "run_cron",
         metadata: { cron_name: cronName, status: cronResponse.status },
-      })
-      .catch(() => {});
+      });
+    if (logError) {
+      console.error("[super-admin/run-cron] Audit log error:", logError);
+    }
 
     return NextResponse.json({
       success: cronResponse.ok,

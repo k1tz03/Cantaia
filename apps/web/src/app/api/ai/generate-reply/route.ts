@@ -188,9 +188,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Track AI reply generation (fire-and-forget) ──
+  // ── Track AI reply generation ──
   try {
-    (adminClient as any).from("email_classification_feedback").insert({
+    const { error: feedbackInsertError } = await (adminClient as any).from("email_classification_feedback").insert({
       email_id: body.email_id,
       organization_id: userProfile.organization_id,
       user_id: user.id,
@@ -206,9 +206,10 @@ export async function POST(request: NextRequest) {
         had_thread_context: !!body.thread_context,
         had_full_body: !!bodyFull,
       },
-    }).then(() => {}).catch((err: any) => {
-      console.error("[generate-reply] Failed to log AI reply feedback:", err?.message);
     });
+    if (feedbackInsertError) {
+      console.error("[generate-reply] Failed to log AI reply feedback:", feedbackInsertError.message);
+    }
   } catch (feedbackErr) {
     console.error("[generate-reply] feedback tracking error:", feedbackErr);
   }

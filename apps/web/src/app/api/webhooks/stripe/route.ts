@@ -143,10 +143,13 @@ export async function POST(request: NextRequest) {
           .eq("stripe_customer_id", customerId)
           .maybeSingle();
         if (org) {
-          await (admin as any).from("admin_activity_logs").insert({
+          const { error: logError } = await (admin as any).from("admin_activity_logs").insert({
             action: "invoice_paid",
             metadata: { invoice_id: invoice.id, amount: invoice.amount_paid, org_id: org.id },
-          }).catch(() => {});
+          });
+          if (logError) {
+            console.error("[webhooks/stripe] Insert activity log error:", logError);
+          }
         }
         break;
       }
