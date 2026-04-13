@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LifeBuoy,
-  Bot,
   Activity,
   GitBranch,
 } from "lucide-react";
@@ -33,7 +32,6 @@ const superAdminNavItems = [
   { href: "/super-admin/data-pipeline", icon: GitBranch, labelKey: "dataPipeline" },
   { href: "/super-admin/ai-costs", icon: DollarSign, labelKey: "aiCosts" },
   { href: "/super-admin/operations", icon: Wrench, labelKey: "operations" },
-  { href: "/super-admin/ai-roundtable", icon: Bot, labelKey: "aiRoundtable" },
   { href: "/super-admin/support", icon: LifeBuoy, labelKey: "support" },
   { href: "/super-admin/config", icon: Settings, labelKey: "platformConfig" },
 ];

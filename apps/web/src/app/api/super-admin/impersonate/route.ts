@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await (admin as any)
+    const { error: logError } = await (admin as any)
       .from("admin_activity_logs")
       .insert({
         user_id: user.id,
@@ -66,8 +66,10 @@ export async function POST(request: NextRequest) {
           target_user_id: targetUserId,
           target_email: targetUser.email,
         },
-      })
-      .catch(() => {});
+      });
+    if (logError) {
+      console.error("[super-admin/impersonate] Audit log error:", logError);
+    }
 
     return NextResponse.json({
       url: linkData.properties?.action_link,

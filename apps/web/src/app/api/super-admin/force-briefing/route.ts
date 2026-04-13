@@ -43,14 +43,16 @@ export async function POST(request: NextRequest) {
 
     const result = await briefingResponse.json();
 
-    await (admin as any)
+    const { error: logError } = await (admin as any)
       .from("admin_activity_logs")
       .insert({
         user_id: user.id,
         action: "force_briefing",
         metadata: { target_user_id: targetUserId },
-      })
-      .catch(() => {});
+      });
+    if (logError) {
+      console.error("[super-admin/force-briefing] Audit log error:", logError);
+    }
 
     return NextResponse.json({ success: true, result });
   } catch (error) {
