@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
 
       // Save assistant message + track usage (fire and forget)
       if (fullResponse) {
-        (admin as any)
+        const { error: msgError } = await (admin as any)
           .from("chat_messages")
           .insert({
             conversation_id: conversationId,
@@ -299,9 +299,10 @@ export async function POST(request: NextRequest) {
             model: MODEL_FOR_TASK.chat,
             input_tokens: finalUsage.input_tokens,
             output_tokens: finalUsage.output_tokens,
-          })
-          .then(() => {})
-          .catch((e: any) => console.error("[chat] Failed to save assistant message:", e));
+          });
+        if (msgError) {
+          console.error("[chat] Failed to save assistant message:", msgError);
+        }
 
         trackApiUsage({
           supabase: admin,
@@ -317,12 +318,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Update conversation timestamp
-      (admin as any)
+      const { error: tsError } = await (admin as any)
         .from("chat_conversations")
         .update({ updated_at: new Date().toISOString() })
-        .eq("id", conversationId)
-        .then(() => {})
-        .catch((e: any) => console.error("[chat] Failed to update conversation timestamp:", e));
+        .eq("id", conversationId);
+      if (tsError) {
+        console.error("[chat] Failed to update conversation timestamp:", tsError);
+      }
     }
   })();
 
