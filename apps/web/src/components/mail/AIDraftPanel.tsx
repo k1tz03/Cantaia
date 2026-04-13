@@ -107,7 +107,8 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
     );
   }
 
-  if (drafts.length === 0) return null;
+  // In compact mode (inside email detail), hide when empty
+  if (compact && drafts.length === 0) return null;
 
   return (
     <div className={`rounded-xl border border-[#F97316]/20 bg-[#F97316]/[0.03] ${compact ? "mt-3" : ""}`}>
@@ -121,7 +122,9 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
             <Bot className="h-3 w-3 text-[#F97316]" />
           </div>
           <span className="text-[13px] font-semibold text-[#F97316]">
-            {drafts.length} brouillon{drafts.length > 1 ? "s" : ""} IA
+            {drafts.length > 0
+              ? `${drafts.length} brouillon${drafts.length > 1 ? "s" : ""} IA`
+              : "Brouillons IA"}
           </span>
           <span className="text-[11px] text-[#71717A]">Email Drafter</span>
         </div>
@@ -135,6 +138,15 @@ export function AIDraftPanel({ emailRecordId, onAcceptDraft, compact = false }: 
       {/* Draft list */}
       {expanded && (
         <div className="px-4 pb-3 space-y-3">
+          {drafts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Sparkles className="h-7 w-7 text-[#27272A] mb-2" />
+              <p className="text-[12px] text-[#52525B]">Aucun brouillon en attente</p>
+              <p className="text-[11px] text-[#3F3F46] mt-1">
+                L&apos;agent Email Drafter analyse chaque nuit vos emails en attente de réponse et prépare des brouillons.
+              </p>
+            </div>
+          )}
           {drafts.map((draft) => (
             <div
               key={draft.id}

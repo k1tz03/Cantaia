@@ -32,11 +32,6 @@ export function AgentActivityCards() {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Don't render anything if there's no agent activity
-  if (!loading && data && data.drafts === 0 && data.followups === 0 && data.alerts === 0) {
-    return null;
-  }
-
   if (loading) {
     return (
       <div className="mt-4">
@@ -56,7 +51,6 @@ export function AgentActivityCards() {
   if (!data) return null;
 
   const totalActivity = data.drafts + data.followups + data.alerts;
-  if (totalActivity === 0) return null;
 
   const cards = [
     {
@@ -105,8 +99,6 @@ export function AgentActivityCards() {
     },
   ].filter((c) => c.visible);
 
-  if (cards.length === 0) return null;
-
   return (
     <div className="mt-4">
       {/* Section header */}
@@ -117,12 +109,41 @@ export function AgentActivityCards() {
         <h3 className="text-[13px] font-semibold text-[#FAFAFA]">
           Agents autonomes
         </h3>
-        <span className="text-[11px] text-[#71717A] font-medium">
-          {totalActivity} action{totalActivity > 1 ? "s" : ""}
-        </span>
+        {totalActivity > 0 && (
+          <span className="text-[11px] text-[#71717A] font-medium">
+            {totalActivity} action{totalActivity > 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
+      {/* Empty state */}
+      {cards.length === 0 && (
+        <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { icon: Mail, label: "Email Drafter", desc: "Brouillons de réponse", color: "#F97316", schedule: "chaque nuit à 23h" },
+              { icon: AlertTriangle, label: "Followup Engine", desc: "Relances automatiques", color: "#F59E0B", schedule: "chaque matin à 6h" },
+              { icon: Users, label: "Supplier Monitor", desc: "Alertes fournisseurs", color: "#3B82F6", schedule: "chaque dimanche à 22h" },
+            ].map((agent) => (
+              <div key={agent.label} className="flex items-start gap-3 p-3 rounded-lg bg-[#0F0F11]/50">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0`} style={{ backgroundColor: `${agent.color}15` }}>
+                  <agent.icon className="h-4 w-4" style={{ color: agent.color }} />
+                </div>
+                <div>
+                  <p className="text-[12px] font-medium text-[#A1A1AA]">{agent.desc}</p>
+                  <p className="text-[10px] text-[#52525B] mt-0.5">{agent.label} — {agent.schedule}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-[#3F3F46] text-center mt-4">
+            Les agents autonomes analysent vos données et génèrent des actions. Les résultats apparaîtront ici après leur prochaine exécution.
+          </p>
+        </div>
+      )}
+
       {/* Cards grid */}
+      {cards.length > 0 && (
       <div className={`grid gap-3 ${cards.length === 1 ? "grid-cols-1" : cards.length === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3"}`}>
         {cards.map((card) => {
           const Icon = card.icon;
@@ -161,6 +182,7 @@ export function AgentActivityCards() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FollowupSection } from "@/components/briefing/FollowupSection";
 
 interface PriceStats {
   sent: number;
@@ -194,6 +195,9 @@ export default function SubmissionsPage() {
             </div>
           </div>
         )}
+
+        {/* Followup Engine — relances en attente */}
+        <FollowupSection />
 
         {/* Search */}
         {submissions.length > 0 && (

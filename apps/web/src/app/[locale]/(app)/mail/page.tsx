@@ -1080,6 +1080,13 @@ function MailPageInner() {
             )}
           </div>
 
+          {/* ── AI Drafts section (top-level, always visible) ── */}
+          {viewMode === "decisions" && (
+            <div className="px-3 py-2 border-b border-[#27272A]">
+              <AIDraftPanel />
+            </div>
+          )}
+
           {/* ── Email list ── */}
           <div className="flex-1 overflow-y-auto" data-tour="mail-buckets">
             {isFolderView ? (

@@ -72,7 +72,16 @@ export function FollowupSection() {
     updateStatus(id, "snoozed", snoozeDate.toISOString());
   };
 
-  if (loading || followups.length === 0) return null;
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-[#27272A] animate-pulse" />
+          <div className="h-4 w-40 rounded bg-[#27272A] animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   const criticalCount = followups.filter((f) => f.urgency === "critical").length;
   const highCount = followups.filter((f) => f.urgency === "high").length;
@@ -90,7 +99,9 @@ export function FollowupSection() {
           </div>
           <div>
             <span className="text-[13px] font-semibold text-[#FAFAFA]">
-              {followups.length} relance{followups.length > 1 ? "s" : ""} en attente
+              {followups.length > 0
+                ? `${followups.length} relance${followups.length > 1 ? "s" : ""} en attente`
+                : "Relances automatiques"}
             </span>
             <span className="text-[11px] text-[#71717A] ml-2">Followup Engine</span>
           </div>
@@ -118,6 +129,15 @@ export function FollowupSection() {
       {/* Followup list */}
       {expanded && (
         <div className="border-t border-[#27272A]">
+          {followups.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 text-center px-6">
+              <Clock className="h-8 w-8 text-[#27272A] mb-3" />
+              <p className="text-[13px] text-[#52525B]">Aucune relance en attente</p>
+              <p className="text-[11px] text-[#3F3F46] mt-1">
+                L&apos;agent Followup Engine analyse chaque jour vos demandes de prix, tâches et réserves pour détecter les retards.
+              </p>
+            </div>
+          )}
           {followups.map((item) => {
             const urgencyStyle = URGENCY_STYLES[item.urgency] || URGENCY_STYLES.medium;
             const typeInfo = TYPE_ICONS[item.followup_type] || TYPE_ICONS.overdue_task;

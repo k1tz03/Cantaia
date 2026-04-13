@@ -67,7 +67,16 @@ export function SupplierAlertsBanner() {
     }
   };
 
-  if (loading || alerts.length === 0) return null;
+  if (loading) {
+    return (
+      <div className="mb-4 rounded-xl border border-[#27272A] bg-[#18181B] p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-[#27272A] animate-pulse" />
+          <div className="h-4 w-40 rounded bg-[#27272A] animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   const criticalCount = alerts.filter((a) => a.alert_type === "critical").length;
   const warningCount = alerts.filter((a) => a.alert_type === "warning").length;
@@ -85,7 +94,9 @@ export function SupplierAlertsBanner() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold text-[#FAFAFA]">
-              {alerts.length} alerte{alerts.length > 1 ? "s" : ""} fournisseur
+              {alerts.length > 0
+                ? `${alerts.length} alerte${alerts.length > 1 ? "s" : ""} fournisseur`
+                : "Alertes fournisseurs"}
             </span>
             <span className="text-[11px] text-[#71717A]">Supplier Monitor</span>
           </div>
@@ -113,6 +124,15 @@ export function SupplierAlertsBanner() {
       {/* Alert list */}
       {expanded && (
         <div className="border-t border-[#27272A]">
+          {alerts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 text-center px-6">
+              <Shield className="h-8 w-8 text-[#27272A] mb-3" />
+              <p className="text-[13px] text-[#52525B]">Aucune alerte fournisseur</p>
+              <p className="text-[11px] text-[#3F3F46] mt-1">
+                L&apos;agent Supplier Monitor analyse chaque semaine la performance de vos fournisseurs et vous alerte en cas d&apos;anomalie.
+              </p>
+            </div>
+          )}
           {alerts.map((alert) => {
             const style = ALERT_STYLES[alert.alert_type] || ALERT_STYLES.info;
             const Icon = style.icon;
