@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Zap,
   Mail,
@@ -13,8 +13,9 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
-  Wind,
   ExternalLink,
+  MapPin,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -26,6 +27,58 @@ import type {
   MeetingPrepReserve,
 } from "@cantaia/core/calendar";
 
+// ── Swiss Cities ──────────────────────────────────────────
+
+export interface WeatherCity {
+  name: string;
+  lat: number;
+  lon: number;
+  canton: string;
+}
+
+export const SWISS_CITIES: WeatherCity[] = [
+  { name: "Genève", lat: 46.2044, lon: 6.1432, canton: "GE" },
+  { name: "Lausanne", lat: 46.5197, lon: 6.6323, canton: "VD" },
+  { name: "Bern", lat: 46.9480, lon: 7.4474, canton: "BE" },
+  { name: "Zürich", lat: 47.3769, lon: 8.5417, canton: "ZH" },
+  { name: "Basel", lat: 47.5596, lon: 7.5886, canton: "BS" },
+  { name: "Luzern", lat: 47.0502, lon: 8.3093, canton: "LU" },
+  { name: "St. Gallen", lat: 47.4245, lon: 9.3767, canton: "SG" },
+  { name: "Biel/Bienne", lat: 47.1368, lon: 7.2467, canton: "BE" },
+  { name: "Thun", lat: 46.7580, lon: 7.6280, canton: "BE" },
+  { name: "Fribourg", lat: 46.8065, lon: 7.1620, canton: "FR" },
+  { name: "Sion", lat: 46.2325, lon: 7.3597, canton: "VS" },
+  { name: "Neuchâtel", lat: 46.9920, lon: 6.9311, canton: "NE" },
+  { name: "Delémont", lat: 47.3650, lon: 7.3450, canton: "JU" },
+  { name: "Lugano", lat: 46.0037, lon: 8.9511, canton: "TI" },
+  { name: "Chur", lat: 46.8499, lon: 9.5329, canton: "GR" },
+  { name: "Aarau", lat: 47.3925, lon: 8.0444, canton: "AG" },
+  { name: "Winterthur", lat: 47.5001, lon: 8.7240, canton: "ZH" },
+  { name: "Yverdon", lat: 46.7785, lon: 6.6410, canton: "VD" },
+  { name: "Montreux", lat: 46.4312, lon: 6.9108, canton: "VD" },
+  { name: "Bulle", lat: 46.6167, lon: 7.0558, canton: "FR" },
+];
+
+const LS_KEY = "cantaia_weather_city";
+
+export function getStoredCity(): WeatherCity {
+  if (typeof window === "undefined") return SWISS_CITIES[0];
+  try {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.name && parsed?.lat && parsed?.lon) return parsed;
+    }
+  } catch { /* ignore */ }
+  return SWISS_CITIES[0];
+}
+
+function storeCity(city: WeatherCity) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(LS_KEY, JSON.stringify(city));
+  }
+}
+
 // ── Props ─────────────────────────────────────────────────
 
 interface IntelligencePanelProps {
@@ -34,6 +87,7 @@ interface IntelligencePanelProps {
   teamAvailability: TeamMemberAvailability[];
   selectedEvent: CalendarEvent | null;
   meetingPrep: MeetingPrepData | null;
+  onCityChange?: (city: WeatherCity) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────
@@ -101,7 +155,56 @@ function deadlineBarWidth(daysLeft: number, maxDays: number): string {
 
 // ── Sub-components ────────────────────────────────────────
 
-function WeatherWidget({ weather }: { weather: CalendarWeather }) {
+function WeatherWidget({
+  weather,
+  onCityChange,
+}: {
+  weather: CalendarWeather;
+  onCityChange?: (city: WeatherCity) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [search, setSearch] = useState("");
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const currentCity = getStoredCity();
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showPicker) return;
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showPicker]);
+
+  // Focus input when opening
+  useEffect(() => {
+    if (showPicker && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [showPicker]);
+
+  const filteredCities = useMemo(() => {
+    if (!search.trim()) return SWISS_CITIES;
+    const q = search.toLowerCase();
+    return SWISS_CITIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.canton.toLowerCase().includes(q)
+    );
+  }, [search]);
+
+  function selectCity(city: WeatherCity) {
+    storeCity(city);
+    setShowPicker(false);
+    setSearch("");
+    onCityChange?.(city);
+  }
+
   return (
     <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-4">
       <div className="flex items-center justify-between mb-2">
@@ -114,11 +217,65 @@ function WeatherWidget({ weather }: { weather: CalendarWeather }) {
             <p className="text-xs text-[#A1A1AA]">{weather.description}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-1 text-xs text-[#A1A1AA]">
-            <Wind className="w-3 h-3" />
-            <span>{weather.location}</span>
-          </div>
+
+        {/* City selector button */}
+        <div className="relative" ref={pickerRef}>
+          <button
+            type="button"
+            onClick={() => setShowPicker(!showPicker)}
+            className="flex items-center gap-1 text-xs text-[#A1A1AA] hover:text-[#F97316] transition-colors rounded-md px-2 py-1 hover:bg-[#27272A]/50"
+          >
+            <MapPin className="w-3 h-3" />
+            <span>{weather.location || currentCity.name}</span>
+            <ChevronDown className={`w-3 h-3 transition-transform ${showPicker ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Dropdown picker */}
+          {showPicker && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-[#27272A] bg-[#18181B] shadow-xl shadow-black/40 overflow-hidden">
+              {/* Search input */}
+              <div className="p-2 border-b border-[#27272A]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher une ville..."
+                  className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+                />
+              </div>
+
+              {/* City list */}
+              <div className="max-h-60 overflow-y-auto py-1">
+                {filteredCities.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-[#52525B]">Aucun resultat</p>
+                ) : (
+                  filteredCities.map((city) => {
+                    const isActive = city.name === currentCity.name;
+                    return (
+                      <button
+                        key={city.name}
+                        type="button"
+                        onClick={() => selectCity(city)}
+                        className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition-colors ${
+                          isActive
+                            ? "bg-[#F97316]/10 text-[#F97316]"
+                            : "text-[#A1A1AA] hover:bg-[#27272A]/50 hover:text-[#FAFAFA]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span>{city.name}</span>
+                          <span className="text-[10px] text-[#52525B]">{city.canton}</span>
+                        </div>
+                        {isActive && <Check className="w-3 h-3 text-[#F97316]" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -420,6 +577,7 @@ export function IntelligencePanel({
   weather,
   selectedEvent,
   meetingPrep,
+  onCityChange,
 }: IntelligencePanelProps) {
   // Split deadlines from the rest of the feed
   const { deadlines, alerts } = useMemo(() => {
@@ -439,7 +597,7 @@ export function IntelligencePanel({
     <aside className="w-[320px] flex-shrink-0 border-l border-[#27272A] bg-[#0F0F11] overflow-y-auto">
       <div className="p-4 space-y-5">
         {/* ── Weather Widget ────────────────────────────── */}
-        {weather && <WeatherWidget weather={weather} />}
+        {weather && <WeatherWidget weather={weather} onCityChange={onCityChange} />}
 
         {/* ── Meeting Prep ──────────────────────────────── */}
         <section>
