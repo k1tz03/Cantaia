@@ -19,6 +19,7 @@ import { TimelineView } from "@/components/calendar/TimelineView";
 import { IntelligencePanel, getStoredCity } from "@/components/calendar/IntelligencePanel";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
 import { TeamCalendarsPanel } from "@/components/calendar/TeamCalendarsPanel";
+import { EventDetailPanel } from "@/components/calendar/EventDetailPanel";
 import type { WeatherCity } from "@/components/calendar/IntelligencePanel";
 import type {
   CalendarEvent,
@@ -605,6 +606,21 @@ export default function CalendarPage() {
           console.log("[Calendar] Team visibility changed:", visibility);
         }}
       />
+
+      {/* ──────────────────── EVENT DETAIL PANEL ──────────────────── */}
+      {selectedEvent && (
+        <EventDetailPanel
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onUpdated={async () => {
+            await fetchEvents();
+          }}
+          onDeleted={async () => {
+            setSelectedEvent(null);
+            await fetchEvents();
+          }}
+        />
+      )}
     </div>
   );
 }
