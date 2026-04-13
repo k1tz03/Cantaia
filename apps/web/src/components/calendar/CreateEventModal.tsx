@@ -227,18 +227,34 @@ export function CreateEventModal({
         .filter((s) => s.checked)
         .map((s) => s.topic);
 
+      // Build ISO datetime strings from date + time fields
+      // The API expects start_at and end_at as ISO strings
+      let startAt: string;
+      let endAt: string;
+
+      if (allDay) {
+        // All-day: start at 00:00, end at 23:59 of the same day
+        startAt = `${date}T00:00:00`;
+        endAt = `${date}T23:59:59`;
+      } else {
+        startAt = `${date}T${startTime}:00`;
+        endAt = `${date}T${endTime}:00`;
+      }
+
       const payload = {
         title: title.trim(),
         event_type: eventType,
-        date,
-        start_time: allDay ? null : startTime,
-        end_time: allDay ? null : endTime,
-        all_day: allDay,
+        start_at: startAt,
+        end_at: endAt,
+        is_all_day: allDay,
         project_id: projectId || null,
         location: location.trim() || null,
         description: description.trim() || null,
-        attendees,
+        attendees: attendees.length > 0
+          ? attendees.map((email) => ({ email, name: email.split("@")[0] }))
+          : undefined,
         agenda_items: selectedSuggestions.length > 0 ? selectedSuggestions : null,
+        sync_to_outlook: true,
       };
 
       const res = await fetch("/api/calendar/events", {
