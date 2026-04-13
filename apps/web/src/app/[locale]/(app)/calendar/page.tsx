@@ -12,11 +12,13 @@ import {
   Sparkles,
   Loader2,
   Zap,
+  Users,
 } from "lucide-react";
 import { AgendaStream } from "@/components/calendar/AgendaStream";
 import { TimelineView } from "@/components/calendar/TimelineView";
 import { IntelligencePanel, getStoredCity } from "@/components/calendar/IntelligencePanel";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
+import { TeamCalendarsPanel } from "@/components/calendar/TeamCalendarsPanel";
 import type { WeatherCity } from "@/components/calendar/IntelligencePanel";
 import type {
   CalendarEvent,
@@ -173,6 +175,7 @@ export default function CalendarPage() {
   const [aiCommand, setAiCommand] = useState("");
   const [aiProcessing, setAiProcessing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTeamPanel, setShowTeamPanel] = useState(false);
 
   /* ---- Persist view mode ---- */
   useEffect(() => {
@@ -414,8 +417,21 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Right: Sync + New event */}
+          {/* Right: Team + Sync + New event */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTeamPanel(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md border transition-colors ${
+                showTeamPanel
+                  ? "border-[#F97316]/30 bg-[#F97316]/10 text-[#F97316]"
+                  : "border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46]"
+              }`}
+              title="Calendriers equipe"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Equipe</span>
+            </button>
+
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -571,6 +587,16 @@ export default function CalendarPage() {
           setShowCreateModal(false);
           await fetchEvents();
           toast.success("Evenement cree");
+        }}
+      />
+
+      {/* ──────────────────── TEAM CALENDARS PANEL ──────────────────── */}
+      <TeamCalendarsPanel
+        open={showTeamPanel}
+        onClose={() => setShowTeamPanel(false)}
+        onVisibilityChange={(visibility) => {
+          // TODO: filter displayed events by visibility state
+          console.log("[Calendar] Team visibility changed:", visibility);
         }}
       />
     </div>
