@@ -278,7 +278,7 @@ export default function CalendarPage() {
       const data = await res.json();
       const result: AICommandResult = data.result;
 
-      if (data.success) {
+      if (data.success && result.action !== "unknown") {
         toast.success(result.message);
         if (result.action === "create_event") {
           await fetchEvents();
