@@ -253,6 +253,195 @@ const TOOL_SAVE_EXTRACTED_PRICES: MACustomTool = {
   },
 };
 
+// ── Email Drafter Tools ────────────────────────────────────
+
+const TOOL_FETCH_EMAILS_NEEDING_RESPONSE: MACustomTool = {
+  type: "custom",
+  name: "fetch_emails_needing_response",
+  description:
+    "Fetch emails that need a reply from the user but don't have an AI draft yet. Returns emails classified as action_required or urgent, with subject, sender, body_preview, project info. User/org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {
+      limit: {
+        type: "string",
+        description: "Max emails to return (default: 20)",
+      },
+    },
+    required: [],
+  },
+};
+
+const TOOL_FETCH_EMAIL_THREAD: MACustomTool = {
+  type: "custom",
+  name: "fetch_email_thread",
+  description:
+    "Fetch the full email thread/conversation for a specific email. Returns all messages in chronological order with sender, body text, and timestamps.",
+  input_schema: {
+    type: "object",
+    properties: {
+      email_record_id: {
+        type: "string",
+        description: "UUID of the email_record to get the thread for",
+      },
+    },
+    required: ["email_record_id"],
+  },
+};
+
+const TOOL_FETCH_PROJECT_CONTEXT: MACustomTool = {
+  type: "custom",
+  name: "fetch_project_context",
+  description:
+    "Get project context for writing a relevant draft reply: project name, code, client, key contacts, recent tasks, submission deadlines. Organization is verified from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {
+      project_id: {
+        type: "string",
+        description: "UUID of the project",
+      },
+    },
+    required: ["project_id"],
+  },
+};
+
+const TOOL_SAVE_EMAIL_DRAFT: MACustomTool = {
+  type: "custom",
+  name: "save_email_draft",
+  description:
+    "Save an AI-generated draft reply to the database. The user will review it before sending. Call this once per email that needs a draft.",
+  input_schema: {
+    type: "object",
+    properties: {
+      email_record_id: {
+        type: "string",
+        description: "UUID of the email being replied to",
+      },
+      subject: {
+        type: "string",
+        description: "Subject line for the reply (usually RE: original subject)",
+      },
+      draft_body: {
+        type: "string",
+        description: "Full HTML body of the draft reply",
+      },
+      confidence: {
+        type: "string",
+        description: "Confidence score 0.0-1.0 that this draft is appropriate",
+      },
+      context_used: {
+        type: "string",
+        description: "JSON string describing what context was used to generate this draft (thread summary, project info, etc.)",
+      },
+    },
+    required: ["email_record_id", "subject", "draft_body"],
+  },
+};
+
+// ── Followup Engine Tools ──────────────────────────────────
+
+const TOOL_SCAN_OVERDUE_ITEMS: MACustomTool = {
+  type: "custom",
+  name: "scan_overdue_items",
+  description:
+    "Scan the organization for items needing followup: price requests without response (>7 days), overdue tasks, submission deadlines approaching, reserves without deadline. Returns a combined list with source_type, source_id, and key metadata. Org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+};
+
+const TOOL_FETCH_ITEM_CONTEXT: MACustomTool = {
+  type: "custom",
+  name: "fetch_item_context",
+  description:
+    "Fetch detailed context for a specific overdue item to generate a meaningful followup. Returns project info, supplier info, related emails, and history.",
+  input_schema: {
+    type: "object",
+    properties: {
+      source_type: {
+        type: "string",
+        description: "Type of the source: submission, task, document, reserve",
+        enum: ["submission", "task", "document", "reserve"],
+      },
+      source_id: {
+        type: "string",
+        description: "UUID of the source record",
+      },
+    },
+    required: ["source_type", "source_id"],
+  },
+};
+
+const TOOL_SAVE_FOLLOWUP_ITEMS: MACustomTool = {
+  type: "custom",
+  name: "save_followup_items",
+  description:
+    "Save detected followup items to the database in batch. Deduplicates against existing pending items (same source_id + followup_type). User/org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {
+      items: {
+        type: "string",
+        description:
+          'JSON string of array: [{followup_type ("price_request_no_response"|"overdue_task"|"missing_document"|"reserve_no_deadline"|"submission_deadline"), source_type, source_id, project_id, supplier_id, title, description, urgency ("low"|"medium"|"high"|"critical"), suggested_action, draft_email_subject, draft_email_body, recipient_email, recipient_name, days_overdue}]',
+      },
+    },
+    required: ["items"],
+  },
+};
+
+// ── Supplier Monitor Tools ─────────────────────────────────
+
+const TOOL_FETCH_ALL_SUPPLIERS_DATA: MACustomTool = {
+  type: "custom",
+  name: "fetch_all_suppliers_data",
+  description:
+    "Fetch all suppliers for the organization with their scores, response rates, recent activity (offers, price requests), and historical data for trend analysis. Org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+};
+
+const TOOL_FETCH_SUPPLIER_HISTORY: MACustomTool = {
+  type: "custom",
+  name: "fetch_supplier_history",
+  description:
+    "Fetch detailed historical data for a specific supplier: score changes over time, all offers with prices, response times, reliability events.",
+  input_schema: {
+    type: "object",
+    properties: {
+      supplier_id: {
+        type: "string",
+        description: "UUID of the supplier",
+      },
+    },
+    required: ["supplier_id"],
+  },
+};
+
+const TOOL_SAVE_SUPPLIER_ALERTS: MACustomTool = {
+  type: "custom",
+  name: "save_supplier_alerts",
+  description:
+    "Save supplier monitoring alerts to the database. Automatically resolves previous active alerts of the same category for the same supplier. Org resolved from auth context.",
+  input_schema: {
+    type: "object",
+    properties: {
+      alerts: {
+        type: "string",
+        description:
+          'JSON string of array: [{supplier_id, alert_type ("critical"|"warning"|"info"|"opportunity"), category ("score_drop"|"slow_response"|"price_increase"|"reliability_issue"|"new_opportunity"|"price_decrease"|"inactive"), title, description, data (JSON object with metrics), recommended_action}]',
+      },
+    },
+    required: ["alerts"],
+  },
+};
+
 // ── Agent Configurations ────────────────────────────────────
 
 export const AGENT_REGISTRY: Record<AgentType, CantaiaAgentConfig> = {
@@ -581,6 +770,194 @@ GESTION MULTI-FICHIERS :
       TOOL_SAVE_EXTRACTED_PRICES,
     ],
     maxDurationMs: 10 * 60 * 1000, // 10 minutes
+  },
+
+  // ── Autonomous Agents (CRON-triggered) ─────────────────────
+
+  "email-drafter": {
+    type: "email-drafter",
+    name: "Cantaia Email Drafter",
+    description:
+      "Generates draft email replies for action_required/urgent emails using project context and thread history.",
+    model: "claude-sonnet-4-6",
+    systemPrompt: `Tu es le rédacteur d'emails de Cantaia, un SaaS de gestion de chantier suisse.
+Ta mission : générer des brouillons de réponses pour les emails qui nécessitent une action du chef de projet.
+
+PROCÉDURE :
+1. Appelle fetch_emails_needing_response pour obtenir les emails non traités nécessitant une réponse
+2. Pour chaque email :
+   a. Appelle fetch_email_thread pour lire le contexte complet de la conversation
+   b. Si l'email a un project_id, appelle fetch_project_context pour comprendre le projet
+   c. Rédige un brouillon de réponse pertinent et professionnel
+   d. Appelle save_email_draft pour sauvegarder le brouillon
+3. Répète pour chaque email. Si aucun email ne nécessite de réponse, termine immédiatement.
+
+STYLE DE RÉDACTION :
+- Ton : professionnel, direct, respectueux. Vouvoiement par défaut.
+- Langue : même langue que l'email original (français, allemand, ou anglais)
+- Longueur : concis — 3-6 phrases max. Pas de bavardage inutile.
+- Structure : salutation, corps, signature courte
+- Contexte : utilise les informations du projet et du thread pour personnaliser la réponse
+- Signature : "Cordialement," suivi du nom (sera remplacé par la vraie signature de l'utilisateur)
+
+TYPES DE RÉPONSES :
+- Demande de validation → confirme ou demande des précisions
+- Demande d'information → fournis l'info si dispo dans le contexte projet, sinon demande un délai
+- Offre fournisseur → accuse réception et mentionne le délai de réponse
+- Problème chantier → confirme la prise en charge et les prochaines étapes
+- Relance → remercie et donne un statut
+
+CONFIANCE :
+- 0.90+ : réponse évidente (accusé réception, confirmation simple)
+- 0.75-0.89 : réponse probable mais l'utilisateur devrait vérifier
+- 0.60-0.74 : ébauche utile mais nécessite édition
+- < 0.60 : ne pas générer de brouillon — l'email est trop complexe/ambigu
+
+RÈGLES CRITIQUES :
+- NE PAS inventer d'informations techniques (prix, dates, quantités) absentes du contexte
+- NE PAS s'engager au nom de l'utilisateur (commandes, validations contractuelles)
+- Si le sujet est sensible (litige, retard important, résiliation), mets une confiance basse et mentionne-le dans context_used
+- Inclus "RE: " devant le sujet original
+- Le draft_body doit être en HTML simple (p, br, strong — pas de styles inline complexes)`,
+    tools: [
+      TOOL_FETCH_EMAILS_NEEDING_RESPONSE,
+      TOOL_FETCH_EMAIL_THREAD,
+      TOOL_FETCH_PROJECT_CONTEXT,
+      TOOL_SAVE_EMAIL_DRAFT,
+    ],
+    maxDurationMs: 10 * 60 * 1000, // 10 minutes
+  },
+
+  "followup-engine": {
+    type: "followup-engine",
+    name: "Cantaia Followup Engine",
+    description:
+      "Detects items needing followup: unanswered price requests, overdue tasks, approaching deadlines, reserves without deadline.",
+    model: "claude-sonnet-4-6",
+    systemPrompt: `Tu es le moteur de relances de Cantaia, un SaaS de gestion de chantier suisse.
+Ta mission : détecter les éléments nécessitant un suivi et proposer des actions concrètes.
+
+PROCÉDURE :
+1. Appelle scan_overdue_items pour scanner l'organisation et trouver les éléments en retard ou en attente
+2. Pour les éléments les plus urgents (top 20), appelle fetch_item_context pour obtenir le détail
+3. Pour chaque élément, génère :
+   - Un titre clair et une description
+   - Un niveau d'urgence (critical/high/medium/low)
+   - Une suggestion d'action
+   - Si pertinent : un brouillon d'email de relance (draft_email_subject + draft_email_body)
+4. Appelle save_followup_items avec tous les éléments en un seul appel
+
+CATÉGORIES DE RELANCES :
+- price_request_no_response : demande de prix envoyée il y a > 7 jours sans réponse fournisseur
+  → Urgence basée sur le nombre de jours et la deadline de la soumission
+  → Brouillon email : relance polie au fournisseur, rappel de la deadline
+
+- overdue_task : tâche dont la due_date est passée et le statut n'est pas "done"
+  → Urgence basée sur le nombre de jours de retard et la priorité de la tâche
+  → Action suggérée : escalader, réassigner, ou clôturer
+
+- submission_deadline : soumission dont la deadline arrive dans < 7 jours
+  → Urgence : critical si < 3 jours, high si < 5 jours, medium si < 7 jours
+  → Action : vérifier l'état des offres reçues, relancer les fournisseurs manquants
+
+- reserve_no_deadline : réserve de chantier (reception_reserves) sans deadline fixée
+  → Urgence : high si sévérité = major/blocking, medium sinon
+  → Action : fixer une deadline et notifier le responsable
+
+RÉDACTION DES EMAILS DE RELANCE :
+- Vouvoiement, ton professionnel
+- Rappeler le contexte (nom du projet, référence de la soumission/tâche)
+- Mentionner le délai écoulé ou la deadline
+- Proposer un délai de réponse raisonnable
+- Langue : français par défaut (sauf si le fournisseur est germanophone, basé sur le nom/email)
+
+URGENCE :
+- critical : impact chantier immédiat, retard > 14 jours, ou deadline < 3 jours
+- high : retard 7-14 jours, ou deadline < 5 jours
+- medium : retard < 7 jours, ou deadline < 7 jours
+- low : informatif, aucune action immédiate requise
+
+RÈGLES CRITIQUES :
+- NE PAS créer de followup pour des éléments déjà traités (scan_overdue_items filtre automatiquement)
+- Priorise les éléments avec un impact financier ou planning
+- Max 30 followup items par run (top urgence)
+- Si scan_overdue_items retourne 0 éléments, appelle save_followup_items avec un tableau vide et termine`,
+    tools: [
+      TOOL_SCAN_OVERDUE_ITEMS,
+      TOOL_FETCH_ITEM_CONTEXT,
+      TOOL_SAVE_FOLLOWUP_ITEMS,
+    ],
+    maxDurationMs: 10 * 60 * 1000, // 10 minutes
+  },
+
+  "supplier-monitor": {
+    type: "supplier-monitor",
+    name: "Cantaia Supplier Monitor",
+    description:
+      "Weekly analysis of all suppliers: score trends, response times, price evolution, reliability monitoring.",
+    model: "claude-sonnet-4-6",
+    systemPrompt: `Tu es l'analyste fournisseurs de Cantaia, un SaaS de gestion de chantier suisse.
+Ta mission : analyser l'ensemble des fournisseurs de l'organisation et générer des alertes pertinentes.
+
+PROCÉDURE :
+1. Appelle fetch_all_suppliers_data pour obtenir tous les fournisseurs avec scores, taux de réponse, activité récente
+2. Analyse chaque fournisseur et identifie ceux nécessitant une alerte
+3. Pour les fournisseurs à problème, appelle fetch_supplier_history pour des données détaillées
+4. Appelle save_supplier_alerts avec toutes les alertes en un seul appel
+
+CATÉGORIES D'ALERTES :
+
+1. score_drop (critical/warning) :
+   - Score fiabilité en baisse de > 15% sur les 4 dernières semaines
+   - Score passé sous 50 → critical, sous 65 → warning
+   → Recommandation : préparer un fournisseur alternatif
+
+2. slow_response (warning) :
+   - Temps de réponse moyen en hausse de > 50% vs moyenne historique
+   - Offre en attente depuis > 10 jours
+   → Recommandation : relancer le fournisseur, préparer alternatives
+
+3. price_increase (warning/info) :
+   - Hausse des prix > 5% vs dernier trimestre (hors tendance marché)
+   → Recommandation : comparer avec d'autres fournisseurs, négocier
+
+4. price_decrease (opportunity) :
+   - Baisse de prix détectée ou offre promotionnelle
+   → Recommandation : en profiter pour les projets concernés
+
+5. reliability_issue (critical/warning) :
+   - Retards de livraison répétés (2+ dans les 30 derniers jours)
+   - Non-respect des engagements qualité
+   → Recommandation : alerter l'équipe, envisager un changement
+
+6. new_opportunity (opportunity) :
+   - Fournisseur avec excellent score mais pas sollicité depuis 90+ jours
+   - Fournisseur avec spécialités correspondant à des soumissions en cours
+   → Recommandation : inclure dans les prochaines demandes de prix
+
+7. inactive (info) :
+   - Aucune interaction depuis 90+ jours
+   → Recommandation : reprendre contact ou archiver
+
+DONNÉES À INCLURE DANS data (JSONB) :
+- score_current, score_previous, score_change_pct
+- response_rate, avg_response_days
+- price_trend_pct (par rapport au dernier trimestre)
+- active_offers_count, pending_requests_count
+- last_interaction_date
+
+RÈGLES CRITIQUES :
+- Génère des alertes UNIQUEMENT quand il y a une anomalie — pas d'alerte pour les fournisseurs stables
+- Maximum 15 alertes par run (les plus importantes)
+- Pour chaque alerte critique, propose un fournisseur alternatif si possible
+- Calcule les tendances sur les données disponibles (ne pas inventer de chiffres)
+- Si fetch_all_suppliers_data retourne 0 fournisseurs, appelle save_supplier_alerts avec un tableau vide et termine`,
+    tools: [
+      TOOL_FETCH_ALL_SUPPLIERS_DATA,
+      TOOL_FETCH_SUPPLIER_HISTORY,
+      TOOL_SAVE_SUPPLIER_ALERTS,
+    ],
+    maxDurationMs: 15 * 60 * 1000, // 15 minutes
   },
 };
 

@@ -59,6 +59,8 @@ export function Sidebar() {
 
   const [profileSuperAdmin, setProfileSuperAdmin] = useState(false);
   const [supportUnread, setSupportUnread] = useState(0);
+  const [draftCount, setDraftCount] = useState(0);
+  const [supplierAlertCount, setSupplierAlertCount] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -99,13 +101,41 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, [user?.id]);
 
+  // Poll agent draft count (for Mail badge)
+  useEffect(() => {
+    if (!user?.id) return;
+    function fetchDraftCount() {
+      fetch("/api/agents/drafts/counts")
+        .then((r) => r.json())
+        .then((d) => setDraftCount(d.count || 0))
+        .catch(() => {});
+    }
+    fetchDraftCount();
+    const interval = setInterval(fetchDraftCount, 60000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  // Poll supplier alert count (for Fournisseurs badge)
+  useEffect(() => {
+    if (!user?.id) return;
+    function fetchAlertCount() {
+      fetch("/api/agents/supplier-alerts/counts")
+        .then((r) => r.json())
+        .then((d) => setSupplierAlertCount(d.total || 0))
+        .catch(() => {});
+    }
+    fetchAlertCount();
+    const interval = setInterval(fetchAlertCount, 60000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
   const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
   const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;
 
   // Section: QUOTIDIEN
   const dailyItems: NavItem[] = [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, status: "active", dataTour: "nav-dashboard" },
-    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: mailUnprocessed > 0 ? String(mailUnprocessed) : undefined, badgeColor: "orange", dataTour: "nav-mail" },
+    { href: "/mail", labelKey: "mail", icon: Mail, status: "active", badge: (mailUnprocessed + draftCount) > 0 ? String(mailUnprocessed + draftCount) : undefined, badgeColor: draftCount > 0 ? "orange" : "orange", dataTour: "nav-mail" },
     { href: "/briefing", labelKey: "briefing", icon: Newspaper, status: "active", dataTour: "nav-briefing" },
     { href: "/tasks", labelKey: "tasks", icon: CheckSquare, status: "active", dataTour: "nav-tasks" },
   ];
@@ -113,7 +143,7 @@ export function Sidebar() {
   // Section: RÉFÉRENTIELS
   const referenceItems: NavItem[] = [
     { href: "/submissions", labelKey: "submissions", icon: FileSpreadsheet, status: "active", dataTour: "nav-submissions" },
-    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", dataTour: "nav-suppliers" },
+    { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active", badge: supplierAlertCount > 0 ? String(supplierAlertCount) : undefined, badgeColor: "red", dataTour: "nav-suppliers" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     { href: "/chat", labelKey: "assistantAi", icon: MessageSquare, status: "active", dataTour: "nav-chat" },
   ];

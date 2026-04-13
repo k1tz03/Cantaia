@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { BriefingContent } from "@cantaia/database";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
+import { FollowupSection } from "@/components/briefing/FollowupSection";
 import { PlanAlertsBanner } from "@/components/plans/PlanAlertsBanner";
 import { createClient } from "@/lib/supabase/client";
 import { useAgent } from "@/lib/hooks/use-agent";
@@ -353,6 +354,11 @@ export default function BriefingPage() {
           />
         </div>
       )}
+
+      {/* Agent followups */}
+      <div className="mt-6">
+        <FollowupSection />
+      </div>
 
       {/* Stats bar */}
       <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6">

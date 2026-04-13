@@ -39,6 +39,7 @@ import {
   MapPin,
 } from "lucide-react";
 import DOMPurify from "dompurify";
+import { AIDraftPanel } from "@/components/mail/AIDraftPanel";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { useAgent } from "@/lib/hooks/use-agent";
 import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
@@ -1993,6 +1994,11 @@ function EmailDetailPanel({ email, isAloneInOrg, locale, folders, orgProjects, o
               )}
             </div>
           )}
+
+          {/* AI Draft Panel — shows pending draft if one exists for this email */}
+          <div className="px-4 pb-3">
+            <AIDraftPanel emailRecordId={email.id} compact />
+          </div>
         </div>
       </div>
     </>

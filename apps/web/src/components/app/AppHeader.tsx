@@ -4,9 +4,10 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useActiveProjectSafe } from "@/lib/contexts/active-project-context";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { Bell, Search, User, Shield, LogOut } from "lucide-react";
+import { Search, User, Shield, LogOut } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { NotificationDropdown } from "./NotificationDropdown";
 
 function getPageName(pathname: string): string {
   const segments = pathname.split("/").filter(Boolean);
@@ -152,14 +153,8 @@ export function AppHeader() {
           </kbd>
         </div>
 
-        {/* Notifications — links to /support */}
-        <Link
-          href="/support"
-          className="w-8 h-8 rounded-lg bg-[#18181B] border border-[#3F3F46] flex items-center justify-center hover:bg-[#27272A] transition-colors relative"
-        >
-          <Bell className="h-3.5 w-3.5 text-[#A1A1AA]" />
-          <span className="absolute top-[5px] right-[5px] w-[6px] h-[6px] bg-[#EF4444] rounded-full" />
-        </Link>
+        {/* Notifications dropdown */}
+        <NotificationDropdown />
 
         {/* Avatar dropdown */}
         <div className="relative" ref={avatarRef}>

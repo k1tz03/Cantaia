@@ -906,4 +906,608 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const skipped = prices.length - rows.length;
     return { success: true, saved: rows.length, ...(skipped > 0 ? { skipped_duplicates: skipped } : {}) };
   },
+
+  // ── Email Drafter Tools ─────────────────────────────────
+
+  fetch_emails_needing_response: async (input, ctx) => {
+    const limit = Math.min(Number(input.limit) || 20, 50);
+
+    // Emails classified as action_required/urgent, not yet drafted, received in last 3 days
+    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
+
+    const { data: emails, error } = await (ctx.admin as any)
+      .from("email_records")
+      .select("id, subject, sender_name, sender_email, body_preview, body_text, classification, received_at, project_id")
+      .eq("user_id", ctx.userId)
+      .in("classification", ["action_required", "urgent"])
+      .is("response_drafted_at", null)
+      .gte("received_at", threeDaysAgo)
+      .order("received_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("[tool:fetch_emails_needing_response]", error.message);
+      return { error: true, message: error.message };
+    }
+
+    // Filter out emails that already have a pending draft
+    const emailIds = (emails || []).map((e: any) => e.id);
+    let existingDraftIds = new Set<string>();
+    if (emailIds.length > 0) {
+      const { data: drafts } = await (ctx.admin as any)
+        .from("email_drafts")
+        .select("email_record_id")
+        .in("email_record_id", emailIds)
+        .eq("status", "pending");
+      existingDraftIds = new Set((drafts || []).map((d: any) => d.email_record_id));
+    }
+
+    const needingResponse = (emails || []).filter((e: any) => !existingDraftIds.has(e.id));
+
+    return {
+      emails: needingResponse,
+      count: needingResponse.length,
+      total_action_emails: (emails || []).length,
+      already_drafted: existingDraftIds.size,
+    };
+  },
+
+  fetch_email_thread: async (input, ctx) => {
+    const emailId = input.email_record_id as string;
+
+    // Fetch the email record
+    const { data: email, error } = await (ctx.admin as any)
+      .from("email_records")
+      .select("id, subject, sender_name, sender_email, recipients, body_text, body_html, body_preview, received_at, outlook_message_id, project_id, user_id")
+      .eq("id", emailId)
+      .maybeSingle();
+
+    if (error || !email) {
+      return { error: true, message: "Email not found" };
+    }
+
+    // Verify ownership
+    if (email.user_id !== ctx.userId) {
+      return { error: true, message: "Access denied" };
+    }
+
+    // Try to find thread messages (same conversation)
+    const threadMessages: any[] = [];
+    if (email.subject) {
+      // Get recent emails from same sender/recipient with related subjects
+      const baseSubject = email.subject.replace(/^(RE|FW|FWD|AW|WG):\s*/gi, "").trim();
+      const { data: related } = await (ctx.admin as any)
+        .from("email_records")
+        .select("id, subject, sender_name, sender_email, body_text, body_preview, received_at")
+        .eq("user_id", ctx.userId)
+        .ilike("subject", `%${baseSubject.slice(0, 60)}%`)
+        .order("received_at", { ascending: true })
+        .limit(10);
+
+      if (related) threadMessages.push(...related);
+    }
+
+    // If no thread found, just return the single email
+    if (threadMessages.length === 0) {
+      threadMessages.push(email);
+    }
+
+    return {
+      email_id: email.id,
+      project_id: email.project_id,
+      thread: threadMessages.map((m: any) => ({
+        sender: m.sender_name || m.sender_email,
+        date: m.received_at,
+        body: m.body_text || m.body_preview || "",
+      })),
+    };
+  },
+
+  fetch_project_context: async (input, ctx) => {
+    const projectId = input.project_id as string;
+
+    const { data: project, error } = await (ctx.admin as any)
+      .from("projects")
+      .select("id, name, code, client_name, city, status, description, organization_id")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (error || !project || project.organization_id !== ctx.organizationId) {
+      return { error: true, message: "Project not found or access denied" };
+    }
+
+    // Fetch recent tasks and submission deadlines in parallel
+    const [tasksRes, submissionsRes, membersRes] = await Promise.all([
+      (ctx.admin as any)
+        .from("tasks")
+        .select("title, status, priority, due_date")
+        .eq("project_id", projectId)
+        .in("status", ["todo", "in_progress", "waiting"])
+        .order("due_date", { ascending: true })
+        .limit(10),
+      (ctx.admin as any)
+        .from("submissions")
+        .select("title, deadline, status")
+        .eq("project_id", projectId)
+        .in("status", ["draft", "sent", "responses"])
+        .limit(5),
+      (ctx.admin as any)
+        .from("project_members")
+        .select("user_id, role, users(first_name, last_name, email)")
+        .eq("project_id", projectId)
+        .limit(10),
+    ]);
+
+    return {
+      project: {
+        name: project.name,
+        code: project.code,
+        client: project.client_name,
+        city: project.city,
+        status: project.status,
+      },
+      open_tasks: tasksRes.data || [],
+      active_submissions: submissionsRes.data || [],
+      team_members: (membersRes.data || []).map((m: any) => ({
+        name: `${m.users?.first_name || ""} ${m.users?.last_name || ""}`.trim(),
+        email: m.users?.email,
+        role: m.role,
+      })),
+    };
+  },
+
+  save_email_draft: async (input, ctx) => {
+    const emailId = input.email_record_id as string;
+    const subject = input.subject as string;
+    const draftBody = input.draft_body as string;
+    const confidence = parseFloat(input.confidence as string) || 0.80;
+    let contextUsed = {};
+    try {
+      contextUsed = input.context_used
+        ? (typeof input.context_used === "string" ? JSON.parse(input.context_used as string) : input.context_used)
+        : {};
+    } catch { /* use empty object */ }
+
+    // Verify email exists and belongs to user
+    const { data: email } = await (ctx.admin as any)
+      .from("email_records")
+      .select("id, project_id, user_id")
+      .eq("id", emailId)
+      .maybeSingle();
+
+    if (!email || email.user_id !== ctx.userId) {
+      return { error: true, message: "Email not found or access denied" };
+    }
+
+    // Insert draft
+    const { error } = await (ctx.admin as any)
+      .from("email_drafts")
+      .insert({
+        organization_id: ctx.organizationId,
+        user_id: ctx.userId,
+        email_record_id: emailId,
+        project_id: email.project_id,
+        subject,
+        draft_body: draftBody,
+        confidence,
+        context_used: contextUsed,
+        status: "pending",
+        agent_session_id: ctx.sessionId,
+      });
+
+    if (error) {
+      return { error: true, message: `Save failed: ${error.message}` };
+    }
+
+    // Mark email as drafted
+    await (ctx.admin as any)
+      .from("email_records")
+      .update({ response_drafted_at: new Date().toISOString() })
+      .eq("id", emailId);
+
+    return { success: true, message: `Draft saved for email ${emailId}` };
+  },
+
+  // ── Followup Engine Tools ───────────────────────────────
+
+  scan_overdue_items: async (_input, ctx) => {
+    const orgId = ctx.organizationId;
+    const today = new Date().toISOString().slice(0, 10);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+    const results: any[] = [];
+
+    // 1. Price requests without response (> 7 days)
+    try {
+      const { data: priceRequests } = await (ctx.admin as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, supplier_id, status, sent_at, submissions!inner(title, deadline, project_id, projects!inner(name, organization_id)), suppliers(company_name, contact_name, email)")
+        .eq("submissions.projects.organization_id", orgId)
+        .eq("status", "sent")
+        .lt("sent_at", sevenDaysAgo);
+
+      for (const pr of priceRequests || []) {
+        const daysSent = Math.floor((Date.now() - new Date(pr.sent_at).getTime()) / 86400000);
+        results.push({
+          followup_type: "price_request_no_response",
+          source_type: "submission",
+          source_id: pr.submission_id,
+          project_id: pr.submissions?.project_id,
+          supplier_id: pr.supplier_id,
+          title: `Prix sans réponse : ${pr.suppliers?.company_name || "Fournisseur"}`,
+          description: `Demande de prix pour "${pr.submissions?.title}" envoyée il y a ${daysSent} jours`,
+          days_overdue: daysSent - 7,
+          recipient_email: pr.suppliers?.email,
+          recipient_name: pr.suppliers?.contact_name || pr.suppliers?.company_name,
+          project_name: pr.submissions?.projects?.name,
+          submission_title: pr.submissions?.title,
+          submission_deadline: pr.submissions?.deadline,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[scan_overdue_items] Price requests scan failed:", e.message);
+    }
+
+    // 2. Overdue tasks
+    try {
+      const { data: tasks } = await (ctx.admin as any)
+        .from("tasks")
+        .select("id, title, status, priority, due_date, project_id, assigned_to, projects!inner(name, organization_id)")
+        .eq("projects.organization_id", orgId)
+        .in("status", ["todo", "in_progress", "waiting"])
+        .lt("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(30);
+
+      for (const task of tasks || []) {
+        const daysOver = Math.floor((Date.now() - new Date(task.due_date).getTime()) / 86400000);
+        results.push({
+          followup_type: "overdue_task",
+          source_type: "task",
+          source_id: task.id,
+          project_id: task.project_id,
+          title: `Tâche en retard : ${task.title}`,
+          description: `En retard de ${daysOver} jour(s), priorité ${task.priority}`,
+          days_overdue: daysOver,
+          project_name: task.projects?.name,
+          priority: task.priority,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[scan_overdue_items] Tasks scan failed:", e.message);
+    }
+
+    // 3. Submission deadlines approaching (< 7 days)
+    try {
+      const { data: submissions } = await (ctx.admin as any)
+        .from("submissions")
+        .select("id, title, deadline, status, project_id, projects!inner(name, organization_id)")
+        .eq("projects.organization_id", orgId)
+        .in("status", ["draft", "sent", "responses"])
+        .gte("deadline", today)
+        .lte("deadline", sevenDaysFromNow);
+
+      for (const sub of submissions || []) {
+        const daysRemaining = Math.floor((new Date(sub.deadline).getTime() - Date.now()) / 86400000);
+        results.push({
+          followup_type: "submission_deadline",
+          source_type: "submission",
+          source_id: sub.id,
+          project_id: sub.project_id,
+          title: `Deadline soumission : ${sub.title}`,
+          description: `Deadline dans ${daysRemaining} jour(s) — statut: ${sub.status}`,
+          days_overdue: -daysRemaining, // negative = not yet overdue
+          project_name: sub.projects?.name,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[scan_overdue_items] Submissions scan failed:", e.message);
+    }
+
+    // 4. Reserves without deadline (if tables exist)
+    try {
+      const { data: reserves } = await (ctx.admin as any)
+        .from("reception_reserves")
+        .select("id, description, severity, status, deadline, project_receptions!inner(project_id, projects!inner(name, organization_id))")
+        .eq("project_receptions.projects.organization_id", orgId)
+        .is("deadline", null)
+        .in("status", ["open", "in_progress"]);
+
+      for (const res of reserves || []) {
+        results.push({
+          followup_type: "reserve_no_deadline",
+          source_type: "reserve",
+          source_id: res.id,
+          project_id: res.project_receptions?.project_id,
+          title: `Réserve sans deadline : ${(res.description || "").slice(0, 80)}`,
+          description: `Sévérité: ${res.severity}, projet: ${res.project_receptions?.projects?.name}`,
+          days_overdue: 0,
+          project_name: res.project_receptions?.projects?.name,
+        });
+      }
+    } catch (e: any) {
+      // Table may not exist — non-fatal
+      console.warn("[scan_overdue_items] Reserves scan skipped:", e.message);
+    }
+
+    return { items: results, total: results.length };
+  },
+
+  fetch_item_context: async (input, ctx) => {
+    const sourceType = input.source_type as string;
+    const sourceId = input.source_id as string;
+
+    if (sourceType === "submission") {
+      const { data: sub } = await (ctx.admin as any)
+        .from("submissions")
+        .select("id, title, reference, deadline, status, project_id, projects!inner(name, code, client_name, organization_id)")
+        .eq("id", sourceId)
+        .maybeSingle();
+
+      if (!sub || sub.projects?.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Not found or access denied" };
+      }
+
+      // Get price request details
+      const { data: requests } = await (ctx.admin as any)
+        .from("submission_price_requests")
+        .select("id, status, sent_at, supplier_id, suppliers(company_name, email, contact_name)")
+        .eq("submission_id", sourceId);
+
+      return {
+        type: "submission",
+        submission: { title: sub.title, reference: sub.reference, deadline: sub.deadline, status: sub.status },
+        project: { name: sub.projects?.name, code: sub.projects?.code, client: sub.projects?.client_name },
+        price_requests: (requests || []).map((r: any) => ({
+          status: r.status,
+          sent_at: r.sent_at,
+          supplier: r.suppliers?.company_name,
+          email: r.suppliers?.email,
+          contact: r.suppliers?.contact_name,
+        })),
+      };
+    }
+
+    if (sourceType === "task") {
+      const { data: task } = await (ctx.admin as any)
+        .from("tasks")
+        .select("id, title, description, status, priority, due_date, project_id, projects!inner(name, organization_id)")
+        .eq("id", sourceId)
+        .maybeSingle();
+
+      if (!task || task.projects?.organization_id !== ctx.organizationId) {
+        return { error: true, message: "Not found or access denied" };
+      }
+
+      return {
+        type: "task",
+        task: { title: task.title, description: task.description, status: task.status, priority: task.priority, due_date: task.due_date },
+        project: { name: task.projects?.name },
+      };
+    }
+
+    return { error: true, message: `Unsupported source_type: ${sourceType}` };
+  },
+
+  save_followup_items: async (input, ctx) => {
+    let items: any[];
+    try {
+      items = typeof input.items === "string" ? JSON.parse(input.items as string) : input.items;
+    } catch {
+      return { error: true, message: "Invalid items JSON" };
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: true, saved: 0, message: "No followup items to save" };
+    }
+
+    const rows = items.map((item: any) => ({
+      organization_id: ctx.organizationId,
+      user_id: ctx.userId,
+      followup_type: item.followup_type,
+      source_type: item.source_type,
+      source_id: item.source_id || null,
+      project_id: item.project_id || null,
+      supplier_id: item.supplier_id || null,
+      title: item.title,
+      description: item.description || null,
+      urgency: item.urgency || "medium",
+      suggested_action: item.suggested_action || null,
+      draft_email_subject: item.draft_email_subject || null,
+      draft_email_body: item.draft_email_body || null,
+      recipient_email: item.recipient_email || null,
+      recipient_name: item.recipient_name || null,
+      days_overdue: item.days_overdue || null,
+      status: "pending",
+      agent_session_id: ctx.sessionId,
+    }));
+
+    // Insert with ON CONFLICT DO NOTHING (dedup index handles it)
+    const { error, count } = await (ctx.admin as any)
+      .from("followup_items")
+      .upsert(rows, { onConflict: "source_id,followup_type", ignoreDuplicates: true });
+
+    if (error) {
+      console.error("[save_followup_items]", error.message);
+      return { error: true, message: error.message };
+    }
+
+    return { success: true, saved: count || rows.length, total: items.length };
+  },
+
+  // ── Supplier Monitor Tools ──────────────────────────────
+
+  fetch_all_suppliers_data: async (_input, ctx) => {
+    const orgId = ctx.organizationId;
+
+    const { data: suppliers, error } = await (ctx.admin as any)
+      .from("suppliers")
+      .select("id, company_name, contact_name, email, phone, specialties, cfc_codes, response_rate, reliability_score, overall_score, supplier_type, last_monitored_at, created_at")
+      .eq("organization_id", orgId)
+      .order("overall_score", { ascending: true })
+      .limit(100);
+
+    if (error) {
+      return { error: true, message: error.message };
+    }
+
+    // Enrich with recent activity
+    const supplierIds = (suppliers || []).map((s: any) => s.id);
+    let recentOffers: any[] = [];
+    let pendingRequests: any[] = [];
+
+    if (supplierIds.length > 0) {
+      try {
+        const { data: offers } = await (ctx.admin as any)
+          .from("supplier_offers")
+          .select("id, supplier_id, total_amount, status, submitted_at")
+          .in("supplier_id", supplierIds)
+          .order("submitted_at", { ascending: false })
+          .limit(200);
+        recentOffers = offers || [];
+      } catch { /* non-fatal */ }
+
+      try {
+        const { data: requests } = await (ctx.admin as any)
+          .from("submission_price_requests")
+          .select("id, supplier_id, status, sent_at")
+          .in("supplier_id", supplierIds)
+          .order("sent_at", { ascending: false })
+          .limit(200);
+        pendingRequests = requests || [];
+      } catch { /* non-fatal */ }
+    }
+
+    // Build per-supplier metrics
+    const enriched = (suppliers || []).map((s: any) => {
+      const offers = recentOffers.filter((o: any) => o.supplier_id === s.id);
+      const requests = pendingRequests.filter((r: any) => r.supplier_id === s.id);
+      const pending = requests.filter((r: any) => r.status === "sent");
+
+      return {
+        ...s,
+        total_offers: offers.length,
+        pending_requests: pending.length,
+        last_offer_date: offers[0]?.submitted_at || null,
+        avg_response_days: pending.length > 0
+          ? Math.round(pending.reduce((sum: number, r: any) => sum + (Date.now() - new Date(r.sent_at).getTime()) / 86400000, 0) / pending.length)
+          : null,
+      };
+    });
+
+    return { suppliers: enriched, count: enriched.length };
+  },
+
+  fetch_supplier_history: async (input, ctx) => {
+    const supplierId = input.supplier_id as string;
+
+    // Verify ownership
+    const { data: supplier } = await (ctx.admin as any)
+      .from("suppliers")
+      .select("id, company_name, organization_id")
+      .eq("id", supplierId)
+      .maybeSingle();
+
+    if (!supplier || supplier.organization_id !== ctx.organizationId) {
+      return { error: true, message: "Supplier not found or access denied" };
+    }
+
+    // Fetch offers history
+    const { data: offers } = await (ctx.admin as any)
+      .from("supplier_offers")
+      .select("id, total_amount, status, submitted_at, submission_id")
+      .eq("supplier_id", supplierId)
+      .order("submitted_at", { ascending: false })
+      .limit(50);
+
+    // Fetch price request history
+    const { data: requests } = await (ctx.admin as any)
+      .from("submission_price_requests")
+      .select("id, status, sent_at, responded_at")
+      .eq("supplier_id", supplierId)
+      .order("sent_at", { ascending: false })
+      .limit(50);
+
+    // Calculate trends
+    const offerAmounts = (offers || [])
+      .filter((o: any) => o.total_amount)
+      .map((o: any) => ({ date: o.submitted_at, amount: o.total_amount }));
+
+    const responseTimes = (requests || [])
+      .filter((r: any) => r.responded_at && r.sent_at)
+      .map((r: any) => ({
+        date: r.sent_at,
+        days: Math.round((new Date(r.responded_at).getTime() - new Date(r.sent_at).getTime()) / 86400000),
+      }));
+
+    return {
+      supplier_name: supplier.company_name,
+      offers: offerAmounts,
+      response_times: responseTimes,
+      total_offers: (offers || []).length,
+      total_requests: (requests || []).length,
+    };
+  },
+
+  save_supplier_alerts: async (input, ctx) => {
+    let alerts: any[];
+    try {
+      alerts = typeof input.alerts === "string" ? JSON.parse(input.alerts as string) : input.alerts;
+    } catch {
+      return { error: true, message: "Invalid alerts JSON" };
+    }
+
+    if (!Array.isArray(alerts) || alerts.length === 0) {
+      return { success: true, saved: 0, message: "No alerts to save" };
+    }
+
+    // Resolve previous active alerts for same supplier+category
+    const supplierCategories = alerts.map((a: any) => `${a.supplier_id}|${a.category}`);
+    const uniquePairs = Array.from(new Set(supplierCategories));
+
+    for (const pair of uniquePairs) {
+      const [supplierId, category] = pair.split("|");
+      await (ctx.admin as any)
+        .from("supplier_alerts")
+        .update({ status: "resolved", updated_at: new Date().toISOString() })
+        .eq("organization_id", ctx.organizationId)
+        .eq("supplier_id", supplierId)
+        .eq("category", category)
+        .eq("status", "active");
+    }
+
+    // Insert new alerts
+    const rows = alerts.map((a: any) => ({
+      organization_id: ctx.organizationId,
+      supplier_id: a.supplier_id,
+      alert_type: a.alert_type,
+      category: a.category,
+      title: a.title,
+      description: a.description,
+      data: a.data || {},
+      recommended_action: a.recommended_action || null,
+      status: "active",
+      agent_session_id: ctx.sessionId,
+    }));
+
+    const { error } = await (ctx.admin as any)
+      .from("supplier_alerts")
+      .insert(rows);
+
+    if (error) {
+      return { error: true, message: error.message };
+    }
+
+    // Update last_monitored_at on suppliers
+    const supplierIds = Array.from(new Set(alerts.map((a: any) => a.supplier_id)));
+    for (const sid of supplierIds) {
+      await (ctx.admin as any)
+        .from("suppliers")
+        .update({ last_monitored_at: new Date().toISOString() })
+        .eq("id", sid);
+    }
+
+    return { success: true, saved: rows.length, total: alerts.length };
+  },
 };

@@ -10,7 +10,10 @@ export type AgentType =
   | "plan-estimator"
   | "email-classifier"
   | "price-extractor"
-  | "briefing-generator";
+  | "briefing-generator"
+  | "email-drafter"
+  | "followup-engine"
+  | "supplier-monitor";
 
 export const AGENT_TYPES: AgentType[] = [
   "submission-analyzer",
@@ -18,6 +21,9 @@ export const AGENT_TYPES: AgentType[] = [
   "email-classifier",
   "price-extractor",
   "briefing-generator",
+  "email-drafter",
+  "followup-engine",
+  "supplier-monitor",
 ];
 
 // ── Session Lifecycle ───────────────────────────────────────

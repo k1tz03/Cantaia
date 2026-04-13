@@ -25,6 +25,7 @@ import {
   HardHat,
 } from "lucide-react";
 import { DashboardOrgView } from "@/components/app/DashboardOrgView";
+import { AgentActivityCards } from "@/components/app/AgentActivityCards";
 
 const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
 
@@ -567,6 +568,9 @@ export default function DashboardPage() {
             <p className="text-sm font-medium text-[#34D399]">{t("nothingUrgent")}</p>
           </div>
         )}
+
+        {/* ===== AGENT ACTIVITY ===== */}
+        <AgentActivityCards />
 
         {/* ===== TWO COLUMNS ===== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

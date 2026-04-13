@@ -93,6 +93,24 @@ const AGENT_DISPLAY: Record<AgentType, {
     startingTitle: "Démarrage de l'agent IA...",
     defaultActivity: "Lecture des documents prix",
   },
+  "email-drafter": {
+    completedTitle: (n) => `${n} brouillon${n > 1 ? "s" : ""} préparé${n > 1 ? "s" : ""}`,
+    runningTitle: "Rédaction des brouillons en cours...",
+    startingTitle: "Démarrage de l'agent Email Drafter...",
+    defaultActivity: "Analyse des emails en attente de réponse",
+  },
+  "followup-engine": {
+    completedTitle: (n) => `${n} relance${n > 1 ? "s" : ""} identifiée${n > 1 ? "s" : ""}`,
+    runningTitle: "Détection des relances en cours...",
+    startingTitle: "Démarrage du Followup Engine...",
+    defaultActivity: "Analyse des demandes sans réponse",
+  },
+  "supplier-monitor": {
+    completedTitle: (n) => `${n} alerte${n > 1 ? "s" : ""} fournisseur détectée${n > 1 ? "s" : ""}`,
+    runningTitle: "Analyse des fournisseurs en cours...",
+    startingTitle: "Démarrage du Supplier Monitor...",
+    defaultActivity: "Évaluation des performances fournisseurs",
+  },
 };
 
 const DEFAULT_DISPLAY = AGENT_DISPLAY["submission-analyzer"];

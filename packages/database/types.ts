@@ -164,7 +164,10 @@ export type ApiActionType =
   | "agent_plan-estimator"
   | "agent_email-classifier"
   | "agent_price-extractor"
-  | "agent_briefing-generator";
+  | "agent_briefing-generator"
+  | "agent_email-drafter"
+  | "agent_followup-engine"
+  | "agent_supplier-monitor";
 
 export type PlanType =
   | "execution"

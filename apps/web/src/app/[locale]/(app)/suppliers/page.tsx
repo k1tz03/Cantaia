@@ -20,6 +20,7 @@ import { SupplierFormDialog } from "@/components/suppliers/SupplierFormDialog";
 import { SupplierImportDialog } from "@/components/suppliers/SupplierImportDialog";
 import { AISearchDialog } from "@/components/suppliers/AISearchDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SupplierAlertsBanner } from "@/components/suppliers/SupplierAlertsBanner";
 import { type TimelineItem } from "@/components/suppliers/SupplierTimeline";
 import { SupplierPriceChart, type PriceTrendPoint } from "@/components/suppliers/SupplierPriceChart";
 
@@ -401,6 +402,9 @@ export default function SuppliersPage() {
             <div className="text-[10px] text-[#71717A] mt-0.5">Offres recues</div>
           </div>
         </div>
+
+        {/* Agent alerts banner */}
+        <SupplierAlertsBanner />
 
         {/* Toolbar */}
         <div className="flex items-center gap-2 mb-3.5">
