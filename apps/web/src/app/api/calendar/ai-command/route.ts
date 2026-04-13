@@ -39,28 +39,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 403 });
     }
 
-    // Check AI usage limit
-    const { data: orgData } = await admin
-      .from("organizations")
-      .select("subscription_plan")
-      .eq("id", profile.organization_id)
-      .single();
+    // Check AI usage limit (non-fatal — allow command even if check fails)
+    try {
+      const { data: orgData } = await admin
+        .from("organizations")
+        .select("subscription_plan")
+        .eq("id", profile.organization_id)
+        .single();
 
-    const usageCheck = await checkUsageLimit(
-      admin,
-      profile.organization_id,
-      orgData?.subscription_plan || "trial"
-    );
-    if (!usageCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: "usage_limit_reached",
-          current: usageCheck.current,
-          limit: usageCheck.limit,
-          required_plan: usageCheck.requiredPlan,
-        },
-        { status: 429 }
+      const usageCheck = await checkUsageLimit(
+        admin,
+        profile.organization_id,
+        orgData?.subscription_plan || "trial"
       );
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: "usage_limit_reached",
+            current: usageCheck.current,
+            limit: usageCheck.limit,
+            required_plan: usageCheck.requiredPlan,
+          },
+          { status: 429 }
+        );
+      }
+    } catch (limitErr) {
+      console.warn("[calendar/ai-command] Usage limit check failed (non-fatal):", limitErr);
     }
 
     const body = await request.json();
@@ -110,14 +114,14 @@ export async function POST(request: NextRequest) {
       locale,
     });
 
-    // Track API usage
+    // Track API usage (fire-and-forget)
     trackApiUsage({
       supabase: admin as any,
       userId: user.id,
       organizationId: profile.organization_id,
       actionType: "calendar_ai_command" as any,
       apiProvider: "anthropic" as any,
-      model: "claude-haiku-3-20240307",
+      model: "claude-haiku-4-5-20251001",
       metadata: {
         command: command.trim().slice(0, 100),
         action: result.action,
