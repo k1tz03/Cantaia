@@ -247,15 +247,15 @@ export async function POST(request: NextRequest) {
           responded_at: null,
         });
 
-        await (admin as any)
+        const { error: invError } = await (admin as any)
           .from("calendar_invitations")
-          .insert(invRows)
-          .catch((err: any) => {
-            console.error(
-              "[calendar/ai-command] Insert invitations error:",
-              err
-            );
-          });
+          .insert(invRows);
+        if (invError) {
+          console.error(
+            "[calendar/ai-command] Insert invitations error:",
+            invError
+          );
+        }
       }
 
       return NextResponse.json({
