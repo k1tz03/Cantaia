@@ -75,20 +75,11 @@ const TOOL_FETCH_CANTAIA_CONTEXT: MACustomTool = {
   type: "custom",
   name: "fetch_cantaia_context",
   description:
-    "Fetch today's context from Cantaia: unread emails, urgent tasks, upcoming meetings, project deadlines, and submission deadlines for a specific user.",
+    "Fetch today's context from Cantaia: unread emails, urgent tasks, upcoming meetings, project deadlines, and submission deadlines. User and organization are resolved automatically from the authenticated session — no IDs needed.",
   input_schema: {
     type: "object",
-    properties: {
-      user_id: {
-        type: "string",
-        description: "UUID of the user to fetch context for",
-      },
-      organization_id: {
-        type: "string",
-        description: "UUID of the organization",
-      },
-    },
-    required: ["user_id", "organization_id"],
+    properties: {},
+    required: [],
   },
 };
 
@@ -96,14 +87,10 @@ const TOOL_SAVE_BRIEFING: MACustomTool = {
   type: "custom",
   name: "save_briefing",
   description:
-    "Save the generated daily briefing to the database.",
+    "Save the generated daily briefing to the database. User is resolved automatically from the authenticated session.",
   input_schema: {
     type: "object",
     properties: {
-      user_id: {
-        type: "string",
-        description: "UUID of the user",
-      },
       briefing_date: {
         type: "string",
         description: "Date in YYYY-MM-DD format",
@@ -114,7 +101,7 @@ const TOOL_SAVE_BRIEFING: MACustomTool = {
           'JSON string of the briefing content object: {greeting, priority_alerts: string[], projects: [{project_id, name, status_emoji ("🟢"|"🟡"|"🔴"), summary, action_items: string[]}], meetings_today: [{time ("HH:MM"), project, title}], submission_deadlines: [{title, deadline ("YYYY-MM-DD"), days_remaining, project, note}], stats: {total_projects, emails_unread, emails_action_required, tasks_overdue, tasks_due_today, meetings_today}, global_summary}',
       },
     },
-    required: ["user_id", "briefing_date", "content"],
+    required: ["briefing_date", "content"],
   },
 };
 
