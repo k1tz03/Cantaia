@@ -264,10 +264,11 @@ export async function POST(request: NextRequest) {
 
     // For non-create actions, just return the AI result
     return NextResponse.json({ success: true, result });
-  } catch (error) {
-    console.error("[calendar/ai-command] Error:", error);
+  } catch (error: any) {
+    console.error("[calendar/ai-command] Error:", error?.message || error);
+    console.error("[calendar/ai-command] Stack:", error?.stack?.slice(0, 500));
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", detail: error?.message || "Unknown" },
       { status: 500 }
     );
   }

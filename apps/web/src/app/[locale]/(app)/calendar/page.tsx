@@ -274,11 +274,16 @@ export default function CalendarPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("AI command failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("[Calendar AI] API error:", res.status, errData);
+        toast.error(errData.detail || errData.error || `Erreur serveur (${res.status})`);
+        return;
+      }
       const data = await res.json();
       const result: AICommandResult = data.result;
 
-      if (data.success && result.action !== "unknown") {
+      if (data.success && result?.action !== "unknown") {
         toast.success(result.message);
         if (result.action === "create_event") {
           await fetchEvents();
@@ -286,7 +291,8 @@ export default function CalendarPage() {
       } else {
         toast.error(result?.message || "L'IA n'a pas pu traiter la commande");
       }
-    } catch {
+    } catch (err) {
+      console.error("[Calendar AI] Fetch error:", err);
       toast.error("Erreur lors du traitement de la commande IA");
     } finally {
       setAiProcessing(false);
