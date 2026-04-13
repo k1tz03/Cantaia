@@ -4,3 +4,4 @@ export { IntelligencePanel, getStoredCity, SWISS_CITIES } from "./IntelligencePa
 export type { WeatherCity } from "./IntelligencePanel";
 export { CreateEventModal } from "./CreateEventModal";
 export { TeamCalendarsPanel } from "./TeamCalendarsPanel";
+export { EventDetailPanel } from "./EventDetailPanel";
