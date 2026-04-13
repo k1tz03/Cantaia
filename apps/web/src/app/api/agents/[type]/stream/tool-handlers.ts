@@ -261,17 +261,34 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const submissionId = input.submission_id as string;
     let items: any[];
 
+    // ── Parse items — handle all possible agent output formats ──
     try {
-      items = typeof input.items === "string" ? JSON.parse(input.items as string) : input.items;
-    } catch {
-      return { error: true, message: "Invalid items JSON" };
+      const raw = typeof input.items === "string" ? JSON.parse(input.items as string) : input.items;
+      // Unwrap common agent wrappers: { items: [...] } or { data: [...] } or { results: [...] }
+      if (Array.isArray(raw)) {
+        items = raw;
+      } else if (raw?.items && Array.isArray(raw.items)) {
+        items = raw.items;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        items = raw.data;
+      } else if (raw?.results && Array.isArray(raw.results)) {
+        items = raw.results;
+      } else {
+        console.error("[tool:save_analysis_result] Unexpected items format:", typeof raw, JSON.stringify(raw).slice(0, 300));
+        return { error: true, message: `Items is not an array. Received type: ${typeof raw}. Send items as a JSON array: [{...}, {...}]` };
+      }
+    } catch (e: any) {
+      console.error("[tool:save_analysis_result] JSON parse error:", e.message, "Raw:", String(input.items).slice(0, 200));
+      return { error: true, message: `Invalid items JSON: ${e.message}. Send items as a JSON string array.` };
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return { error: true, message: "Items array is empty" };
+    if (items.length === 0) {
+      return { error: true, message: "Items array is empty — no items to save." };
     }
 
-    // Verify org ownership (separate queries to avoid ambiguous FK)
+    console.log(`[tool:save_analysis_result] Received ${items.length} items for submission ${submissionId}`);
+
+    // ── Verify org ownership ──
     const { data: submission } = await (ctx.admin as any)
       .from("submissions")
       .select("id, project_id")
@@ -293,44 +310,72 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       }
     }
 
-    // Map agent output fields to actual DB columns.
-    // CRITICAL column names (must match DB schema exactly):
-    //   - "designation" (agent prompt) → "description" (DB)
-    //   - "cfc_code" (agent prompt) → "cfc_subcode" (DB — NOT cfc_code!)
-    //   - "project_id" must be included (required by DB)
+    // ── Map agent fields to DB columns ──
+    // Column names MUST match DB schema: cfc_subcode (NOT cfc_code), project_id required
     const dbItems = items.map((item: any, idx: number) => ({
       submission_id: submissionId,
       project_id: submission.project_id,
-      item_number: item.item_number || String(idx + 1),
-      description: item.designation || item.description || "",
-      unit: item.unit || null,
-      quantity: item.quantity != null ? Number(item.quantity) : null,
-      cfc_subcode: item.cfc_code || item.cfc_subcode || null,
-      material_group: item.material_group || "Divers",
+      item_number: item.item_number || item.numero || String(idx + 1),
+      description: item.designation || item.description || item.libelle || "",
+      unit: item.unit || item.unite || null,
+      quantity: item.quantity != null ? Number(item.quantity) : (item.quantite != null ? Number(item.quantite) : null),
+      cfc_subcode: item.cfc_code || item.cfc_subcode || item.code_cfc || null,
+      material_group: item.material_group || item.groupe || "Divers",
       product_name: item.product_name || null,
       status: "pending",
       metadata: {
-        lot_number: item.lot_number || null,
+        lot_number: item.lot_number || item.lot || null,
         lot_title: item.lot_title || null,
-        chapter_number: item.chapter_number || null,
+        chapter_number: item.chapter_number || item.chapter || null,
         chapter_title: item.chapter_title || null,
         source: "managed-agent",
       },
     }));
 
-    // Delete existing items first (they're stale from a previous analysis)
-    await (ctx.admin as any)
+    // ── Delete existing items (stale from previous analysis) ──
+    const { error: delError } = await (ctx.admin as any)
       .from("submission_items")
       .delete()
       .eq("submission_id", submissionId);
+    if (delError) {
+      console.warn("[tool:save_analysis_result] Delete error (non-fatal):", delError.message);
+    }
 
-    // Insert new items
-    const { error: insertError } = await (ctx.admin as any)
+    // ── Insert — with fallback if optional columns don't exist yet ──
+    let insertError: any = null;
+    let insertedCount = dbItems.length;
+
+    const { error: err1 } = await (ctx.admin as any)
       .from("submission_items")
       .insert(dbItems);
 
+    if (err1) {
+      console.warn(`[tool:save_analysis_result] Full insert failed: ${err1.message}. Trying minimal columns...`);
+
+      // Fallback: insert with only guaranteed columns (pre-migration-067)
+      const minimalItems = dbItems.map((item: any) => ({
+        submission_id: item.submission_id,
+        project_id: item.project_id,
+        description: item.description || "",
+        unit: item.unit,
+        quantity: item.quantity,
+        cfc_subcode: item.cfc_subcode,
+      }));
+
+      const { error: err2 } = await (ctx.admin as any)
+        .from("submission_items")
+        .insert(minimalItems);
+
+      if (err2) {
+        console.error(`[tool:save_analysis_result] Minimal insert also failed: ${err2.message}`);
+        insertError = err2;
+        insertedCount = 0;
+      } else {
+        console.log(`[tool:save_analysis_result] Minimal insert succeeded: ${minimalItems.length} items`);
+      }
+    }
+
     if (insertError) {
-      // Mark submission as error since old items were already deleted
       await (ctx.admin as any)
         .from("submissions")
         .update({
@@ -341,8 +386,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { error: true, message: `Insert failed: ${insertError.message}` };
     }
 
-    // Update submission status — use "done" to match existing UI convention
-    // Also clear stale budget estimates (items have changed)
+    // ── Mark submission as done ──
     await (ctx.admin as any)
       .from("submissions")
       .update({
@@ -353,10 +397,13 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       })
       .eq("id", submissionId);
 
+    console.log(`[tool:save_analysis_result] SUCCESS: ${insertedCount} items saved for ${submissionId}`);
+
     return {
       success: true,
-      items_saved: dbItems.length,
-      message: `${dbItems.length} postes sauvegardés pour la soumission ${submissionId}`,
+      items_saved: insertedCount,
+      total: items.length,
+      message: `${insertedCount} postes sauvegardés pour la soumission ${submissionId}`,
     };
   },
 
