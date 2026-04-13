@@ -714,36 +714,281 @@ function WeekView({
   );
 }
 
-// ── Month Placeholder ─────────────────────────────────────
+// ── Month View ───────────────────────────────────────────
 
-function MonthPlaceholder() {
+const MONTH_DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const MONTH_NAMES_FR = [
+  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+];
+
+/** Max event chips visible per cell before showing "+N" */
+const MAX_EVENTS_PER_CELL = 3;
+
+interface MonthCell {
+  date: Date;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  events: CalendarEvent[];
+}
+
+function MonthView({
+  events,
+  selectedDate,
+  selectedEvent,
+  onSelectEvent,
+  onCreateEvent,
+}: Omit<TimelineViewProps, "viewMode">) {
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+
+  // Build the 6-row × 7-col grid
+  const grid = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+
+    // First day of month
+    const firstDay = new Date(year, month, 1);
+    // Day of week for the 1st (Monday=0...Sunday=6)
+    let startDow = firstDay.getDay() - 1;
+    if (startDow < 0) startDow = 6; // Sunday → 6
+
+    // Start from the Monday before the 1st (or the 1st itself if it's Monday)
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(gridStart.getDate() - startDow);
+
+    const cells: MonthCell[] = [];
+    const today = new Date();
+
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + i);
+
+      const dayEvents = events.filter((e) => {
+        const start = new Date(e.start_at);
+        return isSameDay(start, d);
+      });
+
+      cells.push({
+        date: d,
+        isCurrentMonth: d.getMonth() === month,
+        isToday: isSameDay(d, today),
+        isSelected: isSameDay(d, selectedDate),
+        events: dayEvents,
+      });
+    }
+
+    // Group into rows of 7
+    const rows: MonthCell[][] = [];
+    for (let r = 0; r < 6; r++) {
+      rows.push(cells.slice(r * 7, r * 7 + 7));
+    }
+
+    return rows;
+  }, [events, selectedDate]);
+
+  // Count total events this month
+  const monthEventCount = useMemo(() => {
+    const month = selectedDate.getMonth();
+    const year = selectedDate.getFullYear();
+    return events.filter((e) => {
+      const d = new Date(e.start_at);
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+  }, [events, selectedDate]);
+
+  const handleCellClick = useCallback(
+    (date: Date) => {
+      const d = new Date(date);
+      d.setHours(9, 0, 0, 0);
+      onCreateEvent(d);
+    },
+    [onCreateEvent]
+  );
+
   return (
-    <div className="flex-1 flex items-center justify-center h-full">
-      <div className="flex flex-col items-center gap-2">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#52525B"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-          <rect x="8" y="14" width="2" height="2" />
-          <rect x="14" y="14" width="2" height="2" />
-          <rect x="8" y="18" width="2" height="2" />
-        </svg>
-        <span
-          className="text-[13px] font-medium"
-          style={{ color: "#52525B" }}
-        >
-          Vue mois — bientot disponible
-        </span>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#27272A]">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium" style={{ color: "#71717A" }}>
+            {MONTH_NAMES_FR[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+          </span>
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+            style={{
+              backgroundColor: "rgba(249, 115, 22, 0.1)",
+              color: "#F97316",
+            }}
+          >
+            {monthEventCount} evenement{monthEventCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {LEGEND_ITEMS.map((item) => (
+            <div key={item.type} className="flex items-center gap-1.5">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="text-[11px]" style={{ color: "#A1A1AA" }}>
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div
+        className="grid grid-cols-7 border-b"
+        style={{ borderColor: "#27272A" }}
+      >
+        {MONTH_DAYS_FR.map((day, i) => (
+          <div
+            key={i}
+            className="py-2 text-center text-[11px] font-semibold uppercase"
+            style={{
+              color: i >= 5 ? "#52525B" : "#71717A",
+              borderLeft: i > 0 ? "1px solid #1C1C1F" : undefined,
+            }}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="flex-1 grid grid-rows-6 overflow-hidden">
+        {grid.map((row, rowIdx) => (
+          <div
+            key={rowIdx}
+            className="grid grid-cols-7"
+            style={{
+              borderBottom: rowIdx < 5 ? "1px solid #1C1C1F" : undefined,
+            }}
+          >
+            {row.map((cell, colIdx) => {
+              const cellKey = cell.date.toISOString().split("T")[0];
+              const isHovered = hoveredDate === cellKey;
+              const hasEvents = cell.events.length > 0;
+              const visibleEvents = cell.events.slice(0, MAX_EVENTS_PER_CELL);
+              const overflowCount = cell.events.length - MAX_EVENTS_PER_CELL;
+
+              return (
+                <div
+                  key={colIdx}
+                  className="relative flex flex-col cursor-pointer transition-colors duration-100 overflow-hidden"
+                  style={{
+                    borderLeft: colIdx > 0 ? "1px solid #1C1C1F" : undefined,
+                    backgroundColor: cell.isToday
+                      ? "rgba(249, 115, 22, 0.04)"
+                      : isHovered
+                        ? "rgba(249, 115, 22, 0.03)"
+                        : cell.isSelected
+                          ? "rgba(250, 250, 250, 0.02)"
+                          : "transparent",
+                    padding: "4px 6px",
+                    minHeight: 0,
+                  }}
+                  onClick={() => handleCellClick(cell.date)}
+                  onMouseEnter={() => setHoveredDate(cellKey)}
+                  onMouseLeave={() => setHoveredDate(null)}
+                >
+                  {/* Day number */}
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span
+                      className="text-[12px] font-semibold leading-none flex items-center justify-center rounded-full"
+                      style={{
+                        width: cell.isToday ? 24 : undefined,
+                        height: cell.isToday ? 24 : undefined,
+                        color: cell.isToday
+                          ? "#FAFAFA"
+                          : cell.isCurrentMonth
+                            ? "#A1A1AA"
+                            : "#3F3F46",
+                        backgroundColor: cell.isToday ? "#F97316" : "transparent",
+                      }}
+                    >
+                      {cell.date.getDate()}
+                    </span>
+                    {/* Event count dot for small screens / overflow */}
+                    {hasEvents && !cell.isToday && (
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: "#F97316" }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Event chips */}
+                  <div className="flex-1 flex flex-col gap-[2px] overflow-hidden min-h-0">
+                    {visibleEvents.map((event) => {
+                      const color = getEventColor(event);
+                      const isEvtSelected = selectedEvent?.id === event.id;
+                      const startDate = new Date(event.start_at);
+
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-1 rounded px-1.5 py-[2px] truncate cursor-pointer transition-all duration-100"
+                          style={{
+                            backgroundColor: isEvtSelected
+                              ? `${color}30`
+                              : `${color}15`,
+                            borderLeft: `2px solid ${color}`,
+                            outline: isEvtSelected
+                              ? `1px solid ${color}60`
+                              : "none",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectEvent(event);
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = `${color}25`;
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = isEvtSelected
+                              ? `${color}30`
+                              : `${color}15`;
+                          }}
+                          title={`${formatTime(startDate.getHours(), startDate.getMinutes())} ${event.title}`}
+                        >
+                          <span
+                            className="text-[9px] font-mono flex-shrink-0"
+                            style={{ color }}
+                          >
+                            {formatTime(startDate.getHours(), startDate.getMinutes())}
+                          </span>
+                          <span
+                            className="text-[10px] font-medium truncate"
+                            style={{ color: "#FAFAFA" }}
+                          >
+                            {event.title}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Overflow indicator */}
+                    {overflowCount > 0 && (
+                      <div
+                        className="text-[9px] font-medium px-1.5 py-[1px] rounded"
+                        style={{
+                          color: "#F97316",
+                          backgroundColor: "rgba(249, 115, 22, 0.08)",
+                        }}
+                      >
+                        +{overflowCount} autre{overflowCount > 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -760,7 +1005,7 @@ export function TimelineView(props: TimelineViewProps) {
         className="flex flex-col h-full"
         style={{ backgroundColor: "#0F0F11" }}
       >
-        <MonthPlaceholder />
+        <MonthView {...props} />
       </div>
     );
   }
