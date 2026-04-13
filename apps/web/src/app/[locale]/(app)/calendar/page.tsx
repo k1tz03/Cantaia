@@ -15,8 +15,9 @@ import {
 } from "lucide-react";
 import { AgendaStream } from "@/components/calendar/AgendaStream";
 import { TimelineView } from "@/components/calendar/TimelineView";
-import { IntelligencePanel } from "@/components/calendar/IntelligencePanel";
+import { IntelligencePanel, getStoredCity } from "@/components/calendar/IntelligencePanel";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
+import type { WeatherCity } from "@/components/calendar/IntelligencePanel";
 import type {
   CalendarEvent,
   IntelligenceFeedItem,
@@ -195,16 +196,26 @@ export default function CalendarPage() {
     }
   }, [selectedDate, viewMode]);
 
+  const [weatherCity, setWeatherCity] = useState<WeatherCity>(() => getStoredCity());
+
   const fetchIntelligence = useCallback(async () => {
     try {
-      const res = await fetch(`/api/calendar/intelligence?date=${toISODate(selectedDate)}`);
+      const city = getStoredCity();
+      const res = await fetch(
+        `/api/calendar/intelligence?date=${toISODate(selectedDate)}&lat=${city.lat}&lon=${city.lon}&city=${encodeURIComponent(city.name)}`
+      );
       if (!res.ok) return;
       const data = await res.json();
       setIntelligence(data);
     } catch (err) {
       console.error("Calendar: failed to fetch intelligence", err);
     }
-  }, [selectedDate]);
+  }, [selectedDate, weatherCity]);
+
+  const handleCityChange = useCallback((city: WeatherCity) => {
+    setWeatherCity(city);
+    // fetchIntelligence will re-run via the weatherCity dependency
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -545,6 +556,7 @@ export default function CalendarPage() {
               teamAvailability={intelligence?.teamAvailability ?? []}
               selectedEvent={selectedEvent}
               meetingPrep={selectedEvent?.ai_prep_data ?? null}
+              onCityChange={handleCityChange}
             />
           </div>
         </div>

@@ -1,4 +1,5 @@
 export { AgendaStream } from "./AgendaStream";
 export { TimelineView } from "./TimelineView";
-export { IntelligencePanel } from "./IntelligencePanel";
+export { IntelligencePanel, getStoredCity, SWISS_CITIES } from "./IntelligencePanel";
+export type { WeatherCity } from "./IntelligencePanel";
 export { CreateEventModal } from "./CreateEventModal";

@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get("project_id");
     const lat = parseFloat(searchParams.get("lat") || "46.2044");
     const lon = parseFloat(searchParams.get("lon") || "6.1432");
+    const cityName = searchParams.get("city") || "Genève";
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
         return [];
       }),
 
-      fetchConstructionWeather(lat, lon).catch((err) => {
+      fetchConstructionWeather(lat, lon, cityName).catch((err) => {
         console.error("[calendar/intelligence] Weather fetch error:", err);
         return null;
       }),
