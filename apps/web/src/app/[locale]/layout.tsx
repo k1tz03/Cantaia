@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import {
+  Inter,
+  Playfair_Display,
+  JetBrains_Mono,
+  Plus_Jakarta_Sans,
+  Barlow_Condensed,
+  IBM_Plex_Mono,
+} from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -28,6 +35,21 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-display",
+  display: "swap",
+});
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-condensed",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-tech",
   display: "swap",
 });
 
@@ -133,7 +155,7 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} translate="no" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} ${plusJakarta.variable} font-sans antialiased`}
+        className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} ${plusJakarta.variable} ${barlowCondensed.variable} ${ibmPlexMono.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"

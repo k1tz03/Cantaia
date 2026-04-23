@@ -3466,5 +3466,934 @@
       "title": "Let's go!",
       "description": "You're ready to use Cantaia. Explore at your own pace! You can restart this tour from Settings."
     }
+  },
+  "chantier": {
+    "header": {
+      "nav": {
+        "product": "Product",
+        "modules": "Modules",
+        "pricing": "Pricing",
+        "founder": "Founder"
+      },
+      "status": {
+        "latency": "ZRH 12ms",
+        "version": "v2.4.0"
+      },
+      "auth": {
+        "login": "Sign in",
+        "register": "Enter the site"
+      },
+      "mobile": {
+        "menuAria": "Menu"
+      }
+    },
+    "footer": {
+      "placard": {
+        "lot": "LOT · Z",
+        "title": "Site footer",
+        "cfc": "CFC·FOOT·001",
+        "status": "SYSTEM · OPERATIONAL · ZRH 12ms"
+      },
+      "brand": {
+        "description": "The AI-powered construction management platform for Swiss project managers. Emails, tenders, meeting minutes and drawings — all on a single thread."
+      },
+      "language": {
+        "label": "LANGUAGE"
+      },
+      "columns": {
+        "product": {
+          "title": "Product",
+          "links": {
+            "products": "Products",
+            "modules": "Modules",
+            "pricing": "Pricing",
+            "changelog": "Changelog"
+          }
+        },
+        "resources": {
+          "title": "Resources",
+          "links": {
+            "founder": "Founder",
+            "about": "About",
+            "blog": "Blog",
+            "docs": "Documentation",
+            "support": "Support"
+          }
+        },
+        "legal": {
+          "title": "Legal",
+          "links": {
+            "terms": "Terms",
+            "privacy": "Privacy",
+            "mentions": "Legal notice"
+          }
+        }
+      },
+      "comingSoon": "Soon",
+      "bottom": {
+        "copyright": "© {year} CANTAIA SA · GENEVA",
+        "build": "BUILD · v2.4.0",
+        "region": "REGION · EU · FR-CH",
+        "status": "STATUS · LIVE",
+        "hosting": "HOSTING · GERMANY",
+        "compliance": "GDPR · FADP"
+      }
+    },
+    "login": {
+      "placard": {
+        "lot": "LOT · A",
+        "title": "AUTHENTICATION",
+        "cfc": "CFC·AUTH·001"
+      },
+      "eyebrow": {
+        "label": "01 · SITE ACCESS",
+        "session": "SESSION · INACTIVE"
+      },
+      "title": {
+        "line1": "Back",
+        "line2": "on site."
+      },
+      "subtitle": "Sign in to pick up your emails, tenders, meeting minutes and drawings right where you left them.",
+      "errors": {
+        "authPrefix": "ERR · AUTH ·"
+      },
+      "sso": {
+        "label": "QUICK ACCESS · SSO",
+        "providers": "2 PROVIDERS",
+        "microsoft": "Continue with Microsoft 365",
+        "google": "Continue with Google",
+        "tag": "SSO"
+      },
+      "divider": "OR · CREDENTIALS",
+      "register": {
+        "prompt": "NO ACCESS?",
+        "cta": "Create an account"
+      },
+      "fiche": {
+        "lot": "SHEET",
+        "title": "SECURITY",
+        "cfc": "SYS·SEC",
+        "rows": {
+          "status": {
+            "key": "STATUS",
+            "value": "PROTECTED ZONE"
+          },
+          "encryption": {
+            "key": "ENCRYPTION",
+            "value": "AES-256 · TLS 1.3"
+          },
+          "region": {
+            "key": "REGION",
+            "value": "EU · FR-CH"
+          },
+          "hosting": {
+            "key": "HOSTING",
+            "value": "Germany · Hetzner"
+          },
+          "gdpr": {
+            "key": "GDPR",
+            "value": "COMPLIANT"
+          },
+          "fadp": {
+            "key": "FADP",
+            "value": "COMPLIANT · CH"
+          },
+          "version": {
+            "key": "VERSION",
+            "value": "v2.4.0"
+          }
+        }
+      },
+      "system": {
+        "label": "SYSTEM · OPERATIONAL",
+        "message": "All Cantaia services are running normally.",
+        "incidentLabel": "LAST INCIDENT",
+        "incidentValue": "NONE"
+      },
+      "support": {
+        "label": "SITE · ASSISTANCE",
+        "message": "Having trouble signing in?"
+      },
+      "form": {
+        "email": {
+          "label": "Email",
+          "placeholder": "name@company.ch"
+        },
+        "password": {
+          "label": "Password",
+          "showAria": "Show password",
+          "hideAria": "Hide password"
+        },
+        "required": "REQUIRED",
+        "forgotPassword": "Forgot your password?",
+        "submit": "Open the site",
+        "submitting": "Signing in…",
+        "errors": {
+          "prefix": "ERR ·",
+          "emailInvalid": "Invalid email.",
+          "passwordMin": "At least 8 characters required.",
+          "invalidCredentials": "Invalid credentials. Please check your email and password.",
+          "generic": "Unable to sign in. Please try again in a moment."
+        }
+      }
+    },
+    "landingPage": {
+      "sideAxis": "Cantaia / Z-Axis · Live site",
+      "zoneActive": "ACTIVE ZONE",
+      "siteStamp": "Site · Lot 07 · L+9",
+      "hero": {
+        "sectionMarker": "01 · Opening",
+        "locationCity": "Zurich",
+        "locationTagline": "Built for Switzerland",
+        "titleLine1": "Your site",
+        "titleLine2": "won't wait",
+        "titleLine3": "for your 47",
+        "titleLine4": "unread emails.",
+        "subtitleBrand": "Cantaia",
+        "subtitleBody": "reads your Outlook inbox, sorts your tenders by CFC package, generates your schedule from a 400-line Excel file, and alerts your foreman before you do.",
+        "subtitleTagline": "Designed for Swiss project managers. Built by one of them.",
+        "ctaPrimary": "Start free trial",
+        "ctaSecondary": "Talk to Julien"
+      },
+      "scene": {
+        "placardLot": "LOT 07",
+        "placardTitle": "Europaallee · L+9",
+        "placardCfc": "CFC 211.3 · RC",
+        "sequenceLabel": "Sequence",
+        "label1Code": "CFC 211.3",
+        "label1Line1": "Level L+3 · RC Slab",
+        "label1SurfaceLabel": "Area",
+        "label1SurfaceValue": "840 m²",
+        "label2Code": "CRANE · 45T",
+        "label2Line1": "Liebherr 280 EC-H",
+        "label2LoadLabel": "Load",
+        "label2LoadValue": "2.8 T",
+        "label3Code": "CFC 211.0",
+        "label3Line1": "Foundations · Excavation",
+        "label3VolumeLabel": "Volume",
+        "label3VolumeValue": "1,240 m³",
+        "captionLine1": "The site",
+        "captionLine1Highlight": "is building itself.",
+        "captionLine2": "You watch it from your desk.",
+        "fiche": {
+          "projet": "Project",
+          "projetValue": "Europaallee",
+          "mo": "Client",
+          "moValue": "SBB Real Estate",
+          "montant": "Amount",
+          "montantValue": "CHF 14.2M",
+          "delai": "Duration",
+          "delaiValue": "14 months",
+          "suivi": "Status",
+          "suiviValue": "D-1"
+        }
+      },
+      "narrative": {
+        "sectionMarker": "02 · Why we're talking to you",
+        "time": "Tuesday 2:32 PM.",
+        "paragraph1": "You have 47 unread emails, 3 tenders to compare before Friday, a foreman calling about a drawing you can't find, and an owner who wants a",
+        "strikethrough": "weekly meeting",
+        "paragraph1End": "daily meeting.",
+        "paragraph2": "You're a project manager. Not an admin clerk.",
+        "sideNote": "Cantaia doesn't replace your expertise. Cantaia handles everything that keeps you from using it."
+      },
+      "metrics": {
+        "sectionNumber": "03",
+        "sectionTitle": "Field report",
+        "sectionSubtitle": "Q1 2026 · Pilot measurements · 14 projects",
+        "m01": {
+          "code": "M01",
+          "category": "Time / day",
+          "label": "Less admin",
+          "desc": "Measured across 14 pilot projects, Q1 2026. Per project manager."
+        },
+        "m02": {
+          "code": "M02",
+          "category": "AI accuracy",
+          "label": "Email classification",
+          "desc": "Emails linked to the right project, no manual rule."
+        },
+        "m03": {
+          "code": "M03",
+          "category": "Active modules",
+          "label": "Products shipped",
+          "desc": "Mail, Tenders, Planning, Portal, AI Chat, Management, Minutes, Drawings, Pricing, Reports, Support."
+        },
+        "m04": {
+          "code": "M04",
+          "category": "Entry point",
+          "label": "CHF / user / month",
+          "desc": "Starter. Pro at 89, Enterprise at 119. Annual billing available."
+        }
+      },
+      "modules": {
+        "sectionMarker": "03 · Eleven modules. One tool.",
+        "titleLine1": "The whole site,",
+        "titleLine2": "in your pocket.",
+        "statusActive": "ACTIVE",
+        "statusComing": "COMING",
+        "m01": {
+          "title": "Mail",
+          "desc": "AI triage of Outlook emails by project."
+        },
+        "m02": {
+          "title": "Tenders",
+          "desc": "CFC, supplier comparison, AI budget."
+        },
+        "m03": {
+          "title": "Planning",
+          "desc": "AI Gantt from Excel. A3 export."
+        },
+        "m04": {
+          "title": "Minutes",
+          "desc": "Audio transcription → structured minutes."
+        },
+        "m05": {
+          "title": "Drawings",
+          "desc": "Version registry. Vision estimation."
+        },
+        "m06": {
+          "title": "Portal",
+          "desc": "Foreman, PIN-protected field reports."
+        },
+        "m07": {
+          "title": "AI Chat",
+          "desc": "Project context. File upload."
+        },
+        "m08": {
+          "title": "Management",
+          "desc": "Margin, KPIs, org profitability."
+        },
+        "m09": {
+          "title": "Reports",
+          "desc": "Hours, delivery notes, exports."
+        },
+        "m10": {
+          "title": "Pricing",
+          "desc": "Market benchmark + CRB 2025."
+        },
+        "m11": {
+          "title": "Support",
+          "desc": "Integrated conversational tickets."
+        },
+        "m12": {
+          "title": "Coming soon",
+          "desc": "Outlook add-in. Native mobile."
+        },
+        "ctaAll": "All modules",
+        "ctaUseCases": "Products & use cases"
+      },
+      "closing": {
+        "sectionMarker": "04 · Site kickoff",
+        "titleLine1": "Start",
+        "titleLine1Highlight": "Tuesday morning.",
+        "titleLine2": "Reclaim your Tuesday afternoon.",
+        "description": "14-day free trial, no credit card. One-click Outlook migration. Support in FR, DE, IT.",
+        "ctaPrimary": "Start free trial",
+        "ctaSecondary": "View pricing",
+        "founderPrefix": "Or, if you'd rather:",
+        "founderLink": "write to me directly",
+        "founderSuffix": "— Julien, founder."
+      }
+    },
+    "pricingPage": {
+      "seo": {
+        "title": "Cantaia Pricing — CHF 49 to 119/user/month",
+        "description": "3 per-user plans: Starter (CHF 49), Pro (CHF 89), Enterprise (CHF 119). AI Mail, CFC submissions, meeting minutes, planning, field portal. Free 14-day trial."
+      },
+      "coordTag": "PRICING SHEET · LOT A → C · v2.4.0",
+      "hero": {
+        "sectionMarker": "02 · PRICING SURVEY",
+        "titleLine1": "Three plans.",
+        "titleLine2": "One price per head.",
+        "titleLine3": "No traps.",
+        "description": "You pay per user, each month. No 36-month contract, no setup fees, no hidden costs on AI calls up to the plan limit. 14-day trial, no card.",
+        "tag1": "CHF · VAT EXCL.",
+        "tag2": "MONTHLY COMMITMENT",
+        "tag3": "14-DAY TRIAL",
+        "tag4": "EU HOSTING"
+      },
+      "stamp": {
+        "subtitle": "CHF / USER / MONTH"
+      },
+      "plans": {
+        "sectionStep": "03",
+        "sectionTitle": "Lot packages",
+        "sectionCaption": "Each plan is sized like a site package: clear scope, a price per head, a set number of seats. Switch plans in one click, pro-rated billing.",
+        "recommended": "RECOMMENDED",
+        "priceCurrency": "CHF",
+        "priceUnit": "per user / month",
+        "minLabel": "Min.",
+        "maxLabel": "Max.",
+        "starter": {
+          "code": "LOT · A",
+          "name": "Starter",
+          "min": "1 user",
+          "max": "5 users",
+          "tagline": "To get the company going",
+          "feature1": "2 concurrent projects",
+          "feature2": "Cantaia Mail (AI Outlook triage)",
+          "feature3": "Multi-model AI Chat",
+          "feature4": "Automated daily briefing",
+          "feature5": "Tasks + suppliers",
+          "feature6": "200 AI calls / month",
+          "feature7": "10 GB storage",
+          "feature8": "Email support",
+          "ctaLabel": "Get started"
+        },
+        "pro": {
+          "code": "LOT · B",
+          "name": "Pro",
+          "min": "5 users",
+          "max": "30 users",
+          "tagline": "The recommended plan",
+          "feature1": "30 concurrent projects",
+          "feature2": "Everything in Starter +",
+          "feature3": "CFC tenders + comparison",
+          "feature4": "Meeting minutes + audio recording",
+          "feature5": "AI Gantt planning",
+          "feature6": "Foreman portal (PIN)",
+          "feature7": "Drawings + version registry",
+          "feature8": "Site visits + reports",
+          "feature9": "1,000 AI calls / month",
+          "feature10": "50 GB storage",
+          "feature11": "Priority support",
+          "ctaLabel": "Step onto the site"
+        },
+        "enterprise": {
+          "code": "LOT · C",
+          "name": "Enterprise",
+          "min": "15 users",
+          "max": "unlimited",
+          "tagline": "For structured groups",
+          "feature1": "Unlimited projects",
+          "feature2": "Everything in Pro +",
+          "feature3": "Management & profitability view",
+          "feature4": "C2 / C3 data intelligence",
+          "feature5": "Custom branding",
+          "feature6": "API + custom integrations",
+          "feature7": "Unlimited AI calls",
+          "feature8": "500 GB storage",
+          "feature9": "Multi-organisation",
+          "feature10": "Dedicated support",
+          "ctaLabel": "Contact us"
+        },
+        "note": {
+          "label": "Note",
+          "ref": "· REF CFC-TARIF-001",
+          "textBefore": "AI call limits apply to the whole organisation, not per user. Beyond that, a surcharge of CHF 0.02/call applies (upgrade to the higher plan suggested automatically). For a tailored fit (group > 50 people, ERP integrations, framework contract), write to",
+          "textAfter": "."
+        }
+      },
+      "faq": {
+        "sectionStep": "04",
+        "sectionTitle": "Site questions",
+        "sectionCaption": "The questions we get on walk-throughs before signing.",
+        "q1": "Free trial?",
+        "a1": "14 full days on the Pro plan, no card, no commitment. At the end, you pick a plan or access stops — your data stays exportable for 30 days.",
+        "q2": "Can we change plans?",
+        "a2": "Yes, in one click from settings. Pro-rata is calculated daily. Upgrade immediate, downgrade at the end of the period.",
+        "q3": "Where is data hosted?",
+        "a3": "Supabase · Frankfurt region (EU). GDPR-compliant. Encryption at-rest (AES-256) and in-transit (TLS 1.3). Full export available anytime.",
+        "q4": "Is training included?",
+        "a4": "Video onboarding + 6-step checklist included in all plans. Pro = free 45-min video session. Enterprise = on-site training.",
+        "q5": "Outlook / Gmail integration?",
+        "a5": "Outlook Microsoft 365 (direct OAuth), Gmail, generic IMAP/SMTP. Real-time sync via webhooks or polling. No inbox is copied — only relevant messages are indexed.",
+        "q6": "Payment?",
+        "a6": "Stripe · card or SEPA direct debit. Automated PDF invoice every month. Swiss VAT applied if CH address, otherwise EU/reverse-charge."
+      },
+      "finalCta": {
+        "badge": "NEXT STEP",
+        "titleLine1": "Don't feel like reading.",
+        "titleLine2": "14-day trial.",
+        "description": "You create your account in 2 minutes, connect Outlook, and Cantaia shows you your last 30 emails reclassified automatically. If you're not convinced, you close the tab.",
+        "ctaPrimary": "Start free trial",
+        "ctaSecondary": "Who's behind it"
+      }
+    },
+    "fondateurPage": {
+      "seo": {
+        "title": "Founder — Julien Ray · Cantaia",
+        "description": "The person behind Cantaia. 25 years on Swiss construction sites led to one conclusion: project managers waste half their time on paperwork. We're building the exit."
+      },
+      "sideAxis": "FILE · FOUNDER · 03",
+      "hero": {
+        "tag": "03 · FOUNDER FILE",
+        "dossier": "DOSSIER · F-001",
+        "name1": "Julien",
+        "name2": "Ray.",
+        "lede": "25 years on site. 14 years as a site manager. 2 years coding Cantaia. One goal: give 2 hours a day back to every Swiss project manager.",
+        "badge1": "Founder",
+        "badge2": "Site manager · retired from paperwork",
+        "badge3": "Based in Switzerland",
+        "cardLot": "LOT · 00",
+        "cardTitle": "ID CARD",
+        "cardCfc": "CFC·HR·001",
+        "fiche": {
+          "nomKey": "Name",
+          "nomVal": "Ray, Julien",
+          "neKey": "Born",
+          "neVal": "Switzerland — 1985",
+          "formationKey": "Training",
+          "formationVal": "Mason CFC · Civil Engineering ETS",
+          "languesKey": "Languages",
+          "languesVal": "FR · DE · EN",
+          "experienceKey": "Experience",
+          "experienceVal": "25 years — Swiss construction",
+          "rolesKey": "Roles",
+          "rolesVal": "Mason, team leader, site manager, project director",
+          "projetsKey": "Projects delivered",
+          "projetsVal": "over 40 sites",
+          "volumeKey": "Volume handled",
+          "volumeVal": "over CHF 180M combined",
+          "cantaiaKey": "Cantaia since",
+          "cantaiaVal": "2024"
+        }
+      },
+      "narrative": {
+        "sectionStep": "01",
+        "sectionTitle": "Why\nCantaia.",
+        "sectionCaption": "The spark didn't come from an investor meeting. It came from a Wednesday in November, 10 PM, in a site hut in Zurich, facing 137 unread emails.",
+        "c1Tag": "FINDING · 01",
+        "c1Before": "In 25 years, construction hasn't changed at its core: we pour concrete, raise walls, coordinate trades. What has changed is the ",
+        "c1Highlight": "administrative load",
+        "c1After": ". In 2001, I got 8 faxes a week. In 2024, I get 380 emails. Same number of sites, 47 times the paperwork.",
+        "c2Tag": "FINDING · 02",
+        "c2Before": "The big construction management platforms (Procore, PlanRadar, Messerli) are ",
+        "c2Highlight": "silos",
+        "c2After": ". You type your data in by hand, you pull out spreadsheets, and between the two there's always a project manager bridging the gap at night, cold coffee in hand.",
+        "c3Tag": "SPARK · 03",
+        "c3Before": "November 2024. I plug Claude into my site inbox. 200 emails. 40 seconds. 94% classification accuracy (priority · info · to reply · to archive). For the first time in 25 years, I saw a machine ",
+        "c3Highlight": "understand construction",
+        "c3After": ". The next day, I handed in my resignation.",
+        "c4Tag": "DECISION · 04",
+        "c4Before": "Cantaia won't be the next Procore. Cantaia is the tool I wish I'd had at 28, when I was finishing meeting minutes at 1 AM wondering if I should stay in the trade. ",
+        "c4Emph": "It's personal. It's for the project managers who are still on site at 10 PM."
+      },
+      "timeline": {
+        "sectionStep": "02",
+        "sectionTitle": "Site\ntrack record.",
+        "sectionCaption": "25 years. 6 stages. A path that ends in a code editor but always starts in the mud.",
+        "step1": {
+          "lot": "LOT · 01",
+          "title": "Mason apprenticeship",
+          "place": "Lausanne · VD",
+          "body": "First site. Foundations of a 4-storey building. You learn concrete, formwork, levels and the silence that follows a bad quantity take-off."
+        },
+        "step2": {
+          "lot": "LOT · 02",
+          "title": "Team leader",
+          "place": "Geneva · GE",
+          "body": "Team of 6. You manage the schedule in chalk on the hoarding and delivery notes in a binder. Everyone calls that \"normal\"."
+        },
+        "step3": {
+          "lot": "LOT · 03",
+          "title": "Site manager",
+          "place": "Zurich · ZH",
+          "body": "First eight-figure project. Europaallee. You learn that 50% of the job is answering emails and writing meeting minutes. The rest is managing delays."
+        },
+        "step4": {
+          "lot": "LOT · 04",
+          "title": "Project director",
+          "place": "Basel · BS",
+          "body": "University hospital. 14 trades. 400 emails a week. Six-figure amounts slip through because one meeting minute is three days late."
+        },
+        "step5": {
+          "lot": "LOT · 05",
+          "title": "AI pivot",
+          "place": "Remote · CH",
+          "body": "Claude 3.5 drops. First test on a site inbox: the AI sorts 200 emails in 40 seconds at 94% accuracy. The click. I stop everything."
+        },
+        "step6": {
+          "lot": "LOT · 06",
+          "title": "Cantaia — launch",
+          "place": "cantaia.io",
+          "body": "Eleven modules. Three languages. One goal: give 2 hours a day back to every project manager. No keynote. No unicorn. Just code that runs."
+        }
+      },
+      "values": {
+        "sectionStep": "03",
+        "sectionTitle": "Four\nprinciples.",
+        "sectionCaption": "Everything else is up for debate. These four are not.",
+        "stampSubtitle": "PRINCIPLES · NON-NEGOTIABLE",
+        "v1": {
+          "code": "V01",
+          "title": "AI doesn't replace the project manager.",
+          "body": "It gives them back the 2 hours they spent sorting their inbox, so they can get back on site. A tool. Not an oracle."
+        },
+        "v2": {
+          "code": "V02",
+          "title": "The Swiss construction site is not a spreadsheet.",
+          "body": "CFC, SIA, delivery deadlines, 3 languages, 4 cantons, 12 standards. We build for the ground reality, not for a VC demo."
+        },
+        "v3": {
+          "code": "V03",
+          "title": "No US hosting.",
+          "body": "Your data stays in the EU. Supabase Frankfurt. No cloud transfer outside GDPR. The cantonal hospital project has no business on AWS Virginia."
+        },
+        "v4": {
+          "code": "V04",
+          "title": "Price is not a secret.",
+          "body": "49, 89 or 119 CHF per seat per month. No \"contact sales\". No artificial seats. 14-day trial, no card."
+        }
+      },
+      "contact": {
+        "tag": "CONTACT · FOUNDER",
+        "title1": "A question.",
+        "title2": "A coffee.",
+        "title3": "A demo.",
+        "lede": "I reply to emails myself. No SDR. No 12-field form. You write, I read, we talk.",
+        "ctaEmail": "julien@cantaia.io",
+        "ctaTrial": "14-day trial",
+        "foot1": "LinkedIn · /in/julienray",
+        "foot2": "Based in French-speaking Switzerland",
+        "foot3": "Reply within 24 business hours"
+      }
+    },
+    "produitsPage": {
+      "seo": {
+        "title": "Products — Cantaia · Eleven modules for Swiss construction",
+        "description": "Mail, Submissions, Meeting Minutes, Plans, Planning, Foreman Portal, Reports, Support, AI Roundtable, Direction & Financials. One platform, eleven modules, zero silos."
+      },
+      "sideAxis": "CATALOGUE · PRODUCTS · 04",
+      "hero": {
+        "tag": "04 · PRODUCT CATALOGUE",
+        "rightTag": "11 MODULES · 1 PLATFORM",
+        "title1": "Eleven modules.",
+        "title2": "One platform.",
+        "title3": "Zero silos.",
+        "lede": "Each module does one thing. Each module talks to the others. Your mail feeds your tasks, your tasks feed your meeting minutes, your minutes feed your schedules. One place to run the show.",
+        "metric1Label": "Active modules",
+        "metric1Source": "LIVE",
+        "metric2Label": "AI engines",
+        "metric2Unit": "Claude · GPT · Gemini",
+        "metric2Source": "LLM",
+        "metric3Label": "Languages",
+        "metric3Unit": "FR · DE · EN",
+        "metric4Value": "EU",
+        "metric4Label": "Hosting",
+        "metric4Source": "GDPR"
+      },
+      "grid": {
+        "sectionStep": "01",
+        "sectionTitle": "Technical\nspec.",
+        "sectionCaption": "Every module as a construction lot: a number, a CFC code, a clear scope, a ground-truth metric."
+      },
+      "status": {
+        "actif": "ACTIVE",
+        "actifBeta": "ACTIVE · BETA",
+        "masque": "HIDDEN"
+      },
+      "products": {
+        "p1": {
+          "tagline": "Outlook sync + AI triage",
+          "description": "Connect your Microsoft 365 inbox. The AI reads, classifies and routes each email to the right project. Three-column view: urgent / this week / info. One-click AI reply.",
+          "bullet1": "Real-time Microsoft Graph sync",
+          "bullet2": "7-level classification (urgent, info, project...)",
+          "bullet3": "Automatic task extraction",
+          "bullet4": "Context-aware AI reply (full thread)",
+          "bullet5": "Archiving learned from your habits",
+          "statLabel": "Classification accuracy"
+        },
+        "p2": {
+          "tagline": "Tenders · comparison · award",
+          "description": "Import an Excel spec. The AI extracts lots, chapters and line items. Build your packages, send to suppliers, compare returns line by line.",
+          "bullet1": "CFC import — Excel / PDF / .eml",
+          "bullet2": "4-step wizard · groups · suppliers",
+          "bullet3": "Tracking code per supplier",
+          "bullet4": "Tabular comparison with remarks",
+          "bullet5": "Award → automatic price calibration",
+          "statLabel": "Hours saved per tender"
+        },
+        "p3": {
+          "tagline": "Audio meeting minutes → document",
+          "description": "Record the meeting on your phone. Whisper transcribes, Claude structures the minutes by lot, you review, you send. One meeting minute per week instead of one per month.",
+          "bullet1": "Mobile audio recording",
+          "bullet2": "Whisper transcription FR / DE / EN",
+          "bullet3": "Minute structure by lot · CFC",
+          "bullet4": "Participants detected automatically",
+          "bullet5": "Export DOCX · signed PDF",
+          "statLabel": "Minutes per meeting record"
+        },
+        "p4": {
+          "tagline": "Plan registry + AI analysis",
+          "description": "Drop a plan PDF. Claude Vision detects discipline, title block, legend, scale. Automatic versioning. New revisions arrive by email and file themselves.",
+          "bullet1": "Auto-detection from Outlook attachments",
+          "bullet2": "Title block · legend · scale analysis",
+          "bullet3": "Automatic versioning by number",
+          "bullet4": "Tags — zones · lots · CFC",
+          "bullet5": "Built-in PDF viewer",
+          "statLabel": "Plans analysed per minute",
+          "statUnit": "plans"
+        },
+        "p5": {
+          "tagline": "AI Gantt from the tender",
+          "description": "A validated tender → a generated Gantt schedule. Claude adds CFC dependencies (concrete → screed → tiling), realistic durations per trade, detected risks.",
+          "bullet1": "Gantt generation from tender",
+          "bullet2": "20 CFC dependency rules",
+          "bullet3": "AI validation · risks · recommendations",
+          "bullet4": "A3 PDF export",
+          "bullet5": "Tokenised public sharing",
+          "statLabel": "Scheduled days generated",
+          "statUnit": "d"
+        },
+        "p6": {
+          "tagline": "Daily reports · PIN · mobile-first",
+          "description": "The team leader enters the portal with a PIN from their phone. They record hours, machines, delivery notes, photos. The site manager centralises everything.",
+          "bullet1": "6-digit PIN auth · no account",
+          "bullet2": "4 tabs · mobile bottom navigation",
+          "bullet3": "Site photos · AI handwritten notes",
+          "bullet4": "Hours per worker · per week",
+          "bullet5": "Scannable delivery notes",
+          "statLabel": "Accounts to create"
+        },
+        "p7": {
+          "tagline": "Hours + delivery notes for back office",
+          "description": "Aggregated view of every site. Hours per worker per week, delivery notes per supplier. Excel export for accounting. PDF for archives.",
+          "bullet1": "Multi-site aggregation",
+          "bullet2": "Weekly navigation",
+          "bullet3": "Filters — project · supplier · worker",
+          "bullet4": "Export Excel · PDF",
+          "bullet5": "Automatic note transcription",
+          "statLabel": "Days saved per month",
+          "statUnit": "d"
+        },
+        "p8": {
+          "tagline": "Conversational thread · user ↔ admin",
+          "description": "One issue. One ticket. One thread. No lost emails, no Zendesk ticket closed by mistake. Attachments, category, priority, full history.",
+          "bullet1": "Modern conversational thread",
+          "bullet2": "Attachments · screenshots",
+          "bullet3": "Categories · bug · question · feature",
+          "bullet4": "Unread badge in sidebar",
+          "bullet5": "Resolution time tracked",
+          "statLabel": "Hours · median reply"
+        },
+        "p9": {
+          "tagline": "Claude · GPT · Gemini debate your topics",
+          "description": "One product topic, three AIs sparring in sequential rounds. Claude plays architect, GPT plays UX, Gemini plays PM. Final Markdown-exportable synthesis.",
+          "bullet1": "3 models in parallel",
+          "bullet2": "2 to 5 configurable rounds",
+          "bullet3": "Specialised roles per AI",
+          "bullet4": "Final synthesis · top 5 recs",
+          "bullet5": "Markdown export",
+          "statLabel": "AIs · 1 table"
+        },
+        "p10": {
+          "tagline": "Organisation profitability view",
+          "description": "Margin per project. Purchase costs vs invoiced amount. Top performers. Efficiency ranking. For the director, not the project manager.",
+          "bullet1": "Average org margin · trend",
+          "bullet2": "Financial breakdown per project",
+          "bullet3": "Top performers · ranking",
+          "bullet4": "Hours per 1000 CHF invoiced",
+          "bullet5": "MRR projections · AI costs",
+          "statLabel": "Direction KPIs"
+        },
+        "p11": {
+          "tagline": "Price intelligence · temporarily disabled",
+          "description": "AI cost estimation from a plan, price list import, internal benchmarking. Hidden while we fine-tune multi-model estimates. The API keeps running, data keeps growing.",
+          "bullet1": "4-pass pipeline Claude + GPT + Gemini",
+          "bullet2": "55+ CFC prices from CRB 2025 reference",
+          "bullet3": "Internal organisation benchmark",
+          "bullet4": "Aggregated price history",
+          "bullet5": "Re-activation planned mid-2026",
+          "statLabel": "Re-activation in progress"
+        }
+      },
+      "interop": {
+        "sectionStep": "02",
+        "sectionTitle": "Everything\ntalks.",
+        "sectionCaption": "No double entry. No CSV export between modules. A change in one module ripples everywhere.",
+        "stampSubtitle": "MODULES · INTERCONNECTED",
+        "f1Lot": "FLOW · 01",
+        "f1Title": "EMAIL → TASK → MINUTE",
+        "f1Body": "An email \"Urgent: postpone the concrete pour\" → automatic task on the project → line in the next meeting minute → notification to the team leader.",
+        "f2Lot": "FLOW · 02",
+        "f2Title": "TENDER → SCHEDULE",
+        "f2Body": "An awarded tender → generated Gantt schedule → CFC dependencies applied → durations calibrated on your past projects.",
+        "f3Lot": "FLOW · 03",
+        "f3Title": "PORTAL → REPORTS",
+        "f3Body": "The team leader enters hours on the PIN portal → aggregated view in Site Reports → Excel export for accounting. Without opening Outlook."
+      },
+      "cta": {
+        "tag": "ACCESS · FULL CATALOGUE",
+        "title1": "Eleven modules.",
+        "title2": "One password.",
+        "lede": "14-day trial. No card. Access to every active module. Bring your projects, your mail, your suppliers. We handle the rest.",
+        "ctaPrimary": "Start the trial",
+        "ctaSecondary": "See pricing"
+      }
+    },
+    "modulesPage": {
+      "seo": {
+        "title": "Modules — Cantaia · Six workflows for Swiss construction",
+        "description": "Cantaia workflows: AI inbox, submissions, meeting minutes, plan registry, Gantt planning, foreman portal. What each module does and what it replaces."
+      },
+      "sideAxis": "MODULES · WORKFLOWS · 05",
+      "hero": {
+        "tag": "05 · MODULES & WORKFLOWS",
+        "rightTagSuffix": "FLOWS · DOC-TECH-005",
+        "title1": "Six flows.",
+        "title2": "One trade.",
+        "title3": "Zero copy-paste.",
+        "lede": "Cantaia modules aren't tabs that ignore each other. Each flow triggers the next. The email creates the task, the tender creates the schedule, the portal feeds the reports.",
+        "metric1Label": "Primary workflows",
+        "metric2Label": "Hours per tender",
+        "metric2Source": "FIELD",
+        "metric3Label": "Classif. accuracy",
+        "metric3Source": "CLAUDE",
+        "metric4Label": "Double entry"
+      },
+      "labels": {
+        "module": "MODULE",
+        "remplace": "REPLACES",
+        "workflow": "WORKFLOW"
+      },
+      "modules": {
+        "m1": {
+          "name": "AI inbox",
+          "subtitle": "Mail · automatic triage · contextual replies",
+          "pitch": "Your Outlook inbox connected in 2 clicks. The AI reads every email, detects the project involved, extracts tasks, and suggests a reply. Three buckets: urgent, this week, info. That's it.",
+          "replace1": "Outlook permanently open",
+          "replace2": "Hand-crafted Outlook rules by folder",
+          "replace3": "Copy-paste into a tracking spreadsheet",
+          "f1Label": "7-level classification",
+          "f1Detail": "Tracking code, learned local rules, spam, keywords, Claude AI. Every email is routed to the right project in under a second.",
+          "f2Label": "Full Graph thread",
+          "f2Detail": "Conversation history up to 50 messages. Inline images resolved (cid:), attachments listed, one-click delegation and forwarding.",
+          "f3Label": "Context-aware AI reply",
+          "f3Detail": "The AI reads the whole thread, your signature, the previous tone. Generates 3 drafts. You adjust. You send.",
+          "wf1": "Microsoft 365 connection",
+          "wf2": "Delta sync every 2 minutes",
+          "wf3": "Triage L0 → L3 (Claude)",
+          "wf4": "Automatic task extraction",
+          "wf5": "Learned archiving",
+          "statLabel": "Hours saved per day"
+        },
+        "m2": {
+          "name": "Submissions & Suppliers",
+          "subtitle": "Tenders · comparison · award",
+          "pitch": "Import an Excel or PDF tender spec. The AI extracts lots, chapters, numbered line items. A 4-step wizard to compose packages and send them to the right suppliers. Tabular comparison, award, automatic calibration.",
+          "replace1": "Excel table marked up in red while re-reading offers",
+          "replace2": "Emails copy-pasted manually to 20 suppliers",
+          "replace3": "Reminders written one by one",
+          "f1Label": "AI Excel / PDF extraction",
+          "f1Detail": "Lot > chapter > line item hierarchy rebuilt automatically. CFC, units, quantities, materials. Ready in 90 seconds.",
+          "f2Label": "4-step wizard",
+          "f2Detail": "Material groups → line item selection → supplier assignment (AI recommendation) → preview and batch send.",
+          "f3Label": "Tracking + comparison",
+          "f3Detail": "Tracking code per supplier. Replies detected automatically in your inbox. Line-by-line comparison, remarks preserved.",
+          "wf1": "Upload spec",
+          "wf2": "AI line item extraction",
+          "wf3": "Package composition",
+          "wf4": "Batch supplier send",
+          "wf5": "Comparison + award",
+          "statLabel": "Hours saved per tender"
+        },
+        "m3": {
+          "name": "Meeting minutes",
+          "subtitle": "Audio → transcription → structured minute",
+          "pitch": "You record the meeting on your phone. Whisper transcribes in FR / DE / EN. Claude structures the minute by lot, detects participants, identifies decisions and deadlines. You review, you sign, you send.",
+          "replace1": "Paper notes + retyping in the evening",
+          "replace2": "Minutes written 3 weeks after the meeting",
+          "replace3": "Word versions circulating by email",
+          "f1Label": "Mobile recording",
+          "f1Detail": "Client-side MP3 compression at 16 kHz mono. Chunked upload for long meetings. No need to open Cantaia on a computer.",
+          "f2Label": "Whisper transcription",
+          "f2Detail": "Multilingual. Automatic language detection. Speaker segmentation where possible.",
+          "f3Label": "Minute structure by lot",
+          "f3Detail": "Claude Sonnet 4.5 structures the minute by CFC LOT, with numbering, participants, decisions, tasks, deadlines. Export DOCX or signed PDF.",
+          "wf1": "Audio recording",
+          "wf2": "Upload + compression",
+          "wf3": "Whisper transcription",
+          "wf4": "Claude structuring",
+          "wf5": "Review + signature",
+          "statLabel": "Minutes per meeting record"
+        },
+        "m4": {
+          "name": "Plan registry",
+          "subtitle": "Plans · AI analysis · auto versioning",
+          "pitch": "A plan arrives by email. Cantaia detects it, downloads it, files it by project and discipline. Claude Vision reads the title block, legend, scale. When a revision arrives, it files itself as a new version.",
+          "replace1": "Dropbox \"Plans\" folder with no convention",
+          "replace2": "Searching \"which plan is the latest version\"",
+          "replace3": "Emails with 12 PDF attachments",
+          "f1Label": "Auto email detection",
+          "f1Detail": "Pre-filter by extension and keywords. Real plans are saved, false attachments ignored.",
+          "f2Label": "Title block analysis",
+          "f2Detail": "Plan number, title, scale, format, design office, discipline. Extracted in 4 seconds by Claude Vision.",
+          "f3Label": "Automatic versioning",
+          "f3Detail": "When a plan with the same number arrives, a new version is created. The old one moves to archive. Inter-version comparison possible.",
+          "wf1": "Email sync",
+          "wf2": "Plan attachment detection",
+          "wf3": "Upload to private Storage",
+          "wf4": "Claude Vision analysis",
+          "wf5": "Filing by project",
+          "statLabel": "Plans per minute",
+          "statUnit": "pl/min"
+        },
+        "m5": {
+          "name": "AI Gantt planning",
+          "subtitle": "Tender → Gantt · CFC dependencies · A3 export",
+          "pitch": "Validate a tender. Cantaia generates a Gantt schedule in 90 seconds. CFC dependencies respected (concrete → screed → tiling = 28 days). Durations calibrated on your past projects. Risks detected by the AI.",
+          "replace1": "MS Project opened once a month",
+          "replace2": "Excel Gantt with bars coloured by hand",
+          "replace3": "Schedules that are never updated",
+          "f1Label": "Generation from tender",
+          "f1Detail": "Claude reads the awarded line items, proposes a realistic sequence, applies 20 Swiss CFC dependency rules.",
+          "f2Label": "AI validation + risks",
+          "f2Detail": "Claude Sonnet audits the generated schedule. Corrects unrealistic durations. Identifies risks (curing, weather, long lead time).",
+          "f3Label": "A3 export + public sharing",
+          "f3Detail": "High-quality A3 PDF for site-hut display. Tokenised public link for the client, configurable expiration.",
+          "wf1": "Awarded tender",
+          "wf2": "Task extraction by CFC",
+          "wf3": "Dependency application",
+          "wf4": "AI validation",
+          "wf5": "Export + sharing",
+          "statLabel": "Seconds to generate"
+        },
+        "m6": {
+          "name": "Foreman Portal",
+          "subtitle": "Daily reports · PIN · mobile-first",
+          "pitch": "Your team leaders don't need a Cantaia account. They enter the portal with a PIN from their phone. Hours, machines, delivery notes, photos. Everything flows up to the site manager dashboard.",
+          "replace1": "Scanned paper daily report",
+          "replace2": "WhatsApp to send photos of notes",
+          "replace3": "Excel entry by the back office on Monday morning",
+          "f1Label": "6-digit PIN auth",
+          "f1Detail": "Rate limiting: 5 attempts / 15 min. 7-day JWT cookie. Zero friction for the team leader, zero accounts to manage for you.",
+          "f2Label": "4 mobile tabs",
+          "f2Detail": "Site · Tender · Plans · Report. Bottom navigation like a native app. Works on 3G.",
+          "f3Label": "Photos + handwritten notes",
+          "f3Detail": "Native camera capture. Canvas API compression. Claude Vision transcribes paper handwritten notes into usable text.",
+          "wf1": "PIN sent to team leader",
+          "wf2": "Mobile portal access",
+          "wf3": "Daily entry",
+          "wf4": "Photo delivery notes",
+          "wf5": "Site Reports centralisation",
+          "statLabel": "Accounts to create"
+        }
+      },
+      "interop": {
+        "sectionStep": "99",
+        "sectionTitle": "One flow\ntriggers the next.",
+        "sectionCaption": "Modules aren't isolated. They chain like a real construction site: the tender precedes the schedule, the schedule drives the meeting minutes, the minutes surface in the inbox.",
+        "stampSubtitle": "FLOWS · INTERCONNECTED",
+        "c1Lot": "CHAIN · 01",
+        "c1Title": "MAIL → TASK → MINUTE",
+        "c1Body": "An urgent email generates a task on the project → the task shows up in the next meeting minute → the minute triggers a mail notification to the team leader. Never retyped.",
+        "c2Lot": "CHAIN · 02",
+        "c2Title": "TENDER → SCHEDULE",
+        "c2Body": "An awarded tender becomes a Gantt schedule. Durations are calibrated on your past sites. CFC dependencies are applied automatically.",
+        "c3Lot": "CHAIN · 03",
+        "c3Title": "PORTAL → REPORTS",
+        "c3Body": "The team leader enters hours on the PIN portal. Data flows up in real time into the Reports view. Excel export for accounting, PDF for archives."
+      },
+      "cta": {
+        "tag": "READY TO START THE SITE",
+        "title1": "A flow starts",
+        "title2": "in 2 minutes.",
+        "lede": "Connect Outlook. Import a tender Excel. Invite a team leader. Flows start on their own. 14-day trial, no card.",
+        "ctaPrimary": "Start the trial",
+        "ctaSecondary": "See the catalogue"
+      }
+    }
   }
 }

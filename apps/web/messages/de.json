@@ -3466,5 +3466,934 @@
       "title": "Los geht's!",
       "description": "Sie sind bereit für Cantaia. Erkunden Sie in Ihrem eigenen Tempo! Tour über Einstellungen neu starten."
     }
+  },
+  "chantier": {
+    "header": {
+      "nav": {
+        "product": "Produkt",
+        "modules": "Module",
+        "pricing": "Preise",
+        "founder": "Gründer"
+      },
+      "status": {
+        "latency": "ZRH 12ms",
+        "version": "v2.4.0"
+      },
+      "auth": {
+        "login": "Anmelden",
+        "register": "Zur Baustelle"
+      },
+      "mobile": {
+        "menuAria": "Menü"
+      }
+    },
+    "footer": {
+      "placard": {
+        "lot": "LOT · Z",
+        "title": "Baustellenfuss",
+        "cfc": "CFC·FOOT·001",
+        "status": "SYSTEM · BETRIEBSBEREIT · ZRH 12ms"
+      },
+      "brand": {
+        "description": "Die KI-gestützte Baustellenverwaltungsplattform für Schweizer Projektleiter. E-Mails, Ausschreibungen, Protokolle und Pläne — alles in einem Strang."
+      },
+      "language": {
+        "label": "SPRACHE"
+      },
+      "columns": {
+        "product": {
+          "title": "Produkt",
+          "links": {
+            "products": "Produkte",
+            "modules": "Module",
+            "pricing": "Preise",
+            "changelog": "Changelog"
+          }
+        },
+        "resources": {
+          "title": "Ressourcen",
+          "links": {
+            "founder": "Gründer",
+            "about": "Über uns",
+            "blog": "Blog",
+            "docs": "Dokumentation",
+            "support": "Support"
+          }
+        },
+        "legal": {
+          "title": "Rechtliches",
+          "links": {
+            "terms": "AGB",
+            "privacy": "Datenschutz",
+            "mentions": "Impressum"
+          }
+        }
+      },
+      "comingSoon": "Bald",
+      "bottom": {
+        "copyright": "© {year} CANTAIA SA · GENF",
+        "build": "BUILD · v2.4.0",
+        "region": "REGION · EU · FR-CH",
+        "status": "STATUS · LIVE",
+        "hosting": "HOSTING · DEUTSCHLAND",
+        "compliance": "DSGVO · revDSG"
+      }
+    },
+    "login": {
+      "placard": {
+        "lot": "LOT · A",
+        "title": "AUTHENTIFIZIERUNG",
+        "cfc": "CFC·AUTH·001"
+      },
+      "eyebrow": {
+        "label": "01 · BAUSTELLENZUGANG",
+        "session": "SITZUNG · INAKTIV"
+      },
+      "title": {
+        "line1": "Zurück",
+        "line2": "auf die Baustelle."
+      },
+      "subtitle": "Melden Sie sich an, um Ihre E-Mails, Ausschreibungen, Protokolle und Pläne dort fortzusetzen, wo Sie aufgehört haben.",
+      "errors": {
+        "authPrefix": "ERR · AUTH ·"
+      },
+      "sso": {
+        "label": "SCHNELLZUGANG · SSO",
+        "providers": "2 ANBIETER",
+        "microsoft": "Mit Microsoft 365 fortfahren",
+        "google": "Mit Google fortfahren",
+        "tag": "SSO"
+      },
+      "divider": "ODER · ZUGANGSDATEN",
+      "register": {
+        "prompt": "KEIN ZUGANG?",
+        "cta": "Konto erstellen"
+      },
+      "fiche": {
+        "lot": "BLATT",
+        "title": "SICHERHEIT",
+        "cfc": "SYS·SEC",
+        "rows": {
+          "status": {
+            "key": "STATUS",
+            "value": "GESCHÜTZTE ZONE"
+          },
+          "encryption": {
+            "key": "VERSCHLÜSSELUNG",
+            "value": "AES-256 · TLS 1.3"
+          },
+          "region": {
+            "key": "REGION",
+            "value": "EU · FR-CH"
+          },
+          "hosting": {
+            "key": "HOSTING",
+            "value": "Deutschland · Hetzner"
+          },
+          "gdpr": {
+            "key": "DSGVO",
+            "value": "KONFORM"
+          },
+          "fadp": {
+            "key": "revDSG",
+            "value": "KONFORM · CH"
+          },
+          "version": {
+            "key": "VERSION",
+            "value": "v2.4.0"
+          }
+        }
+      },
+      "system": {
+        "label": "SYSTEM · BETRIEBSBEREIT",
+        "message": "Alle Cantaia-Dienste funktionieren normal.",
+        "incidentLabel": "LETZTER VORFALL",
+        "incidentValue": "KEINER"
+      },
+      "support": {
+        "label": "BAUSTELLEN · SUPPORT",
+        "message": "Probleme bei der Anmeldung?"
+      },
+      "form": {
+        "email": {
+          "label": "E-Mail",
+          "placeholder": "name@firma.ch"
+        },
+        "password": {
+          "label": "Passwort",
+          "showAria": "Passwort anzeigen",
+          "hideAria": "Passwort verbergen"
+        },
+        "required": "PFLICHT",
+        "forgotPassword": "Passwort vergessen?",
+        "submit": "Baustelle öffnen",
+        "submitting": "Anmeldung läuft…",
+        "errors": {
+          "prefix": "ERR ·",
+          "emailInvalid": "Ungültige E-Mail.",
+          "passwordMin": "Mindestens 8 Zeichen erforderlich.",
+          "invalidCredentials": "Ungültige Zugangsdaten. Bitte prüfen Sie E-Mail und Passwort.",
+          "generic": "Anmeldung nicht möglich. Bitte in einem Moment erneut versuchen."
+        }
+      }
+    },
+    "landingPage": {
+      "sideAxis": "Cantaia / Z-Achse · Lebendige Baustelle",
+      "zoneActive": "AKTIVE ZONE",
+      "siteStamp": "Baustelle · Los 07 · OG+9",
+      "hero": {
+        "sectionMarker": "01 · Eröffnung",
+        "locationCity": "Zürich",
+        "locationTagline": "Gebaut für die Schweiz",
+        "titleLine1": "Ihre Baustelle",
+        "titleLine2": "wartet nicht",
+        "titleLine3": "auf Ihre 47",
+        "titleLine4": "ungelesenen E-Mails.",
+        "subtitleBrand": "Cantaia",
+        "subtitleBody": "liest Ihren Outlook-Posteingang, ordnet Ihre Ausschreibungen nach BKP, erstellt Ihren Terminplan aus einer Excel-Datei mit 400 Zeilen und benachrichtigt Ihren Polier, bevor Sie es tun.",
+        "subtitleTagline": "Gedacht für Schweizer Projektleiter. Gebaut von einem von ihnen.",
+        "ctaPrimary": "Testversion starten",
+        "ctaSecondary": "Mit Julien sprechen"
+      },
+      "scene": {
+        "placardLot": "LOS 07",
+        "placardTitle": "Europaallee · OG+9",
+        "placardCfc": "BKP 211.3 · SB",
+        "sequenceLabel": "Sequenz",
+        "label1Code": "BKP 211.3",
+        "label1Line1": "Ebene OG+3 · SB-Decke",
+        "label1SurfaceLabel": "Fläche",
+        "label1SurfaceValue": "840 m²",
+        "label2Code": "KRAN · 45T",
+        "label2Line1": "Liebherr 280 EC-H",
+        "label2LoadLabel": "Last",
+        "label2LoadValue": "2.8 T",
+        "label3Code": "BKP 211.0",
+        "label3Line1": "Fundamente · Aushub",
+        "label3VolumeLabel": "Volumen",
+        "label3VolumeValue": "1'240 m³",
+        "captionLine1": "Die Baustelle",
+        "captionLine1Highlight": "baut sich auf.",
+        "captionLine2": "Sie sehen es von Ihrem Büro aus.",
+        "fiche": {
+          "projet": "Projekt",
+          "projetValue": "Europaallee",
+          "mo": "Bauherr",
+          "moValue": "SBB Immo.",
+          "montant": "Betrag",
+          "montantValue": "CHF 14.2M",
+          "delai": "Dauer",
+          "delaiValue": "14 Monate",
+          "suivi": "Status",
+          "suiviValue": "T-1"
+        }
+      },
+      "narrative": {
+        "sectionMarker": "02 · Warum wir mit Ihnen sprechen",
+        "time": "Dienstag 14:32.",
+        "paragraph1": "Sie haben 47 ungelesene E-Mails, 3 Ausschreibungen bis Freitag zu vergleichen, einen Polier, der wegen eines Plans anruft, den Sie nicht finden, und einen Bauherrn, der eine",
+        "strikethrough": "wöchentliche Sitzung",
+        "paragraph1End": "tägliche Sitzung will.",
+        "paragraph2": "Sie sind Projektleiter. Kein Sachbearbeiter.",
+        "sideNote": "Cantaia ersetzt nicht Ihre Erfahrung. Cantaia erledigt alles, was Sie daran hindert, sie einzusetzen."
+      },
+      "metrics": {
+        "sectionNumber": "03",
+        "sectionTitle": "Feldbericht",
+        "sectionSubtitle": "Q1 2026 · Pilotmessungen · 14 Projekte",
+        "m01": {
+          "code": "M01",
+          "category": "Zeit / Tag",
+          "label": "Weniger Verwaltung",
+          "desc": "Gemessen über 14 Pilotprojekte, Q1 2026. Pro Projektleiter."
+        },
+        "m02": {
+          "code": "M02",
+          "category": "KI-Genauigkeit",
+          "label": "E-Mail-Klassifikation",
+          "desc": "E-Mails dem richtigen Projekt zugeordnet, ohne manuelle Regeln."
+        },
+        "m03": {
+          "code": "M03",
+          "category": "Aktive Module",
+          "label": "Gelieferte Produkte",
+          "desc": "Mail, Ausschreibungen, Planung, Portal, KI-Chat, Direktion, Protokolle, Pläne, Preise, Berichte, Support."
+        },
+        "m04": {
+          "code": "M04",
+          "category": "Einstiegspreis",
+          "label": "CHF / Nutzer / Monat",
+          "desc": "Starter. Pro bei 89, Enterprise bei 119. Jahresrechnung verfügbar."
+        }
+      },
+      "modules": {
+        "sectionMarker": "03 · Elf Module. Ein einziges Werkzeug.",
+        "titleLine1": "Die ganze Baustelle,",
+        "titleLine2": "in Ihrer Tasche.",
+        "statusActive": "AKTIV",
+        "statusComing": "GEPLANT",
+        "m01": {
+          "title": "Mail",
+          "desc": "KI-Triage von Outlook-E-Mails nach Projekt."
+        },
+        "m02": {
+          "title": "Ausschreibungen",
+          "desc": "BKP, Lieferantenvergleich, KI-Budget."
+        },
+        "m03": {
+          "title": "Planung",
+          "desc": "KI-Gantt aus Excel. A3-Export."
+        },
+        "m04": {
+          "title": "Protokolle",
+          "desc": "Audio-Transkription → strukturiertes Protokoll."
+        },
+        "m05": {
+          "title": "Pläne",
+          "desc": "Versionsregister. Vision-Schätzung."
+        },
+        "m06": {
+          "title": "Portal",
+          "desc": "Polier, Baustellenrapporte mit PIN."
+        },
+        "m07": {
+          "title": "KI-Chat",
+          "desc": "Projektkontext. Datei-Upload."
+        },
+        "m08": {
+          "title": "Direktion",
+          "desc": "Marge, KPIs, Rentabilität der Organisation."
+        },
+        "m09": {
+          "title": "Berichte",
+          "desc": "Stunden, Lieferscheine, Exporte."
+        },
+        "m10": {
+          "title": "Preise",
+          "desc": "Marktbenchmark + CRB 2025."
+        },
+        "m11": {
+          "title": "Support",
+          "desc": "Integrierte Konversations-Tickets."
+        },
+        "m12": {
+          "title": "Demnächst",
+          "desc": "Outlook Add-in. Native Mobile App."
+        },
+        "ctaAll": "Alle Module",
+        "ctaUseCases": "Produkte & Anwendungsfälle"
+      },
+      "closing": {
+        "sectionMarker": "04 · Baustelleneröffnung",
+        "titleLine1": "Starten Sie",
+        "titleLine1Highlight": "Dienstagmorgen.",
+        "titleLine2": "Holen Sie sich Ihren Dienstagnachmittag zurück.",
+        "description": "14 Tage Testversion, ohne Kreditkarte. Outlook-Migration mit einem Klick. Support auf FR, DE, IT.",
+        "ctaPrimary": "Testversion starten",
+        "ctaSecondary": "Preise ansehen",
+        "founderPrefix": "Oder, wenn Sie lieber möchten:",
+        "founderLink": "schreiben Sie mir direkt",
+        "founderSuffix": "— Julien, Gründer."
+      }
+    },
+    "pricingPage": {
+      "seo": {
+        "title": "Cantaia Preise — CHF 49 bis 119/Benutzer/Monat",
+        "description": "3 Pläne pro Benutzer: Starter (CHF 49), Pro (CHF 89), Enterprise (CHF 119). KI-Mail, CFC-Ausschreibungen, Protokolle, Planung, Baustellenportal. 14 Tage kostenlos."
+      },
+      "coordTag": "PREISBLATT · LOS A → C · v2.4.0",
+      "hero": {
+        "sectionMarker": "02 · PREISAUFMASS",
+        "titleLine1": "Drei Pläne.",
+        "titleLine2": "Ein Preis pro Kopf.",
+        "titleLine3": "Keine Falle.",
+        "description": "Sie zahlen pro Nutzer, jeden Monat. Kein 36-Monats-Vertrag, keine Einrichtungsgebühren, keine versteckten Kosten für KI-Aufrufe bis zum Plan-Limit. 14 Tage Testversion, ohne Kreditkarte.",
+        "tag1": "CHF · EXKL. MWST.",
+        "tag2": "MONATLICHE BINDUNG",
+        "tag3": "14 TAGE TESTVERSION",
+        "tag4": "HOSTING EU"
+      },
+      "stamp": {
+        "subtitle": "CHF / USER / MONTH"
+      },
+      "plans": {
+        "sectionStep": "03",
+        "sectionTitle": "Lospakete",
+        "sectionCaption": "Jeder Plan ist wie ein Bauabschnitt dimensioniert: klarer Umfang, ein Preis pro Kopf, eine feste Platzzahl. Planwechsel mit einem Klick, anteilige Abrechnung.",
+        "recommended": "EMPFOHLEN",
+        "priceCurrency": "CHF",
+        "priceUnit": "pro Nutzer / Monat",
+        "minLabel": "Min.",
+        "maxLabel": "Max.",
+        "starter": {
+          "code": "LOS · A",
+          "name": "Starter",
+          "min": "1 Nutzer",
+          "max": "5 Nutzer",
+          "tagline": "Für den Einstieg ins Büro",
+          "feature1": "2 parallele Projekte",
+          "feature2": "Cantaia Mail (KI-Triage Outlook)",
+          "feature3": "Multi-Modell-KI-Chat",
+          "feature4": "Automatisches Tages-Briefing",
+          "feature5": "Aufgaben + Lieferanten",
+          "feature6": "200 KI-Aufrufe / Monat",
+          "feature7": "10 GB Speicher",
+          "feature8": "E-Mail-Support",
+          "ctaLabel": "Starten"
+        },
+        "pro": {
+          "code": "LOS · B",
+          "name": "Pro",
+          "min": "5 Nutzer",
+          "max": "30 Nutzer",
+          "tagline": "Der empfohlene Plan",
+          "feature1": "30 parallele Projekte",
+          "feature2": "Alles aus Starter +",
+          "feature3": "BKP-Ausschreibungen + Vergleich",
+          "feature4": "Sitzungsprotokoll + Audioaufnahme",
+          "feature5": "KI-Gantt-Planung",
+          "feature6": "Polierportal (PIN)",
+          "feature7": "Pläne + Versionsregister",
+          "feature8": "Baustellenbegehungen + Berichte",
+          "feature9": "1'000 KI-Aufrufe / Monat",
+          "feature10": "50 GB Speicher",
+          "feature11": "Prioritätssupport",
+          "ctaLabel": "Auf die Baustelle"
+        },
+        "enterprise": {
+          "code": "LOS · C",
+          "name": "Enterprise",
+          "min": "15 Nutzer",
+          "max": "unbegrenzt",
+          "tagline": "Für strukturierte Gruppen",
+          "feature1": "Unbegrenzte Projekte",
+          "feature2": "Alles aus Pro +",
+          "feature3": "Direktionsansicht & Rentabilität",
+          "feature4": "Data Intelligence C2 / C3",
+          "feature5": "Individuelles Branding",
+          "feature6": "API + Individuelle Integrationen",
+          "feature7": "Unbegrenzte KI-Aufrufe",
+          "feature8": "500 GB Speicher",
+          "feature9": "Multi-Organisation",
+          "feature10": "Persönlicher Support",
+          "ctaLabel": "Kontakt aufnehmen"
+        },
+        "note": {
+          "label": "Hinweis",
+          "ref": "· REF CFC-TARIF-001",
+          "textBefore": "Die KI-Aufruflimits gelten für die gesamte Organisation, nicht pro Nutzer. Darüber hinaus fällt ein Aufpreis von CHF 0.02 pro Aufruf an (automatischer Upgrade-Vorschlag). Für eine massgeschneiderte Lösung (Gruppe > 50 Personen, ERP-Integration, Rahmenvertrag) schreiben Sie an",
+          "textAfter": "."
+        }
+      },
+      "faq": {
+        "sectionStep": "04",
+        "sectionTitle": "Fragen von der Baustelle",
+        "sectionCaption": "Die Fragen, die uns bei Baustellenbegehungen vor der Unterschrift gestellt werden.",
+        "q1": "Kostenlose Testversion?",
+        "a1": "14 volle Tage auf dem Pro-Plan, ohne Karte, ohne Bindung. Am Ende wählen Sie einen Plan oder der Zugang wird beendet — Ihre Daten bleiben 30 Tage exportierbar.",
+        "q2": "Kann man den Plan wechseln?",
+        "a2": "Ja, mit einem Klick in den Einstellungen. Der Anteil wird tagesgenau berechnet. Sofortiges Upgrade, Downgrade am Periodenende.",
+        "q3": "Wo werden die Daten gespeichert?",
+        "a3": "Supabase · Region Frankfurt (EU). DSGVO-konform. Verschlüsselung at-rest (AES-256) und in-transit (TLS 1.3). Vollständiger Export jederzeit verfügbar.",
+        "q4": "Ist eine Schulung enthalten?",
+        "a4": "Video-Onboarding + 6-Schritte-Checkliste in allen Plänen enthalten. Pro = 45-min. Video-Session gratis. Enterprise = Schulung vor Ort.",
+        "q5": "Outlook- / Gmail-Integration?",
+        "a5": "Outlook Microsoft 365 (direktes OAuth), Gmail, generisches IMAP/SMTP. Echtzeit-Sync via Webhooks oder Polling. Keine Mailbox wird kopiert — nur relevante Nachrichten werden indexiert.",
+        "q6": "Zahlung?",
+        "a6": "Stripe · Karte oder SEPA-Lastschrift. Automatische PDF-Rechnung jeden Monat. Schweizer MwSt. bei CH-Adresse, sonst EU/Reverse-Charge."
+      },
+      "finalCta": {
+        "badge": "NÄCHSTER SCHRITT",
+        "titleLine1": "Keine Lust zu lesen.",
+        "titleLine2": "14 Tage testen.",
+        "description": "Sie erstellen Ihr Konto in 2 Minuten, verbinden Outlook, und Cantaia zeigt Ihnen Ihre letzten 30 E-Mails automatisch neu klassifiziert. Wenn Sie nicht überzeugt sind, schliessen Sie den Tab.",
+        "ctaPrimary": "Testversion starten",
+        "ctaSecondary": "Wer dahintersteckt"
+      }
+    },
+    "fondateurPage": {
+      "seo": {
+        "title": "Gründer — Julien Ray · Cantaia",
+        "description": "Wer hinter Cantaia steht und warum. 25 Jahre auf Schweizer Baustellen, eine klare Feststellung: Projektleiter verlieren die Hälfte ihrer Zeit mit Papierkram. Wir programmieren den Ausweg."
+      },
+      "sideAxis": "DOSSIER · GRÜNDER · 03",
+      "hero": {
+        "tag": "03 · GRÜNDER-DOSSIER",
+        "dossier": "DOSSIER · F-001",
+        "name1": "Julien",
+        "name2": "Ray.",
+        "lede": "25 Jahre auf der Baustelle. 14 Jahre als Bauleiter. 2 Jahre Cantaia programmiert. Ein Ziel: jedem Schweizer Projektleiter 2 Stunden pro Tag zurückgeben.",
+        "badge1": "Gründer",
+        "badge2": "Bauleiter · raus aus dem Papierkram",
+        "badge3": "Sitz in der Schweiz",
+        "cardLot": "LOT · 00",
+        "cardTitle": "PERSONALIEN",
+        "cardCfc": "CFC·HR·001",
+        "fiche": {
+          "nomKey": "Name",
+          "nomVal": "Ray, Julien",
+          "neKey": "Geboren",
+          "neVal": "Schweiz — 1985",
+          "formationKey": "Ausbildung",
+          "formationVal": "EFZ Maurer · Bauingenieur HTL",
+          "languesKey": "Sprachen",
+          "languesVal": "FR · DE · EN",
+          "experienceKey": "Erfahrung",
+          "experienceVal": "25 Jahre — Schweizer Bau",
+          "rolesKey": "Rollen",
+          "rolesVal": "Maurer, Polier, Bauleiter, Projektleiter",
+          "projetsKey": "Übergebene Projekte",
+          "projetsVal": "über 40 Baustellen",
+          "volumeKey": "Verwaltetes Volumen",
+          "volumeVal": "über CHF 180 Mio. kumuliert",
+          "cantaiaKey": "Cantaia seit",
+          "cantaiaVal": "2024"
+        }
+      },
+      "narrative": {
+        "sectionStep": "01",
+        "sectionTitle": "Warum\nCantaia.",
+        "sectionCaption": "Der Auslöser kam nicht aus einem Investorenmeeting. Er kam an einem Mittwoch im November, um 22 Uhr, in einer Baubaracke in Zürich, vor 137 ungelesenen E-Mails.",
+        "c1Tag": "BEFUND · 01",
+        "c1Before": "In 25 Jahren hat sich am Kern der Baustelle nichts geändert: Beton giessen, Mauern hochziehen, Unternehmer koordinieren. Was sich geändert hat, ist der ",
+        "c1Highlight": "Verwaltungsaufwand",
+        "c1After": ". 2001 bekam ich 8 Faxe pro Woche. 2024 erhalte ich 380 E-Mails. Gleiche Anzahl Baustellen, 47-mal mehr Papierkram.",
+        "c2Tag": "BEFUND · 02",
+        "c2Before": "Die grossen Bauprojekt-Plattformen (Procore, PlanRadar, Messerli) sind ",
+        "c2Highlight": "Datensilos",
+        "c2After": ". Du tippst deine Daten von Hand ein, ziehst Tabellen raus, und dazwischen sitzt abends immer ein Projektleiter mit kaltem Kaffee und baut die Brücke.",
+        "c3Tag": "AUSLÖSER · 03",
+        "c3Before": "November 2024. Ich hänge Claude an meinen Bau-Posteingang. 200 E-Mails. 40 Sekunden. 94 % Klassifikationsgenauigkeit (Priorität · Info · Antworten · Archivieren). Zum ersten Mal in 25 Jahren sah ich eine Maschine ",
+        "c3Highlight": "die Baustelle verstehen",
+        "c3After": ". Am nächsten Tag habe ich gekündigt.",
+        "c4Tag": "ENTSCHEIDUNG · 04",
+        "c4Before": "Cantaia wird nicht das nächste Procore. Cantaia ist das Werkzeug, das ich mit 28 gern gehabt hätte, als ich nachts um 1 Uhr Protokolle fertigstellte und mich fragte, ob ich im Beruf bleiben soll. ",
+        "c4Emph": "Es ist persönlich. Es ist für die Projektleiter, die um 22 Uhr noch auf der Baustelle stehen."
+      },
+      "timeline": {
+        "sectionStep": "02",
+        "sectionTitle": "Werdegang\nam Bau.",
+        "sectionCaption": "25 Jahre. 6 Etappen. Ein Weg, der im Code-Editor endet, aber immer im Schlamm beginnt.",
+        "step1": {
+          "lot": "LOT · 01",
+          "title": "Maurerlehre",
+          "place": "Lausanne · VD",
+          "body": "Erste Baustelle. Fundamente eines 4-geschossigen Gebäudes. Man lernt Beton, Schalung, Libelle — und das Schweigen nach einem falschen Aufmass."
+        },
+        "step2": {
+          "lot": "LOT · 02",
+          "title": "Polier",
+          "place": "Genf · GE",
+          "body": "Team von 6 Personen. Wir führen den Terminplan mit Kreide auf der Bauwand und die Lieferscheine im Ordner. Alle nennen das «normal»."
+        },
+        "step3": {
+          "lot": "LOT · 03",
+          "title": "Bauleiter",
+          "place": "Zürich · ZH",
+          "body": "Erste Baustelle mit achtstelligem Volumen. Europaallee. Man entdeckt: 50 % des Jobs sind E-Mails beantworten und Protokolle schreiben. Der Rest ist Verzugsmanagement."
+        },
+        "step4": {
+          "lot": "LOT · 04",
+          "title": "Projektleitung",
+          "place": "Basel · BS",
+          "body": "Universitätsspital. 14 Gewerke. 400 E-Mails pro Woche. Sechsstellige Beträge gehen verloren, weil ein Protokoll 3 Tage zu spät kommt."
+        },
+        "step5": {
+          "lot": "LOT · 05",
+          "title": "KI-Wendepunkt",
+          "place": "Remote · CH",
+          "body": "Claude 3.5 erscheint. Erster Test an einem Bau-Posteingang: Die KI klassifiziert 200 E-Mails in 40 Sekunden mit 94 % Genauigkeit. Der Auslöser. Alles andere stoppen."
+        },
+        "step6": {
+          "lot": "LOT · 06",
+          "title": "Cantaia — Launch",
+          "place": "cantaia.io",
+          "body": "Elf Module. Drei Sprachen. Ein Ziel: jedem Projektleiter 2 Stunden pro Tag zurückgeben. Keine Keynote. Kein Unicorn. Nur Code, der läuft."
+        }
+      },
+      "values": {
+        "sectionStep": "03",
+        "sectionTitle": "Vier\nGrundsätze.",
+        "sectionCaption": "Alles andere ist verhandelbar. Diese vier nicht.",
+        "stampSubtitle": "GRUNDSÄTZE · NICHT VERHANDELBAR",
+        "v1": {
+          "code": "V01",
+          "title": "Die KI ersetzt den Projektleiter nicht.",
+          "body": "Sie gibt ihm die 2 Stunden zurück, die er mit dem Sortieren seiner Mailbox verbracht hat, damit er wieder auf die Baustelle geht. Ein Werkzeug. Kein Orakel."
+        },
+        "v2": {
+          "code": "V02",
+          "title": "Die Schweizer Baustelle ist kein Excel.",
+          "body": "CFC, SIA, Lieferfristen, 3 Sprachen, 4 Kantone, 12 Normen. Wir programmieren für die Realität auf dem Bau, nicht für eine VC-Demo."
+        },
+        "v3": {
+          "code": "V03",
+          "title": "Kein US-Hosting.",
+          "body": "Ihre Daten bleiben in der EU. Supabase Frankfurt. Keine Cloud-Übertragung ausserhalb der DSGVO. Das Kantonsspital-Projekt hat bei AWS Virginia nichts verloren."
+        },
+        "v4": {
+          "code": "V04",
+          "title": "Der Preis ist kein Geheimnis.",
+          "body": "49, 89 oder 119 CHF pro Nutzer und Monat. Kein «Vertrieb kontaktieren». Keine künstlichen Lizenzen. 14 Tage testen ohne Kreditkarte."
+        }
+      },
+      "contact": {
+        "tag": "KONTAKT · GRÜNDER",
+        "title1": "Eine Frage.",
+        "title2": "Ein Kaffee.",
+        "title3": "Eine Demo.",
+        "lede": "Ich beantworte E-Mails selbst. Keine SDR. Kein Formular mit 12 Feldern. Sie schreiben, ich lese, wir telefonieren.",
+        "ctaEmail": "julien@cantaia.io",
+        "ctaTrial": "14 Tage testen",
+        "foot1": "LinkedIn · /in/julienray",
+        "foot2": "Sitz in der Westschweiz",
+        "foot3": "Antwort innert 24 Geschäftsstunden"
+      }
+    },
+    "produitsPage": {
+      "seo": {
+        "title": "Produkte — Cantaia · Elf Module für den Schweizer Bau",
+        "description": "Mail, Submissionen, Protokolle, Pläne, Terminplanung, Polier-Portal, Rapporte, Support, KI-Runde, Direktion & Finanzen. Eine Plattform, elf Module, keine Silos."
+      },
+      "sideAxis": "KATALOG · PRODUKTE · 04",
+      "hero": {
+        "tag": "04 · PRODUKTKATALOG",
+        "rightTag": "11 MODULE · 1 PLATTFORM",
+        "title1": "Elf Module.",
+        "title2": "Eine Plattform.",
+        "title3": "Keine Silos.",
+        "lede": "Jedes Modul macht eine Sache. Jedes Modul spricht mit den anderen. Ihr Mail speist Ihre Aufgaben, Ihre Aufgaben speisen Ihre Protokolle, Ihre Protokolle speisen Ihre Terminpläne. Ein Ort für die Steuerung.",
+        "metric1Label": "Aktive Module",
+        "metric1Source": "LIVE",
+        "metric2Label": "KI-Modelle",
+        "metric2Unit": "Claude · GPT · Gemini",
+        "metric2Source": "LLM",
+        "metric3Label": "Sprachen",
+        "metric3Unit": "FR · DE · EN",
+        "metric4Value": "EU",
+        "metric4Label": "Hosting",
+        "metric4Source": "DSGVO"
+      },
+      "grid": {
+        "sectionStep": "01",
+        "sectionTitle": "Technisches\nDatenblatt.",
+        "sectionCaption": "Jedes Modul wie ein Baulos: eine Nummer, ein CFC-Code, ein klarer Auftrag, eine Feldmetrik."
+      },
+      "status": {
+        "actif": "AKTIV",
+        "actifBeta": "AKTIV · BETA",
+        "masque": "AUSGEBLENDET"
+      },
+      "products": {
+        "p1": {
+          "tagline": "Outlook-Sync + KI-Triage",
+          "description": "Verbinden Sie Ihre Microsoft-365-Mailbox. Die KI liest, klassifiziert und leitet jede Mail an das richtige Projekt. 3-Spalten-Ansicht: dringend / diese Woche / Info. KI-Antwort per Klick.",
+          "bullet1": "Microsoft-Graph-Sync in Echtzeit",
+          "bullet2": "7-stufige Klassifikation (dringend, Info, Projekt...)",
+          "bullet3": "Automatische Aufgaben-Extraktion",
+          "bullet4": "Kontextbezogene KI-Antwort (ganzer Thread)",
+          "bullet5": "Archivierung lernt aus Ihren Gewohnheiten",
+          "statLabel": "Klassifikationsgenauigkeit"
+        },
+        "p2": {
+          "tagline": "Ausschreibungen · Vergleich · Vergabe",
+          "description": "Importieren Sie ein Leistungsverzeichnis in Excel. Die KI extrahiert Lose, Kapitel und Positionen. Pakete zusammenstellen, an Unternehmer senden, Antworten Zeile für Zeile vergleichen.",
+          "bullet1": "Import CFC — Excel / PDF / .eml",
+          "bullet2": "Wizard in 4 Schritten · Gruppen · Unternehmer",
+          "bullet3": "Tracking-Code pro Unternehmer",
+          "bullet4": "Tabellarischer Vergleich mit Bemerkungen",
+          "bullet5": "Vergabe → automatische Preiskalibrierung",
+          "statLabel": "Stunden gespart je Submission"
+        },
+        "p3": {
+          "tagline": "Audio-Sitzungsprotokolle → Dokument",
+          "description": "Sitzung auf dem Handy aufnehmen. Whisper transkribiert, Claude strukturiert das Protokoll nach Los, Sie prüfen, Sie senden. Ein Protokoll pro Woche statt pro Monat.",
+          "bullet1": "Mobile Audioaufnahme",
+          "bullet2": "Whisper-Transkription FR / DE / EN",
+          "bullet3": "Protokollstruktur nach Los · CFC",
+          "bullet4": "Teilnehmer automatisch erkannt",
+          "bullet5": "Export DOCX · signiertes PDF",
+          "statLabel": "Minuten je Protokoll"
+        },
+        "p4": {
+          "tagline": "Planregister + KI-Analyse",
+          "description": "Plan-PDF ablegen. Claude Vision erkennt Disziplin, Schriftfeld, Legende, Massstab. Automatische Versionierung. Neue Revisionen kommen per Mail und ordnen sich selbst ein.",
+          "bullet1": "Auto-Erkennung aus Outlook-Anhängen",
+          "bullet2": "Analyse Schriftfeld · Legende · Massstab",
+          "bullet3": "Automatische Versionierung per Nummer",
+          "bullet4": "Tags Zonen · Lose · CFC",
+          "bullet5": "Integrierter PDF-Viewer",
+          "statLabel": "Pläne je Minute analysiert",
+          "statUnit": "Pläne"
+        },
+        "p5": {
+          "tagline": "KI-Gantt aus der Submission",
+          "description": "Eine vergebene Submission → ein generierter Gantt-Terminplan. Claude ergänzt CFC-Abhängigkeiten (Beton → Unterlagsboden → Plattenarbeiten), realistische Dauern pro Gewerk, erkannte Risiken.",
+          "bullet1": "Gantt-Generierung aus Submission",
+          "bullet2": "20 CFC-Abhängigkeitsregeln",
+          "bullet3": "KI-Prüfung · Risiken · Empfehlungen",
+          "bullet4": "A3-PDF-Export",
+          "bullet5": "Öffentliche Freigabe mit Token",
+          "statLabel": "Generierte Terminplantage",
+          "statUnit": "T"
+        },
+        "p6": {
+          "tagline": "Tagesrapporte · PIN · mobile first",
+          "description": "Der Polier betritt das Portal mit einem PIN vom Handy. Er erfasst Stunden, Maschinen, Lieferscheine, Fotos. Der Bauleiter führt alles zusammen.",
+          "bullet1": "6-stellige PIN-Authentifizierung · kein Konto",
+          "bullet2": "4 Tabs · Bottom-Navigation mobil",
+          "bullet3": "Baustellenfotos · handschriftliche Notizen KI",
+          "bullet4": "Stunden pro Arbeiter · pro Woche",
+          "bullet5": "Scanbare Lieferscheine",
+          "statLabel": "Konto zu erstellen"
+        },
+        "p7": {
+          "tagline": "Stunden + Lieferscheine für Backoffice",
+          "description": "Aggregierte Sicht aller Baustellen. Stunden pro Arbeiter und Woche, Lieferscheine pro Unternehmer. Excel-Export für die Buchhaltung. PDF fürs Archiv.",
+          "bullet1": "Baustellenübergreifende Aggregation",
+          "bullet2": "Wochenweise Navigation",
+          "bullet3": "Filter Projekt · Unternehmer · Arbeiter",
+          "bullet4": "Export Excel · PDF",
+          "bullet5": "Automatische Notizen-Transkription",
+          "statLabel": "Tage gespart je Monat",
+          "statUnit": "T"
+        },
+        "p8": {
+          "tagline": "Dialog-Thread · Nutzer ↔ Admin",
+          "description": "Ein Problem. Ein Ticket. Ein Thread. Keine verlorenen Mails, kein versehentlich geschlossenes Zendesk-Ticket. Anhänge, Kategorie, Priorität, vollständige Historie.",
+          "bullet1": "Moderner Dialog-Thread",
+          "bullet2": "Anhänge · Screenshots",
+          "bullet3": "Kategorien · Bug · Frage · Feature",
+          "bullet4": "Ungelesen-Badge in der Seitenleiste",
+          "bullet5": "Lösungszeit erfasst",
+          "statLabel": "Stunden · Median Antwort"
+        },
+        "p9": {
+          "tagline": "Claude · GPT · Gemini debattieren Ihre Themen",
+          "description": "Ein Produktthema, drei KIs, die in sequenziellen Runden miteinander ringen. Claude spielt Architekt, GPT UX, Gemini PM. Exportierbare Markdown-Synthese am Ende.",
+          "bullet1": "3 Modelle parallel",
+          "bullet2": "2 bis 5 konfigurierbare Runden",
+          "bullet3": "Spezialisierte Rollen pro KI",
+          "bullet4": "Finale Synthese · Top-5-Empfehlungen",
+          "bullet5": "Markdown-Export",
+          "statLabel": "KIs · 1 Tisch"
+        },
+        "p10": {
+          "tagline": "Rentabilitätssicht Organisation",
+          "description": "Marge pro Projekt. Einkaufskosten vs. Fakturaumsatz. Top-Performer. Effizienz-Ranking. Für die Direktion, nicht den Projektleiter.",
+          "bullet1": "Mittlere Orgamarge · Trend",
+          "bullet2": "Finanzdetail pro Projekt",
+          "bullet3": "Top-Performer · Ranking",
+          "bullet4": "Stunden je 1000 CHF fakturiert",
+          "bullet5": "MRR-Prognosen · KI-Kosten",
+          "statLabel": "KPIs Direktion"
+        },
+        "p11": {
+          "tagline": "Preisintelligenz · vorübergehend deaktiviert",
+          "description": "KI-Kostenschätzung aus einem Plan, Import von Preislisten, interne Benchmarks. Ausgeblendet bis die Multi-Modell-Schätzungen stabil sind. Die API läuft weiter, die Datenbank wächst weiter.",
+          "bullet1": "4-Pass-Pipeline Claude + GPT + Gemini",
+          "bullet2": "55+ CFC-Preise aus CRB-Referenz 2025",
+          "bullet3": "Interner Organisations-Benchmark",
+          "bullet4": "Aggregierte Preis-Historie",
+          "bullet5": "Reaktivierung geplant Mitte 2026",
+          "statLabel": "Reaktivierung in Arbeit"
+        }
+      },
+      "interop": {
+        "sectionStep": "02",
+        "sectionTitle": "Alles\nspricht.",
+        "sectionCaption": "Keine Doppelerfassung. Kein CSV-Export zwischen Modulen. Eine Änderung in einem Modul zieht sich überall durch.",
+        "stampSubtitle": "MODULE · VERNETZT",
+        "f1Lot": "FLUSS · 01",
+        "f1Title": "MAIL → AUFGABE → PROTOKOLL",
+        "f1Body": "Eine Mail «Dringend: Betonage verschieben» → automatische Aufgabe im Projekt → Zeile im nächsten Protokoll → Benachrichtigung an den Polier.",
+        "f2Lot": "FLUSS · 02",
+        "f2Title": "SUBMISSION → TERMINPLAN",
+        "f2Body": "Eine vergebene Submission → generierter Gantt-Terminplan → CFC-Abhängigkeiten gesetzt → Dauern kalibriert auf Ihre bisherigen Projekte.",
+        "f3Lot": "FLUSS · 03",
+        "f3Title": "PORTAL → RAPPORTE",
+        "f3Body": "Der Polier erfasst seine Stunden im PIN-Portal → aggregierte Sicht in Baustellen-Rapporte → Excel-Export für die Buchhaltung. Ohne Outlook zu öffnen."
+      },
+      "cta": {
+        "tag": "ZUGANG · VOLLSTÄNDIGER KATALOG",
+        "title1": "Elf Module.",
+        "title2": "Ein Passwort.",
+        "lede": "14 Tage testen. Keine Karte. Zugang zu allen aktiven Modulen. Sie bringen Ihre Projekte, Ihr Mail, Ihre Unternehmer. Wir kümmern uns um den Rest.",
+        "ctaPrimary": "Test starten",
+        "ctaSecondary": "Preise ansehen"
+      }
+    },
+    "modulesPage": {
+      "seo": {
+        "title": "Module — Cantaia · Sechs Flüsse für den Schweizer Bau",
+        "description": "Die Cantaia-Workflows: KI-Posteingang, Submissionen, Protokolle, Planregister, Gantt-Terminplanung, Polier-Portal. Was jedes Modul tut und was es ersetzt."
+      },
+      "sideAxis": "MODULE · WORKFLOWS · 05",
+      "hero": {
+        "tag": "05 · MODULE & WORKFLOWS",
+        "rightTagSuffix": "FLÜSSE · DOC-TECH-005",
+        "title1": "Sechs Flüsse.",
+        "title2": "Ein Beruf.",
+        "title3": "Kein Copy-Paste.",
+        "lede": "Cantaia-Module sind keine Tabs, die sich ignorieren. Jeder Fluss löst den nächsten aus. Die Mail erzeugt die Aufgabe, die Submission erzeugt den Terminplan, das Portal speist die Rapporte.",
+        "metric1Label": "Kern-Workflows",
+        "metric2Label": "Stunden je Submission",
+        "metric2Source": "FELD",
+        "metric3Label": "Klassif.-Genauigkeit",
+        "metric3Source": "CLAUDE",
+        "metric4Label": "Doppelerfassung"
+      },
+      "labels": {
+        "module": "MODUL",
+        "remplace": "ERSETZT",
+        "workflow": "WORKFLOW"
+      },
+      "modules": {
+        "m1": {
+          "name": "KI-Posteingang",
+          "subtitle": "Mail · automatische Triage · kontextbezogene Antworten",
+          "pitch": "Ihre Outlook-Box in 2 Klicks verbunden. Die KI liest jede Mail, erkennt das betroffene Projekt, extrahiert Aufgaben und schlägt eine Antwort vor. Drei Buckets: dringend, diese Woche, Info. Das war's.",
+          "replace1": "Outlook ständig offen",
+          "replace2": "Selbstgebastelte Outlook-Regeln pro Ordner",
+          "replace3": "Copy-Paste in eine Excel-Nachverfolgung",
+          "f1Label": "7-stufige Klassifikation",
+          "f1Detail": "Tracking-Code, gelernte lokale Regeln, Spam, Keywords, Claude KI. Jede Mail wird in unter einer Sekunde ins richtige Projekt geroutet.",
+          "f2Label": "Vollständiger Graph-Thread",
+          "f2Detail": "Konversationshistorie bis 50 Nachrichten. Inline-Bilder aufgelöst (cid:), Anhänge gelistet, Delegation und Weiterleitung per Klick.",
+          "f3Label": "Kontextbezogene KI-Antwort",
+          "f3Detail": "Die KI liest den ganzen Thread, Ihre Signatur, den bisherigen Ton. Generiert 3 Entwürfe. Sie passen an. Sie senden.",
+          "wf1": "Microsoft-365-Anbindung",
+          "wf2": "Delta-Sync alle 2 Minuten",
+          "wf3": "Triage L0 → L3 (Claude)",
+          "wf4": "Automatische Aufgaben-Extraktion",
+          "wf5": "Gelernte Archivierung",
+          "statLabel": "Stunden gespart pro Tag"
+        },
+        "m2": {
+          "name": "Submissionen & Unternehmer",
+          "subtitle": "Ausschreibungen · Vergleich · Vergabe",
+          "pitch": "Import eines LV in Excel oder PDF. Die KI extrahiert Lose, Kapitel, nummerierte Positionen. 4-Schritt-Wizard zum Zusammenstellen von Paketen und Versand an die richtigen Unternehmer. Tabellarischer Vergleich, Vergabe, automatische Kalibrierung.",
+          "replace1": "Excel-Tabelle rot markiert beim Nachlesen der Offerten",
+          "replace2": "E-Mails manuell an 20 Unternehmer copy-paste",
+          "replace3": "Mahnungen einzeln verfasst",
+          "f1Label": "KI-Extraktion Excel / PDF",
+          "f1Detail": "Hierarchie Los > Kapitel > Position automatisch rekonstruiert. CFC, Einheiten, Mengen, Materialien. Fertig in 90 Sekunden.",
+          "f2Label": "4-Schritt-Wizard",
+          "f2Detail": "Materialgruppen → Positionsauswahl → Unternehmer-Zuweisung (KI-Empfehlung) → Vorschau und Batch-Versand.",
+          "f3Label": "Tracking + Vergleich",
+          "f3Detail": "Tracking-Code pro Unternehmer. Antworten werden in Ihrer Mailbox automatisch erkannt. Zeilenweiser Vergleich, Bemerkungen bleiben erhalten.",
+          "wf1": "LV-Upload",
+          "wf2": "KI-Positionsextraktion",
+          "wf3": "Paketkomposition",
+          "wf4": "Batch-Versand Unternehmer",
+          "wf5": "Vergleich + Vergabe",
+          "statLabel": "Stunden gespart je Submission"
+        },
+        "m3": {
+          "name": "Sitzungsprotokolle",
+          "subtitle": "Audio → Transkription → strukturiertes Protokoll",
+          "pitch": "Sie nehmen die Sitzung am Handy auf. Whisper transkribiert in FR / DE / EN. Claude strukturiert das Protokoll nach Los, erkennt Teilnehmer, identifiziert Entscheidungen und Fristen. Sie prüfen, Sie signieren, Sie senden.",
+          "replace1": "Papier-Notizen + abends neu tippen",
+          "replace2": "Protokolle 3 Wochen nach der Sitzung",
+          "replace3": "Word-Versionen kursieren per E-Mail",
+          "f1Label": "Mobile Aufnahme",
+          "f1Detail": "Clientseitige MP3-Kompression bei 16 kHz mono. Chunked Upload für lange Sitzungen. Cantaia muss nicht am Rechner geöffnet werden.",
+          "f2Label": "Whisper-Transkription",
+          "f2Detail": "Mehrsprachig. Automatische Spracherkennung. Sprechersegmentierung wo möglich.",
+          "f3Label": "Protokollstruktur nach Los",
+          "f3Detail": "Claude Sonnet 4.5 strukturiert das Protokoll nach CFC-LOS, mit Nummerierung, Teilnehmern, Entscheidungen, Aufgaben, Fristen. Export DOCX oder signiertes PDF.",
+          "wf1": "Audio-Aufnahme",
+          "wf2": "Upload + Kompression",
+          "wf3": "Whisper-Transkription",
+          "wf4": "Claude-Strukturierung",
+          "wf5": "Prüfung + Signatur",
+          "statLabel": "Minuten je Protokoll"
+        },
+        "m4": {
+          "name": "Planregister",
+          "subtitle": "Pläne · KI-Analyse · automatische Versionierung",
+          "pitch": "Ein Plan trifft per Mail ein. Cantaia erkennt ihn, lädt ihn herunter, ordnet ihn nach Projekt und Disziplin ein. Claude Vision liest Schriftfeld, Legende, Massstab. Kommt eine Revision, wird sie automatisch als neue Version abgelegt.",
+          "replace1": "Dropbox-Ordner «Pläne» ohne Konvention",
+          "replace2": "Suche «welcher Plan ist die letzte Version»",
+          "replace3": "E-Mails mit 12 PDF-Anhängen",
+          "f1Label": "Automatische E-Mail-Erkennung",
+          "f1Detail": "Vorfilter nach Endung und Keywords. Echte Pläne werden gespeichert, falsche Anhänge ignoriert.",
+          "f2Label": "Schriftfeld-Analyse",
+          "f2Detail": "Plannummer, Titel, Massstab, Format, Planungsbüro, Disziplin. In 4 Sekunden von Claude Vision extrahiert.",
+          "f3Label": "Automatische Versionierung",
+          "f3Detail": "Kommt ein Plan mit derselben Nummer, wird eine neue Version angelegt. Die alte geht ins Archiv. Inter-Versions-Vergleich möglich.",
+          "wf1": "E-Mail-Sync",
+          "wf2": "Plan-Anhang erkennen",
+          "wf3": "Upload in privaten Storage",
+          "wf4": "Claude-Vision-Analyse",
+          "wf5": "Einordnung nach Projekt",
+          "statLabel": "Pläne je Minute",
+          "statUnit": "Pl/min"
+        },
+        "m5": {
+          "name": "KI-Gantt-Terminplanung",
+          "subtitle": "Submission → Gantt · CFC-Abhängigkeiten · A3-Export",
+          "pitch": "Submission vergeben. Cantaia generiert in 90 Sekunden einen Gantt-Terminplan. CFC-Abhängigkeiten eingehalten (Beton → Unterlagsboden → Plattenarbeiten = 28 Tage). Dauern kalibriert auf Ihre bisherigen Projekte. Risiken von der KI erkannt.",
+          "replace1": "MS Project einmal pro Monat geöffnet",
+          "replace2": "Excel-Gantt mit von Hand gefärbten Balken",
+          "replace3": "Terminpläne, die nie aktualisiert werden",
+          "f1Label": "Generierung aus Submission",
+          "f1Detail": "Claude liest die vergebenen Positionen, schlägt eine realistische Reihenfolge vor, wendet 20 Schweizer CFC-Abhängigkeitsregeln an.",
+          "f2Label": "KI-Prüfung + Risiken",
+          "f2Detail": "Claude Sonnet auditiert den generierten Plan. Korrigiert unrealistische Dauern. Erkennt Risiken (Aushärtung, Wetter, lange Lieferfristen).",
+          "f3Label": "A3-Export + öffentliche Freigabe",
+          "f3Detail": "Hochwertiges A3-PDF für den Aushang in der Baubaracke. Öffentlicher Token-Link für den Bauherrn, konfigurierbares Ablaufdatum.",
+          "wf1": "Submission vergeben",
+          "wf2": "Aufgaben-Extraktion nach CFC",
+          "wf3": "Abhängigkeiten anwenden",
+          "wf4": "KI-Prüfung",
+          "wf5": "Export + Freigabe",
+          "statLabel": "Sekunden für die Generierung"
+        },
+        "m6": {
+          "name": "Polier-Portal",
+          "subtitle": "Tagesrapporte · PIN · mobile first",
+          "pitch": "Ihre Poliere brauchen kein Cantaia-Konto. Sie betreten das Portal per PIN vom Handy. Stunden, Maschinen, Lieferscheine, Fotos. Alles läuft auf das Bauleiter-Dashboard.",
+          "replace1": "Tagesrapport auf Papier gescannt",
+          "replace2": "WhatsApp zum Versenden von Lieferschein-Fotos",
+          "replace3": "Excel-Erfassung durch die Assistentin am Montagmorgen",
+          "f1Label": "6-stellige PIN-Authentifizierung",
+          "f1Detail": "Rate Limiting: 5 Versuche / 15 Min. 7-Tage-JWT-Cookie. Null Reibung für den Polier, null Konten für Sie zu verwalten.",
+          "f2Label": "4 mobile Tabs",
+          "f2Detail": "Baustelle · Submission · Pläne · Rapport. Bottom-Navigation wie in einer nativen App. Funktioniert auf 3G.",
+          "f3Label": "Fotos + handschriftliche Notizen",
+          "f3Detail": "Native Kamera-Aufnahme. Canvas-API-Kompression. Claude Vision transkribiert handschriftliche Notizen in nutzbaren Text.",
+          "wf1": "PIN an Polier senden",
+          "wf2": "Mobiler Portalzugang",
+          "wf3": "Tägliche Erfassung",
+          "wf4": "Foto Lieferschein",
+          "wf5": "Zentralisierung Baustellen-Rapporte",
+          "statLabel": "Konto zu erstellen"
+        }
+      },
+      "interop": {
+        "sectionStep": "99",
+        "sectionTitle": "Ein Fluss\nlöst den nächsten aus.",
+        "sectionCaption": "Die Module sind nicht isoliert. Sie greifen ineinander wie eine echte Baustelle: die Submission geht dem Terminplan voraus, der Terminplan bedingt die Protokolle, die Protokolle erscheinen im Mail.",
+        "stampSubtitle": "FLÜSSE · VERNETZT",
+        "c1Lot": "KETTE · 01",
+        "c1Title": "MAIL → AUFGABE → PROTOKOLL",
+        "c1Body": "Eine dringende Mail erzeugt eine Aufgabe im Projekt → die Aufgabe erscheint im nächsten Protokoll → das Protokoll löst eine Mail-Benachrichtigung an den Polier aus. Nie neu erfasst.",
+        "c2Lot": "KETTE · 02",
+        "c2Title": "SUBMISSION → TERMINPLAN",
+        "c2Body": "Eine vergebene Submission wird zu einem Gantt-Terminplan. Die Dauern sind auf Ihre bisherigen Baustellen kalibriert. Die CFC-Abhängigkeiten werden automatisch angewendet.",
+        "c3Lot": "KETTE · 03",
+        "c3Title": "PORTAL → RAPPORTE",
+        "c3Body": "Der Polier erfasst seine Stunden im PIN-Portal. Die Daten laufen in Echtzeit in die Rapport-Ansicht. Excel-Export für die Buchhaltung, PDF fürs Archiv."
+      },
+      "cta": {
+        "tag": "BEREIT, DIE BAUSTELLE ZU STARTEN",
+        "title1": "Ein Fluss startet",
+        "title2": "in 2 Minuten.",
+        "lede": "Outlook anbinden. Eine Submission-Excel importieren. Einen Polier einladen. Die Flüsse starten von selbst. 14 Tage testen ohne Karte.",
+        "ctaPrimary": "Test starten",
+        "ctaSecondary": "Katalog ansehen"
+      }
+    }
   }
 }

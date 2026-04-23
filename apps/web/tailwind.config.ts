@@ -107,17 +107,8 @@ const config: Config = {
         heading: ["var(--font-display)", "Plus Jakarta Sans", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Plus Jakarta Sans", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
-      },
-      fontSize: {
-        compact: ["13px", { lineHeight: "18px" }],
-      },
-      boxShadow: {
-        soft: "0 4px 6px rgba(10, 31, 48, 0.05)",
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        condensed: ["var(--font-condensed)", "Barlow Condensed", "Impact", "sans-serif"],
+        tech: ["var(--font-tech)", "IBM Plex Mono", "JetBrains Mono", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -133,11 +124,37 @@ const config: Config = {
           "20%": { boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.4)" },
           "100%": { boxShadow: "0 0 0 0 rgba(16, 185, 129, 0)" },
         },
+        "rise-up": {
+          "0%": { opacity: "0", transform: "translateY(40px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "blink-reg": {
+          "0%, 100%": { opacity: "0.35" },
+          "50%": { opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "kanban-flash": "kanban-flash 0.6s ease-out",
+        "rise-up": "rise-up 900ms cubic-bezier(.2,.8,.2,1) both",
+        "fade-in": "fade-in 600ms ease-out both",
+        "blink-reg": "blink-reg 2.4s ease-in-out infinite",
+      },
+      fontSize: {
+        compact: ["13px", { lineHeight: "18px" }],
+      },
+      boxShadow: {
+        soft: "0 4px 6px rgba(10, 31, 48, 0.05)",
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
     },
   },

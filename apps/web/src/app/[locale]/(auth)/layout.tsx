@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Link } from "@/i18n/navigation";
 import { ArrowLeft } from "lucide-react";
-import { ParticleCanvas } from "@/components/auth/ParticleCanvas";
+import { Hazard, RegMarks } from "@/components/chantier/primitives";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -13,34 +13,53 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0F0F11] px-5 py-[60px]">
-      {/* Radial glow at top */}
+    <div className="dark relative min-h-screen overflow-hidden bg-[#0A0A0C] text-[#FAFAFA]">
+      {/* Subtle site grid */}
       <div
-        className="pointer-events-none absolute left-1/2 top-[-120px] z-0 h-[500px] w-[700px] -translate-x-1/2"
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
         style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(249,115,22,0.10) 0%, rgba(249,115,22,0.03) 40%, transparent 70%)",
+          backgroundImage:
+            "linear-gradient(to right, #F97316 1px, transparent 1px), linear-gradient(to bottom, #F97316 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
         }}
+        aria-hidden
       />
 
-      {/* Floating orbs */}
-      <div className="pointer-events-none absolute left-[-5%] top-[10%] z-0 h-[400px] w-[400px] animate-[float1_20s_ease-in-out_infinite] rounded-full bg-[#F97316] opacity-[0.07] blur-[80px]" />
-      <div className="pointer-events-none absolute bottom-[10%] right-[-5%] z-0 h-[350px] w-[350px] animate-[float2_25s_ease-in-out_infinite] rounded-full bg-[#3B82F6] opacity-[0.07] blur-[80px]" />
-      <div className="pointer-events-none absolute left-[60%] top-[60%] z-0 h-[250px] w-[250px] animate-[float3_18s_ease-in-out_infinite] rounded-full bg-[#EA580C] opacity-[0.07] blur-[80px]" />
+      {/* Top hazard strip */}
+      <Hazard height="h-[8px]" />
 
-      {/* Particle canvas */}
-      <ParticleCanvas />
+      {/* Registration marks at viewport corners */}
+      <div className="pointer-events-none absolute inset-0">
+        <RegMarks blink={false} />
+      </div>
 
-      {/* Back to home */}
+      {/* Side-axis vertical label */}
+      <div
+        className="pointer-events-none absolute left-6 top-1/2 hidden origin-left -translate-y-1/2 -rotate-90 lg:block"
+        aria-hidden
+      >
+        <div className="flex items-center gap-3 font-tech text-[10px] font-bold tracking-[0.36em] text-[#3F3F46]">
+          <span>ACCÈS</span>
+          <span className="h-px w-10 bg-[#3F3F46]" />
+          <span>SÉCURISÉ</span>
+          <span className="h-px w-10 bg-[#3F3F46]" />
+          <span>CFC·AUTH·001</span>
+        </div>
+      </div>
+
+      {/* Back-to-home */}
       <Link
         href="/"
-        className="absolute left-7 top-7 z-10 flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#27272A] bg-[#18181B] text-[#A1A1AA] transition-all hover:border-[#3F3F46] hover:bg-[#1C1C1F] hover:text-[#FAFAFA]"
+        className="absolute left-5 top-6 z-10 inline-flex items-center gap-2.5 border border-[#27272A] bg-[#111114] px-3.5 py-2.5 font-condensed text-[11px] font-700 uppercase tracking-[0.22em] text-[#A1A1AA] transition-colors hover:border-[#F97316] hover:text-[#F97316] lg:left-20"
       >
-        <ArrowLeft className="h-[18px] w-[18px]" />
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>Retour</span>
       </Link>
 
-      {/* Card + trust badges container */}
-      <div className="relative z-[2]">{children}</div>
+      {/* Main content */}
+      <main className="relative z-[2] flex min-h-screen items-center justify-center px-5 py-20 lg:px-24">
+        {children}
+      </main>
     </div>
   );
 }

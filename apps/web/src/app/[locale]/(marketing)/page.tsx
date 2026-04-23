@@ -1,13 +1,5 @@
 import type { Metadata } from "next";
-import { HeroSection } from "@/components/landing";
-import { ProofSection } from "@/components/landing/ProofSection";
-import { VideoSection } from "@/components/landing/VideoSection";
-import { ProblemSection } from "@/components/landing/ProblemSection";
-import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
-import { TrustSection } from "@/components/landing/FAQSection";
-import { PricingSection } from "@/components/landing/PricingSection";
-import { FinalCTASection } from "@/components/landing/FinalCTASection";
+import LandingChantier from "@/components/chantier/LandingChantier";
 
 const homeSeo: Record<string, { title: string; description: string; keywords: string[] }> = {
   fr: {
@@ -120,15 +112,7 @@ export default function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <HeroSection />
-      <ProofSection />
-      <VideoSection />
-      <ProblemSection />
-      <FeaturesSection />
-      <HowItWorksSection />
-      <TrustSection />
-      <PricingSection />
-      <FinalCTASection />
+      <LandingChantier />
     </>
   );
 }

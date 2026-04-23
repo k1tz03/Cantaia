@@ -1,15 +1,21 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations } from "next-intl";
 
 export function MarketingHeader() {
+  const t = useTranslations("chantier.header");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const t = useTranslations("landing.nav");
+
+  const navLinks = [
+    { href: "/produits", label: t("nav.product") },
+    { href: "/modules", label: t("nav.modules") },
+    { href: "/pricing", label: t("nav.pricing") },
+    { href: "/fondateur", label: t("nav.founder") },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -17,111 +23,111 @@ export function MarketingHeader() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = [
-    { href: "/#features", label: t("features") },
-    { href: "/#trust", label: t("security") },
-    { href: "/about", label: t("about") },
-  ];
-
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-[#09090B]/95 backdrop-blur-xl border-b border-[#27272A] shadow-lg shadow-black/20"
-          : "bg-[#09090B]/80 backdrop-blur-xl border-b border-transparent"
+          ? "border-b border-[#27272A] bg-[#0A0A0C]/95 backdrop-blur-xl"
+          : "border-b border-transparent bg-[#0A0A0C]/80 backdrop-blur-xl"
       }`}
     >
-      <nav className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4">
-        {/* Logo */}
-        <Link href="/" className="group flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#F97316] to-[#EA580C] shadow-lg shadow-[#F97316]/20">
-            <span className="font-display text-base font-extrabold text-white leading-none">C</span>
+      <nav className="mx-auto flex max-w-[1400px] items-center justify-between px-8 py-4">
+        {/* Brand */}
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center bg-[#F97316]">
+            <span className="font-condensed text-[14px] font-900 leading-none text-[#0A0A0C]">
+              C
+            </span>
           </div>
-          <span className="font-display text-xl font-bold tracking-tight text-white">
-            Cantaia
+          <span className="font-condensed text-[22px] font-900 uppercase tracking-[-0.01em] text-[#FAFAFA]">
+            Cant<i className="not-italic text-[#F97316]">ai</i>a
           </span>
         </Link>
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-1 lg:flex">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-[#A1A1AA] transition-colors hover:text-white"
+              className="px-4 py-2 font-condensed text-[13px] font-700 uppercase tracking-[0.22em] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
-        {/* Desktop actions */}
-        <div className="hidden items-center gap-3 lg:flex">
+        {/* Right side — meta nav + CTAs */}
+        <div className="hidden items-center gap-4 lg:flex">
+          <div className="flex items-center gap-3 border-r border-[#27272A] pr-4">
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22C55E]" />
+              <span className="font-tech text-[10px] font-semibold tracking-[0.14em] text-[#71717A]">
+                {t("status.latency")}
+              </span>
+            </div>
+            <span className="font-tech text-[10px] tracking-[0.14em] text-[#3F3F46]">
+              {t("status.version")}
+            </span>
+          </div>
           <Link
             href="/login"
-            className="px-4 py-2 text-sm font-medium text-[#A1A1AA] transition-colors hover:text-white"
+            className="font-condensed text-[12px] font-700 uppercase tracking-[0.22em] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
           >
-            {t("login")}
+            {t("auth.login")}
           </Link>
           <Link
             href="/register"
-            className="rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#F97316]/25 transition-all hover:shadow-xl hover:shadow-[#F97316]/30 hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center gap-2 border border-[#F97316] bg-[#F97316] px-5 py-2.5 font-condensed text-[12px] font-800 uppercase tracking-[0.22em] text-[#0A0A0C] transition-colors hover:border-[#EA580C] hover:bg-[#EA580C]"
           >
-            {t("freeTrial")} →
+            {t("auth.register")}
+            <span className="font-tech text-[11px] opacity-70">→</span>
           </Link>
         </div>
 
         {/* Mobile menu button */}
         <button
-          className="rounded-lg p-2 text-[#A1A1AA] transition-colors hover:text-white lg:hidden"
+          className="p-2 text-[#A1A1AA] transition-colors hover:text-[#F97316] lg:hidden"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Menu"
+          aria-label={t("mobile.menuAria")}
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </nav>
 
       {/* Mobile menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-[#27272A] bg-[#09090B] lg:hidden"
-          >
-            <div className="flex flex-col gap-1 px-6 py-4">
-              {navLinks.map((link, i) => (
-                <motion.a
-                  key={link.href}
-                  href={link.href}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#A1A1AA] transition-colors hover:bg-[#18181B] hover:text-white"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </motion.a>
-              ))}
-              <hr className="my-2 border-[#27272A]" />
+      {mobileMenuOpen && (
+        <div className="overflow-hidden border-t border-[#27272A] bg-[#0A0A0C] lg:hidden">
+          <div className="flex flex-col gap-1 px-6 py-4">
+            {navLinks.map((link) => (
               <Link
-                href="/login"
-                className="rounded-lg px-4 py-3 text-sm font-medium text-[#A1A1AA] transition-colors hover:bg-[#18181B] hover:text-white"
+                key={link.href}
+                href={link.href}
+                className="px-4 py-3 font-condensed text-[13px] font-700 uppercase tracking-[0.22em] text-[#A1A1AA] transition-colors hover:bg-[#111114] hover:text-[#F97316]"
+                onClick={() => setMobileMenuOpen(false)}
               >
-                {t("login")}
+                {link.label}
               </Link>
-              <Link
-                href="/register"
-                className="mt-1 rounded-xl bg-gradient-to-r from-[#F97316] to-[#EA580C] px-5 py-3 text-center text-sm font-semibold text-white shadow-lg shadow-[#F97316]/25"
-              >
-                {t("freeTrial")}
-              </Link>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            ))}
+            <hr className="my-2 border-[#27272A]" />
+            <Link
+              href="/login"
+              className="px-4 py-3 font-condensed text-[13px] font-700 uppercase tracking-[0.22em] text-[#A1A1AA] transition-colors hover:text-[#F97316]"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {t("auth.login")}
+            </Link>
+            <Link
+              href="/register"
+              className="mt-1 inline-flex items-center justify-center gap-2 border border-[#F97316] bg-[#F97316] px-5 py-3 font-condensed text-[12px] font-800 uppercase tracking-[0.22em] text-[#0A0A0C]"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {t("auth.register")}
+              <span className="font-tech text-[11px] opacity-70">→</span>
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
