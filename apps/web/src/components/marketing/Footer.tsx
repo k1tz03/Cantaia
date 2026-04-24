@@ -34,7 +34,6 @@ const COLUMNS: FooterColumn[] = [
     code: "02",
     titleKey: "columns.resources.title",
     links: [
-      { key: "columns.resources.links.founder", href: "/fondateur" },
       { key: "columns.resources.links.about", href: "/about" },
       { key: "columns.resources.links.blog", comingSoon: true },
       { key: "columns.resources.links.docs", comingSoon: true },

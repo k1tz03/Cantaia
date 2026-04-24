@@ -371,9 +371,6 @@ export default async function PricingPage({
             <ChantierButton href="/register" variant="primary">
               {t("finalCta.ctaPrimary")}
             </ChantierButton>
-            <ChantierButton href="/fondateur" variant="ghost">
-              {t("finalCta.ctaSecondary")}
-            </ChantierButton>
           </div>
         </div>
       </section>

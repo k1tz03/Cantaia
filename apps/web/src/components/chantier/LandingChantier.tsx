@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import CraneScene from "./CraneScene";
 import {
@@ -245,9 +244,6 @@ export default function LandingChantier() {
           >
             <ChantierButton variant="primary" href="/register">
               {t("hero.ctaPrimary")}
-            </ChantierButton>
-            <ChantierButton variant="ghost" href="/fondateur">
-              {t("hero.ctaSecondary")}
             </ChantierButton>
           </div>
         </div>
@@ -565,16 +561,6 @@ export default function LandingChantier() {
           <ChantierButton variant="ghost" href="/tarifs" className="px-8 py-5 text-[15px]">
             {t("closing.ctaSecondary")}
           </ChantierButton>
-        </div>
-        <div className="mt-16 font-tech text-[12px] tracking-[0.06em] text-[#52525B]">
-          {t("closing.founderPrefix")}{" "}
-          <Link
-            href="/fondateur"
-            className="border-b border-[#27272A] pb-[2px] text-[#A1A1AA] transition-colors hover:border-[#F97316] hover:text-[#F97316]"
-          >
-            {t("closing.founderLink")}
-          </Link>{" "}
-          {t("closing.founderSuffix")}
         </div>
       </section>
     </div>

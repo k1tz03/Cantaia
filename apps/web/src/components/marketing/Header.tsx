@@ -14,7 +14,6 @@ export function MarketingHeader() {
     { href: "/produits", label: t("nav.product") },
     { href: "/modules", label: t("nav.modules") },
     { href: "/pricing", label: t("nav.pricing") },
-    { href: "/fondateur", label: t("nav.founder") },
   ];
 
   useEffect(() => {
