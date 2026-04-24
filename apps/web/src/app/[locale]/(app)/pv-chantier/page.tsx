@@ -22,7 +22,7 @@ import type { MeetingStatus } from "@cantaia/database";
 
 const STATUS_CONFIG: Record<
   MeetingStatus,
-  { labelKey: string; icon: React.ElementType; color: string; bg: string; animate?: boolean }
+  { labelKey: string; icon: React.ComponentType<any>; color: string; bg: string; animate?: boolean }
 > = {
   scheduled: { labelKey: "status_draft", icon: FileText, color: "text-[#71717A]", bg: "bg-[#27272A]" },
   recording: { labelKey: "status_recording", icon: Mic, color: "text-red-400", bg: "bg-red-500/10" },

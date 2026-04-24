@@ -493,7 +493,7 @@ export default function SubmissionDetailPage() {
 
   const materialGroups = [...new Set(items.map((i) => i.material_group))].sort();
 
-  const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
+  const tabs: { key: Tab; label: string; icon: React.ComponentType<any>; count?: number }[] = [
     { key: "items", label: "Postes", icon: FileSpreadsheet, count: items.length },
     { key: "requests", label: "Demandes de prix", icon: Send, count: priceRequests.length },
     { key: "comparison", label: "Analyse comparative", icon: BarChart3, count: quotes.length },

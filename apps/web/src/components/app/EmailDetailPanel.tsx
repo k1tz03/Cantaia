@@ -34,7 +34,7 @@ import {
 import type { EmailRecord, Project } from "@cantaia/database";
 import { formatDate } from "@/lib/mock-data";
 
-const classificationConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+const classificationConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string }> = {
   action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 dark:text-orange-400 bg-orange-500/10" },
   urgent: { label: "Urgent", icon: AlertTriangle, color: "text-red-600 dark:text-red-400 bg-red-500/10" },
   waiting_response: { label: "En attente", icon: Clock, color: "text-blue-600 dark:text-blue-400 bg-blue-500/10" },

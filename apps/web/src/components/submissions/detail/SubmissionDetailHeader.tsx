@@ -39,7 +39,7 @@ export function SubmissionDetailHeader({
     return t(key as "statusDraft");
   };
 
-  const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
+  const tabs: { key: Tab; label: string; icon: React.ComponentType<any> }[] = [
     { key: "items", label: t("tabItems"), icon: FileSpreadsheet },
     { key: "suppliers", label: t("tabSuppliers"), icon: Building2 },
     { key: "tracking", label: t("tabTracking"), icon: Send },

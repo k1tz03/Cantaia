@@ -107,7 +107,7 @@ export default function VisitDetailPage() {
   }
 
   const report = visit.report || {};
-  const tabs: { id: Tab; label: string; icon: React.ElementType; badge?: number }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<any>; badge?: number }[] = [
     { id: "report", label: t("tabReport"), icon: FileText },
     { id: "transcription", label: t("tabTranscription"), icon: Mic },
     { id: "photos", label: t("photos.tabPhotos"), icon: Camera, badge: visit.photos_count || 0 },

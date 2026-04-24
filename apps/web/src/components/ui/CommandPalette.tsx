@@ -20,7 +20,7 @@ import {
 interface CommandItem {
   id: string;
   label: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   href: string;
   section: string;
   keywords?: string[];

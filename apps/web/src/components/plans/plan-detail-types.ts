@@ -84,7 +84,7 @@ export interface AnalysisData {
   };
 }
 
-export const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+export const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string; bg: string; icon: React.ComponentType<any> }> = {
   active: { labelKey: "statusActive", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: CheckCircle },
   superseded: { labelKey: "statusSuperseded", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
   withdrawn: { labelKey: "statusWithdrawn", color: "text-[#71717A]", bg: "bg-[#27272A] border-[#27272A]", icon: XCircle },
@@ -93,7 +93,7 @@ export const STATUS_CONFIG: Record<PlanStatus, { labelKey: string; color: string
   rejected: { labelKey: "statusRejected", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", icon: AlertTriangle },
 };
 
-export const VALIDATION_CONFIG: Record<PlanValidationStatus, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+export const VALIDATION_CONFIG: Record<PlanValidationStatus, { labelKey: string; color: string; bg: string; icon: React.ComponentType<any> }> = {
   pending: { labelKey: "validationPending", color: "text-amber-400", bg: "bg-amber-500/10", icon: Clock },
   approved: { labelKey: "validationApproved", color: "text-green-400", bg: "bg-green-500/10", icon: CheckCircle },
   rejected: { labelKey: "validationRejected", color: "text-red-400", bg: "bg-red-500/10", icon: XCircle },

@@ -47,7 +47,7 @@ type SettingsTab =
   | "organisation"
   | "subscription";
 
-const TABS: { id: SettingsTab; icon: React.ElementType }[] = [
+const TABS: { id: SettingsTab; icon: React.ComponentType<any> }[] = [
   { id: "profile", icon: User },
   { id: "language", icon: Globe },
   { id: "notifications", icon: Bell },

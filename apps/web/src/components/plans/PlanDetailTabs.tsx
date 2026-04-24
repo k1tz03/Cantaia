@@ -21,7 +21,7 @@ export function PlanDetailTabs({
   showEstimationTab?: boolean;
   t: (key: string, values?: any) => string;
 }) {
-  const tabs: { key: PlanTab; icon: React.ElementType; label: string; badge?: string | null }[] = [
+  const tabs: { key: PlanTab; icon: React.ComponentType<any>; label: string; badge?: string | null }[] = [
     { key: "viewer", icon: Eye, label: t("tabViewer") },
     { key: "versions", icon: History, label: `${t("tabVersions")} (${versionsCount})` },
     { key: "info", icon: Info, label: t("tabInfo") },

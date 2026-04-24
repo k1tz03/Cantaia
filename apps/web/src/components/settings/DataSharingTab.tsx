@@ -25,7 +25,7 @@ interface ConsentModule {
   description: string;
   benefitOptIn: string;
   benefitOptOut: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
 }
 
 const CONSENT_MODULES: ConsentModule[] = [

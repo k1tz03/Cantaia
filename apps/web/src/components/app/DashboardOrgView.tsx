@@ -252,7 +252,7 @@ function KPICard({
   valueColor,
   iconColor,
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   label: string;
   value: string | number;
   valueColor?: string;

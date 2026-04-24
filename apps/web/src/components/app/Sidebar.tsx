@@ -36,7 +36,7 @@ type NavItemStatus = "active" | "coming_soon" | "locked";
 interface NavItem {
   href: string;
   labelKey: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   status: NavItemStatus;
   badge?: string;
   badgeColor?: "orange" | "red";

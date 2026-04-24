@@ -75,7 +75,7 @@ export const mockPlanAlerts: PlanAlert[] = [
   },
 ];
 
-const ALERT_TYPE_CONFIG: Record<PlanAlertType, { icon: React.ElementType; labelKey: string }> = {
+const ALERT_TYPE_CONFIG: Record<PlanAlertType, { icon: React.ComponentType<any>; labelKey: string }> = {
   outdated_reference: { icon: AlertOctagon, labelKey: "alertOutdatedRef" },
   missing_distribution: { icon: Send, labelKey: "alertMissingDist" },
   approval_pending: { icon: Clock, labelKey: "alertApprovalPending" },

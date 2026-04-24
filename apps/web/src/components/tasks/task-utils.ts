@@ -43,7 +43,7 @@ export const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: strin
   low: { label: "Basse", color: "text-green-600", bg: "bg-green-500/10", dot: "bg-green-400" },
 };
 
-export const SOURCE_CONFIG: Record<TaskSource, { icon: React.ElementType; label: string }> = {
+export const SOURCE_CONFIG: Record<TaskSource, { icon: React.ComponentType<any>; label: string }> = {
   email: { icon: Mail, label: "Email" },
   meeting: { icon: FileText, label: "PV" },
   manual: { icon: Hand, label: "Manuel" },

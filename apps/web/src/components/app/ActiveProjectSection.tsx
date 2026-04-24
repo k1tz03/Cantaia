@@ -22,7 +22,7 @@ import {
 interface ProjectTool {
   key: string;
   tab: string | null;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   labelKey: string;
   alwaysShow: boolean;
   countKey?: keyof NavCounts;

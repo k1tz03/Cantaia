@@ -32,7 +32,7 @@ interface TaskDetailPanelProps {
 
 type DetailTab = "detail" | "comments" | "history" | "attachments";
 
-const SOURCE_ICONS: Record<string, React.ElementType> = {
+const SOURCE_ICONS: Record<string, React.ComponentType<any>> = {
   email: Mail,
   meeting: FileText,
   manual: Hand,
@@ -108,7 +108,7 @@ export function TaskDetailPanel({
     setNewComment("");
   }
 
-  const tabs: { key: DetailTab; icon: React.ElementType; count?: number }[] = [
+  const tabs: { key: DetailTab; icon: React.ComponentType<any>; count?: number }[] = [
     { key: "detail", icon: FileText },
     { key: "comments", icon: MessageSquare, count: comments.length },
     { key: "history", icon: History, count: history.length },

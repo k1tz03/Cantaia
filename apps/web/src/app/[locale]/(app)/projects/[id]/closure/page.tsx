@@ -22,7 +22,7 @@ import {
 
 interface ClosureStep {
   key: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   status: "completed" | "active" | "locked";
   count?: string;
   detail?: string;

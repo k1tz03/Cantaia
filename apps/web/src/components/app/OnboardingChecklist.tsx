@@ -21,7 +21,7 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<any>;
   href: string;
   checkKey: string; // localStorage key to mark complete
 }

@@ -25,7 +25,7 @@ import type { AgentType, SessionStatus } from "@cantaia/core/agents";
 
 // ── Tool name → French label mapping ──────────────────────────
 
-const TOOL_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
+const TOOL_LABELS: Record<string, { label: string; icon: React.ComponentType<any> }> = {
   // Submission analyzer tools
   fetch_submission_file: { label: "Lecture du document", icon: FileSearch },
   get_submission_context: { label: "Chargement du contexte projet", icon: Database },
