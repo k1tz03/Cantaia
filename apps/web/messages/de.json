@@ -4395,5 +4395,145 @@
         "ctaSecondary": "Katalog ansehen"
       }
     }
+  },
+  "scene3d": {
+    "watermark": "Indikative Visualisierung — nicht vertraglich bindend",
+    "loading": "Szene wird geladen…",
+    "canvas": {
+      "aria": "3D-Gebäudeansicht"
+    },
+    "error": {
+      "title": "3D-Szene kann nicht angezeigt werden"
+    },
+    "leftPanel": {
+      "aria": "Linke Leiste: Ebenen, Layer und Filter",
+      "levels": "Ebenen",
+      "noLevels": "Keine Ebenen erkannt",
+      "layers": "Layer",
+      "confidenceFilters": "Konfidenzfilter",
+      "footerHint": "Klicken Sie auf ein Element, um Details anzuzeigen"
+    },
+    "rightPanel": {
+      "aria": "Rechte Leiste: Element-Inspektor",
+      "emptyTitle": "Kein Element ausgewählt",
+      "emptyDesc": "Wählen Sie ein Element in der Szene aus, um Details anzuzeigen.",
+      "keyClick": "Klick",
+      "hintSelect": "Element auswählen",
+      "hintDeselect": "Esc zum Abwählen"
+    },
+    "inspector": {
+      "identity": "Identität",
+      "id": "ID",
+      "type": "Typ",
+      "level": "Ebene",
+      "sourcePasses": "Extraktion",
+      "passSeen": "erkannt",
+      "passSkipped": "—",
+      "modelConsensus": "Modell-Konsens",
+      "agreed": "Übereinstimmung",
+      "divergent": "Abweichung",
+      "none": "keiner",
+      "correct": "Korrigieren",
+      "correctHint": "Erkennungs- oder Maßfehler melden",
+      "correctAria": "Element {label} korrigieren"
+    },
+    "layers": {
+      "walls": "Wände",
+      "slabs": "Decken",
+      "openings": "Öffnungen",
+      "structure": "Tragwerk",
+      "annotations": "Anmerkungen"
+    },
+    "confidence": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig",
+      "ariaLabel": "Konfidenz {level}"
+    },
+    "gate": {
+      "title": "Indikative Visualisierung",
+      "subtitle": "Diese Extraktion enthält einen erheblichen Anteil an Elementen mit niedriger Konfidenz.",
+      "close": "Schließen",
+      "statOverall": "Gesamtkonfidenz",
+      "statLowRatio": "Elemente mit niedriger Konfidenz",
+      "statLowCount": "Elemente unter Schwellenwert",
+      "bodyP1": "Cantaia bietet eine indikative 3D-Visualisierung, die von KI aus 2D-Plänen erstellt wird. Die angezeigten Geometrien, Abmessungen und Mengen ersetzen KEINE Aufmassaufnahme, manuelle Mengenermittlung oder geprüfte BIM-Modellierung.",
+      "bodyP2": "Vor jeder vertraglichen Entscheidung prüfen Sie:",
+      "bullet1": "Kritische Abmessungen auf den Originalplänen (Bemaßung, Maßstab, Schriftfeld).",
+      "bullet2": "Disziplinübergreifende Kohärenz (Architektur, Tragwerk, HLSE) mit Ihrem Ingenieurbüro.",
+      "bullet3": "Konformität mit den Normen SIA 400, 102 und 118 für jede offizielle Nutzung.",
+      "ackLabel": "Ich verstehe, dass diese Visualisierung indikativ und nicht vertraglich bindend ist.",
+      "cancel": "Abbrechen",
+      "accept": "Weiter zur Szene"
+    },
+    "extraction": {
+      "title": "3D-Extraktion läuft",
+      "step": "Schritt {current} von {total}",
+      "etaUnknown": "— Geschätzte Dauer unbekannt",
+      "etaSeconds": "— ~{s}s verbleibend",
+      "stepsAria": "Fortschritt der Extraktionsdurchgänge",
+      "footer": "Tab während der Extraktion nicht schließen.",
+      "pass": {
+        "identification": {
+          "label": "1 · Identifikation",
+          "hint": "Schriftfeld, Disziplin, Maßstab erkennen"
+        },
+        "metre": {
+          "label": "2 · Mengenermittlung",
+          "hint": "Multi-Modell-Konsens zu Mengen"
+        },
+        "verification": {
+          "label": "3 · Verifikation",
+          "hint": "Kohärenz, Duplikate, Verhältnisse"
+        },
+        "chiffrage": {
+          "label": "4 · Kalkulation",
+          "hint": "Preise, Spannen, regionale Koeffizienten"
+        },
+        "topology": {
+          "label": "5 · 3D-Topologie",
+          "hint": "Volumenrekonstruktion und räumliche Beziehungen"
+        }
+      }
+    },
+    "toolbar": {
+      "aria": "Werkzeugleiste des Viewers",
+      "measureGroup": "Messwerkzeuge",
+      "measureDistance": "Distanz messen",
+      "measureSurface": "Fläche messen",
+      "sectionCut": "Schnittebene",
+      "layers": "Layer",
+      "levelGroup": "Ebenennavigation",
+      "levelUp": "Ebene höher",
+      "levelDown": "Ebene tiefer",
+      "export": "Exportieren",
+      "exportMenu": "Exportoptionen",
+      "exportPng": "PNG",
+      "exportGltf": "glTF 3D",
+      "exportPdf": "PDF",
+      "watermarkedTag": "mit Wasserzeichen"
+    },
+    "measure": {
+      "hint": "Klicken Sie zwei Punkte in der Szene, um zu messen",
+      "cancel": "Abbrechen"
+    },
+    "section": {
+      "title": "Schnittebene",
+      "close": "Schließen",
+      "axis": "Achse",
+      "axisX": "X",
+      "axisY": "Y",
+      "axisZ": "Z",
+      "elevation": "Höhe"
+    },
+    "elementKind": {
+      "wall": "Wand",
+      "slab": "Decke",
+      "door": "Tür",
+      "window": "Fenster",
+      "beam": "Balken",
+      "column": "Stütze",
+      "annotation": "Anmerkung"
+    }
   }
 }

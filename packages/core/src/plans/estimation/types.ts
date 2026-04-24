@@ -256,6 +256,28 @@ export interface Passe4Result {
 
 // ─── Pipeline complet ───
 
+/**
+ * Optional Passe 5 (Topology) output embedded in the pipeline result.
+ *
+ * Shape intentionally re-declared as a structural type (not importing
+ * `BuildingScene` from the scene module) so existing callers of the
+ * estimation pipeline do not acquire an unintended dependency on the scene
+ * package. The concrete runtime value IS a `BuildingScene` — the scene
+ * module's types are a superset of this declaration.
+ *
+ * ABSENT (not just `undefined`) from the pipeline result when Passe 5 is
+ * disabled — enforced by conditional spread in `runEstimationPipeline`.
+ * See regression test in __tests__/pipeline-passe5-regression.test.ts.
+ */
+export interface Passe5PipelineOutput {
+  /** `null` when Passe 5 was enabled but the extraction failed (non-fatal). */
+  scene: unknown | null;
+  tokens_used: number;
+  duration_ms: number;
+  model_divergence: number;
+  error: string | null;
+}
+
 export interface EstimationPipelineResult {
   plan_id: string;
   project_id: string;
@@ -265,6 +287,12 @@ export interface EstimationPipelineResult {
   consensus_metrage: ConsensusResult;
   passe3: Passe3Result;
   passe4: Passe4Result;
+  /**
+   * Present ONLY when Passe 5 is enabled (via `enablePasse5: true` AND
+   * `DISABLE_PASSE5 !== "1"`). Absent otherwise — regression test guarantees
+   * the 4-pass result shape is byte-identical to pre-Passe-5 production.
+   */
+  passe5?: Passe5PipelineOutput;
   pipeline_stats: {
     total_duration_ms: number;
     passe1_duration_ms: number;
@@ -272,6 +300,8 @@ export interface EstimationPipelineResult {
     consensus_duration_ms: number;
     passe3_duration_ms: number;
     passe4_duration_ms: number;
+    /** Present only when Passe 5 ran. */
+    passe5_duration_ms?: number;
     total_tokens: number;
     total_cost_usd: number;
     models_used: ModelProvider[];

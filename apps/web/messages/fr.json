@@ -4395,5 +4395,145 @@
         "ctaSecondary": "Voir le catalogue"
       }
     }
+  },
+  "scene3d": {
+    "watermark": "Visualisation indicative — non contractuelle",
+    "loading": "Chargement de la scène…",
+    "canvas": {
+      "aria": "Visualiseur 3D du bâtiment"
+    },
+    "error": {
+      "title": "Impossible d'afficher la scène 3D"
+    },
+    "leftPanel": {
+      "aria": "Panneau gauche : niveaux, calques et filtres",
+      "levels": "Niveaux",
+      "noLevels": "Aucun niveau détecté",
+      "layers": "Calques",
+      "confidenceFilters": "Filtres de confiance",
+      "footerHint": "Cliquez sur un élément pour voir le détail"
+    },
+    "rightPanel": {
+      "aria": "Panneau droit : inspecteur d'élément",
+      "emptyTitle": "Aucun élément sélectionné",
+      "emptyDesc": "Sélectionnez un élément dans la scène pour voir ses détails.",
+      "keyClick": "Clic",
+      "hintSelect": "sélectionner un élément",
+      "hintDeselect": "Échap désélectionner"
+    },
+    "inspector": {
+      "identity": "Identité",
+      "id": "ID",
+      "type": "Type",
+      "level": "Niveau",
+      "sourcePasses": "Extraction",
+      "passSeen": "détecté",
+      "passSkipped": "—",
+      "modelConsensus": "Consensus modèles",
+      "agreed": "Accord",
+      "divergent": "Divergence",
+      "none": "aucun",
+      "correct": "Corriger",
+      "correctHint": "Signaler une erreur de détection ou une dimension incorrecte",
+      "correctAria": "Corriger l'élément {label}"
+    },
+    "layers": {
+      "walls": "Murs",
+      "slabs": "Dalles",
+      "openings": "Ouvertures",
+      "structure": "Structure",
+      "annotations": "Annotations"
+    },
+    "confidence": {
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Faible",
+      "ariaLabel": "Confiance {level}"
+    },
+    "gate": {
+      "title": "Visualisation indicative",
+      "subtitle": "Cette extraction contient une part importante d'éléments à faible confiance.",
+      "close": "Fermer",
+      "statOverall": "Confiance globale",
+      "statLowRatio": "Éléments à faible confiance",
+      "statLowCount": "Éléments sous seuil",
+      "bodyP1": "Cantaia propose une visualisation 3D indicative générée par IA à partir de plans 2D. Les géométries, dimensions et métrés affichés ne remplacent PAS un relevé, un métré manuel ou une modélisation BIM validée.",
+      "bodyP2": "Avant toute décision contractuelle, vérifiez :",
+      "bullet1": "Les dimensions critiques sur les plans originaux (cotation, échelle, cartouche).",
+      "bullet2": "La cohérence entre disciplines (architecture, structure, CVSE) avec votre bureau.",
+      "bullet3": "La conformité aux normes SIA 400, 102 et 118 pour toute utilisation officielle.",
+      "ackLabel": "Je comprends que cette visualisation est indicative et non contractuelle.",
+      "cancel": "Annuler",
+      "accept": "Continuer vers la scène"
+    },
+    "extraction": {
+      "title": "Extraction 3D en cours",
+      "step": "Étape {current} sur {total}",
+      "etaUnknown": "— Durée estimée inconnue",
+      "etaSeconds": "— ~{s} s restantes",
+      "stepsAria": "Progression des passes d'extraction",
+      "footer": "Ne fermez pas cet onglet pendant l'extraction.",
+      "pass": {
+        "identification": {
+          "label": "1 · Identification",
+          "hint": "Lecture du cartouche, discipline, échelle"
+        },
+        "metre": {
+          "label": "2 · Métré",
+          "hint": "Consensus multi-modèle sur les quantités"
+        },
+        "verification": {
+          "label": "3 · Vérification",
+          "hint": "Cohérence, doublons, ratios"
+        },
+        "chiffrage": {
+          "label": "4 · Chiffrage",
+          "hint": "Prix, fourchettes, coefficients régionaux"
+        },
+        "topology": {
+          "label": "5 · Topologie 3D",
+          "hint": "Reconstruction des volumes et relations spatiales"
+        }
+      }
+    },
+    "toolbar": {
+      "aria": "Barre d'outils du visualiseur",
+      "measureGroup": "Outils de mesure",
+      "measureDistance": "Mesurer une distance",
+      "measureSurface": "Mesurer une surface",
+      "sectionCut": "Coupe de section",
+      "layers": "Calques",
+      "levelGroup": "Navigation entre niveaux",
+      "levelUp": "Niveau supérieur",
+      "levelDown": "Niveau inférieur",
+      "export": "Exporter",
+      "exportMenu": "Options d'export",
+      "exportPng": "PNG",
+      "exportGltf": "glTF 3D",
+      "exportPdf": "PDF",
+      "watermarkedTag": "avec filigrane"
+    },
+    "measure": {
+      "hint": "Cliquez deux points dans la scène pour mesurer",
+      "cancel": "Annuler"
+    },
+    "section": {
+      "title": "Coupe de section",
+      "close": "Fermer",
+      "axis": "Axe",
+      "axisX": "X",
+      "axisY": "Y",
+      "axisZ": "Z",
+      "elevation": "Altitude"
+    },
+    "elementKind": {
+      "wall": "Mur",
+      "slab": "Dalle",
+      "door": "Porte",
+      "window": "Fenêtre",
+      "beam": "Poutre",
+      "column": "Poteau",
+      "annotation": "Annotation"
+    }
   }
 }

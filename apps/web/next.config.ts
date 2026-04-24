@@ -9,7 +9,17 @@ const nextConfig: NextConfig = {
     // Lint is handled separately in CI (pnpm lint) — not during next build
     ignoreDuringBuilds: true,
   },
-  transpilePackages: ["@cantaia/ui", "@cantaia/core", "@cantaia/database"],
+  transpilePackages: [
+    "@cantaia/ui",
+    "@cantaia/core",
+    "@cantaia/database",
+    // 3D viewer stack — ships ES modules, needs transpile to avoid
+    // "Cannot use import statement outside a module" at build time even though
+    // the <Canvas> is dynamic({ ssr: false }). Added in ADR-001 (3D spike W1-W3).
+    "three",
+    "@react-three/fiber",
+    "@react-three/drei",
+  ],
   serverExternalPackages: ["ffmpeg-static", "pdf-parse", "pdfjs-dist", "@react-pdf/renderer", "@react-pdf/pdfkit", "@react-pdf/yoga"],
   images: {
     formats: ["image/avif", "image/webp"],

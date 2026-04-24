@@ -1,5 +1,9 @@
 // Orchestrateur du pipeline d'estimation 4 passes
 // Coordonne : identification → métré multi-modèle → consensus → vérification → chiffrage
+// Passe 5 (topology/3D IR) — OPTIONNEL, spike W1-W3 (ADR-001). Gated by
+// `enablePasse5: true` param AND `process.env.DISABLE_PASSE5 !== "1"`. When
+// disabled (default), the pipeline result is byte-identical to the 4-pass
+// production shape (enforced by regression test).
 
 import type {
   Passe1Result,
@@ -10,6 +14,7 @@ import type {
   ModelProvider,
   PosteChiffre,
   EstimationPipelineResult,
+  Passe5PipelineOutput,
   ConsensusResult,
 } from './types';
 import { callClaudeVision, callClaudeText, callGPT4oVision, callGeminiVision } from './ai-clients';
@@ -39,6 +44,28 @@ export interface PipelineParams {
   modelWeights?: Record<ModelProvider, number>;
   qtyCalibrations?: Map<string, number>;
   priceCalibrations?: Map<string, number>;
+  /**
+   * Passe 5 (Topology → BuildingScene IR). Default `false`.
+   *
+   * When `true` AND `process.env.DISABLE_PASSE5 !== "1"`, a 5th pass runs
+   * AFTER Passe 4 and its result is attached to the returned object under
+   * `passe5`. Failure never cascades — a Passe 5 error is captured in
+   * `passe5.error` with `passe5.scene === null`.
+   *
+   * When `false` (default), the pipeline result has NO `passe5` key and
+   * `pipeline_stats.passe5_duration_ms` is absent. Byte-identical to
+   * pre-ADR-001 production.
+   */
+  enablePasse5?: boolean;
+  /**
+   * Upstream pass ids forwarded into the scene's `source_passes` block.
+   * Only required when `enablePasse5: true`. Defaults to the runtime
+   * `plan_id` if omitted (acceptable for the spike; the API layer will
+   * pass real ids once passes 1-3 are persisted as separate rows).
+   */
+  passe1_id?: string;
+  passe2_id?: string;
+  passe3_id?: string;
 }
 
 export async function runEstimationPipeline(params: PipelineParams): Promise<EstimationPipelineResult> {
@@ -345,7 +372,78 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
 
   const passe4Duration = Date.now() - passe4Start;
 
+  // ═══ PASSE 5 — Topology / BuildingScene IR (optionnelle, ADR-001) ═══
+  //
+  // Gated by TWO conditions: (a) caller opted in via `enablePasse5: true`,
+  // AND (b) operator has NOT tripped the `DISABLE_PASSE5=1` kill-switch.
+  // When either is false, this block is a pure no-op — passe5Output stays
+  // undefined and the conditional spread below omits the `passe5` key
+  // entirely from the returned object. Byte-identical to 4-pass production.
+  //
+  // Wrapped in its own try/catch so any failure (including unexpected
+  // exceptions from the scene module) is captured — passes 1-4 outputs
+  // are never disturbed.
+  let passe5Output: Passe5PipelineOutput | undefined;
+  const passe5KillSwitch = process.env.DISABLE_PASSE5 === '1';
+  const passe5Requested = params.enablePasse5 === true;
+
+  if (passe5Requested && !passe5KillSwitch) {
+    console.log('[estimation] Passe 5 — Topology (BuildingScene IR)...');
+    try {
+      // Dynamic import keeps the scene module out of the bundle when Passe 5
+      // is disabled (tree-shakers get a clear signal; consumers that never
+      // opt in never load passe5-topology / the scene IR types at runtime).
+      const { runPasse5Topology } = await import('../scene/passe5-topology');
+
+      const p5 = await runPasse5Topology({
+        passe1,
+        passe2: metrageForVerification,
+        passe3,
+        image_base64: params.image_base64,
+        media_type: params.media_type,
+        plan_id: params.plan_id,
+        passe1_id: params.passe1_id ?? params.plan_id,
+        passe2_id: params.passe2_id ?? params.plan_id,
+        passe3_id: params.passe3_id ?? params.plan_id,
+        model_weights: params.modelWeights,
+      });
+
+      totalTokens += p5.tokens_used;
+      passe5Output = {
+        scene: p5.scene,
+        tokens_used: p5.tokens_used,
+        duration_ms: p5.duration_ms,
+        model_divergence: p5.model_divergence,
+        error: p5.error,
+      };
+
+      if (p5.scene === null) {
+        console.warn(`[estimation] Passe 5 failed (non-fatal): ${p5.error}`);
+      } else {
+        console.log(`[estimation] Passe 5 OK : ${p5.tokens_used} tokens, ${p5.duration_ms}ms`);
+      }
+    } catch (err) {
+      // Defensive: runPasse5Topology is declared non-throwing, but if the
+      // dynamic import itself fails (e.g. missing Anthropic key at runtime)
+      // we still want the 4-pass result to flow through untouched.
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[estimation] Passe 5 threw unexpectedly:', msg);
+      passe5Output = {
+        scene: null,
+        tokens_used: 0,
+        duration_ms: 0,
+        model_divergence: 0,
+        error: `Passe 5 unexpected error: ${msg}`,
+      };
+    }
+  }
+
   // ═══ Résultat final ═══
+  //
+  // `passe5` and `pipeline_stats.passe5_duration_ms` are injected via
+  // CONDITIONAL SPREAD. When Passe 5 is disabled, neither key appears on
+  // the returned object — this is asserted by the regression test in
+  // __tests__/pipeline-passe5-regression.test.ts.
   const result: EstimationPipelineResult = {
     plan_id: params.plan_id,
     project_id: params.project_id,
@@ -355,6 +453,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
     consensus_metrage: consensus,
     passe3,
     passe4,
+    ...(passe5Output ? { passe5: passe5Output } : {}),
     pipeline_stats: {
       total_duration_ms: Date.now() - pipelineStart,
       passe1_duration_ms: passe1Duration,
@@ -362,6 +461,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
       consensus_duration_ms: consensusDuration,
       passe3_duration_ms: passe3Duration,
       passe4_duration_ms: passe4Duration,
+      ...(passe5Output ? { passe5_duration_ms: passe5Output.duration_ms } : {}),
       total_tokens: totalTokens,
       total_cost_usd: estimateCost(totalTokens),
       models_used: consensus.modeles_utilises,

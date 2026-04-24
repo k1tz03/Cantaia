@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { Upload, Send, Download } from "lucide-react";
+import { Upload, Send, Download, Box } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import {
   STATUS_CONFIG,
@@ -39,6 +39,18 @@ export function PlanDetailHeader({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Voir en 3D — links to the project-scoped scene viewer. Orange tint
+              makes it discoverable as a new Phase 1 feature; hidden if the plan
+              isn't attached to a project (edge case from legacy imports). */}
+          {project && (
+            <Link
+              href={`/projects/${project.id}/3d`}
+              className="flex items-center gap-1.5 rounded-md border border-[#F97316]/30 bg-[#F97316]/10 px-3 py-1.5 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/20"
+            >
+              <Box className="h-3.5 w-3.5" />
+              {t("viewIn3d")}
+            </Link>
+          )}
           <button className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]">
             <Upload className="h-3.5 w-3.5" />
             {t("uploadNewVersion")}

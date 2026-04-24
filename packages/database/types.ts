@@ -151,6 +151,10 @@ export type ApiActionType =
   | "plan_detect"
   | "plan_version_check"
   | "plan_analyze"
+  // 3D Viewer Phase 1 — Passe 5 topology extraction (ADR-001).
+  // Gated by `PLAN_FEATURES[plan].visualization3d !== false` AND
+  // `check3dExtractionLimit()`. See POST /api/scenes/extract.
+  | "plan_3d_extract"
   | "submission_parse"
   | "offer_parse"
   | "supplier_match"
