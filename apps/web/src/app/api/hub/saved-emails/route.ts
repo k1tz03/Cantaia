@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSuperadmin } from "@/lib/admin/require-superadmin";
+import { requireHubAccess } from "@/lib/hub/access";
 
 // Emails importants conservés dans le Hub Perso (table personal_saved_emails)
-// Accès : superadmin uniquement, données scopées user_id.
+// Accès : superadmin + verrou PIN, données scopées user_id.
 
 export async function GET() {
   try {
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const admin = createAdminClient();
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
+    const admin = access.admin;
     const { data: saved, error } = await (admin as any)
       .from("personal_saved_emails")
       .select("id, email_record_id, note, created_at")
-      .eq("user_id", check.userId)
+      .eq("user_id", access.userId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -58,21 +51,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
     const body = await request.json();
     const emailRecordId = body.email_record_id;
     if (!emailRecordId) {
       return NextResponse.json({ error: "email_record_id is required" }, { status: 400 });
     }
 
-    const admin = createAdminClient();
+    const admin = access.admin;
 
     // IDOR : l'email doit appartenir à l'utilisateur
     const { data: record } = await (admin as any)
@@ -81,7 +68,7 @@ export async function POST(request: NextRequest) {
       .eq("id", emailRecordId)
       .single();
 
-    if (!record || record.user_id !== check.userId) {
+    if (!record || record.user_id !== access.userId) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
 
@@ -89,7 +76,7 @@ export async function POST(request: NextRequest) {
       .from("personal_saved_emails")
       .upsert(
         {
-          user_id: check.userId,
+          user_id: access.userId,
           email_record_id: emailRecordId,
           note: typeof body.note === "string" ? body.note.slice(0, 2000) : null,
         },
@@ -112,24 +99,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
     const emailRecordId = request.nextUrl.searchParams.get("email_record_id");
     if (!emailRecordId) {
       return NextResponse.json({ error: "email_record_id is required" }, { status: 400 });
     }
 
-    const admin = createAdminClient();
+    const admin = access.admin;
     const { error } = await (admin as any)
       .from("personal_saved_emails")
       .delete()
-      .eq("user_id", check.userId)
+      .eq("user_id", access.userId)
       .eq("email_record_id", emailRecordId);
 
     if (error) {

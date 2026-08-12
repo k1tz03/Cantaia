@@ -1,11 +1,12 @@
 "use client";
 
 // Hub Personnel — espace privé du propriétaire (superadmin uniquement).
-// Derniers emails synchronisés, emails importants conservés, et coffre-fort
-// de documents personnels (fiches de paie, contrats, ...) sur bucket privé.
+// Derniers emails, emails conservés, coffre-fort de documents (recherche
+// plein texte, échéances, archivage auto), export ZIP, verrou PIN, finances.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Link } from "@/i18n/navigation";
 import {
   Lock,
   Mail,
@@ -21,7 +22,12 @@ import {
   RefreshCw,
   AlertTriangle,
   X,
+  Archive,
+  CalendarClock,
+  Wand2,
+  Wallet,
 } from "lucide-react";
+import { HubLockGate, HubLockManager } from "@/components/hub/HubLockGate";
 
 interface HubEmail {
   id: string;
@@ -42,10 +48,22 @@ interface HubDocument {
   title: string;
   notes: string | null;
   document_date: string | null;
+  expiry_date?: string | null;
+  reminder_days?: number | null;
+  auto_archived?: boolean | null;
   file_name: string;
   file_size: number;
   file_type: string | null;
   created_at: string;
+}
+
+interface HubReminder {
+  id: string;
+  title: string;
+  category: string;
+  expiry_date: string;
+  days_left: number;
+  status: "expired" | "expiring";
 }
 
 const CATEGORIES: { key: string; label: string }[] = [
@@ -69,7 +87,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("fr-CH", {
@@ -91,6 +109,14 @@ const CLASSIFICATION_BADGES: Record<string, { label: string; className: string }
 };
 
 export default function HubPage() {
+  return (
+    <HubLockGate>
+      <HubHomeContent />
+    </HubLockGate>
+  );
+}
+
+function HubHomeContent() {
   const router = useRouter();
   const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -106,35 +132,51 @@ export default function HubPage() {
   const [documents, setDocuments] = useState<HubDocument[]>([]);
   const [totalSize, setTotalSize] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [docSearch, setDocSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadCategory, setUploadCategory] = useState("fiche_paie");
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDate, setUploadDate] = useState("");
+  const [uploadExpiry, setUploadExpiry] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const fetchEmails = useCallback(async (q: string) => {
-    setEmailsLoading(true);
-    try {
-      const res = await fetch(`/api/hub/emails?limit=25${q ? `&q=${encodeURIComponent(q)}` : ""}`);
-      if (res.status === 401) {
-        router.replace("/login");
-        return;
+  // Rappels & archivage auto
+  const [reminders, setReminders] = useState<HubReminder[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+
+  const fetchEmails = useCallback(
+    async (q: string) => {
+      setEmailsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/hub/emails?limit=25${q ? `&q=${encodeURIComponent(q)}` : ""}`
+        );
+        if (res.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (res.status === 403) {
+          setForbidden(true);
+          return;
+        }
+        if (res.status === 423) {
+          window.location.reload();
+          return;
+        }
+        const data = await res.json();
+        setRecentEmails(data.emails || []);
+      } catch {
+        // silencieux
+      } finally {
+        setEmailsLoading(false);
       }
-      if (res.status === 403) {
-        setForbidden(true);
-        return;
-      }
-      const data = await res.json();
-      setRecentEmails(data.emails || []);
-    } catch {
-      // silencieux
-    } finally {
-      setEmailsLoading(false);
-    }
-  }, [router]);
+    },
+    [router]
+  );
 
   const fetchSavedEmails = useCallback(async () => {
     try {
@@ -147,13 +189,27 @@ export default function HubPage() {
     }
   }, []);
 
-  const fetchDocuments = useCallback(async (category: string | null) => {
+  const fetchDocuments = useCallback(async (category: string | null, search: string) => {
     try {
-      const res = await fetch(`/api/hub/documents${category ? `?category=${category}` : ""}`);
+      const params = new URLSearchParams();
+      if (category) params.set("category", category);
+      if (search.trim().length >= 2) params.set("search", search.trim());
+      const res = await fetch(`/api/hub/documents?${params.toString()}`);
       if (!res.ok) return;
       const data = await res.json();
       setDocuments(data.documents || []);
-      if (!category) setTotalSize(data.totalSize || 0);
+      if (!category && !search.trim()) setTotalSize(data.totalSize || 0);
+    } catch {
+      // silencieux
+    }
+  }, []);
+
+  const fetchReminders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/hub/reminders");
+      if (!res.ok) return;
+      const data = await res.json();
+      setReminders(data.reminders || []);
     } catch {
       // silencieux
     }
@@ -161,22 +217,29 @@ export default function HubPage() {
 
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchEmails(""), fetchSavedEmails(), fetchDocuments(null)]);
+      await Promise.all([
+        fetchEmails(""),
+        fetchSavedEmails(),
+        fetchDocuments(null, ""),
+        fetchReminders(),
+      ]);
       setLoading(false);
     })();
-  }, [fetchEmails, fetchSavedEmails, fetchDocuments]);
+  }, [fetchEmails, fetchSavedEmails, fetchDocuments, fetchReminders]);
 
-  // Recherche emails débouncée
+  // Recherches débouncées
   useEffect(() => {
-    const t = setTimeout(() => {
-      fetchEmails(emailSearch.trim());
-    }, 350);
+    const t = setTimeout(() => fetchEmails(emailSearch.trim()), 350);
     return () => clearTimeout(t);
   }, [emailSearch, fetchEmails]);
 
+  useEffect(() => {
+    const t = setTimeout(() => fetchDocuments(categoryFilter, docSearch), 350);
+    return () => clearTimeout(t);
+  }, [docSearch, categoryFilter, fetchDocuments]);
+
   async function toggleSaveEmail(email: HubEmail) {
     const wasSaved = email.is_saved;
-    // Optimiste
     setRecentEmails((prev) =>
       prev.map((e) => (e.id === email.id ? { ...e, is_saved: !wasSaved } : e))
     );
@@ -192,7 +255,6 @@ export default function HubPage() {
       }
       await fetchSavedEmails();
     } catch {
-      // rollback
       setRecentEmails((prev) =>
         prev.map((e) => (e.id === email.id ? { ...e, is_saved: wasSaved } : e))
       );
@@ -212,6 +274,7 @@ export default function HubPage() {
       fd.append("category", uploadCategory);
       if (uploadTitle.trim()) fd.append("title", uploadTitle.trim());
       if (uploadDate) fd.append("document_date", uploadDate);
+      if (uploadExpiry) fd.append("expiry_date", uploadExpiry);
 
       const res = await fetch("/api/hub/documents", { method: "POST", body: fd });
       const data = await res.json();
@@ -223,8 +286,9 @@ export default function HubPage() {
       setSelectedFile(null);
       setUploadTitle("");
       setUploadDate("");
-      await fetchDocuments(categoryFilter);
-      if (categoryFilter) await fetchDocuments(null); // refresh totalSize
+      setUploadExpiry("");
+      await Promise.all([fetchDocuments(categoryFilter, docSearch), fetchReminders()]);
+      if (categoryFilter || docSearch) await fetchDocuments(null, "");
     } catch {
       setUploadError("Erreur réseau lors de l'upload");
     } finally {
@@ -236,9 +300,7 @@ export default function HubPage() {
     try {
       const res = await fetch(`/api/hub/documents/${doc.id}`);
       const data = await res.json();
-      if (res.ok && data.url) {
-        window.open(data.url, "_blank");
-      }
+      if (res.ok && data.url) window.open(data.url, "_blank");
     } catch {
       // silencieux
     }
@@ -250,11 +312,41 @@ export default function HubPage() {
       const res = await fetch(`/api/hub/documents/${doc.id}`, { method: "DELETE" });
       if (res.ok) {
         setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-        await fetchDocuments(null);
-        if (categoryFilter) await fetchDocuments(categoryFilter);
+        await Promise.all([fetchDocuments(null, ""), fetchReminders()]);
+        if (categoryFilter || docSearch) await fetchDocuments(categoryFilter, docSearch);
       }
     } catch {
       // silencieux
+    }
+  }
+
+  async function runAutoArchive() {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const res = await fetch("/api/hub/auto-archive", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setScanResult(
+          data.code === "NO_MICROSOFT_TOKEN"
+            ? "Connexion Microsoft requise (Settings > Intégrations) pour scanner les pièces jointes."
+            : data.error || "Échec du scan"
+        );
+        return;
+      }
+      setScanResult(
+        data.imported > 0
+          ? `${data.imported} document(s) archivé(s) automatiquement (${data.scanned} emails scannés).`
+          : `Aucun nouveau document détecté (${data.scanned} emails scannés, ${data.matched} correspondances déjà traitées ou sans PDF).`
+      );
+      if (data.imported > 0) {
+        await fetchDocuments(categoryFilter, docSearch);
+        await fetchDocuments(null, "");
+      }
+    } catch {
+      setScanResult("Erreur réseau pendant le scan");
+    } finally {
+      setScanning(false);
     }
   }
 
@@ -336,18 +428,65 @@ export default function HubPage() {
             Espace privé — visible uniquement par vous
           </p>
         </div>
-        <button
-          onClick={() => {
-            fetchEmails(emailSearch.trim());
-            fetchSavedEmails();
-            fetchDocuments(categoryFilter);
-          }}
-          className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-[12px] font-medium text-[#A1A1AA] hover:border-[#3F3F46] hover:text-[#D4D4D8] transition-colors"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Actualiser
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/hub/finance"
+            className="flex items-center gap-1.5 rounded-lg bg-[#F97316] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#EA580C] transition-colors"
+          >
+            <Wallet className="h-3.5 w-3.5" />
+            Finances
+          </Link>
+          <a
+            href="/api/hub/export"
+            className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-[12px] font-medium text-[#A1A1AA] hover:border-[#3F3F46] hover:text-[#D4D4D8] transition-colors"
+            title="Télécharger tous les documents et emails conservés en ZIP"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Export ZIP
+          </a>
+          <HubLockManager />
+          <button
+            onClick={() => {
+              fetchEmails(emailSearch.trim());
+              fetchSavedEmails();
+              fetchDocuments(categoryFilter, docSearch);
+              fetchReminders();
+            }}
+            className="flex items-center gap-2 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-2 text-[12px] font-medium text-[#A1A1AA] hover:border-[#3F3F46] hover:text-[#D4D4D8] transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Actualiser
+          </button>
+        </div>
       </div>
+
+      {/* Échéances */}
+      {reminders.length > 0 && (
+        <div className="mb-5 rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-[#F59E0B]" />
+            <h2 className="text-[13px] font-bold text-[#F59E0B]">Échéances à surveiller</h2>
+          </div>
+          <ul className="space-y-1">
+            {reminders.map((r) => (
+              <li key={r.id} className="flex items-center gap-2 text-[12px]">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    r.status === "expired" ? "bg-[#EF4444]" : "bg-[#F59E0B]"
+                  }`}
+                />
+                <span className="text-[#D4D4D8]">{r.title}</span>
+                <span className="text-[#71717A]">
+                  ({CATEGORY_LABELS[r.category] || r.category}) —{" "}
+                  {r.status === "expired"
+                    ? `expiré depuis ${Math.abs(r.days_left)} j`
+                    : `expire dans ${r.days_left} j (${formatDate(r.expiry_date)})`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -355,7 +494,7 @@ export default function HubPage() {
           { label: "Emails conservés", value: String(savedEmails.length), icon: Star, color: "#F59E0B" },
           { label: "Documents au coffre", value: String(documents.length), icon: FileText, color: "#F97316" },
           { label: "Espace utilisé", value: formatBytes(totalSize), icon: Upload, color: "#3B82F6" },
-          { label: "Derniers emails", value: String(recentEmails.length), icon: Mail, color: "#10B981" },
+          { label: "Échéances actives", value: String(reminders.length), icon: CalendarClock, color: "#10B981" },
         ].map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -431,20 +570,41 @@ export default function HubPage() {
 
         {/* ── Colonne Coffre-fort ── */}
         <section className="rounded-xl border border-[#27272A] bg-[#111113] p-4">
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <FileText className="h-4 w-4 text-[#F97316]" />
             <h2 className="font-display text-sm font-bold text-[#FAFAFA]">Coffre-fort documents</h2>
-            <button
-              onClick={() => {
-                setShowUpload(!showUpload);
-                setUploadError(null);
-              }}
-              className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#F97316] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#EA580C] transition-colors"
-            >
-              {showUpload ? <X className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
-              {showUpload ? "Annuler" : "Ajouter"}
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={runAutoArchive}
+                disabled={scanning}
+                className="flex items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#18181B] px-3 py-1.5 text-[12px] font-medium text-[#A1A1AA] hover:border-[#3F3F46] hover:text-[#D4D4D8] disabled:opacity-50 transition-colors"
+                title="Détecter et archiver automatiquement les fiches de paie, factures, etc. reçues par email"
+              >
+                {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                {scanning ? "Scan en cours..." : "Scanner mes emails"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowUpload(!showUpload);
+                  setUploadError(null);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-[#F97316] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#EA580C] transition-colors"
+              >
+                {showUpload ? <X className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+                {showUpload ? "Annuler" : "Ajouter"}
+              </button>
+            </div>
           </div>
+
+          {scanResult && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-3 py-2 text-[12px] text-[#93C5FD]">
+              <Wand2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">{scanResult}</span>
+              <button onClick={() => setScanResult(null)} className="text-[#71717A] hover:text-[#D4D4D8]">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Formulaire upload */}
           {showUpload && (
@@ -490,6 +650,17 @@ export default function HubPage() {
                   placeholder="Titre (ex: Fiche de paie — Juillet 2026)"
                   className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-[13px] text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
                 />
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-[#71717A]">
+                    Date d&apos;échéance (optionnel — rappel automatique 30 j avant)
+                  </label>
+                  <input
+                    type="date"
+                    value={uploadExpiry}
+                    onChange={(e) => setUploadExpiry(e.target.value)}
+                    className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-[13px] text-[#FAFAFA] outline-none focus:border-[#F97316]/50"
+                  />
+                </div>
                 {uploadError && (
                   <div className="flex items-center gap-2 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-[12px] text-[#EF4444]">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -508,13 +679,21 @@ export default function HubPage() {
             </div>
           )}
 
+          {/* Recherche plein texte */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#52525B]" />
+            <input
+              value={docSearch}
+              onChange={(e) => setDocSearch(e.target.value)}
+              placeholder="Rechercher dans les documents (titre + contenu des PDF)..."
+              className="w-full rounded-lg border border-[#27272A] bg-[#18181B] py-2 pl-9 pr-3 text-[13px] text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
+            />
+          </div>
+
           {/* Filtres catégorie */}
           <div className="mb-3 flex flex-wrap gap-1.5">
             <button
-              onClick={() => {
-                setCategoryFilter(null);
-                fetchDocuments(null);
-              }}
+              onClick={() => setCategoryFilter(null)}
               className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
                 categoryFilter === null
                   ? "bg-[#F97316]/15 text-[#F97316]"
@@ -526,10 +705,7 @@ export default function HubPage() {
             {CATEGORIES.map((c) => (
               <button
                 key={c.key}
-                onClick={() => {
-                  setCategoryFilter(c.key);
-                  fetchDocuments(c.key);
-                }}
+                onClick={() => setCategoryFilter(c.key)}
                 className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
                   categoryFilter === c.key
                     ? "bg-[#F97316]/15 text-[#F97316]"
@@ -545,7 +721,7 @@ export default function HubPage() {
           <div className="space-y-2">
             {documents.length === 0 ? (
               <div className="rounded-lg border border-dashed border-[#27272A] p-8 text-center text-[13px] text-[#71717A]">
-                Aucun document{categoryFilter ? " dans cette catégorie" : ""}. Vos fiches de paie et
+                Aucun document{categoryFilter || docSearch ? " trouvé" : ""}. Vos fiches de paie et
                 documents importants seront conservés ici, à part et en privé.
               </div>
             ) : (
@@ -558,10 +734,21 @@ export default function HubPage() {
                     <FileText className="h-4 w-4 text-[#F97316]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-[#FAFAFA]">{doc.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-[13px] font-semibold text-[#FAFAFA]">{doc.title}</p>
+                      {doc.auto_archived && (
+                        <span
+                          className="shrink-0 rounded-full bg-[#3B82F6]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#3B82F6]"
+                          title="Archivé automatiquement depuis un email"
+                        >
+                          Auto
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-[#71717A]">
                       {CATEGORY_LABELS[doc.category] || doc.category}
                       {doc.document_date ? ` · ${formatDate(doc.document_date)}` : ""}
+                      {doc.expiry_date ? ` · échéance ${formatDate(doc.expiry_date)}` : ""}
                       {` · ${formatBytes(Number(doc.file_size) || 0)}`}
                     </p>
                   </div>

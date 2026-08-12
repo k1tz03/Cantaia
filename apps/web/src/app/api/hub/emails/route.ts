@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSuperadmin } from "@/lib/admin/require-superadmin";
+import { requireHubAccess } from "@/lib/hub/access";
 
 // GET /api/hub/emails — derniers emails synchronisés du propriétaire
-// Accès : superadmin uniquement (page Hub Perso), données scopées user_id.
+// Accès : superadmin + verrou PIN (page Hub Perso), données scopées user_id.
 export async function GET(request: NextRequest) {
   try {
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const admin = createAdminClient();
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
+    const admin = access.admin;
     const { searchParams } = request.nextUrl;
     const limit = Math.min(parseInt(searchParams.get("limit") || "25"), 100);
     const q = (searchParams.get("q") || "").trim();
@@ -24,7 +17,7 @@ export async function GET(request: NextRequest) {
       .select(
         "id, subject, sender_name, sender_email, received_at, body_preview, classification, ai_summary, has_attachments, is_processed"
       )
-      .eq("user_id", check.userId)
+      .eq("user_id", access.userId)
       .order("received_at", { ascending: false })
       .limit(limit);
 
@@ -47,7 +40,7 @@ export async function GET(request: NextRequest) {
       const { data: saved } = await (admin as any)
         .from("personal_saved_emails")
         .select("email_record_id")
-        .eq("user_id", check.userId);
+        .eq("user_id", access.userId);
       savedIds = (saved || []).map((s: any) => s.email_record_id);
     } catch {
       // Table absente (migration 077 pas appliquée) — dégradation gracieuse

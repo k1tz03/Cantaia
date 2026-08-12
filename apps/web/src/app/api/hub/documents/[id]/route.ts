@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSuperadmin } from "@/lib/admin/require-superadmin";
+import { requireHubAccess } from "@/lib/hub/access";
 
 // Détail / mise à jour / suppression d'un document du coffre-fort personnel.
-// GET retourne une signed URL (bucket privé). Accès : superadmin + owner only.
+// GET retourne une signed URL (bucket privé). Accès : superadmin + verrou PIN.
 
 const CATEGORIES = ["fiche_paie", "contrat", "facture", "impots", "sante", "identite", "autre"];
 
@@ -23,16 +22,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
+    const { admin, userId } = access;
 
-    const admin = createAdminClient();
-    const document = await getOwnedDocument(admin as any, id, check.userId);
+    const document = await getOwnedDocument(admin as any, id, userId);
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
@@ -61,16 +55,11 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
+    const { admin, userId } = access;
 
-    const admin = createAdminClient();
-    const document = await getOwnedDocument(admin as any, id, check.userId);
+    const document = await getOwnedDocument(admin as any, id, userId);
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
@@ -91,6 +80,16 @@ export async function PATCH(
         ? body.document_date
         : null;
     }
+    if ("expiry_date" in body) {
+      updates.expiry_date =
+        typeof body.expiry_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.expiry_date)
+          ? body.expiry_date
+          : null;
+    }
+    if ("reminder_days" in body) {
+      const days = parseInt(String(body.reminder_days), 10);
+      updates.reminder_days = Number.isFinite(days) ? Math.min(Math.max(days, 1), 365) : 30;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -100,7 +99,7 @@ export async function PATCH(
       .from("personal_documents")
       .update(updates)
       .eq("id", id)
-      .eq("user_id", check.userId)
+      .eq("user_id", userId)
       .select()
       .single();
 
@@ -122,16 +121,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const check = await requireSuperadmin();
-    if (!check.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!check.authorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const access = await requireHubAccess();
+    if (!access.ok) return access.response;
+    const { admin, userId } = access;
 
-    const admin = createAdminClient();
-    const document = await getOwnedDocument(admin as any, id, check.userId);
+    const document = await getOwnedDocument(admin as any, id, userId);
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
@@ -148,7 +142,7 @@ export async function DELETE(
       .from("personal_documents")
       .delete()
       .eq("id", id)
-      .eq("user_id", check.userId);
+      .eq("user_id", userId);
 
     if (error) {
       console.error("[Hub] Document delete error:", error);
