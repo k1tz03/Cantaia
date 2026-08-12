@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #0f0f11;
+  color: #fafafa;
+}
+
+::selection {
+  background-color: rgba(249, 115, 22, 0.35);
+}
