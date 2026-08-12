@@ -27,7 +27,6 @@ const protectedPaths = [
   "/support",
   "/cantaia-prix",
   "/site-reports",
-  "/hub",
   "/onboarding",
 ];
 

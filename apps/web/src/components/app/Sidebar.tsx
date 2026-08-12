@@ -18,7 +18,6 @@ import {
   ChevronRight,
   LogOut,
   Shield,
-  Lock,
   LayoutDashboard,
   Mail,
   CalendarDays,
@@ -152,10 +151,6 @@ export function Sidebar() {
   ];
 
   const bottomItems: NavItem[] = [
-    // Hub Perso — espace privé, visible uniquement par le superadmin
-    ...(isSuperAdmin ? [
-      { href: "/hub", labelKey: "hub", icon: Lock, status: "active" as NavItemStatus },
-    ] : []),
     { href: "/support", labelKey: "support", icon: LifeBuoy, status: "active", badge: supportUnread > 0 ? String(supportUnread) : undefined, badgeColor: "orange", dataTour: "nav-support" },
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active", dataTour: "nav-settings" },
   ];
@@ -277,9 +272,6 @@ export function Sidebar() {
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
     ...((isManager || isSuperAdmin) ? [
       { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
-    ] : []),
-    ...(isSuperAdmin ? [
-      { href: "/hub", labelKey: "hub", icon: Lock, status: "active" as NavItemStatus },
     ] : []),
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
   ];
