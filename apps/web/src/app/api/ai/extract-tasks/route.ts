@@ -6,6 +6,7 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -77,8 +78,11 @@ export async function POST(request: NextRequest) {
       .eq("id", userOrg.organization_id)
       .single();
 
-    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial");
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial", "task_extract");
     if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
       return NextResponse.json(
         { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
         { status: 429 }

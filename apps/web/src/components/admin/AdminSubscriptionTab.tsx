@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
+  ArrowRight,
   CreditCard,
   Loader2,
   ExternalLink,
@@ -10,6 +11,8 @@ import {
 } from "lucide-react";
 import PlanSelector from "@/components/stripe/PlanSelector";
 import InvoicesList from "@/components/stripe/InvoicesList";
+import { CreditBalanceCard } from "@/components/credits/CreditBalanceCard";
+import { Link } from "@/i18n/navigation";
 
 const PLAN_LABELS: Record<string, string> = {
   trial: "Essai gratuit",
@@ -36,6 +39,7 @@ interface OrgData {
 
 export default function AdminSubscriptionTab() {
   const t = useTranslations("admin");
+  const tc = useTranslations("credits");
   const [org, setOrg] = useState<OrgData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPlanSelector, setShowPlanSelector] = useState(false);
@@ -157,6 +161,24 @@ export default function AdminSubscriptionTab() {
           {toast.text}
         </div>
       )}
+
+      {/* Org credit balance — read-only summary, actions live in Settings */}
+      <section>
+        <h2 className="mb-3 font-display text-[15px] font-bold text-[#FAFAFA]">
+          {tc("adminOrgTitle")}
+        </h2>
+        <CreditBalanceCard
+          footer={
+            <Link
+              href="/settings?tab=subscription"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-[11px] text-[#FAFAFA] transition-colors hover:bg-[#27272A]"
+            >
+              {tc("adminOrgCta")}
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          }
+        />
+      </section>
 
       {/* Current Plan Card */}
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-6">

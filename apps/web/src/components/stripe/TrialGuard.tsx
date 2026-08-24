@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Clock, ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { PLAN_FEATURES, type PlanName } from "@cantaia/config/plan-features";
+import { useCredits } from "@/lib/hooks/use-credits";
 
 /**
  * Monthly AI call limit for a plan, derived from the canonical PLAN_FEATURES
@@ -27,13 +28,17 @@ interface OrgData {
 
 /**
  * TrialGuard — client component that:
- * 1. Checks if the org's trial has expired and shows a blocking overlay
- * 2. Fetches monthly AI usage and shows a warning banner at 80%+ usage
+ * 1. Shows a blocking overlay when the trial expired AND the org has no
+ *    credits left (the credits model replaces the hard trial wall: an org
+ *    holding credits — signup bonus or purchased — keeps working)
+ * 2. Renders the low-credit banner (with legacy AI-quota fallback)
  *
  * Mounted inside the app layout, within AuthProvider.
  */
 export function TrialGuard() {
   const { user, loading: authLoading } = useAuth();
+  const { balance, loading: creditsLoading, unavailable: creditsUnavailable } =
+    useCredits();
   const [orgData, setOrgData] = useState<OrgData | null>(null);
   const [aiCallsThisMonth, setAiCallsThisMonth] = useState<number>(0);
   const [loaded, setLoaded] = useState(false);
@@ -106,18 +111,24 @@ export function TrialGuard() {
     fetchData();
   }, [authLoading, user]);
 
-  if (!loaded || !orgData) return null;
+  if (!loaded) return null;
 
-  const plan = orgData.subscription_plan;
+  const plan = orgData?.subscription_plan ?? "trial";
   const isTrialExpired =
     plan === "trial" &&
-    orgData.trial_ends_at &&
+    !!orgData?.trial_ends_at &&
     new Date(orgData.trial_ends_at) < new Date();
 
   const aiLimit = getAiCallLimit(plan);
 
+  // Credits override the hard trial wall: as long as the org still holds
+  // credits it keeps working, expired trial or not. While the balance is
+  // still loading we hold the overlay back to avoid a flash.
+  const hasCredits = !creditsUnavailable && (balance?.total ?? 0) > 0;
+  const creditsResolved = creditsUnavailable || !creditsLoading;
+
   // Trial expired overlay — blocking, full-screen
-  if (isTrialExpired) {
+  if (isTrialExpired && creditsResolved && !hasCredits) {
     return (
       <div className="fixed inset-0 z-50 bg-[#0F0F11] flex items-center justify-center">
         <div className="max-w-2xl text-center p-8">
@@ -132,8 +143,8 @@ export function TrialGuard() {
             acc&eacute;der &agrave; tous vos projets.
           </p>
           <Link
-            href="/admin?tab=subscription"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+            href="/settings?tab=subscription&section=plans"
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#F97316] to-[#EA580C] px-6 py-3 font-medium text-white shadow-lg shadow-[#F97316]/25 transition-shadow hover:shadow-xl"
           >
             Voir les plans
             <ArrowRight className="h-4 w-4" />
@@ -147,16 +158,14 @@ export function TrialGuard() {
     );
   }
 
-  // Usage limit banner — shown at 80%+ AI usage
-  if (aiLimit > 0) {
-    return (
-      <UsageLimitBanner
-        current={aiCallsThisMonth}
-        limit={aiLimit}
-        plan={plan}
-      />
-    );
-  }
-
-  return null;
+  // Low-credit banner (falls back to the legacy 80 %/100 % AI-quota warning
+  // when the credits API is unavailable). The banner decides on its own
+  // whether it has anything to show.
+  return (
+    <UsageLimitBanner
+      current={aiCallsThisMonth}
+      limit={aiLimit}
+      plan={plan}
+    />
+  );
 }

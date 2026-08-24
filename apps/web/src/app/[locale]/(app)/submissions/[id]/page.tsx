@@ -36,6 +36,8 @@ import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 import { PriceRequestV2 } from "@/components/submissions/detail/PriceRequestV2";
 import { useAgent } from "@/lib/hooks/use-agent";
 import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
@@ -411,6 +413,13 @@ export default function SubmissionDetailPage() {
       }
       clearTimeout(prepTimeoutId);
 
+      // Insufficient credits — the paywall replaces the red error banner.
+      if (await handleInsufficientCredits(prepRes)) {
+        setAnalyzing(false);
+        setAnalysisProgress(0);
+        return;
+      }
+
       if (!prepRes.ok) {
         const err = await prepRes.json().catch(() => ({ error: `HTTP ${prepRes.status}` }));
         // H7: 409 = another client is already driving the analysis. Not an error —
@@ -430,6 +439,7 @@ export default function SubmissionDetailPage() {
       if (prep.done) {
         // Excel or text-based PDF: analysis is already complete
         setAnalysisProgress(100);
+        notifyCreditsChanged();
         await fetchData();
         setAnalyzing(false);
         setAnalysisProgress(0);
@@ -466,6 +476,14 @@ export default function SubmissionDetailPage() {
         }
         clearTimeout(timeoutId);
 
+        // Credits can run out mid-run: stop the loop, show the paywall only.
+        if (await handleInsufficientCredits(chunkRes)) {
+          await fetchData();
+          setAnalyzing(false);
+          setAnalysisProgress(0);
+          return;
+        }
+
         if (!chunkRes.ok) {
           const err = await chunkRes.json().catch(() => ({ error: `HTTP ${chunkRes.status}` }));
           throw new Error(err.error || `Erreur partie ${chunkIndex + 1}/${totalChunks} (HTTP ${chunkRes.status})`);
@@ -475,6 +493,7 @@ export default function SubmissionDetailPage() {
         setAnalysisProgress(chunk.progress ?? Math.round((chunkIndex + 1) / totalChunks * 100));
 
         if (chunk.done) {
+          notifyCreditsChanged();
           await fetchData();
           setAnalyzing(false);
           setAnalysisProgress(0);
@@ -483,6 +502,7 @@ export default function SubmissionDetailPage() {
       }
 
       // All chunks sent but last chunk didn't return done — reload anyway
+      notifyCreditsChanged();
       await fetchData();
       setAnalyzing(false);
       setAnalysisProgress(0);
@@ -953,9 +973,14 @@ function ItemsTabContent({
     setEstimatingBudget(true);
     try {
       const res = await fetch(`/api/submissions/${submissionId}/estimate-budget`, { method: "POST" });
+      if (await handleInsufficientCredits(res)) {
+        setEstimatingBudget(false);
+        return;
+      }
       const json = await res.json();
       if (json.success && onBudgetCalculated) {
         onBudgetCalculated(json, json.feedback ?? null);
+        notifyCreditsChanged();
       }
     } catch {}
     setEstimatingBudget(false);
@@ -2107,10 +2132,16 @@ function BudgetTabContent({
     setError(null);
     try {
       const res = await fetch(`/api/submissions/${submissionId}/estimate-budget`, { method: "POST" });
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — do not also show the inline error.
+        setEstimating(false);
+        return;
+      }
       const json = await res.json();
       if (json.success) {
         setBudget(json);
         if (json.feedback) setFeedback(json.feedback);
+        notifyCreditsChanged();
       } else {
         setError(json.error || "Erreur lors de l'estimation");
       }

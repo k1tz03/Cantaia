@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import { getAppUrl } from "@/lib/env";
+import { CREDIT_PLANS, isCreditPlanId } from "@cantaia/config/credit-costs";
 import Stripe from "stripe";
 
 function getStripe() {
@@ -10,11 +11,18 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
+/**
+ * Credit-era Price IDs (STRIPE_PRICE_SUB_*) with the pre-credits ones
+ * (STRIPE_PRICE_*) as fallback, so this legacy route keeps working during the
+ * transition and bills the same prices as /api/credits/checkout.
+ */
 function getPriceIds() {
   return {
-    starter: process.env.STRIPE_PRICE_STARTER || "",
-    pro: process.env.STRIPE_PRICE_PRO || "",
-    enterprise: process.env.STRIPE_PRICE_ENTERPRISE || "",
+    starter:
+      process.env[CREDIT_PLANS.starter.stripe_env] || process.env.STRIPE_PRICE_STARTER || "",
+    pro: process.env[CREDIT_PLANS.pro.stripe_env] || process.env.STRIPE_PRICE_PRO || "",
+    enterprise:
+      process.env[CREDIT_PLANS.enterprise.stripe_env] || process.env.STRIPE_PRICE_ENTERPRISE || "",
   };
 }
 
@@ -69,8 +77,17 @@ export async function POST(request: NextRequest) {
       : "fr";
 
     // NOTE: quantity stays at 1 on purpose — the per-user quantity sync was
-    // deliberately NOT built because billing is migrating to a credits-based
-    // model in the next phase.
+    // deliberately NOT built because billing moved to a credits-based model.
+    //
+    // `credit_plan` is added next to the legacy `plan` key so the Stripe
+    // webhook can grant the monthly credit allocation on every paid invoice
+    // (same contract as /api/credits/checkout).
+    const checkoutMetadata: Record<string, string> = {
+      organization_id: profile.organization_id,
+      plan,
+      ...(isCreditPlanId(plan) ? { credit_plan: plan } : {}),
+    };
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -78,18 +95,12 @@ export async function POST(request: NextRequest) {
       line_items: [{ price: PRICE_IDS[plan as keyof typeof PRICE_IDS], quantity: 1 }],
       success_url: `${getAppUrl()}/${locale}/admin?tab=subscription&success=true`,
       cancel_url: `${getAppUrl()}/${locale}/admin?tab=subscription&canceled=true`,
-      metadata: {
-        organization_id: profile.organization_id,
-        plan,
-      },
+      metadata: checkoutMetadata,
       // Propagate metadata onto the subscription itself so renewal webhooks
-      // (customer.subscription.updated) can resolve the org + plan without
-      // relying on the checkout session.
+      // (customer.subscription.updated, invoice.payment_succeeded) can resolve
+      // the org + plan without relying on the checkout session.
       subscription_data: {
-        metadata: {
-          organization_id: profile.organization_id,
-          plan,
-        },
+        metadata: checkoutMetadata,
       },
     });
 

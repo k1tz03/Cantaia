@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -114,8 +115,11 @@ export async function POST(request: NextRequest) {
       orgName = org?.name || "";
 
       // Check AI usage limit
-      const usageCheck = await checkUsageLimit(admin, userData.organization_id, org?.subscription_plan || "trial");
+      const usageCheck = await checkUsageLimit(admin, userData.organization_id, org?.subscription_plan || "trial", "visit_report");
       if (!usageCheck.allowed) {
+        if (usageCheck.insufficient_credits) {
+          return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+        }
         await markReportFailed(supabase, visit_id);
         return NextResponse.json(
           { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },

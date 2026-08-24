@@ -5,6 +5,7 @@ import { generatePlanning } from "@cantaia/core/planning";
 import type { GeneratedPlanning, AIValidationResult } from "@cantaia/core/planning";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 300;
 
@@ -49,8 +50,11 @@ export async function POST(request: NextRequest) {
       .eq("id", userProfile.organization_id)
       .single();
 
-    const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, orgData?.subscription_plan || "trial");
+    const usageCheck = await checkUsageLimit(admin, userProfile.organization_id, orgData?.subscription_plan || "trial", "planning_generate");
     if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
       return NextResponse.json(
         { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
         { status: 429 }

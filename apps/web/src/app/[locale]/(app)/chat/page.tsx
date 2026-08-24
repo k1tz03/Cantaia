@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { cn } from "@cantaia/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 /* ───────────────────── Typing dots animation ───────────────────── */
 const typingKeyframes = `
@@ -320,6 +322,16 @@ export default function ChatPage() {
         signal: abortRef.current.signal,
       });
 
+      // Insufficient credits: the 402 lands BEFORE the SSE stream starts, so it
+      // must be handled before touching res.body.
+      if (await handleInsufficientCredits(res)) {
+        // Paywall is open — roll back the optimistic bubbles and give the draft
+        // back to the composer instead of surfacing a generic error.
+        setMessages((prev) => prev.slice(0, -2));
+        setInput(msg);
+        return;
+      }
+
       if (!res.ok || !res.body) {
         throw new Error("Stream failed");
       }
@@ -364,6 +376,9 @@ export default function ChatPage() {
           }
         }
       }
+
+      // Stream completed — the message consumed credits, refresh the badge.
+      notifyCreditsChanged();
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setMessages((prev) => {

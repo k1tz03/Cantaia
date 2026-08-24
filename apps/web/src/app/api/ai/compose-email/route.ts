@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { callAnthropicWithRetry, classifyAIError, MODEL_FOR_TASK } from "@cantaia/core/ai";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -44,8 +45,11 @@ export async function POST(req: NextRequest) {
     .single();
 
   // Check usage limit
-  const usageCheck = await checkUsageLimit(admin, orgId, org?.subscription_plan || "trial");
+  const usageCheck = await checkUsageLimit(admin, orgId, org?.subscription_plan || "trial", "compose_email");
   if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+    }
     return NextResponse.json(
       { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
       { status: 429 }

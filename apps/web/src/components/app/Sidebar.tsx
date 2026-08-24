@@ -130,7 +130,6 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, [user?.id]);
 
-  const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
   // /admin est désormais gardé serveur par requireOrgAdmin (admin/director) — le lien suit la même règle
   const isOrgAdmin = ["director", "admin"].includes(userRole || "");
   const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;

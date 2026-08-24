@@ -20,6 +20,8 @@ import {
   FileAudio,
   ChevronDown,
 } from "lucide-react";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 interface Participant {
   name: string;
@@ -301,8 +303,16 @@ export default function NouveauPVPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meeting_id: meetingId }),
       });
+      // Crédits insuffisants : la modale paywall remplace la bannière d'erreur.
+      // L'audio est déjà rattaché à la réunion, la transcription reste relançable.
+      if (await handleInsufficientCredits(transcribeRes)) {
+        setProcessingStep("");
+        setProcessing(false);
+        return;
+      }
       const transcribeData = await transcribeRes.json();
       if (!transcribeData.success) throw new Error(transcribeData.error);
+      notifyCreditsChanged();
 
       // 5. Generate PV
       setProcessingStep(t("generating"));
@@ -311,8 +321,17 @@ export default function NouveauPVPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meeting_id: meetingId }),
       });
+      if (await handleInsufficientCredits(generateRes)) {
+        // Paywall ouverte — la transcription est conservée, on ouvre quand même
+        // la fiche pour que le PV puisse être généré après recharge.
+        setProcessingStep("");
+        setProcessing(false);
+        router.push(`/pv-chantier/${meetingId}`);
+        return;
+      }
       const generateData = await generateRes.json();
       if (!generateData.success) throw new Error(generateData.error);
+      notifyCreditsChanged();
 
       // 6. Redirect to detail page
       router.push(`/pv-chantier/${meetingId}`);

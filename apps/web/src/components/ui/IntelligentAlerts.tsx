@@ -8,6 +8,8 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 interface Alert {
   severity: "red" | "yellow" | "green";
@@ -90,6 +92,11 @@ export function IntelligentAlerts({
         }),
       });
 
+      // Crédits insuffisants : la modale paywall remplace le message d'erreur.
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(
@@ -100,6 +107,7 @@ export function IntelligentAlerts({
       const data = await res.json();
       setAlerts(data.alerts || []);
       setGenerated(true);
+      notifyCreditsChanged();
     } catch (err: any) {
       setError(err.message || "Erreur lors de la generation des alertes");
     } finally {

@@ -122,7 +122,7 @@ export async function POST() {
       .eq("id", userOrg.organization_id)
       .single();
 
-    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial");
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, org?.subscription_plan || "trial", "reclassify");
     if (!usageCheck.allowed) {
       return NextResponse.json(
         { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },

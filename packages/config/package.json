@@ -10,6 +10,10 @@
     "./plan-features": {
       "types": "./plan-features.ts",
       "default": "./plan-features.ts"
+    },
+    "./credit-costs": {
+      "types": "./credit-costs.ts",
+      "default": "./credit-costs.ts"
     }
   }
 }

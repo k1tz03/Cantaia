@@ -27,6 +27,8 @@ import type {
   PlanningTask,
   PlanningDependency,
 } from "@/components/planning/planning-types";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 export default function ProjectPlanningPage() {
   const params = useParams();
@@ -184,6 +186,11 @@ export default function ProjectPlanningPage() {
           },
         }),
       });
+      // Crédits insuffisants : la modale paywall remplace le message d'erreur.
+      if (await handleInsufficientCredits(res)) {
+        setEmptyError(null);
+        return;
+      }
       const json = await res.json();
       if (!res.ok) {
         setEmptyError(json.error || "Erreur lors de la creation");
@@ -223,6 +230,11 @@ export default function ProjectPlanningPage() {
           },
         }),
       });
+      // Crédits insuffisants : la modale paywall remplace le message d'erreur.
+      if (await handleInsufficientCredits(res)) {
+        setGenerateError(null);
+        return;
+      }
       const json = await res.json();
       if (!res.ok) {
         setGenerateError(json.error || "Échec de la génération du planning");
@@ -231,6 +243,7 @@ export default function ProjectPlanningPage() {
 
       setShowConfig(false);
       setGenerateError(null);
+      notifyCreditsChanged();
       await fetchPlanning();
     } catch (err: any) {
       console.error("[planning] Generate error:", err);

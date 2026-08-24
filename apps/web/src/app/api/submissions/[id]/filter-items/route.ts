@@ -95,7 +95,8 @@ export async function POST(
   const usageCheck = await checkUsageLimit(
     admin,
     userProfile.organization_id,
-    orgData?.subscription_plan || "trial"
+    orgData?.subscription_plan || "trial",
+    "submission_filter_items"
   );
   if (!usageCheck.allowed) {
     // Non-blocking feature: return an empty exclusion list rather than breaking

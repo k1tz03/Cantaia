@@ -10,6 +10,7 @@ import {
 import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -228,8 +229,11 @@ export async function POST(request: NextRequest) {
     .eq("id", userOrg.organization_id)
     .maybeSingle();
 
-  const usageCheck = await checkUsageLimit(admin, userOrg.organization_id, org?.subscription_plan || "trial");
+  const usageCheck = await checkUsageLimit(admin, userOrg.organization_id, org?.subscription_plan || "trial", "chat_message");
   if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+    }
     return new Response(
       JSON.stringify({ error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan }),
       { status: 429 }

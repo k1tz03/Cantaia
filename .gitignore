@@ -37,3 +37,6 @@ pnpm-debug.log*
 # Testing
 coverage/
 nul
+
+# TypeScript incremental build info
+*.tsbuildinfo

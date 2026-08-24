@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
+import { SIGNUP_BONUS_CREDITS } from "@cantaia/config/credit-costs";
+import { grantCredits } from "@/lib/credits";
 
 /**
  * Legacy non-transactional migration path (pre-migration 080).
@@ -529,6 +531,22 @@ export async function GET(request: Request) {
                 if (userError) {
                   console.error("[auth/callback] User creation error:", userError.message);
                 }
+
+                // Signup bonus credits — best effort, never blocks the login.
+                try {
+                  const bonus = await grantCredits(
+                    org.id,
+                    SIGNUP_BONUS_CREDITS,
+                    "signup_bonus",
+                    "registration"
+                  );
+                  if (!bonus.granted) {
+                    console.warn("[auth/callback] Signup credit bonus not granted for org", org.id);
+                  }
+                } catch (creditErr) {
+                  console.error("[auth/callback] Signup credit bonus failed (non-fatal):", creditErr);
+                }
+
                 console.log("[auth/callback] Org + user created successfully, org:", org.id);
               }
             }

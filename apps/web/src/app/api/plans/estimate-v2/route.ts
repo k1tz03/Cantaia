@@ -10,6 +10,7 @@ import {
 } from "@cantaia/core/plans/estimation/calibration-engine";
 import { verifyCrossPlan } from "@cantaia/core/plans/estimation";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 // Multi-model 4-pass pipeline can take several minutes
 export const maxDuration = 300;
@@ -160,8 +161,11 @@ export async function POST(request: NextRequest) {
       .eq("id", userOrg.organization_id)
       .single();
 
-    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, orgData?.subscription_plan || "trial");
+    const usageCheck = await checkUsageLimit(adminClient, userOrg.organization_id, orgData?.subscription_plan || "trial", "estimate_v2");
     if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
       return NextResponse.json(
         { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
         { status: 429 }

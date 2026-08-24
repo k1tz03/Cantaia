@@ -2176,3 +2176,56 @@ export type AIModule =
   | "visits"
   | "briefing"
   | "soumissions";
+
+// ---------- Credits (migration 090) ----------
+// Additive types for the credit meter that replaced the per-plan `aiCalls`
+// quota. The tables are intentionally NOT registered in `Database` above: API
+// routes reach them through `(admin as any).from("credit_balances")`, the same
+// convention used by the other post-generation tables.
+
+/** Ledger entry kinds — mirrors the CHECK constraint on credit_transactions.kind. */
+export type CreditTransactionKind =
+  | "signup_bonus"
+  | "purchase"
+  | "subscription_grant"
+  | "subscription_expiry"
+  | "consumption"
+  | "refund"
+  | "admin_adjust";
+
+/** One row per organization. Its presence switches the org to credit metering. */
+export interface CreditBalance {
+  organization_id: string;
+  /** Granted by the subscription, refreshed on every paid invoice, spent first. */
+  subscription_credits: number;
+  /** Bought as packs / signup bonus / manual adjustment, spent second. */
+  purchased_credits: number;
+  updated_at: string;
+}
+
+/** Append-only credit ledger. */
+export interface CreditTransaction {
+  id: string;
+  organization_id: string;
+  /** Signed: negative for consumption and expiry, positive for grants. */
+  amount: number;
+  /** Total balance (subscription + purchased) right after this movement. */
+  balance_after: number;
+  kind: CreditTransactionKind;
+  /** `api_usage_logs.action_type` for consumption rows, null otherwise. */
+  action_type: string | null;
+  /** Stripe session/invoice id, route name, or free-form note. */
+  reference: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type CreditBalanceInsert = WithOptionalDefaults<
+  CreditBalance,
+  "subscription_credits" | "purchased_credits" | "updated_at"
+>;
+
+export type CreditTransactionInsert = WithOptionalDefaults<
+  CreditTransaction,
+  "id" | "action_type" | "reference" | "created_by" | "created_at"
+>;

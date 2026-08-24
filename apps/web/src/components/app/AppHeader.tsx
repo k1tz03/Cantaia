@@ -8,6 +8,8 @@ import { Search, User, Shield, LogOut } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationDropdown } from "./NotificationDropdown";
+import { CreditBadge } from "@/components/credits/CreditBadge";
+import { CreditsUIProvider } from "@/components/credits/CreditsUIProvider";
 
 function getPageName(pathname: string): string {
   const segments = pathname.split("/").filter(Boolean);
@@ -153,6 +155,9 @@ export function AppHeader() {
           </kbd>
         </div>
 
+        {/* Credit balance pill */}
+        <CreditBadge />
+
         {/* Notifications dropdown */}
         <NotificationDropdown />
 
@@ -195,6 +200,10 @@ export function AppHeader() {
           )}
         </div>
       </div>
+
+      {/* Global credits paywall host — portals to document.body when a
+          402 insufficient_credits response is intercepted. */}
+      <CreditsUIProvider />
     </header>
   );
 }

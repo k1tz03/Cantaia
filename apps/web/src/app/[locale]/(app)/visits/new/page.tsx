@@ -18,6 +18,8 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AudioRecorder } from "@/components/visits/AudioRecorder";
 import { PhotoCapture } from "@/components/visits/PhotoCapture";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 type Step = "info" | "recording" | "post";
 
@@ -232,12 +234,21 @@ export default function NewVisitPage() {
         body: JSON.stringify({ visit_id: visitId }),
       });
 
+      // Crédits insuffisants : la modale paywall suffit, pas de bannière d'erreur.
+      // L'audio est déjà rattaché à la visite, la transcription pourra être
+      // relancée depuis la fiche de visite après recharge.
+      if (await handleInsufficientCredits(transcribeRes)) {
+        return;
+      }
+
       if (!transcribeRes.ok) {
         const data = await transcribeRes.json().catch(() => ({}));
         throw new Error(
           data.error || "La transcription a échoué. Vous pouvez réessayer depuis la fiche de visite."
         );
       }
+
+      notifyCreditsChanged();
 
       // Trigger report generation
       setProcessingStep("Génération du rapport...");
@@ -247,11 +258,16 @@ export default function NewVisitPage() {
         body: JSON.stringify({ visit_id: visitId }),
       });
 
-      if (!reportRes.ok) {
+      if (await handleInsufficientCredits(reportRes)) {
+        // Paywall ouverte — la transcription est conservée, le rapport reste
+        // relançable depuis la fiche de visite.
+      } else if (!reportRes.ok) {
         const data = await reportRes.json().catch(() => ({}));
         console.error("Report generation failed:", data.error);
         // The transcription succeeded — send the user to the visit where a
         // "Réessayer" action is available for the report.
+      } else {
+        notifyCreditsChanged();
       }
 
       // Navigate to visit detail

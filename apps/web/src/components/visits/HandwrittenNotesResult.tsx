@@ -14,6 +14,8 @@ import {
   XCircle,
 } from "lucide-react";
 import type { VisitPhoto, HandwrittenNotesAnalysis } from "@cantaia/database";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 /** `signed_url` is added by GET /api/visits/photos (private bucket). */
 type VisitPhotoWithUrl = VisitPhoto & { signed_url?: string | null };
@@ -45,11 +47,17 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
         body: JSON.stringify({ photo_id: photo.id }),
       });
 
+      // Insufficient credits — the paywall replaces the inline error.
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: "Analysis failed" }));
         throw new Error(data.error);
       }
 
+      notifyCreditsChanged();
       onAnalysisComplete?.();
     } catch (err: any) {
       setError(err.message || "Analysis failed");

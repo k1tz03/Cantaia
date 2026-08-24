@@ -1,11 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { grantCredits } from "@/lib/credits";
+import {
+  CREDIT_PACKS,
+  CREDIT_PLANS,
+  isCreditPackId,
+  isCreditPlanId,
+  type CreditPlanId,
+} from "@cantaia/config/credit-costs";
 import Stripe from "stripe";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
+}
+
+/**
+ * Which credit plan does this invoice bill?
+ *
+ * Metadata is written by /api/credits/checkout (and the legacy
+ * /api/stripe/create-checkout) onto `subscription_data.metadata`, so it rides
+ * along every renewal invoice. Depending on the Stripe API version it surfaces
+ * under `parent.subscription_details.metadata`, `subscription_details.metadata`
+ * or on the line items — we probe all of them, then fall back to retrieving
+ * the subscription object.
+ *
+ * Returns null when the invoice is not a Cantaia subscription invoice; the
+ * caller then skips the credit grant instead of guessing.
+ */
+async function resolveInvoicePlan(invoice: Stripe.Invoice): Promise<CreditPlanId | null> {
+  const raw = invoice as any;
+
+  const candidates: unknown[] = [
+    raw.parent?.subscription_details?.metadata?.credit_plan,
+    raw.parent?.subscription_details?.metadata?.plan,
+    raw.subscription_details?.metadata?.credit_plan,
+    raw.subscription_details?.metadata?.plan,
+    raw.lines?.data?.[0]?.metadata?.credit_plan,
+    raw.lines?.data?.[0]?.metadata?.plan,
+  ];
+
+  for (const candidate of candidates) {
+    if (isCreditPlanId(candidate)) return candidate;
+  }
+
+  const subscriptionId =
+    typeof raw.subscription === "string"
+      ? raw.subscription
+      : typeof raw.parent?.subscription_details?.subscription === "string"
+        ? raw.parent.subscription_details.subscription
+        : null;
+
+  if (subscriptionId) {
+    try {
+      const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+      const metadata = subscription.metadata || {};
+      if (isCreditPlanId(metadata.credit_plan)) return metadata.credit_plan;
+      if (isCreditPlanId(metadata.plan)) return metadata.plan;
+    } catch (err) {
+      console.warn(
+        `[stripe-webhook] Could not retrieve subscription ${subscriptionId}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -69,8 +130,47 @@ export async function POST(request: NextRequest) {
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
 
+        // ── Credit pack (one-shot payment) ──────────────────
+        // Handled first and exclusively: a pack purchase must NEVER touch the
+        // subscription columns (no stripe_subscription_id, no plan change).
+        const packId = session.metadata?.credit_pack;
+        if (session.mode === "payment" && packId) {
+          const packOrgId = session.metadata?.organization_id;
+          if (!packOrgId) {
+            console.error(
+              `[stripe-webhook] credit pack session ${session.id} has no organization_id metadata`
+            );
+            break;
+          }
+          if (!isCreditPackId(packId)) {
+            console.error(`[stripe-webhook] Unknown credit pack "${packId}" on session ${session.id}`);
+            break;
+          }
+
+          // Keep the customer id in sync (first purchase may have created it).
+          if (customerId) {
+            await (admin as any)
+              .from("organizations")
+              .update({ stripe_customer_id: customerId })
+              .eq("id", packOrgId);
+          }
+
+          const pack = CREDIT_PACKS[packId];
+          const granted = await grantCredits(packOrgId, pack.credits, "purchase", session.id);
+          if (granted.granted) {
+            console.log(
+              `[stripe-webhook] Granted ${pack.credits} credits (pack ${pack.id}) to org ${packOrgId}`
+            );
+          } else {
+            console.error(
+              `[stripe-webhook] FAILED to grant ${pack.credits} credits (pack ${pack.id}) to org ${packOrgId} — session ${session.id}`
+            );
+          }
+          break;
+        }
+
         if (session.metadata?.organization_id) {
-          const plan = session.metadata?.plan;
+          const plan = session.metadata?.credit_plan || session.metadata?.plan;
           if (!plan) {
             // No silent "pro" fallback: without plan metadata we keep the
             // current plan untouched and only sync the Stripe identifiers.
@@ -183,6 +283,53 @@ export async function POST(request: NextRequest) {
           });
           if (logError) {
             console.error("[webhooks/stripe] Insert activity log error:", logError);
+          }
+
+          // ── Monthly credit allocation ────────────────────
+          // Only for subscription invoices (creation + renewals). One-off
+          // invoices (credit packs) are handled by checkout.session.completed.
+          try {
+            const billingReason = (invoice as any).billing_reason as string | undefined;
+            const isSubscriptionInvoice = !billingReason || billingReason.startsWith("subscription");
+
+            if (isSubscriptionInvoice) {
+              const planId = await resolveInvoicePlan(invoice);
+              if (planId) {
+                const plan = CREDIT_PLANS[planId];
+                const granted = await grantCredits(
+                  org.id,
+                  plan.monthly_credits,
+                  "subscription_grant",
+                  invoice.id ?? undefined
+                );
+                if (granted.granted) {
+                  console.log(
+                    `[stripe-webhook] Granted ${plan.monthly_credits} subscription credits (${plan.id}) to org ${org.id}`
+                  );
+                } else {
+                  console.error(
+                    `[stripe-webhook] FAILED to grant subscription credits (${plan.id}) to org ${org.id} — invoice ${invoice.id}`
+                  );
+                }
+
+                // Keep the authoritative plan column in sync with what is billed.
+                const { error: planSyncError } = await (admin as any)
+                  .from("organizations")
+                  .update({ subscription_plan: planId, plan: planId, plan_status: "active" })
+                  .eq("id", org.id);
+                if (planSyncError) {
+                  console.error("[stripe-webhook] Plan sync error:", planSyncError.message);
+                }
+              } else {
+                console.warn(
+                  `[stripe-webhook] invoice ${invoice.id} has no credit_plan/plan metadata — no credits granted`
+                );
+              }
+            }
+          } catch (creditErr) {
+            // Never fail the webhook on a credit grant: Stripe would retry the
+            // whole event and the dedup table would swallow the retry anyway.
+            console.error("[stripe-webhook] Subscription credit grant failed:", creditErr);
           }
         }
         break;

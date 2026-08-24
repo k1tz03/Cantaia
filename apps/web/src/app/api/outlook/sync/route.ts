@@ -310,7 +310,8 @@ export async function POST(request: Request) {
       const usageCheck = await checkUsageLimit(
         adminClient,
         userOrg.organization_id,
-        orgPlan?.subscription_plan || "trial"
+        orgPlan?.subscription_plan || "trial",
+        "email_classify"
       );
       if (!usageCheck.allowed) {
         aiQuotaExceeded = true;

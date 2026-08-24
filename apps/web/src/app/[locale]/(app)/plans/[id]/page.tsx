@@ -21,6 +21,8 @@ import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 import { useAgent } from "@/lib/hooks/use-agent";
 import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 const USE_MANAGED_AGENTS = process.env.NEXT_PUBLIC_USE_MANAGED_AGENTS === "true";
 
@@ -195,10 +197,15 @@ export default function PlanDetailPage() {
         signal: controller.signal,
       });
       clearTimeout(timeout);
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — skip the inline error banner (finally resets `analyzing`).
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setAnalysis(data.analysis);
         setAnalysisCached(!!data.cached);
+        if (!data.cached) notifyCreditsChanged();
         if (!data.cached && data.analysis?.analysis_result?.title_block) {
           autoFillPlanInfo(data.analysis.analysis_result);
         }
@@ -234,9 +241,14 @@ export default function PlanDetailPage() {
         signal: controller.signal,
       });
       clearTimeout(timeout);
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — skip the inline error banner (finally resets `estimatingV2`).
+        return;
+      }
       const data = await res.json();
       if (res.ok && data.estimation) {
         setEstimationV2(data.estimation);
+        notifyCreditsChanged();
         if (data.cross_plan) {
           setCrossPlan(data.cross_plan);
         }

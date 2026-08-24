@@ -48,6 +48,8 @@ import type {
   BuildingScene as UiScene,
   ExtractionProgressState,
 } from "@/components/scene3d/types";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 /** Intervalle de polling pendant l'extraction (Passe 5 ≈ 15-90 s). */
 const POLL_INTERVAL_MS = 4000;
@@ -264,9 +266,16 @@ export default function Scene3dPage() {
         body: JSON.stringify({ plan_id: planId, project_id: projectId }),
       });
 
+      // Crédits insuffisants (402) : la modale paywall remplace le message d'erreur.
+      // Testé AVANT res.json() pour que le helper puisse cloner le corps.
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
+
       const payload = await res.json().catch(() => ({}));
 
       if (res.status === 202) {
+        notifyCreditsChanged();
         pollStartedAtRef.current = Date.now();
         setSceneId(payload?.scene_id ?? null);
         setExtraction({

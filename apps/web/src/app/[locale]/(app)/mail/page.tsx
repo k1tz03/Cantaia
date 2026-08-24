@@ -42,6 +42,8 @@ import DOMPurify from "dompurify";
 import { AIDraftPanel } from "@/components/mail/AIDraftPanel";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { useAgent } from "@/lib/hooks/use-agent";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
 
 const ParticleCanvas = dynamic(() => import("@/components/auth/ParticleCanvas"), { ssr: false });
@@ -503,9 +505,15 @@ function MailPageInner() {
     setReclassifying(true);
     try {
       const res = await fetch("/api/ai/reclassify-all", { method: "POST" });
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — no extra toast.
+        setReclassifying(false);
+        return;
+      }
       const json = await res.json();
       if (json.success || json.reclassified !== undefined) {
         toast.success(`${json.emails_classified ?? json.reclassified ?? 0} emails reclassifiés`);
+        notifyCreditsChanged();
         fetchData();
       } else {
         toast.error(json.error || "Erreur de reclassification");
@@ -900,9 +908,15 @@ function MailPageInner() {
               setSummaryToast(null);
               try {
                 const res = await fetch("/api/mail/generate-summaries", { method: "POST" });
+                if (await handleInsufficientCredits(res)) {
+                  // Paywall opened — no extra toast.
+                  setGeneratingSummaries(false);
+                  return;
+                }
                 const json = await res.json();
                 if (json.success) {
                   setSummaryToast(t("summariesGenerated", { count: json.updated }));
+                  notifyCreditsChanged();
                   if (json.updated > 0) fetchData();
                 }
               } catch {
@@ -2170,9 +2184,16 @@ function ReplyModal({ email, signature, onClose, onDone }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — leave the draft untouched.
+        setHasGenerated(false);
+        setReplyLoading(false);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setReplyText(data.reply_text || "");
+        notifyCreditsChanged();
       }
     } catch { /* ignore */ }
     setReplyLoading(false);
@@ -2843,11 +2864,17 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
           project_id: confirmedProject || undefined,
         }),
       });
+      if (await handleInsufficientCredits(res)) {
+        // Paywall opened — keep the assist panel open with the instructions.
+        setGenerating(false);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.subject && !subject) setSubject(data.subject);
         if (data.body) setBody(data.body);
         setShowAiAssist(false);
+        notifyCreditsChanged();
       }
     } catch { /* ignore */ }
     setGenerating(false);

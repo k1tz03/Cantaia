@@ -5,6 +5,7 @@ import { classifyAIError } from "@cantaia/core/ai";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 120;
 
@@ -106,9 +107,13 @@ export async function POST(request: NextRequest) {
     const usageCheck = await checkUsageLimit(
       admin,
       userProfile.organization_id,
-      orgData?.subscription_plan || "trial"
+      orgData?.subscription_plan || "trial",
+      "executive_summary"
     );
     if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
       return NextResponse.json(
         {
           error: "usage_limit_reached",

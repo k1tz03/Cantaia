@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivityAsync } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { grantCredits } from "@/lib/credits";
+import { SIGNUP_BONUS_CREDITS } from "@cantaia/config/credit-costs";
 
 /**
  * POST /api/projects/create
@@ -56,6 +58,16 @@ export async function POST(request: NextRequest) {
     if (orgError || !org) {
       console.error("[projects/create] Failed to create organization:", orgError?.message);
       return NextResponse.json({ error: "Failed to create organization" }, { status: 500 });
+    }
+
+    // Signup bonus — best effort, never blocks org creation (migration 090).
+    try {
+      const bonus = await grantCredits(org.id, SIGNUP_BONUS_CREDITS, "signup_bonus", "registration");
+      if (!bonus.granted) {
+        console.warn("[projects/create] Signup credit bonus not granted for org", org.id);
+      }
+    } catch (creditErr) {
+      console.error("[projects/create] Signup credit bonus failed (non-fatal):", creditErr);
     }
 
     const { error: insertUserErr } = await admin.from("users").upsert({

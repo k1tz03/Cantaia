@@ -14,6 +14,7 @@ import type { AgentType } from "@cantaia/core/agents";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 10;
 export const dynamic = "force-dynamic";
@@ -80,9 +81,13 @@ export async function POST(
   const usageCheck = await checkUsageLimit(
     admin,
     userProfile.organization_id,
-    org?.subscription_plan || "trial"
+    org?.subscription_plan || "trial",
+    "agent_session"
   );
   if (!usageCheck.allowed) {
+    if (usageCheck.insufficient_credits) {
+      return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+    }
     return NextResponse.json(
       {
         error: "usage_limit_reached",

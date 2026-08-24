@@ -6,6 +6,7 @@ import { getValidMicrosoftToken } from "@/lib/microsoft/tokens";
 import { trackApiUsage } from "@cantaia/core/tracking";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { insufficientCreditsResponse } from "@/lib/credits";
 
 export const maxDuration = 60;
 
@@ -72,8 +73,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (org) companyName = org.name;
 
-    const usageCheck = await checkUsageLimit(adminClient, userProfile.organization_id, org?.subscription_plan || "trial");
+    const usageCheck = await checkUsageLimit(adminClient, userProfile.organization_id, org?.subscription_plan || "trial", "email_reply");
     if (!usageCheck.allowed) {
+      if (usageCheck.insufficient_credits) {
+        return insufficientCreditsResponse(usageCheck.required_credits ?? 1, usageCheck.remaining_credits ?? 0);
+      }
       return NextResponse.json(
         { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
         { status: 429 }

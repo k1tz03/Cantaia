@@ -1,3 +1,5 @@
+import { creditCostFor } from "./credit-costs";
+
 export type PlanName = "trial" | "starter" | "pro" | "enterprise";
 
 export type FeatureName =
@@ -150,30 +152,195 @@ export async function getUsageCount(
 }
 
 /**
- * Check if an org has exceeded its AI usage limit.
- * Returns { allowed: true } if OK, or error details if limit reached.
+ * Result of `checkUsageLimit`.
+ *
+ * The legacy fields (`current`, `limit`, `requiredPlan`) are preserved on the
+ * denied branch so the ~18 existing AI routes keep compiling and keep returning
+ * their `{ error: "usage_limit_reached", current, limit, required_plan }` body.
+ * The credit fields are ADDITIVE.
  */
-export async function checkUsageLimit(
+export type UsageLimitResult =
+  | {
+      allowed: true;
+      /** Credits this action cost (0 when bundled / when running on legacy quotas). */
+      required_credits: number;
+      /** Balance after the debit — `null` when the org is on legacy quotas. */
+      remaining_credits: number | null;
+      insufficient_credits: false;
+    }
+  | {
+      allowed: false;
+      /**
+       * Credits mode: remaining balance. Legacy mode: AI calls consumed this month.
+       */
+      current: number;
+      /**
+       * Credits mode: credits required by the action. Legacy mode: monthly cap.
+       */
+      limit: number;
+      requiredPlan: PlanName;
+      /** `true` → the route should answer 402 insufficient_credits, not 429/403. */
+      insufficient_credits: boolean;
+      required_credits: number;
+      remaining_credits: number;
+    };
+
+/** Next plan up from the current one (used as the upgrade hint). */
+function nextPlanAfter(plan: PlanName | string): PlanName {
+  const plans: PlanName[] = ["trial", "starter", "pro", "enterprise"];
+  const idx = plans.indexOf(plan as PlanName);
+  return plans[Math.min(idx + 1, plans.length - 1)] as PlanName;
+}
+
+/**
+ * Does this org run on credits? Presence of a `credit_balances` row is the
+ * switch. Returns `false` when the table does not exist (migration 090 not
+ * applied) so pre-migration deployments transparently keep the old quotas.
+ */
+async function hasCreditBalance(supabase: any, organizationId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("credit_balances")
+      .select("organization_id")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Legacy monthly `aiCalls` quota — kept verbatim for organizations that have
+ * no credit balance yet.
+ */
+async function checkLegacyQuota(
   supabase: any,
   organizationId: string,
   plan: PlanName | string
-): Promise<{ allowed: true } | { allowed: false; current: number; limit: number; requiredPlan: PlanName }> {
+): Promise<UsageLimitResult> {
   const limits = PLAN_FEATURES[plan as PlanName];
   if (!limits) {
-    return { allowed: false, current: 0, limit: 0, requiredPlan: "starter" };
+    return {
+      allowed: false,
+      current: 0,
+      limit: 0,
+      requiredPlan: "starter",
+      insufficient_credits: false,
+      required_credits: 0,
+      remaining_credits: 0,
+    };
   }
   if (limits.aiCalls === Infinity) {
-    return { allowed: true };
+    return { allowed: true, required_credits: 0, remaining_credits: null, insufficient_credits: false };
   }
 
   const current = await getUsageCount(supabase, organizationId);
   if (current >= limits.aiCalls) {
-    const plans: PlanName[] = ["trial", "starter", "pro", "enterprise"];
-    const currentIdx = plans.indexOf(plan as PlanName);
-    const nextPlan = plans[Math.min(currentIdx + 1, plans.length - 1)] as PlanName;
-    return { allowed: false, current, limit: limits.aiCalls, requiredPlan: nextPlan };
+    return {
+      allowed: false,
+      current,
+      limit: limits.aiCalls,
+      requiredPlan: nextPlanAfter(plan),
+      insufficient_credits: false,
+      required_credits: 0,
+      remaining_credits: 0,
+    };
   }
-  return { allowed: true };
+  return { allowed: true, required_credits: 0, remaining_credits: null, insufficient_credits: false };
+}
+
+/**
+ * Single entry point for AI metering.
+ *
+ * TWO regimes, picked automatically per organization:
+ *
+ *   1. CREDITS (migration 090 applied AND the org has a `credit_balances` row)
+ *      → the cost of `actionType` is read from CREDIT_COSTS and DEBITED here
+ *        through the `consume_credits` RPC (subscription credits first, then
+ *        purchased credits). A cost of 0 (bundled action such as email
+ *        classification) is allowed without touching the ledger.
+ *      → refusal returns `insufficient_credits: true`; routes should answer
+ *        402 with `insufficientCreditsResponse()` (apps/web/src/lib/credits.ts).
+ *
+ *   2. LEGACY QUOTAS (org without a balance row — pre-migration compatibility)
+ *      → unchanged behaviour: counts `api_usage_logs` rows for the month and
+ *        compares against `PLAN_FEATURES[plan].aiCalls`.
+ *
+ * ⚠️ SIDE EFFECT: in credits mode this function DEBITS the balance. Call it
+ * exactly once per action, before doing the work (fail-fast). Infrastructure
+ * errors fail OPEN — a missing RPC or a DB hiccup never blocks the product.
+ *
+ * The signature is backward compatible: `actionType` is optional and defaults
+ * to DEFAULT_CREDIT_COST (1 credit) when omitted.
+ */
+export async function checkUsageLimit(
+  supabase: any,
+  organizationId: string,
+  plan: PlanName | string,
+  actionType?: string
+): Promise<UsageLimitResult> {
+  // Regime 1 — credits
+  if (organizationId && (await hasCreditBalance(supabase, organizationId))) {
+    const required = creditCostFor(actionType);
+
+    if (required === 0) {
+      return { allowed: true, required_credits: 0, remaining_credits: null, insufficient_credits: false };
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("consume_credits", {
+        p_org: organizationId,
+        p_amount: required,
+        p_action: actionType ?? null,
+        p_reference: null,
+      });
+
+      if (error) {
+        console.warn(
+          `[plan-features] consume_credits failed (${error.message}) — action allowed without debit (fail-open)`
+        );
+        return { allowed: true, required_credits: required, remaining_credits: null, insufficient_credits: false };
+      }
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) {
+        console.warn("[plan-features] consume_credits returned no row — action allowed (fail-open)");
+        return { allowed: true, required_credits: required, remaining_credits: null, insufficient_credits: false };
+      }
+
+      const remaining =
+        (Number(row.remaining_subscription) || 0) + (Number(row.remaining_purchased) || 0);
+
+      if (row.success === true) {
+        return {
+          allowed: true,
+          required_credits: required,
+          remaining_credits: remaining,
+          insufficient_credits: false,
+        };
+      }
+
+      return {
+        allowed: false,
+        // Legacy field mapping for the existing routes' JSON body:
+        //   current = credits left, limit = credits needed.
+        current: remaining,
+        limit: required,
+        requiredPlan: nextPlanAfter(plan),
+        insufficient_credits: true,
+        required_credits: required,
+        remaining_credits: remaining,
+      };
+    } catch (err) {
+      console.warn("[plan-features] consume_credits threw — action allowed (fail-open):", err);
+      return { allowed: true, required_credits: required, remaining_credits: null, insufficient_credits: false };
+    }
+  }
+
+  // Regime 2 — legacy monthly quota
+  return checkLegacyQuota(supabase, organizationId, plan);
 }
 
 /**

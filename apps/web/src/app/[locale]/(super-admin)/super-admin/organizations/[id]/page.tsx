@@ -10,6 +10,7 @@ import {
   Users,
   BarChart3,
   CreditCard,
+  Coins,
   Globe,
   Pause,
   Play,
@@ -59,6 +60,7 @@ export default function OrganizationDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const t = useTranslations("superAdmin");
+  const tCredits = useTranslations("credits");
 
   const orgId = params.id as string;
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
@@ -76,13 +78,101 @@ export default function OrganizationDetailPage() {
   const [statsData, setStatsData] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // ── Credits (billing tab) ───────────────────────────────
+  const [credits, setCredits] = useState<{
+    subscription_credits: number;
+    purchased_credits: number;
+    total: number;
+  } | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustNote, setAdjustNote] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const [adjustMsg, setAdjustMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     loadOrganization();
   }, [orgId]);
 
   useEffect(() => {
     if (activeTab === "stats") loadStats();
+    if (activeTab === "billing") loadCredits();
   }, [activeTab, statsPeriod]);
+
+  async function loadCredits() {
+    setCreditsLoading(true);
+    try {
+      // GET /api/super-admin/credits returns every org (superadmin-scoped);
+      // pick this one. Orgs with no `credit_balances` row come back with
+      // has_balance=false → we show "—" but still allow a manual adjustment.
+      const res = await fetch("/api/super-admin/credits", { cache: "no-store" });
+      if (!res.ok) {
+        setCredits(null);
+        return;
+      }
+      const data = await res.json();
+      const row = (data?.organizations || []).find(
+        (o: any) => o.organization_id === orgId
+      );
+      if (!row || !row.has_balance) {
+        setCredits(null);
+        return;
+      }
+      setCredits({
+        subscription_credits: Number(row.subscription_credits) || 0,
+        purchased_credits: Number(row.purchased_credits) || 0,
+        total: Number(row.total) || 0,
+      });
+    } catch {
+      setCredits(null);
+    } finally {
+      setCreditsLoading(false);
+    }
+  }
+
+  async function handleAdjustCredits() {
+    // The route only accepts non-zero integers.
+    const amount = Math.trunc(Number(adjustAmount));
+    if (!Number.isFinite(amount) || amount === 0) return;
+
+    setAdjusting(true);
+    setAdjustMsg(null);
+    try {
+      const res = await fetch("/api/super-admin/credits/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: orgId,
+          amount,
+          note: adjustNote || null,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setAdjustMsg({
+          type: "error",
+          text: data?.error || tCredits("adjustError"),
+        });
+        return;
+      }
+      // The route returns the post-adjustment balance — apply it directly.
+      setCredits({
+        subscription_credits: Number(data.subscription_credits) || 0,
+        purchased_credits: Number(data.purchased_credits) || 0,
+        total: Number(data.total) || 0,
+      });
+      setAdjustMsg({ type: "success", text: tCredits("adjustSuccess") });
+      setAdjustAmount("");
+      setAdjustNote("");
+    } catch {
+      setAdjustMsg({ type: "error", text: tCredits("adjustError") });
+    } finally {
+      setAdjusting(false);
+    }
+  }
 
   async function loadStats() {
     setStatsLoading(true);
@@ -568,9 +658,98 @@ export default function OrganizationDetailPage() {
       )}
 
       {activeTab === "billing" && (
-        <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-8 text-center">
-          <CreditCard className="mx-auto h-10 w-10 text-[#52525B]" />
-          <p className="mt-3 text-sm text-[#71717A]">Historique de facturation — bientôt disponible (Stripe)</p>
+        <div className="space-y-4">
+          {/* Credits balance + manual adjustment */}
+          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-display text-[15px] font-bold text-[#FAFAFA]">
+                <Coins className="h-4 w-4 text-[#F97316]" />
+                {tCredits("title")}
+              </h3>
+              <button
+                type="button"
+                onClick={loadCredits}
+                disabled={creditsLoading}
+                className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-2.5 py-1.5 text-[11px] text-[#A1A1AA] hover:bg-[#27272A] disabled:opacity-50"
+              >
+                <RotateCcw className={`h-3 w-3 ${creditsLoading ? "animate-spin" : ""}`} />
+                {tCredits("refresh")}
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { label: tCredits("totalCredits"), value: credits?.total, accent: "text-[#F97316]" },
+                { label: tCredits("subscriptionCredits"), value: credits?.subscription_credits, accent: "text-[#FAFAFA]" },
+                { label: tCredits("purchasedCredits"), value: credits?.purchased_credits, accent: "text-[#FAFAFA]" },
+              ].map((card) => (
+                <div key={card.label} className="rounded-lg border border-[#27272A] bg-[#0F0F11] px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-wide text-[#71717A]">{card.label}</div>
+                  <div className={`mt-1 font-display text-[22px] font-extrabold tabular-nums ${card.accent}`}>
+                    {typeof card.value === "number" ? card.value : "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Manual adjustment */}
+            <div className="mt-5 border-t border-[#27272A] pt-4">
+              <h4 className="text-[12px] font-semibold text-[#FAFAFA]">
+                {tCredits("adjustTitle")}
+              </h4>
+
+              {adjustMsg && (
+                <div
+                  className={`mt-2 rounded-md px-3 py-2 text-[11px] ${
+                    adjustMsg.type === "success"
+                      ? "border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]"
+                      : "border border-[#EF4444]/20 bg-[#EF4444]/10 text-[#EF4444]"
+                  }`}
+                >
+                  {adjustMsg.text}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="sm:w-40">
+                  <label className="mb-1 block text-[11px] text-[#A1A1AA]">
+                    {tCredits("adjustAmount")}
+                  </label>
+                  <input
+                    type="number"
+                    value={adjustAmount}
+                    onChange={(e) => setAdjustAmount(e.target.value)}
+                    placeholder="+100 / -50"
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#F97316] focus:outline-none"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] text-[#A1A1AA]">
+                    {tCredits("adjustNote")}
+                  </label>
+                  <input
+                    value={adjustNote}
+                    onChange={(e) => setAdjustNote(e.target.value)}
+                    className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-3 py-2 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAdjustCredits}
+                  disabled={adjusting || !adjustAmount || Number(adjustAmount) === 0}
+                  className="flex items-center justify-center gap-1.5 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50"
+                >
+                  {adjusting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {tCredits("adjustSubmit")}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-8 text-center">
+            <CreditCard className="mx-auto h-10 w-10 text-[#52525B]" />
+            <p className="mt-3 text-sm text-[#71717A]">Historique de facturation — bientôt disponible (Stripe)</p>
+          </div>
         </div>
       )}
 

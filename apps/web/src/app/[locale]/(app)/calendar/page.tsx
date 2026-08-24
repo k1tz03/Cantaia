@@ -29,6 +29,8 @@ import type {
   TeamMemberAvailability,
   AICommandResult,
 } from "@cantaia/core/calendar";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -285,6 +287,11 @@ export default function CalendarPage() {
         }),
       });
 
+      // Crédits insuffisants : la modale paywall remplace le toast d'erreur.
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         console.error("[Calendar AI] API error:", res.status, errData);
@@ -296,6 +303,7 @@ export default function CalendarPage() {
 
       if (data.success && result?.action !== "unknown") {
         toast.success(result.message);
+        notifyCreditsChanged();
         if (result.action === "create_event") {
           await fetchEvents();
         }

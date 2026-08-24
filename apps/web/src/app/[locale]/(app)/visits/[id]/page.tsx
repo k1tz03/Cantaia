@@ -27,6 +27,8 @@ import type { ClientVisit, VisitPhoto } from "@cantaia/database";
 import { PhotoGallery } from "@/components/visits/PhotoGallery";
 import { PhotoCapture } from "@/components/visits/PhotoCapture";
 import { HandwrittenNotesResult } from "@/components/visits/HandwrittenNotesResult";
+import { handleInsufficientCredits } from "@/components/credits/PaywallDialog";
+import { notifyCreditsChanged } from "@/lib/hooks/use-credits";
 
 type Tab = "report" | "transcription" | "photos" | "tasks" | "documents";
 
@@ -249,10 +251,15 @@ function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: ()
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visit_id: visit.id }),
       });
+      // Crédits insuffisants : la modale paywall remplace le message d'erreur.
+      if (await handleInsufficientCredits(res)) {
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "L'opération a échoué. Réessayez plus tard.");
       }
+      notifyCreditsChanged();
       onRetried();
     } catch (err) {
       setError(err instanceof Error ? err.message : "L'opération a échoué.");
