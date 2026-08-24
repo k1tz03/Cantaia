@@ -14,10 +14,12 @@ import {
   XCircle,
 } from "lucide-react";
 import type { VisitPhoto, HandwrittenNotesAnalysis } from "@cantaia/database";
-import { createClient } from "@/lib/supabase/client";
+
+/** `signed_url` is added by GET /api/visits/photos (private bucket). */
+type VisitPhotoWithUrl = VisitPhoto & { signed_url?: string | null };
 
 interface HandwrittenNotesResultProps {
-  photo: VisitPhoto;
+  photo: VisitPhotoWithUrl;
   onAnalysisComplete?: () => void;
 }
 
@@ -29,11 +31,8 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
   const analysis = photo.ai_analysis_result as HandwrittenNotesAnalysis | null;
   const status = photo.ai_analysis_status;
 
-  function getPublicUrl(fileUrl: string) {
-    const supabase = createClient();
-    const { data } = supabase.storage.from("audio").getPublicUrl(fileUrl);
-    return data.publicUrl;
-  }
+  // Private bucket — the API provides a signed URL.
+  const photoUrl = photo.signed_url || "";
 
   async function handleAnalyze() {
     setAnalyzing(true);
@@ -80,7 +79,7 @@ export function HandwrittenNotesResult({ photo, onAnalysisComplete }: Handwritte
         <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[#27272A] bg-[#27272A]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={getPublicUrl(photo.file_url)}
+            src={photoUrl}
             alt={photo.caption || "Notes manuscrites"}
             className="h-full w-full object-cover"
           />

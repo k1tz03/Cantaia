@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-type PriceSource = 'historique_interne' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
+type PriceSource = 'historique_interne' | 'donnees_communautaires' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
 
 interface PosteChiffre {
   cfc_code: string;
@@ -23,6 +23,9 @@ function formatCHF(n: number | null | undefined): string {
 function SourceBadge({ source }: { source: PriceSource }) {
   const config: Record<string, { label: string; className: string }> = {
     historique_interne: { label: "Historique", className: "bg-green-100 text-green-800 dark:text-green-300" },
+    // Agrégat cross-organisations (mv_reference_prices) — pas l'historique
+    // de l'utilisateur, cf. B11.
+    donnees_communautaires: { label: "Communautaire", className: "bg-teal-100 text-teal-800 dark:text-teal-300" },
     benchmark_cantaia: { label: "Benchmark", className: "bg-blue-100 text-blue-800 dark:text-blue-300" },
     referentiel_crb: { label: "CRB", className: "bg-yellow-100 text-yellow-800 dark:text-yellow-300" },
     ratio_estimation: { label: "Ratio", className: "bg-orange-100 text-orange-800 dark:text-orange-300" },
@@ -38,6 +41,8 @@ interface Props {
   poste: PosteChiffre;
   onSave: (data: { prix_reel: number; source: string; fournisseur_nom?: string }) => Promise<void>;
   onClose: () => void;
+  /** Erreur d'enregistrement remontée par le parent (cf. B3/B9). */
+  error?: string;
 }
 
 const SOURCES = [
@@ -46,7 +51,7 @@ const SOURCES = [
   { value: 'correction_manuelle', label: 'Correction manuelle' },
 ];
 
-export default function PriceCalibrationModal({ poste, onSave, onClose }: Props) {
+export default function PriceCalibrationModal({ poste, onSave, onClose, error }: Props) {
   const [prixReel, setPrixReel] = useState<string>('');
   const [source, setSource] = useState<string>('offre_fournisseur');
   const [fournisseur, setFournisseur] = useState('');
@@ -147,6 +152,12 @@ export default function PriceCalibrationModal({ poste, onSave, onClose }: Props)
           <div className="text-xs text-[#8A9CA8] bg-[#F97316]/10 rounded p-2">
             Ce prix réel calibrera automatiquement les estimations futures pour ce type de poste.
           </div>
+
+          {error && (
+            <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">

@@ -2,8 +2,16 @@
 // Cantaia — Centralized AI Prompts
 // ============================================================
 
-export interface EmailClassifyContext {
+// The email classification prompt is split in two blocks for prompt caching:
+// - SYSTEM block: stable instructions + the user's projects list (identical across
+//   every email of a sync batch) → carries cache_control ephemeral.
+// - USER block: the email content itself (unique per call) → never cached.
+
+export interface EmailClassifySystemContext {
   projects_list: string;
+}
+
+export interface EmailClassifyUserContext {
   sender_email: string;
   sender_name: string;
   subject: string;
@@ -12,20 +20,13 @@ export interface EmailClassifyContext {
   recipients?: string;
 }
 
-export function buildEmailClassifyPrompt(ctx: EmailClassifyContext): string {
-  return `Tu es un expert en gestion de projets de construction suisse. Analyse cet email et détermine à quel projet il appartient.
+/** @deprecated kept for typing compatibility — prefer the system/user pair */
+export interface EmailClassifyContext
+  extends EmailClassifySystemContext,
+    EmailClassifyUserContext {}
 
-PROJETS ACTIFS DE L'UTILISATEUR :
-${ctx.projects_list}
-Chaque projet a un nom, un code, des mots-clés, des expéditeurs connus, une ville et un client.
-
-EMAIL À CLASSIFIER :
-- Expéditeur : ${ctx.sender_name} <${ctx.sender_email}>
-- Destinataires (TO/CC) : ${ctx.recipients || "non disponibles"}
-- Objet : ${ctx.subject}
-- Date : ${ctx.received_at}
-- Contenu COMPLET :
-${ctx.body_content}
+export function buildEmailClassifySystemPrompt(ctx: EmailClassifySystemContext): string {
+  return `Tu es un expert en gestion de projets de construction suisse. On te soumet des emails un par un ; pour chaque email, détermine à quel projet il appartient.
 
 ANALYSE EN 3 CAS :
 
@@ -120,7 +121,21 @@ Réponds UNIQUEMENT en JSON :
   "supplier_match": "<nom du fournisseur/prestataire identifiable ou null>",
   "delay_detected": <true|false>,
   "order_confirmation": <true|false>
-}`;
+}
+
+PROJETS ACTIFS DE L'UTILISATEUR :
+${ctx.projects_list}
+Chaque projet a un nom, un code, des mots-clés, des expéditeurs connus, une ville et un client.`;
+}
+
+export function buildEmailClassifyUserPrompt(ctx: EmailClassifyUserContext): string {
+  return `EMAIL À CLASSIFIER :
+- Expéditeur : ${ctx.sender_name} <${ctx.sender_email}>
+- Destinataires (TO/CC) : ${ctx.recipients || "non disponibles"}
+- Objet : ${ctx.subject}
+- Date : ${ctx.received_at}
+- Contenu COMPLET :
+${ctx.body_content}`;
 }
 
 export interface TaskExtractContext {

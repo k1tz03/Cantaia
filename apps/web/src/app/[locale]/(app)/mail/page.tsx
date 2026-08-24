@@ -2395,10 +2395,12 @@ function ReplyModal({ email, signature, onClose, onDone }: {
                 )}
 
                 {/* Signature preview (supports rich HTML) */}
+                {/* B14: run through the same DOMPurify pipeline as email bodies —
+                    the signature is user-authored HTML stored server-side. */}
                 {signature?.trim() && (
                   <div className="mt-3 border-t border-dashed border-[#27272A] pt-3">
                     <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1.5">Signature</p>
-                    <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: signature }} />
+                    <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(signature)) }} />
                   </div>
                 )}
               </div>
@@ -2468,35 +2470,55 @@ function DelegateModal({ email, orgMembers, onClose, onDone }: {
 
   const handleDelegate = async () => {
     if (!selectedMember) return;
+    setDelegateError(null);
     setSending(true);
     try {
       const member = orgMembers.find((m) => m.id === selectedMember);
-      if (member) {
-        await fetch("/api/email/send", {
+      if (!member) {
+        setDelegateError(t("delegateModal.error"));
+        setSending(false);
+        return;
+      }
+
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [member.email],
+          subject: t("email.fwdPrefix", { subject: email.subject }),
+          body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
+          forward_id: email.outlook_message_id,
+        }),
+      });
+
+      // B3: a non-2xx response used to be ignored — the modal closed and the
+      // email was dismissed even though nothing was sent.
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const errData = await res.json();
+          detail = errData?.error || errData?.message || "";
+        } catch { /* non-JSON error body */ }
+        setDelegateError(detail ? `${t("delegateModal.error")} (${detail})` : t("delegateModal.error"));
+        setSending(false);
+        return;
+      }
+
+      try {
+        await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: [member.email],
-            subject: t("email.fwdPrefix", { subject: email.subject }),
-            body: `${message ? `<p>${message}</p><hr>` : ""}${emailBody}`,
-            forward_id: email.outlook_message_id,
+            title: t("delegateModal.taskTitle", { subject: email.subject }),
+            description: message || t("delegateModal.taskDescription", { sender: email.sender_name || email.sender_email }),
+            assigned_to: member.id,
+            project_id: email.project_id,
+            source: "email",
+            priority: email.priority === "urgent" ? "high" : "medium",
           }),
         });
-        try {
-          await fetch("/api/tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: t("delegateModal.taskTitle", { subject: email.subject }),
-              description: message || t("delegateModal.taskDescription", { sender: email.sender_name || email.sender_email }),
-              assigned_to: member.id,
-              project_id: email.project_id,
-              source: "email",
-              priority: email.priority === "urgent" ? "high" : "medium",
-            }),
-          });
-        } catch { /* non-blocking */ }
-      }
+      } catch { /* non-blocking */ }
+
       onDone(email.id);
     } catch {
       setDelegateError(t("delegateModal.error"));
@@ -2593,9 +2615,10 @@ function TransferModal({ email, onClose, onDone }: {
 
   const handleTransfer = async () => {
     if (!toEmail.trim()) return;
+    setTransferError(null);
     setSending(true);
     try {
-      await fetch("/api/email/send", {
+      const res = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2605,6 +2628,19 @@ function TransferModal({ email, onClose, onDone }: {
           forward_id: email.outlook_message_id,
         }),
       });
+
+      // B3: only dismiss the email once the send actually succeeded.
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const errData = await res.json();
+          detail = errData?.error || errData?.message || "";
+        } catch { /* non-JSON error body */ }
+        setTransferError(detail ? `${t("transferModal.error")} (${detail})` : t("transferModal.error"));
+        setSending(false);
+        return;
+      }
+
       onDone(email.id);
     } catch {
       setTransferError(t("transferModal.error"));
@@ -2969,7 +3005,8 @@ function ComposeModal({ signature, onClose, onSent }: { signature?: string; onCl
             {signature?.trim() && (
               <div className="mt-2 border-t border-dashed border-[#27272A] pt-2">
                 <p className="text-[10px] uppercase tracking-wider text-[#52525B] mb-1">Signature (ajoutée automatiquement)</p>
-                <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: signature }} />
+                {/* B14: sanitize the stored HTML signature like any other email body */}
+                <div className="bg-white rounded p-2 text-xs text-black [&_img]:max-w-full [&_img]:h-auto [&_a]:text-blue-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(safeStr(signature)) }} />
               </div>
             )}
             {/* Attachment chips */}

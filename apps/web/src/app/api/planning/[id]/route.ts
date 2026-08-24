@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { addWorkingDays } from "@cantaia/core/planning";
 
 /**
  * GET /api/planning/[id]
@@ -183,11 +184,16 @@ export async function PATCH(
           }
         }
 
-        // Recalculate end_date if start_date and duration changed
+        // Recalculate end_date if start_date and duration changed.
+        // Durations are expressed in WORKING days (same convention as the
+        // generator), so the offset must skip week-ends — otherwise the Gantt
+        // drifts every time a task is edited.
         if (updates.start_date || updates.duration_days) {
           const startDate = new Date(updates.start_date || existingTask?.start_date || new Date());
-          const endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + (updates.duration_days ?? existingTask?.duration_days ?? 0));
+          const endDate = addWorkingDays(
+            startDate,
+            updates.duration_days ?? existingTask?.duration_days ?? 0,
+          );
           updates.end_date = endDate.toISOString().split("T")[0];
         }
       }
@@ -214,22 +220,69 @@ export async function PATCH(
       return NextResponse.json({ success: true });
     }
 
-    // Case 2: Update planning-level fields
+    // Case 2: Delete a task — the Gantt client sends { delete_task_id }
+    if (body.delete_task_id) {
+      return handleCrudAction(
+        { action: "delete_task", task_id: body.delete_task_id },
+        id,
+        admin,
+        userProfile.organization_id,
+      );
+    }
+
+    // Case 3: Create a dependency — { add_dependency: { predecessor_id, successor_id, dependency_type, lag_days } }
+    if (body.add_dependency) {
+      return handleAddDependency(body.add_dependency, id, admin);
+    }
+
+    // Case 4: Delete a dependency — { delete_dependency_id }
+    if (body.delete_dependency_id) {
+      const { error: depDeleteError } = await (admin as any)
+        .from("planning_dependencies")
+        .delete()
+        .eq("id", body.delete_dependency_id)
+        .eq("planning_id", id);
+
+      if (depDeleteError) {
+        return NextResponse.json({ error: depDeleteError.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Case 5: Update a phase — { phase_id, name, ... }
+    if (body.phase_id) {
+      const { phase_id, ...phaseUpdates } = body;
+      return handleCrudAction(
+        { action: "update_phase", phase_id, updates: phaseUpdates },
+        id,
+        admin,
+        userProfile.organization_id,
+      );
+    }
+
+    // Case 6: Update planning-level fields
     const allowedPlanningFields = ["title", "status"];
     const safeUpdates: Record<string, any> = {};
     for (const key of allowedPlanningFields) {
       if (body[key] !== undefined) safeUpdates[key] = body[key];
     }
 
-    if (Object.keys(safeUpdates).length > 0) {
-      const { error: updateError } = await (admin as any)
-        .from("project_plannings")
-        .update(safeUpdates)
-        .eq("id", id);
+    // No silent no-op: an unrecognised payload used to return success:true
+    // without writing anything, which made Gantt edits vanish on reload.
+    if (Object.keys(safeUpdates).length === 0) {
+      return NextResponse.json(
+        { error: "Unrecognized PATCH payload — expected action, task_id, delete_task_id, add_dependency, delete_dependency_id, phase_id, title or status" },
+        { status: 400 },
+      );
+    }
 
-      if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
-      }
+    const { error: updateError } = await (admin as any)
+      .from("project_plannings")
+      .update(safeUpdates)
+      .eq("id", id);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -290,6 +343,88 @@ export async function DELETE(
     console.error("[planning/[id]] DELETE error:", err);
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
+}
+
+// ─── Dependency creation ────────────────────────────────────────────────────
+
+const DEPENDENCY_TYPES = ["FS", "FF", "SS", "SF"] as const;
+
+/**
+ * Insert a manual dependency between two tasks of the same planning.
+ * Validates the dependency type and that BOTH tasks belong to this planning
+ * (defence in depth — the planning itself is already org-scoped by the caller).
+ */
+async function handleAddDependency(
+  dep: any,
+  planningId: string,
+  admin: any,
+): Promise<NextResponse> {
+  const predecessorId = dep?.predecessor_id;
+  const successorId = dep?.successor_id;
+  const dependencyType = String(dep?.dependency_type || "FS").toUpperCase();
+  const lagDays = Number.isFinite(Number(dep?.lag_days)) ? Math.trunc(Number(dep.lag_days)) : 0;
+
+  if (!predecessorId || !successorId) {
+    return NextResponse.json(
+      { error: "predecessor_id and successor_id are required" },
+      { status: 400 },
+    );
+  }
+
+  if (predecessorId === successorId) {
+    return NextResponse.json(
+      { error: "A task cannot depend on itself" },
+      { status: 400 },
+    );
+  }
+
+  if (!DEPENDENCY_TYPES.includes(dependencyType as (typeof DEPENDENCY_TYPES)[number])) {
+    return NextResponse.json(
+      { error: `dependency_type must be one of ${DEPENDENCY_TYPES.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
+  // Both tasks must belong to this planning
+  const { data: tasks, error: tasksError } = await (admin as any)
+    .from("planning_tasks")
+    .select("id")
+    .eq("planning_id", planningId)
+    .in("id", [predecessorId, successorId]);
+
+  if (tasksError) {
+    return NextResponse.json({ error: tasksError.message }, { status: 500 });
+  }
+
+  if (!tasks || tasks.length !== 2) {
+    return NextResponse.json(
+      { error: "Both tasks must belong to this planning" },
+      { status: 400 },
+    );
+  }
+
+  const { data: newDep, error } = await (admin as any)
+    .from("planning_dependencies")
+    .insert({
+      planning_id: planningId,
+      predecessor_id: predecessorId,
+      successor_id: successorId,
+      dependency_type: dependencyType,
+      lag_days: lagDays,
+      source: "manual",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    // 23505 = unique violation on (predecessor_id, successor_id)
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "This dependency already exists" }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, dependency: newDep });
 }
 
 // ─── Action-based CRUD handler ──────────────────────────────────────────────

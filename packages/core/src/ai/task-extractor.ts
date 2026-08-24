@@ -51,7 +51,7 @@ export async function extractTasks(
     const response = await client.messages.create({
       model,
       max_tokens: 1024,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+      messages: [{ role: "user", content: prompt }],
     });
 
     // Fire-and-forget usage tracking

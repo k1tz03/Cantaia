@@ -133,7 +133,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET — list tasks for the current user (filtered by project membership)
+// Tasks lists are consumed unpaginated by the UI (counters, project health,
+// Kanban), so the default has to cover a realistic org rather than silently
+// truncating at 50.
+const DEFAULT_TASKS_LIMIT = 500;
+const MAX_TASKS_LIMIT = 1000;
+
+// GET — list tasks for the current user's organization
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -147,24 +153,41 @@ export async function GET(request: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Get user's projects via project_members
-    const { data: memberships } = await admin
-      .from("project_members")
-      .select("project_id")
-      .eq("user_id", user.id);
+    // Org-wide scope: project_members is not maintained for every project, so a
+    // manager who is not an explicit member used to see an empty list (and the
+    // Direction counters read 0).
+    const { data: userProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    const projectIds = (memberships || []).map((m: any) => m.project_id);
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ success: true, tasks: [], projects: [] });
+    }
+
+    const { data: orgProjects } = await admin
+      .from("projects")
+      .select("id, name, code, color")
+      .eq("organization_id", userProfile.organization_id);
+
+    const projectIds = (orgProjects || []).map((p: any) => p.id);
 
     if (projectIds.length === 0) {
       return NextResponse.json({ success: true, tasks: [], projects: [] });
     }
 
     // Pagination
-    const page = parseInt(request.nextUrl.searchParams.get("page") || "1");
-    const limit = Math.min(parseInt(request.nextUrl.searchParams.get("limit") || "50"), 100);
+    const parsedPage = parseInt(request.nextUrl.searchParams.get("page") || "1");
+    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const parsedLimit = parseInt(request.nextUrl.searchParams.get("limit") || String(DEFAULT_TASKS_LIMIT));
+    const limit = Math.min(
+      Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : DEFAULT_TASKS_LIMIT,
+      MAX_TASKS_LIMIT,
+    );
     const offset = (page - 1) * limit;
 
-    // Fetch tasks for user's projects
+    // Fetch tasks for the org's projects
     const projectId = request.nextUrl.searchParams.get("project_id");
 
     let query = admin
@@ -188,16 +211,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Also fetch projects for display
-    const { data: projects } = await admin
-      .from("projects")
-      .select("id, name, code, color")
-      .in("id", projectIds);
-
     const response = NextResponse.json({
       success: true,
       tasks: tasks || [],
-      projects: projects || [],
+      projects: orgProjects || [],
     });
     if (count !== null) response.headers.set("X-Total-Count", String(count));
     return response;

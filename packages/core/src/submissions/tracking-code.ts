@@ -112,12 +112,19 @@ export function extractTrackingCode(
  * to a price request record.
  *
  * Steps:
- * 1. Query price_requests where id starts with the shortId
+ * 1. Query price_requests whose UUID starts with the shortId
  * 2. For each candidate, regenerate the HMAC hash and compare
  * 3. Return the verified match with supplier_id and submission_id
  *
  * Returns null if no valid match is found (invalid hash or no
  * matching price request in the organization).
+ *
+ * M4: `id` is a `uuid` column — `LIKE` is not defined for it
+ * (`operator does not exist: uuid ~~ unknown`), so the previous
+ * `.like("id", "<shortId>%")` made every call fail and return null.
+ * The shortId is exactly the first UUID group (8 hex chars), so a
+ * bounded range on the uuid type gives the same prefix match and
+ * uses the primary-key index.
  */
 export async function validateAndResolvePriceRequest(
   supabase: any,
@@ -128,14 +135,24 @@ export async function validateAndResolvePriceRequest(
   supplierId: string;
   submissionId: string;
 } | null> {
-  // Query candidates whose UUID starts with the shortId
+  const shortId = (trackingCode.shortId || "").toLowerCase();
+  if (!/^[0-9a-f]{8}$/.test(shortId)) {
+    return null;
+  }
+
+  // Prefix match expressed as a uuid range: <shortId>-0000-… → <shortId>-ffff-…
   const { data: candidates, error } = await supabase
     .from("price_requests")
     .select("id, supplier_id, submission_id, organization_id")
     .eq("organization_id", organizationId)
-    .like("id", `${trackingCode.shortId}%`);
+    .gte("id", `${shortId}-0000-0000-0000-000000000000`)
+    .lte("id", `${shortId}-ffff-ffff-ffff-ffffffffffff`);
 
-  if (error || !candidates || candidates.length === 0) {
+  if (error) {
+    console.warn("[tracking-code] price_requests lookup failed:", error.message);
+    return null;
+  }
+  if (!candidates || candidates.length === 0) {
     return null;
   }
 

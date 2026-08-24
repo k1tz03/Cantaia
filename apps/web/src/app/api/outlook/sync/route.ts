@@ -8,9 +8,38 @@ import { isPotentialPlan, detectPlansInEmail, savePlanFromAttachment } from "@ca
 import { getAttachments as graphGetAttachments } from "@cantaia/core/outlook";
 import { trackApiUsage, logActivityAsync } from "@cantaia/core/tracking";
 import { checkLocalRules, detectSpamNewsletter, getEmailProvider, isTokenExpired, archiveEmail, type ArchiveableEmail, type ArchiveProjectConfig, type EmailConnectionConfig } from "@cantaia/core/emails";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // Allow up to 5 minutes for bulk syncs (500+ emails with classification pipeline)
 export const maxDuration = 300;
+
+/**
+ * Lightweight action-signal detection used by the local classification levels
+ * (L1 learned rules, L2b keywords). These levels only decide *which project* an
+ * email belongs to — they must not silently downgrade an urgent email to
+ * "info_only" (B12). When the subject/preview carries an explicit ask, we keep
+ * the email in the action queue.
+ */
+const ACTION_HINT_PATTERNS: RegExp[] = [
+  // FR
+  /\b(urgent|urgence|asap|d[eè]s que possible|au plus vite)\b/i,
+  /\b(merci de|pri[eè]re de|veuillez|pouvez-vous|pourriez-vous|peux-tu|peux tu)\b/i,
+  /\b(relance|rappel|[àa] valider|validation|pour validation|pour approbation|approbation)\b/i,
+  /\b(d[ée]lai|[ée]ch[ée]ance|deadline|avant le|d'ici (le|au)|retour attendu|dans l'attente)\b/i,
+  /\b(action requise|[àa] faire|[àa] traiter|r[ée]ponse (attendue|souhait[ée]e)|confirmez|confirmer)\b/i,
+  /\b(devis|offre de prix|demande de prix|bon de commande|signature|signer)\b/i,
+  // DE
+  /\b(dringend|bitte um|r[üu]ckmeldung|frist|termin|erinnerung|freigabe|best[äa]tigen)\b/i,
+  // EN
+  /\b(urgent|asap|please (send|confirm|review|approve)|action required|reply|deadline|due (by|date)|follow[- ]up|reminder)\b/i,
+];
+
+function hasActionHints(subject?: string | null, bodyPreview?: string | null): boolean {
+  const text = `${subject || ""} ${bodyPreview || ""}`;
+  if (!text.trim()) return false;
+  return ACTION_HINT_PATTERNS.some((re) => re.test(text));
+}
 
 /** Strip HTML tags from email body for AI classification */
 function stripHtml(html: string): string {
@@ -36,6 +65,12 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 1b. Rate limit: a sync fans out to ~100 Claude calls, so cap it per user (B6)
+  const limitResult = await rateLimit(`sync:user:${user.id}`, { limit: 6, windowSec: 3600 });
+  if (!limitResult.allowed) {
+    return rateLimitResponse(limitResult) as unknown as NextResponse;
   }
 
   const adminClient = createAdminClient();
@@ -134,8 +169,38 @@ export async function POST(request: Request) {
   }
 
   // 4. Reset expired snoozes → back to unprocessed
-  // Snooze reset disabled — triage_status/snooze_until columns not yet in DB
-  const snoozesReset = 0;
+  // triage_status / snooze_until exist since migration 019b.
+  let snoozesReset = 0;
+  try {
+    const { data: expiredSnoozes } = await (adminClient as any)
+      .from("email_records")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("triage_status", "snoozed")
+      .not("snooze_until", "is", null)
+      .lt("snooze_until", new Date().toISOString())
+      .limit(500);
+
+    const expiredIds = (expiredSnoozes || []).map((e: { id: string }) => e.id);
+    if (expiredIds.length > 0) {
+      const { error: resetErr } = await (adminClient as any)
+        .from("email_records")
+        .update({
+          triage_status: "unprocessed",
+          snooze_until: null,
+          process_action: null,
+          is_processed: false,
+        })
+        .in("id", expiredIds);
+      if (resetErr) {
+        console.warn("[sync] Snooze reset failed (non-fatal):", resetErr.message);
+      } else {
+        snoozesReset = expiredIds.length;
+      }
+    }
+  } catch (snoozeErr) {
+    console.warn("[sync] Snooze reset skipped (non-fatal):", snoozeErr);
+  }
 
   // 5. Pre-load archive-enabled projects for auto-archiving
   const archiveProjectsMap = new Map<string, {
@@ -218,13 +283,49 @@ export async function POST(request: Request) {
   // which can cascade incorrectly (e.g., a sender rule overriding AI classification).
   const { data: unprocessedEmails } = await (adminClient as any)
     .from("email_records")
-    .select("id, subject, sender_email, sender_name, body_preview, received_at, project_id, classification, classification_status, is_processed, has_attachments, outlook_message_id, recipients")
+    // body_text / body_html are required by archiveEmail() — without them the
+    // generated .eml was truncated to the 500-char preview (B2).
+    .select("id, subject, sender_email, sender_name, body_preview, body_text, body_html, received_at, project_id, classification, classification_status, is_processed, has_attachments, outlook_message_id, recipients")
     .eq("user_id", user.id)
     .eq("is_processed", false)
     .order("received_at", { ascending: false })
     .limit(100);
 
   if (process.env.NODE_ENV === "development") console.log(`[sync] ${(unprocessedEmails || []).length} unprocessed emails to classify, ${projects.length} projects available`);
+
+  // ── AI quota gate (B6) ──
+  // A single sync can fan out to ~100 Claude calls (L3) plus Haiku calls (L0b
+  // price extraction). Check the plan quota ONCE, up front: when exhausted we
+  // skip every AI step but keep the free local levels (L0, L1, L2, L2b) running.
+  let aiQuotaExceeded = false;
+  let aiQuotaInfo: { current: number; limit: number; required_plan: string } | null = null;
+  if (anthropicApiKey && userOrg?.organization_id) {
+    try {
+      const { data: orgPlan } = await (adminClient as any)
+        .from("organizations")
+        .select("subscription_plan")
+        .eq("id", userOrg.organization_id)
+        .maybeSingle();
+
+      const usageCheck = await checkUsageLimit(
+        adminClient,
+        userOrg.organization_id,
+        orgPlan?.subscription_plan || "trial"
+      );
+      if (!usageCheck.allowed) {
+        aiQuotaExceeded = true;
+        aiQuotaInfo = {
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          required_plan: usageCheck.requiredPlan,
+        };
+        console.warn(`[sync] AI quota reached for org ${userOrg.organization_id} (${usageCheck.current}/${usageCheck.limit}) — AI classification skipped`);
+      }
+    } catch (quotaErr) {
+      // Never block the sync on a quota lookup failure
+      console.warn("[sync] Usage limit check failed (non-fatal):", quotaErr);
+    }
+  }
 
   for (const email of unprocessedEmails || []) {
     try {
@@ -363,8 +464,13 @@ export async function POST(request: Request) {
                     if (fetchedBody) emailBody = fetchedBody;
                   }
 
-                  if (emailBody.length > 10) {
-                    const extractedPrices = await extractPricesForL0b(emailBody, requestedItems);
+                  if (emailBody.length > 10 && !aiQuotaExceeded) {
+                    const extractedPrices = await extractPricesForL0b(emailBody, requestedItems, {
+                      supabase: adminClient,
+                      userId: user.id,
+                      organizationId: userOrg?.organization_id ?? "",
+                      emailId: email.id,
+                    });
 
                     if (extractedPrices.length > 0) {
                       const quotesToInsert = extractedPrices
@@ -449,7 +555,12 @@ export async function POST(request: Request) {
             .from("email_records")
             .update({
               project_id: localMatch.projectId,
-              classification: "info_only",
+              // B12: a learned sender rule only tells us WHICH project — never
+              // downgrade an existing classification, and default to
+              // action_required when the email carries an explicit ask.
+              classification:
+                email.classification ||
+                (hasActionHints(email.subject, email.body_preview) ? "action_required" : "info_only"),
               ai_classification_confidence: Math.round(localMatch.confidence * 100),
               ai_project_match_confidence: Math.round(localMatch.confidence * 100),
               ai_reasoning: "Classified by learned local rule (no AI call)",
@@ -485,6 +596,11 @@ export async function POST(request: Request) {
             ai_classification_confidence: Math.round(spamCheck.confidence * 100),
             ai_reasoning: spamCheck.reason,
             classification_status: "auto_classified",
+            // B5: auto-dismiss must actually take the email out of the decision
+            // queue, otherwise the "unprocessed" counter grows forever.
+            ...(shouldAutoDismiss
+              ? { is_processed: true, classification: "archived" as const }
+              : {}),
           })
           .eq("id", email.id);
         emailsClassified++;
@@ -513,7 +629,10 @@ export async function POST(request: Request) {
             .from("email_records")
             .update({
               project_id: keywordMatch.projectId,
-              classification: "info_only",
+              // B12: keyword matching identifies the project, not the urgency.
+              classification:
+                email.classification ||
+                (hasActionHints(email.subject, email.body_preview) ? "action_required" : "info_only"),
               ai_classification_confidence: Math.round(keywordMatch.confidence * 100),
               ai_project_match_confidence: Math.round(keywordMatch.confidence * 100),
               classification_status: "auto_classified",
@@ -539,8 +658,9 @@ export async function POST(request: Request) {
       // ═══════════════════════════════════════════════════════════
       // LEVEL 3: CLAUDE AI CLASSIFICATION
       // ═══════════════════════════════════════════════════════════
-      if (!anthropicApiKey) {
-        // No AI key — mark as unprocessed for manual classification
+      if (!anthropicApiKey || aiQuotaExceeded) {
+        // No AI key, or the org's monthly AI quota is exhausted (B6):
+        // mark as unprocessed so it stays in the manual classification queue.
         await (adminClient as any)
           .from("email_records")
           .update({
@@ -883,6 +1003,10 @@ export async function POST(request: Request) {
     plans_saved: plansSaved,
     spam_dismissed: spamDismissed,
     snoozes_reset: snoozesReset,
+    // B6: surface the quota state so the client can warn the user that emails
+    // were synced but not AI-classified.
+    ai_classification_skipped: aiQuotaExceeded,
+    ...(aiQuotaInfo ? { usage_limit: aiQuotaInfo } : {}),
   });
 }
 
@@ -1190,7 +1314,13 @@ async function buildBodyFetcher(
 
 async function extractPricesForL0b(
   emailContent: string,
-  requestedItems: any[]
+  requestedItems: any[],
+  tracking: {
+    supabase: ReturnType<typeof createAdminClient>;
+    userId: string;
+    organizationId: string;
+    emailId: string;
+  }
 ): Promise<any[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return [];
@@ -1229,10 +1359,24 @@ ${emailContent.substring(0, 8000)}
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic({ apiKey, timeout: 30_000 });
 
+    const model = "claude-haiku-4-5-20251001";
     const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model,
       max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    // B13: this Haiku call was previously invisible in api_usage_logs.
+    trackApiUsage({
+      supabase: tracking.supabase,
+      userId: tracking.userId,
+      organizationId: tracking.organizationId,
+      actionType: "price_extract",
+      apiProvider: "anthropic",
+      model,
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+      metadata: { email_id: tracking.emailId, level: "L0b" },
     });
 
     const text = response.content.find((c: any) => c.type === "text");

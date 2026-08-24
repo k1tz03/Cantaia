@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "@/i18n/navigation";
 
 export function Hazard({
   className = "",
@@ -316,6 +317,16 @@ export function ChantierButton({
   );
 
   if (href) {
+    // Internal links go through the next-intl Link so the active locale is
+    // preserved (a raw <a href="/pricing"> would drop /en/ or /de/).
+    if (href.startsWith("/")) {
+      return (
+        <Link href={href} className={cls}>
+          {content}
+        </Link>
+      );
+    }
+    // External links, mailto:, anchors… keep a plain <a>
     return (
       <a href={href} className={cls}>
         {content}

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import type {
   CalendarEvent,
   CalendarEventType,
 } from "@cantaia/core/calendar";
+import { toLocaleTag } from "./datetime-utils";
 
 // ── Props ─────────────────────────────────────────────────
 
@@ -38,13 +40,23 @@ const EVENT_TYPE_COLORS: Record<CalendarEventType, string> = {
 };
 
 const LEGEND_ITEMS = [
-  { type: "meeting" as const, label: "Reunion", color: "#3B82F6" },
-  { type: "site_visit" as const, label: "Visite", color: "#10B981" },
-  { type: "call" as const, label: "Appel", color: "#F59E0B" },
-  { type: "deadline" as const, label: "Deadline", color: "#EF4444" },
+  { type: "meeting" as const, labelKey: "typeMeeting", color: "#3B82F6" },
+  { type: "site_visit" as const, labelKey: "typeSiteVisitShort", color: "#10B981" },
+  { type: "call" as const, labelKey: "typeCall", color: "#F59E0B" },
+  { type: "deadline" as const, labelKey: "typeDeadline", color: "#EF4444" },
 ];
 
-const WEEK_DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+/** Localized short weekday labels, Monday first. */
+function useWeekdayLabels(localeTag: string): string[] {
+  return useMemo(() => {
+    const base = new Date(2026, 0, 5); // a Monday
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      return d.toLocaleDateString(localeTag, { weekday: "short" }).replace(/\.$/, "");
+    });
+  }, [localeTag]);
+}
 
 const AVAILABILITY_SLOTS = [
   { label: "08-10", start: 8, end: 10 },
@@ -115,6 +127,7 @@ function DayView({
   onSelectEvent,
   onCreateEvent,
 }: Omit<TimelineViewProps, "viewMode">) {
+  const t = useTranslations("calendar");
   const gridRef = useRef<HTMLDivElement>(null);
   const nowRef = useRef<HTMLDivElement>(null);
   const [nowMinutes, setNowMinutes] = useState<number>(() => {
@@ -211,7 +224,7 @@ function DayView({
           className="text-[13px] font-medium"
           style={{ color: "#71717A" }}
         >
-          Timeline du jour
+          {t("dayTimeline")}
         </span>
         <div className="flex items-center gap-3">
           {LEGEND_ITEMS.map((item) => (
@@ -224,7 +237,7 @@ function DayView({
                 className="text-[11px]"
                 style={{ color: "#A1A1AA" }}
               >
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </div>
           ))}
@@ -237,7 +250,7 @@ function DayView({
           className="text-[11px] font-medium mr-1"
           style={{ color: "#52525B" }}
         >
-          Dispo
+          {t("availabilityShort")}
         </span>
         {availability.map((slot) => (
           <div
@@ -260,7 +273,7 @@ function DayView({
               className="text-[9px]"
               style={{ color: "#52525B" }}
             >
-              {slot.freeCount}/{slot.totalSlots} dispo
+              {t("slotsAvailable", { free: slot.freeCount, total: slot.totalSlots })}
             </span>
           </div>
         ))}
@@ -469,6 +482,8 @@ function WeekView({
   onSelectEvent,
   onCreateEvent,
 }: Omit<TimelineViewProps, "viewMode">) {
+  const locale = useLocale();
+  const weekdayLabels = useWeekdayLabels(toLocaleTag(locale));
   const monday = useMemo(() => getMonday(selectedDate), [selectedDate]);
 
   const weekDays = useMemo(() => {
@@ -547,7 +562,7 @@ function WeekView({
                   color: dayIsToday ? "#F97316" : "#52525B",
                 }}
               >
-                {WEEK_DAYS_FR[i]}
+                {weekdayLabels[i]}
               </span>
               <span
                 className="text-[14px] font-semibold mt-0.5 w-7 h-7 flex items-center justify-center rounded-full"
@@ -716,12 +731,6 @@ function WeekView({
 
 // ── Month View ───────────────────────────────────────────
 
-const MONTH_DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const MONTH_NAMES_FR = [
-  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
-];
-
 /** Max event chips visible per cell before showing "+N" */
 const MAX_EVENTS_PER_CELL = 3;
 
@@ -740,6 +749,10 @@ function MonthView({
   onSelectEvent,
   onCreateEvent,
 }: Omit<TimelineViewProps, "viewMode">) {
+  const t = useTranslations("calendar");
+  const locale = useLocale();
+  const localeTag = toLocaleTag(locale);
+  const weekdayLabels = useWeekdayLabels(localeTag);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
   // Build the 6-row × 7-col grid
@@ -811,8 +824,8 @@ function MonthView({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#27272A]">
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium" style={{ color: "#71717A" }}>
-            {MONTH_NAMES_FR[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+          <span className="text-[13px] font-medium capitalize" style={{ color: "#71717A" }}>
+            {selectedDate.toLocaleDateString(localeTag, { month: "long", year: "numeric" })}
           </span>
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-bold"
@@ -821,7 +834,7 @@ function MonthView({
               color: "#F97316",
             }}
           >
-            {monthEventCount} evenement{monthEventCount !== 1 ? "s" : ""}
+            {t("eventCount", { count: monthEventCount })}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -832,7 +845,7 @@ function MonthView({
                 style={{ backgroundColor: item.color }}
               />
               <span className="text-[11px]" style={{ color: "#A1A1AA" }}>
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </div>
           ))}
@@ -844,7 +857,7 @@ function MonthView({
         className="grid grid-cols-7 border-b"
         style={{ borderColor: "#27272A" }}
       >
-        {MONTH_DAYS_FR.map((day, i) => (
+        {weekdayLabels.map((day, i) => (
           <div
             key={i}
             className="py-2 text-center text-[11px] font-semibold uppercase"
@@ -980,7 +993,7 @@ function MonthView({
                           backgroundColor: "rgba(249, 115, 22, 0.08)",
                         }}
                       >
-                        +{overflowCount} autre{overflowCount > 1 ? "s" : ""}
+                        {t("moreEvents", { count: overflowCount })}
                       </div>
                     )}
                   </div>

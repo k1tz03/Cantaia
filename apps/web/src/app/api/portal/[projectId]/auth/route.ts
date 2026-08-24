@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyPin, createPortalToken, getPortalCookieName, COOKIE_MAX_AGE_SECONDS } from "@/lib/portal/auth";
+import { rateLimit } from "@/lib/rate-limit";
 
-// Simple in-memory rate limiting (per-project)
-const attempts: Record<string, { count: number; blockedUntil: number }> = {};
-const MAX_ATTEMPTS = 5;
-const BLOCK_DURATION = 15 * 60 * 1000; // 15 min
+// Distributed rate limiting (migration 079 RPC, in-memory fallback in dev).
+// Two independent budgets:
+//   - per IP + project: stops a single attacker brute-forcing 10^6 PINs
+//   - per project:      caps total damage, but high enough that one attacker
+//                       cannot lock out the whole crew (the old in-memory
+//                       per-project counter blocked everyone after 5 tries)
+const PIN_WINDOW_SEC = 15 * 60; // 15 min
+const PIN_MAX_PER_IP = 5;
+const PIN_MAX_PER_PROJECT = 30;
+
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
+}
 
 export async function POST(
   request: NextRequest,
@@ -24,11 +36,21 @@ export async function POST(
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Rate limiting
-    const now = Date.now();
-    const key = projectId;
-    if (attempts[key] && attempts[key].blockedUntil > now) {
-      return NextResponse.json({ error: "Too many attempts. Try again later.", code: "RATE_LIMITED" }, { status: 429 });
+    // Rate limiting — persistent (survives serverless cold starts / instances)
+    // NOTE: a whole crew behind one site NAT shares an IP; the per-project
+    // budget is deliberately much higher so one attacker cannot lock them out.
+    const ip = getClientIp(request);
+    const [ipLimit, projectLimit] = await Promise.all([
+      rateLimit(`portal-pin:${projectId}:${ip}`, { limit: PIN_MAX_PER_IP, windowSec: PIN_WINDOW_SEC }),
+      rateLimit(`portal-pin:${projectId}`, { limit: PIN_MAX_PER_PROJECT, windowSec: PIN_WINDOW_SEC }),
+    ]);
+
+    if (!ipLimit.allowed || !projectLimit.allowed) {
+      const retryAfter = Math.max(ipLimit.retryAfterSec, projectLimit.retryAfterSec, 1);
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later.", code: "RATE_LIMITED", retry_after_sec: retryAfter },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } },
+      );
     }
 
     const admin = createAdminClient();
@@ -54,18 +76,12 @@ export async function POST(
     const valid = verifyPin(pin, project.portal_pin_salt, project.portal_pin_hash);
 
     if (!valid) {
-      // Track failed attempt
-      if (!attempts[key]) attempts[key] = { count: 0, blockedUntil: 0 };
-      attempts[key].count++;
-      if (attempts[key].count >= MAX_ATTEMPTS) {
-        attempts[key].blockedUntil = now + BLOCK_DURATION;
-        attempts[key].count = 0;
-      }
-      return NextResponse.json({ error: "Invalid PIN", code: "INVALID_PIN" }, { status: 401 });
+      // The attempt was already counted against both budgets above.
+      return NextResponse.json(
+        { error: "Invalid PIN", code: "INVALID_PIN", remaining_attempts: ipLimit.remaining },
+        { status: 401 },
+      );
     }
-
-    // Reset attempts on success
-    delete attempts[key];
 
     // Create JWT token
     const token = await createPortalToken(projectId, project.portal_pin_salt, userName.trim());

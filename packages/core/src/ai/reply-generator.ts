@@ -216,7 +216,8 @@ export async function generateReply(
       console.log(`[generateReply] Calling Claude API (model: ${model})...`);
     }
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+    // maxRetries: 0 — retry is handled by callAnthropicWithRetry (avoid double retry)
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
     const response = await callAnthropicWithRetry(() =>
       client.messages.create({
@@ -225,13 +226,7 @@ export async function generateReply(
         messages: [
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: prompt,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
+            content: prompt,
           },
         ],
       })

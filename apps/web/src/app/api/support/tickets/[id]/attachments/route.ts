@@ -81,10 +81,12 @@ export async function POST(
       return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
     }
 
-    const { data: urlData } = admin.storage.from("support").getPublicUrl(path);
-
+    // The `support` bucket is PRIVATE: store the stable storage path in
+    // `file_url` (persisted in the message's attachments JSONB). Readers
+    // resolve it to a 7-day signed URL in GET /api/support/tickets/[id] —
+    // never persist an expiring signed URL or a broken public URL in DB.
     return NextResponse.json({
-      file_url: urlData.publicUrl,
+      file_url: path,
       file_name: file.name,
       file_size: file.size,
       file_type: file.type,

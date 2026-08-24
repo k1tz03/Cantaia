@@ -4,8 +4,32 @@ import { getAgentConfig, runAgentLoop } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "../../agents/[type]/stream/tool-handlers";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 export const maxDuration = 300; // 5 min per org
+
+// ============================================================
+// TODO (AGT.C1) — DISABLED SCHEDULE, DO NOT RE-ADD TO vercel.json
+//
+// The "meeting-prep" agent declares custom tools
+// (fetch_upcoming_meetings, save_meeting_preparation, …) that have NO
+// handler in apps/web/src/app/api/agents/[type]/stream/tool-handlers.ts.
+// Every tool call returns "Unknown custom tool", so the loop burns its
+// Sonnet iterations per org per run and meeting_preparations is never
+// written. The selector is doubly dead: it filters on ai_prep_status
+// 'pending'/'failed', a value nothing ever sets ('failed' is not even in
+// the CHECK constraint). The schedule was removed from apps/web/vercel.json.
+//
+// Before re-scheduling: implement the missing tool handlers AND make the
+// pipeline set ai_prep_status='pending', then add
+// { "path": "/api/cron/meeting-prep", "schedule": "30 6 * * *" } back.
+// The route is kept so it can still be triggered manually for testing.
+// ============================================================
+
+/** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 /**
  * POST /api/cron/meeting-prep
@@ -15,10 +39,7 @@ export const maxDuration = 300; // 5 min per org
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -2,6 +2,20 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUrl } from "@/lib/env";
+import { timingSafeEqual } from "node:crypto";
+
+/**
+ * Constant-time comparison of a notification clientState against the configured
+ * secret. Returns false when either side is missing — a webhook without a
+ * verifiable clientState must never be trusted (B8).
+ */
+function clientStateMatches(received: unknown, expected: string): boolean {
+  if (typeof received !== "string" || received.length === 0) return false;
+  const a = Buffer.from(received, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * POST /api/outlook/webhook
@@ -13,6 +27,18 @@ import { getAppUrl } from "@/lib/env";
  * 3. We trigger a sync for the affected user
  */
 export async function POST(request: NextRequest) {
+  // B8: without the shared secret we cannot authenticate ANY notification.
+  // Previously an undefined secret made `notification.clientState !== undefined`
+  // pass for payloads with no clientState at all — i.e. fully spoofable.
+  const webhookSecret = process.env.OUTLOOK_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[outlook-webhook] OUTLOOK_WEBHOOK_SECRET is not configured — refusing notifications");
+    return NextResponse.json(
+      { error: "OUTLOOK_WEBHOOK_SECRET not configured" },
+      { status: 500 }
+    );
+  }
+
   // Step 1: Handle subscription validation
   const validationToken = request.nextUrl.searchParams.get("validationToken");
   if (validationToken) {
@@ -35,8 +61,9 @@ export async function POST(request: NextRequest) {
 
     // Process each notification
     for (const notification of notifications) {
-      if (notification.clientState !== process.env.OUTLOOK_WEBHOOK_SECRET) {
-        // Invalid client state — skip (prevents spoofed notifications)
+      if (!clientStateMatches(notification.clientState, webhookSecret)) {
+        // Missing or invalid client state — reject (prevents spoofed notifications)
+        console.warn(`[outlook-webhook] Rejected notification with invalid clientState (subscription ${notification.subscriptionId})`);
         continue;
       }
 
@@ -150,7 +177,8 @@ export async function PUT(request: NextRequest) {
 
 interface GraphNotification {
   subscriptionId: string;
-  clientState: string;
+  /** Optional in practice — a spoofed payload may omit it entirely. */
+  clientState?: string;
   changeType: string;
   resource: string;
   resourceData?: {

@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAuthorizedCron } from "@/lib/cron-auth";
+
+/** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 /**
  * POST /api/cron/extract-patterns
@@ -8,10 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

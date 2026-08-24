@@ -117,13 +117,35 @@ export async function POST(
       console.log("[SEND] Microsoft token OK, token expires:", (tokenResult as any).expiresAt || "unknown");
     }
 
+    // H2: `sent` now means "Microsoft Graph accepted the message".
+    //   - "sent"   → email left the mailbox, sent_at is set
+    //   - "failed" → the record exists but no email went out (error explains why)
     const results: Array<{
       material_group: string;
       supplier_id: string;
+      supplier_name?: string;
       tracking_code: string;
-      status: "sent" | "saved";
+      status: "sent" | "failed";
       error?: string;
     }> = [];
+
+    /**
+     * Marks a price request as failed. Kept tolerant of a database where
+     * migration 082 (widened status CHECK + send_error column) is not applied yet.
+     */
+    const markFailed = async (requestId: string | null, message: string) => {
+      if (!requestId) return;
+      const { error } = await (admin as any)
+        .from("submission_price_requests")
+        .update({ status: "failed", send_error: message.slice(0, 500) })
+        .eq("id", requestId);
+      if (error) {
+        console.warn(
+          "[SEND] Could not persist failed status (apply migration 082):",
+          error.message
+        );
+      }
+    };
 
     for (const group of body.groups) {
       // Cross-category: if item_ids specified, use those; otherwise use all items in the group
@@ -170,9 +192,10 @@ export async function POST(
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
+              supplier_name: supplier?.company_name,
               tracking_code: trackingCode,
-              status: "saved",
-              error: "Supplier has no email",
+              status: "failed",
+              error: "Fournisseur sans adresse email",
             });
             continue;
           }
@@ -185,14 +208,18 @@ export async function POST(
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
+            supplier_name: supplierCompanyName,
             tracking_code: trackingCode,
-            status: "saved",
-            error: "Supplier has no email",
+            status: "failed",
+            error: "Fournisseur sans adresse email",
           });
           continue;
         }
 
-        // Create price request record
+        // Create price request record.
+        // H2: status starts at "pending" with sent_at = null. It is promoted to
+        // "sent" only once Microsoft Graph has accepted the message, so a delivery
+        // failure can no longer masquerade as a sent request.
         const insertData: Record<string, unknown> = {
           submission_id: submissionId,
           project_id: submission.project_id,
@@ -207,8 +234,8 @@ export async function POST(
           })),
           attachments: body.attachment_urls || [],
           deadline: body.deadline || null,
-          sent_at: new Date().toISOString(),
-          status: "sent",
+          sent_at: null,
+          status: "pending",
         };
 
         if (isManual) {
@@ -220,20 +247,39 @@ export async function POST(
           insertData.supplier_id = supplierId;
         }
 
-        const { error: insertError } = await (admin as any)
+        let { data: inserted, error: insertError } = await (admin as any)
           .from("submission_price_requests")
-          .insert(insertData);
+          .insert(insertData)
+          .select("id")
+          .single();
 
-        if (insertError) {
+        // Fallback for a database where migration 082 has not widened the status
+        // CHECK constraint yet — insert with the legacy value but still no sent_at.
+        if (insertError && /check constraint|violates/i.test(insertError.message || "")) {
+          console.warn("[SEND] status='pending' rejected — apply migration 082. Falling back to legacy value.");
+          const retry = await (admin as any)
+            .from("submission_price_requests")
+            .insert({ ...insertData, status: "sent" })
+            .select("id")
+            .single();
+          inserted = retry.data;
+          insertError = retry.error;
+        }
+
+        if (insertError || !inserted?.id) {
+          console.error("[SEND] Insert failed:", insertError?.message);
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
+            supplier_name: supplierCompanyName,
             tracking_code: trackingCode,
-            status: "saved",
-            error: insertError.message,
+            status: "failed",
+            error: insertError?.message || "Enregistrement de la demande impossible",
           });
           continue;
         }
+
+        const priceRequestId: string = inserted.id;
 
         // Generate and send email
         if (canSendEmail) {
@@ -292,43 +338,63 @@ export async function POST(
             );
             console.log("[SEND] Email sent successfully to:", supplierEmail);
 
+            // H2: only now is the request really "sent"
+            const { error: sentUpdateError } = await (admin as any)
+              .from("submission_price_requests")
+              .update({ status: "sent", sent_at: new Date().toISOString() })
+              .eq("id", priceRequestId);
+
+            if (sentUpdateError) {
+              console.error("[SEND] Email delivered but status update failed:", sentUpdateError.message);
+            }
+
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
+              supplier_name: supplierCompanyName,
               tracking_code: trackingCode,
               status: "sent",
             });
           } catch (emailError: any) {
             console.error("[SEND] Email error for supplier:", supplierEmail, "error:", emailError.message, "stack:", emailError.stack);
+            const message = `Échec d'envoi: ${emailError.message}`;
+            await markFailed(priceRequestId, message);
             results.push({
               material_group: group.material_group,
               supplier_id: supplierId,
+              supplier_name: supplierCompanyName,
               tracking_code: trackingCode,
-              status: "saved",
-              error: `Échec d'envoi: ${emailError.message}`,
+              status: "failed",
+              error: message,
             });
           }
         } else {
           console.warn("[SEND] Skipping email (no Microsoft token) for supplier:", supplierEmail);
+          const message = microsoftError || "Microsoft non connecté — demande enregistrée mais non envoyée";
+          await markFailed(priceRequestId, message);
           results.push({
             material_group: group.material_group,
             supplier_id: supplierId,
+            supplier_name: supplierCompanyName,
             tracking_code: trackingCode,
-            status: "saved",
-            error: microsoftError || "Microsoft non connecté — demande enregistrée mais non envoyée",
+            status: "failed",
+            error: message,
           });
         }
       }
     }
 
     const sentCount = results.filter((r) => r.status === "sent").length;
-    const savedCount = results.filter((r) => r.status === "saved").length;
-    console.log("[SEND] Done. Sent:", sentCount, "Saved:", savedCount);
+    const failedCount = results.filter((r) => r.status === "failed").length;
+    console.log("[SEND] Done. Sent:", sentCount, "Failed:", failedCount);
 
     return NextResponse.json({
       success: true,
       sent: sentCount,
-      saved: savedCount,
+      failed: failedCount,
+      // `saved` kept for backward compatibility with older clients: a failed
+      // request is still persisted, it simply never left the mailbox.
+      saved: failedCount,
       results,
       ...(microsoftError ? { microsoft_error: microsoftError } : {}),
     });
@@ -337,6 +403,24 @@ export async function POST(
     console.error("[SEND] Fatal error:", err.message, "stack:", err.stack);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
+}
+
+/**
+ * M8: escape any value interpolated into the outgoing HTML email.
+ * Item descriptions, product names and supplier/contact names come from parsed
+ * documents and from user input — an unescaped `<` was enough to break the
+ * markup (or inject arbitrary HTML) into a mail sent from the user's own mailbox.
+ *
+ * NOT applied to `email_signature`, which is authored rich HTML by design.
+ */
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -380,15 +464,15 @@ function generatePriceRequestEmail(opts: {
     : "dans les meilleurs délais";
 
   const itemsTable = opts.items
-    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${cleanDescriptionForSupplier(i.description)}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
+    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
     .join("\n");
 
   const subject = `Demande de prix — ${opts.projectName} — ${opts.materialGroup}`;
 
   const html = `
-<p>${greeting},</p>
+<p>${escapeHtml(greeting)},</p>
 
-<p>Dans le cadre du projet <strong>${opts.projectName}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${opts.materialGroup}</strong>) :</p>
+<p>Dans le cadre du projet <strong>${escapeHtml(opts.projectName)}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${escapeHtml(opts.materialGroup)}</strong>) :</p>
 
 <table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
   <thead>
@@ -404,19 +488,20 @@ function generatePriceRequestEmail(opts: {
   </tbody>
 </table>
 
-<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${deadlineStr}</strong>.</p>
+<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${escapeHtml(deadlineStr)}</strong>.</p>
 
 <p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;">
-  <strong>Important :</strong> Merci de mentionner le code <strong>${opts.trackingCode}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
+  <strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(opts.trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
 </p>
 
 <p>Nous restons à votre disposition pour tout renseignement complémentaire.</p>
 
 ${opts.emailSignature?.trim()
+    // Signature is authored rich HTML (RichSignatureEditor) — intentionally not escaped
     ? `<p>--<br/>${opts.emailSignature.replace(/\n/g, "<br/>")}</p>`
     : `<p>Cordialement,<br/>
-<strong>${opts.senderName}</strong>${opts.senderTitle ? `<br/>${opts.senderTitle}` : ""}<br/>
-${opts.senderCompany}</p>`}
+<strong>${escapeHtml(opts.senderName)}</strong>${opts.senderTitle ? `<br/>${escapeHtml(opts.senderTitle)}` : ""}<br/>
+${escapeHtml(opts.senderCompany)}</p>`}
 `.trim();
 
   return { subject, html };
@@ -424,7 +509,7 @@ ${opts.senderCompany}</p>`}
 
 function generateItemsTableHtml(items: any[]): string {
   const rows = items
-    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${cleanDescriptionForSupplier(i.description)}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
+    .map((i) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
     .join("\n");
 
   return `<table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
@@ -459,14 +544,16 @@ function customBodyToHtml(text: string, itemsTableHtml: string, trackingCode: st
       if (!trimmed) return "";
       if (trimmed === TABLE_MARKER) return itemsTableHtml;
       if (isTextTable(trimmed)) return itemsTableHtml;
-      const content = trimmed.replace(/\n/g, "<br/>");
+      // The custom body is edited as PLAIN TEXT in the preview textarea, so it is
+      // escaped before being turned into HTML (M8).
+      const content = escapeHtml(trimmed).replace(/\n/g, "<br/>");
       return `<p>${content}</p>`;
     })
     .filter(Boolean);
 
   // Auto-append tracking code box
   htmlParts.push(
-    `<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;"><strong>Important :</strong> Merci de mentionner le code <strong>${trackingCode}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.</p>`
+    `<p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;"><strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.</p>`
   );
 
   return htmlParts.join("\n\n");

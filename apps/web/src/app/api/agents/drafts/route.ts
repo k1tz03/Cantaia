@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * GET /api/agents/drafts
- * Lists email drafts for the current user's organization.
+ * Lists email drafts belonging to the CURRENT USER (CAL.H1).
+ * Drafts quote the body of the user's own mailbox, so they must never be
+ * listed org-wide — `email_drafts.user_id` (migration 074) is the scope.
  * Query params:
  *   - status: 'pending' | 'accepted' | 'edited' | 'sent' | 'dismissed' (default: 'pending')
  *   - limit: number (default: 50, max: 100)
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
       updated_at
     `)
     .eq("organization_id", profile.organization_id)
+    .eq("user_id", user.id) // CAL.H1 — never expose other members' drafts
     .eq("status", status)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -121,7 +124,9 @@ export async function PATCH(request: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (draft.organization_id !== profile?.organization_id) {
+  // Org membership + ownership. Migration 074's RLS update policy is
+  // `user_id = auth.uid()`; the admin client bypasses RLS, so enforce it here.
+  if (draft.organization_id !== profile?.organization_id || draft.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

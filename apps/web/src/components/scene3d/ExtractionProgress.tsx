@@ -19,6 +19,23 @@ const PASS_ORDER: ExtractionPass[] = [
   "topology",
 ];
 
+/**
+ * Les clés i18n ne suivent PAS les identifiants de passe du view model :
+ * `messages/*.json` déclare `scene3d.extraction.pass.metre` et `.chiffrage`
+ * là où le type `ExtractionPass` dit `metering` / `pricing`. Sans cette table,
+ * `t("extraction.pass.metering.label")` lève un MISSING_MESSAGE (next-intl)
+ * dès que la modale s'affiche — ce qui n'était jamais arrivé tant que la
+ * page 3D était sur des données mock et n'affichait pas la progression.
+ * Les fichiers de messages sont hors périmètre de ce correctif : on mappe ici.
+ */
+const PASS_I18N_KEY: Record<ExtractionPass, string> = {
+  identification: "identification",
+  metering: "metre",
+  verification: "verification",
+  pricing: "chiffrage",
+  topology: "topology",
+};
+
 interface ExtractionProgressProps {
   open: boolean;
   currentPass: ExtractionPass;
@@ -59,7 +76,7 @@ export function ExtractionProgress({
           </div>
 
           <p className="mt-1 text-sm text-[#A1A1AA]">
-            {t(`extraction.pass.${currentPass}.label`)}
+            {t(`extraction.pass.${PASS_I18N_KEY[currentPass] ?? currentPass}.label`)}
           </p>
 
           {/* Progress bar */}
@@ -106,10 +123,10 @@ export function ExtractionProgress({
                     <Circle className="w-4 h-4 flex-shrink-0" />
                   )}
                   <span className="font-medium">
-                    {t(`extraction.pass.${pass}.label`)}
+                    {t(`extraction.pass.${PASS_I18N_KEY[pass] ?? pass}.label`)}
                   </span>
                   <span className="font-mono text-xs text-[#71717A]">
-                    {t(`extraction.pass.${pass}.hint`)}
+                    {t(`extraction.pass.${PASS_I18N_KEY[pass] ?? pass}.hint`)}
                   </span>
                 </li>
               );

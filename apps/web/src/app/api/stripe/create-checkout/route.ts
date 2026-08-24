@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import { getAppUrl } from "@/lib/env";
 import Stripe from "stripe";
 
@@ -18,24 +18,16 @@ function getPriceIds() {
   };
 }
 
+const SUPPORTED_LOCALES = ["fr", "en", "de"];
+
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Only org admins (admin/director) or superadmins can manage billing
+    const check = await requireOrgAdmin();
+    if (!check.authorized) {
+      return NextResponse.json({ error: check.error }, { status: check.status });
     }
-
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("users")
-      .select("organization_id, role, email")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
-    }
+    const profile = check.profile;
 
     const body = await request.json();
     const { plan } = body;
@@ -44,6 +36,8 @@ export async function POST(request: NextRequest) {
     if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
+
+    const admin = createAdminClient();
 
     // Get or create Stripe customer
     const { data: org } = await admin
@@ -57,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: profile.email || user.email,
+        email: profile.email || undefined,
         name: org?.name || undefined,
         metadata: { organization_id: profile.organization_id },
       });
@@ -69,16 +63,33 @@ export async function POST(request: NextRequest) {
         .eq("id", profile.organization_id);
     }
 
+    // Return URLs in the user's preferred language (default: fr)
+    const locale = SUPPORTED_LOCALES.includes(profile.preferred_language || "")
+      ? profile.preferred_language
+      : "fr";
+
+    // NOTE: quantity stays at 1 on purpose — the per-user quantity sync was
+    // deliberately NOT built because billing is migrating to a credits-based
+    // model in the next phase.
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       currency: "chf",
       line_items: [{ price: PRICE_IDS[plan as keyof typeof PRICE_IDS], quantity: 1 }],
-      success_url: `${getAppUrl()}/fr/admin?tab=subscription&success=true`,
-      cancel_url: `${getAppUrl()}/fr/admin?tab=subscription&canceled=true`,
+      success_url: `${getAppUrl()}/${locale}/admin?tab=subscription&success=true`,
+      cancel_url: `${getAppUrl()}/${locale}/admin?tab=subscription&canceled=true`,
       metadata: {
         organization_id: profile.organization_id,
         plan,
+      },
+      // Propagate metadata onto the subscription itself so renewal webhooks
+      // (customer.subscription.updated) can resolve the org + plan without
+      // relying on the checkout session.
+      subscription_data: {
+        metadata: {
+          organization_id: profile.organization_id,
+          plan,
+        },
       },
     });
 

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { Calendar, Clock, MapPin, Plus, Sparkles } from "lucide-react";
-import { format, isSameDay, isToday, differenceInMinutes } from "date-fns";
-import { fr } from "date-fns/locale";
+import { isSameDay, isToday, differenceInMinutes } from "date-fns";
 import type { CalendarEvent, CalendarEventType } from "@cantaia/core/calendar";
+import { toLocaleTag } from "./datetime-utils";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -17,16 +18,6 @@ const EVENT_TYPE_COLORS: Record<CalendarEventType, string> = {
   milestone: "#F97316",
   other: "#6B7280",
 };
-
-const DAY_NAMES_FR = [
-  "DIMANCHE",
-  "LUNDI",
-  "MARDI",
-  "MERCREDI",
-  "JEUDI",
-  "VENDREDI",
-  "SAMEDI",
-];
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -161,9 +152,11 @@ function NowIndicator() {
 function EventBadge({
   label,
   color,
+  withSparkles,
 }: {
   label: string;
   color: string;
+  withSparkles?: boolean;
 }) {
   return (
     <span
@@ -173,7 +166,7 @@ function EventBadge({
         color,
       }}
     >
-      {label === "IA Prep" && <Sparkles className="w-2.5 h-2.5" />}
+      {withSparkles && <Sparkles className="w-2.5 h-2.5" />}
       {label}
     </span>
   );
@@ -188,6 +181,7 @@ function EventItem({
   isSelected: boolean;
   onSelect: () => void;
 }) {
+  const t = useTranslations("calendar");
   const color = event.color || EVENT_TYPE_COLORS[event.event_type] || EVENT_TYPE_COLORS.other;
   const duration = formatDuration(event.start_at, event.end_at);
   const attendees = event.invitations?.filter((inv) => !inv.is_organizer) ?? [];
@@ -216,7 +210,7 @@ function EventItem({
           className="text-[#A1A1AA] text-[12px] leading-tight"
           style={{ fontFamily: "var(--font-mono)" }}
         >
-          {event.all_day ? "Jour" : formatTime(event.start_at)}
+          {event.all_day ? t("allDayShort") : formatTime(event.start_at)}
         </div>
         {!event.all_day && duration && (
           <div
@@ -263,9 +257,9 @@ function EventItem({
         <div className="flex items-center gap-2 mt-1.5">
           {/* Badges */}
           <div className="flex items-center gap-1">
-            {hasAIPrep && <EventBadge label="IA Prep" color="#F97316" />}
-            {isDeadline && <EventBadge label="Deadline" color="#EF4444" />}
-            {isSynced && <EventBadge label="Synced" color="#10B981" />}
+            {hasAIPrep && <EventBadge label={t("badgeAIPrep")} color="#F97316" withSparkles />}
+            {isDeadline && <EventBadge label={t("badgeDeadline")} color="#EF4444" />}
+            {isSynced && <EventBadge label={t("badgeSynced")} color="#10B981" />}
           </div>
 
           {/* Avatar stack */}
@@ -307,14 +301,15 @@ function EventItem({
 }
 
 function EmptyState() {
+  const t = useTranslations("calendar");
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <div className="w-12 h-12 rounded-xl bg-[#18181B] flex items-center justify-center mb-4">
         <Calendar className="w-6 h-6 text-[#52525B]" />
       </div>
-      <p className="text-[#71717A] text-sm font-medium">Aucun événement</p>
+      <p className="text-[#71717A] text-sm font-medium">{t("noEvents")}</p>
       <p className="text-[#52525B] text-xs mt-1">
-        Cliquez + pour créer
+        {t("noEventsHint")}
       </p>
     </div>
   );
@@ -329,6 +324,9 @@ export function AgendaStream({
   onSelectEvent,
   onCreateEvent,
 }: AgendaStreamProps) {
+  const t = useTranslations("calendar");
+  const locale = useLocale();
+  const localeTag = toLocaleTag(locale);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nowRef = useRef<HTMLDivElement>(null);
   const dateIsToday = isToday(selectedDate);
@@ -425,10 +423,16 @@ export function AgendaStream({
 
   const hasEvents = sortedEvents.length > 0;
 
-  // Date formatting
-  const dayName = DAY_NAMES_FR[selectedDate.getDay()];
+  // Date formatting (locale-aware)
+  const dayName = selectedDate
+    .toLocaleDateString(localeTag, { weekday: "long" })
+    .toUpperCase();
   const dayNumber = selectedDate.getDate();
-  const fullDate = format(selectedDate, "d MMMM yyyy", { locale: fr });
+  const fullDate = selectedDate.toLocaleDateString(localeTag, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="flex flex-col h-full bg-[#0F0F11]">
@@ -453,8 +457,7 @@ export function AgendaStream({
           <div className="flex items-center gap-1.5 mt-2">
             <Clock className="w-3 h-3 text-[#52525B]" />
             <span className="text-[#52525B] text-[11px]">
-              {sortedEvents.length} événement
-              {sortedEvents.length > 1 ? "s" : ""}
+              {t("eventCount", { count: sortedEvents.length })}
             </span>
           </div>
         )}
@@ -473,7 +476,7 @@ export function AgendaStream({
             {(morning.length > 0 ||
               (dateIsToday && nowMinutes < 720)) && (
               <>
-                <SectionHeader label="Matin" />
+                <SectionHeader label={t("morning")} />
                 {morning.length > 0
                   ? renderEventsWithNow(morning, 0, 720)
                   : dateIsToday &&
@@ -491,7 +494,7 @@ export function AgendaStream({
                 nowMinutes >= 720 &&
                 nowMinutes < 1080)) && (
               <>
-                <SectionHeader label="Après-midi" />
+                <SectionHeader label={t("afternoon")} />
                 {afternoon.length > 0
                   ? renderEventsWithNow(afternoon, 720, 1080)
                   : dateIsToday &&
@@ -508,7 +511,7 @@ export function AgendaStream({
             {(evening.length > 0 ||
               (dateIsToday && nowMinutes >= 1080)) && (
               <>
-                <SectionHeader label="Soir" />
+                <SectionHeader label={t("evening")} />
                 {evening.length > 0
                   ? renderEventsWithNow(evening, 1080, 1440)
                   : dateIsToday &&
@@ -531,7 +534,7 @@ export function AgendaStream({
           className="w-full py-2 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#3F3F46] text-[#71717A] text-[13px] font-medium transition-colors hover:border-[#F97316] hover:text-[#F97316] hover:bg-[#F97316]/5"
         >
           <Plus className="w-4 h-4" />
-          Ajouter un événement
+          {t("addEvent")}
         </button>
       </div>
     </div>

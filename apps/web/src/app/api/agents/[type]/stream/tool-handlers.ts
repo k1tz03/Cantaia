@@ -47,6 +47,91 @@ function isAllowedUrl(url: string): boolean {
   }
 }
 
+// ── Org ownership helpers ─────────────────────────────────
+
+type ToolError = { error: true; message: string };
+
+/**
+ * AGT.H1 — UNCONDITIONAL org ownership check for a submission.
+ *
+ * A submission reaches an organization only through its project. A submission
+ * with a NULL project_id therefore cannot be proven to belong to the caller's
+ * org, so access is denied (same rule as SEC2.FIX11 on
+ * /api/submissions/[id]/analyze). Never make this check conditional.
+ */
+async function checkSubmissionAccess(
+  ctx: ToolContext,
+  submission: { project_id?: string | null } | null,
+  projectColumns = "organization_id"
+): Promise<{ allowed: false; error: ToolError } | { allowed: true; project: any }> {
+  if (!submission) {
+    return { allowed: false, error: { error: true, message: "Submission not found" } };
+  }
+
+  if (!submission.project_id) {
+    return {
+      allowed: false,
+      error: {
+        error: true,
+        message: "Access denied: submission is not attached to a project",
+      },
+    };
+  }
+
+  const { data: project } = await (ctx.admin as any)
+    .from("projects")
+    .select(projectColumns.includes("organization_id") ? projectColumns : `${projectColumns}, organization_id`)
+    .eq("id", submission.project_id)
+    .maybeSingle();
+
+  if (!project || project.organization_id !== ctx.organizationId) {
+    return { allowed: false, error: { error: true, message: "Access denied" } };
+  }
+
+  return { allowed: true, project };
+}
+
+/**
+ * AGT.H2 — Storage path guard.
+ *
+ * Every Cantaia storage convention puts the organization id in the first or
+ * second path segment:
+ *   submissions      → {orgId}/{projectId}/{file}
+ *   plans            → {orgId}/{projectId}/{file}  |  price-imports/{orgId}/…
+ *   audio            → photos/{orgId}/…  |  closure/{orgId}/…  |  reports/{orgId}/…
+ *   support          → {orgId}/{ticketId}/{file}
+ *   chat-attachments → {orgId}/{conversationId}/{file}
+ *
+ * Anything else is rejected: without this, an agent could read any object of
+ * any organization by guessing a path.
+ */
+function isOwnStoragePath(objectPath: string, organizationId: string): boolean {
+  if (!organizationId) return false;
+  const segments = objectPath.split("/").filter(Boolean);
+  if (segments.length === 0) return false;
+  // Only the first two segments may carry the org id — deeper matches would
+  // let "otherOrg/…/{ourOrgId}" style paths through.
+  return segments.slice(0, 2).includes(organizationId);
+}
+
+/**
+ * Extract the in-bucket object path from a Supabase Storage URL.
+ * Supports /storage/v1/object/{public|sign|authenticated}/{bucket}/{path}.
+ * Returns null when the URL is not a storage object URL.
+ */
+function extractStorageObjectPath(url: string): string | null {
+  try {
+    const { pathname } = new URL(url);
+    const match = pathname.match(
+      /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?[^/]+\/(.+)$/
+    );
+    if (!match) return null;
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
 // ── Tool Handler Registry ─────────────────────────────────
 
 type ToolHandler = (
@@ -72,17 +157,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { error: true, message: `Submission ${submissionId} not found` };
     }
 
-    // IDOR check via project
-    if (submission.project_id) {
-      const { data: project } = await (ctx.admin as any)
-        .from("projects")
-        .select("organization_id")
-        .eq("id", submission.project_id)
-        .maybeSingle();
-      if (!project || project.organization_id !== ctx.organizationId) {
-        return { error: true, message: "Access denied" };
-      }
-    }
+    // IDOR check via project — UNCONDITIONAL (AGT.H1)
+    const access = await checkSubmissionAccess(ctx, submission);
+    if (!access.allowed) return access.error;
 
     if (!submission.file_url) {
       return { error: true, message: "No file attached to this submission" };
@@ -217,19 +294,13 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { error: true, message: "Submission not found" };
     }
 
-    // Fetch project separately for IDOR check + context
-    let projectData: { name: string; code: string } | null = null;
-    if (submission.project_id) {
-      const { data: project } = await (ctx.admin as any)
-        .from("projects")
-        .select("name, code, organization_id")
-        .eq("id", submission.project_id)
-        .maybeSingle();
-      if (!project || project.organization_id !== ctx.organizationId) {
-        return { error: true, message: "Access denied" };
-      }
-      projectData = { name: project.name, code: project.code };
-    }
+    // Fetch project separately for IDOR check + context — UNCONDITIONAL (AGT.H1)
+    const access = await checkSubmissionAccess(ctx, submission, "name, code, organization_id");
+    if (!access.allowed) return access.error;
+    const projectData: { name: string; code: string } = {
+      name: access.project.name,
+      code: access.project.code,
+    };
 
     // Get existing items count
     const { count: itemsCount } = await (ctx.admin as any)
@@ -295,20 +366,10 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       .eq("id", submissionId)
       .maybeSingle();
 
-    if (!submission) {
-      return { error: true, message: "Submission not found" };
-    }
-
-    if (submission.project_id) {
-      const { data: project } = await (ctx.admin as any)
-        .from("projects")
-        .select("organization_id")
-        .eq("id", submission.project_id)
-        .maybeSingle();
-      if (!project || project.organization_id !== ctx.organizationId) {
-        return { error: true, message: "Access denied" };
-      }
-    }
+    // UNCONDITIONAL org check (AGT.H1) — a project-less submission cannot be
+    // attributed to the caller's org, so writing to it is denied.
+    const access = await checkSubmissionAccess(ctx, submission);
+    if (!access.allowed) return access.error;
 
     // ── Map agent fields to DB columns ──
     // Column names MUST match DB schema: cfc_subcode (NOT cfc_code), project_id required
@@ -749,6 +810,18 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       if (!isAllowedUrl(fileUrl)) {
         return { error: true, message: "URL not in allowed domains. Use Supabase storage paths instead." };
       }
+      // AGT.H2 — a public Supabase URL still points at a bucket object: apply
+      // the same org scoping as the storage-path branch.
+      const urlObjectPath = extractStorageObjectPath(fileUrl);
+      if (!urlObjectPath || !isOwnStoragePath(urlObjectPath, ctx.organizationId)) {
+        console.warn(
+          `[tool:fetch_file_content] Denied URL outside org ${ctx.organizationId}: ${fileUrl.slice(0, 200)}`
+        );
+        return {
+          error: true,
+          message: "Access denied: this file does not belong to your organization.",
+        };
+      }
       const response = await fetch(fileUrl);
       if (!response.ok) {
         return { error: true, message: `Download failed: ${response.status}` };
@@ -772,11 +845,19 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
         }
       }
 
-      // Security: verify price-import paths contain the requesting org's ID
-      if (objectPath.startsWith("price-imports/") && ctx.organizationId) {
-        if (!objectPath.startsWith(`price-imports/${ctx.organizationId}/`)) {
-          return { error: true, message: "Access denied: file belongs to another organization" };
-        }
+      // AGT.H2 — Security: the object path MUST be scoped to the caller's org.
+      // Previously only "price-imports/" was checked, which let the agent read
+      // ANY object of the submissions/plans/audio/support/chat-attachments
+      // buckets, i.e. cross-org Storage reads.
+      if (objectPath.includes("..") || !isOwnStoragePath(objectPath, ctx.organizationId)) {
+        console.warn(
+          `[tool:fetch_file_content] Denied path outside org ${ctx.organizationId}: ${bucket}/${objectPath}`
+        );
+        return {
+          error: true,
+          message:
+            "Access denied: file path is not scoped to your organization. Expected a path of the form {organization_id}/... or {prefix}/{organization_id}/...",
+        };
       }
 
       const { data, error } = await ctx.admin.storage.from(bucket).download(objectPath);
@@ -1323,17 +1404,109 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       agent_session_id: ctx.sessionId,
     }));
 
-    // Insert with ON CONFLICT DO NOTHING (dedup index handles it)
-    const { error, count } = await (ctx.admin as any)
-      .from("followup_items")
-      .upsert(rows, { onConflict: "source_id,followup_type", ignoreDuplicates: true });
+    // ── AGT.H3: dedup against the NON-partial unique index (migration 085) ──
+    // The index is (source_id, followup_type) with no WHERE clause, so
+    // ON CONFLICT can infer it (the old partial index raised 42P10 and nothing
+    // was ever persisted). Because the index is no longer restricted to
+    // status='pending', a plain upsert would resurrect items the user already
+    // dismissed — so existing rows are handled explicitly:
+    //   • still pending  → refresh the mutable fields
+    //   • already handled (approved/sent/dismissed/snoozed) → left untouched
+    //   • unknown        → inserted
+    const sourceIds = Array.from(
+      new Set(rows.map((r) => r.source_id).filter(Boolean))
+    ) as string[];
 
-    if (error) {
-      console.error("[save_followup_items]", error.message);
-      return { error: true, message: error.message };
+    const existingByKey = new Map<string, { id: string; status: string }>();
+    if (sourceIds.length > 0) {
+      const { data: existing } = await (ctx.admin as any)
+        .from("followup_items")
+        .select("id, source_id, followup_type, status")
+        .eq("organization_id", ctx.organizationId)
+        .in("source_id", sourceIds);
+
+      for (const row of existing || []) {
+        existingByKey.set(`${row.source_id}|${row.followup_type}`, {
+          id: row.id,
+          status: row.status,
+        });
+      }
     }
 
-    return { success: true, saved: count || rows.length, total: items.length };
+    const newRows: typeof rows = [];
+    const queuedKeys = new Set<string>();
+    let refreshed = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const key = row.source_id ? `${row.source_id}|${row.followup_type}` : null;
+      const existing = key ? existingByKey.get(key) : undefined;
+
+      if (!existing) {
+        // Guard against the model listing the same source twice in one batch.
+        if (key) {
+          if (queuedKeys.has(key)) {
+            skipped++;
+            continue;
+          }
+          queuedKeys.add(key);
+        }
+        newRows.push(row);
+        continue;
+      }
+
+      if (existing.status !== "pending") {
+        skipped++; // already handled by a human — do not resurrect
+        continue;
+      }
+
+      const { error: updateError } = await (ctx.admin as any)
+        .from("followup_items")
+        .update({
+          title: row.title,
+          description: row.description,
+          urgency: row.urgency,
+          suggested_action: row.suggested_action,
+          draft_email_subject: row.draft_email_subject,
+          draft_email_body: row.draft_email_body,
+          recipient_email: row.recipient_email,
+          recipient_name: row.recipient_name,
+          days_overdue: row.days_overdue,
+          project_id: row.project_id,
+          supplier_id: row.supplier_id,
+          agent_session_id: row.agent_session_id,
+        })
+        .eq("id", existing.id);
+
+      if (updateError) {
+        console.warn("[save_followup_items] Refresh failed:", updateError.message);
+      } else {
+        refreshed++;
+      }
+    }
+
+    let saved = 0;
+    if (newRows.length > 0) {
+      // ignoreDuplicates keeps concurrent cron runs from raising 23505.
+      const { data: inserted, error } = await (ctx.admin as any)
+        .from("followup_items")
+        .upsert(newRows, { onConflict: "source_id,followup_type", ignoreDuplicates: true })
+        .select("id");
+
+      if (error) {
+        console.error("[save_followup_items]", error.message);
+        return { error: true, message: error.message };
+      }
+      saved = inserted?.length ?? newRows.length;
+    }
+
+    return {
+      success: true,
+      saved,
+      refreshed,
+      skipped_already_handled: skipped,
+      total: items.length,
+    };
   },
 
   // ── Supplier Monitor Tools ──────────────────────────────
@@ -1462,6 +1635,44 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { success: true, saved: 0, message: "No alerts to save" };
     }
 
+    // ── AGT.M1: verify EVERY supplier_id belongs to the caller's org ──
+    // Both the INSERT into supplier_alerts and the UPDATE on suppliers below
+    // are driven by agent-supplied ids: without this check they can target
+    // another organization's suppliers.
+    const claimedSupplierIds = Array.from(
+      new Set(alerts.map((a: any) => a.supplier_id).filter(Boolean))
+    ) as string[];
+
+    if (claimedSupplierIds.length === 0 || alerts.some((a: any) => !a.supplier_id)) {
+      return {
+        error: true,
+        message: "Each alert must carry a supplier_id returned by fetch_all_suppliers_data",
+      };
+    }
+
+    const { data: ownedSuppliers, error: ownershipError } = await (ctx.admin as any)
+      .from("suppliers")
+      .select("id")
+      .eq("organization_id", ctx.organizationId)
+      .in("id", claimedSupplierIds);
+
+    if (ownershipError) {
+      return { error: true, message: `Supplier ownership check failed: ${ownershipError.message}` };
+    }
+
+    const ownedIds = new Set<string>((ownedSuppliers || []).map((s: any) => s.id));
+    const foreignIds = claimedSupplierIds.filter((id) => !ownedIds.has(id));
+
+    if (foreignIds.length > 0) {
+      console.warn(
+        `[tool:save_supplier_alerts] Denied ${foreignIds.length} supplier(s) outside org ${ctx.organizationId}`
+      );
+      return {
+        error: true,
+        message: `Access denied: ${foreignIds.length} supplier_id(s) do not belong to your organization. Only suppliers returned by fetch_all_suppliers_data can be used.`,
+      };
+    }
+
     // Resolve previous active alerts for same supplier+category
     const supplierCategories = alerts.map((a: any) => `${a.supplier_id}|${a.category}`);
     const uniquePairs = Array.from(new Set(supplierCategories));
@@ -1499,14 +1710,12 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
       return { error: true, message: error.message };
     }
 
-    // Update last_monitored_at on suppliers
-    const supplierIds = Array.from(new Set(alerts.map((a: any) => a.supplier_id)));
-    for (const sid of supplierIds) {
-      await (ctx.admin as any)
-        .from("suppliers")
-        .update({ last_monitored_at: new Date().toISOString() })
-        .eq("id", sid);
-    }
+    // Update last_monitored_at on suppliers (org-scoped, defense in depth)
+    await (ctx.admin as any)
+      .from("suppliers")
+      .update({ last_monitored_at: new Date().toISOString() })
+      .eq("organization_id", ctx.organizationId)
+      .in("id", claimedSupplierIds);
 
     return { success: true, saved: rows.length, total: alerts.length };
   },

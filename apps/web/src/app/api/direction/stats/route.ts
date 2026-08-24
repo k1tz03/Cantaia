@@ -53,6 +53,7 @@ export async function GET(_request: NextRequest) {
         total_costs: 0,
         total_margin: 0,
         avg_margin_pct: 0,
+        avg_margin_pct_simple: 0,
         total_hours: 0,
         avg_hours_per_thousand: 0,
         project_count: 0,
@@ -183,7 +184,11 @@ export async function GET(_request: NextRequest) {
 
   const projectCount = projects.length;
   const totalMargin = totalInvoiced - totalCosts;
-  const avgMarginPct = projectCount > 0 ? marginPctSum / projectCount : 0;
+  // Weighted by invoiced amount: a 90% margin on a CHF 5k job must not offset a
+  // 2% margin on a CHF 2M job, which the unweighted mean did.
+  const avgMarginPct = totalInvoiced > 0 ? (totalMargin / totalInvoiced) * 100 : 0;
+  // Unweighted mean kept for reference (per-project average).
+  const avgMarginPctSimple = projectCount > 0 ? marginPctSum / projectCount : 0;
   const avgHoursPerThousand = totalInvoiced > 0 ? (totalHours / totalInvoiced) * 1000 : 0;
 
   // Top performers by margin %
@@ -202,6 +207,7 @@ export async function GET(_request: NextRequest) {
       total_costs: Math.round(totalCosts * 100) / 100,
       total_margin: Math.round(totalMargin * 100) / 100,
       avg_margin_pct: Math.round(avgMarginPct * 100) / 100,
+      avg_margin_pct_simple: Math.round(avgMarginPctSimple * 100) / 100,
       total_hours: Math.round(totalHours * 100) / 100,
       avg_hours_per_thousand: Math.round(avgHoursPerThousand * 100) / 100,
       project_count: projectCount,

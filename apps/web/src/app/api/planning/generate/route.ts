@@ -91,16 +91,9 @@ export async function POST(request: NextRequest) {
 
       const planningTitle = config.title || `Planning — ${project.name}`;
 
-      // Delete existing planning for this project
-      try {
-        await (admin as any)
-          .from("project_plannings")
-          .delete()
-          .eq("project_id", project_id)
-          .eq("organization_id", userProfile.organization_id);
-      } catch {
-        // Ignore
-      }
+      // NOTE: the previous planning is deleted only AFTER the new one is fully
+      // written (see end of this branch) — never delete first, or a failed
+      // insert leaves the project with no planning at all.
 
       // Insert planning record
       const { data: planningRow, error: planningError } = await (admin as any)
@@ -180,6 +173,19 @@ export async function POST(request: NextRequest) {
           sort_order: 1,
         });
 
+      // Now that the new planning is complete, retire the previous one(s).
+      try {
+        await (admin as any)
+          .from("project_plannings")
+          .delete()
+          .eq("project_id", project_id)
+          .eq("organization_id", userProfile.organization_id)
+          .neq("id", planningId);
+      } catch (err) {
+        // Non-fatal: the new planning exists; a stale one may linger.
+        console.error("[planning/generate] Cleanup of previous planning failed:", err);
+      }
+
       console.log(`[planning/generate] Empty planning created: id=${planningId}`);
 
       return NextResponse.json({
@@ -256,16 +262,9 @@ export async function POST(request: NextRequest) {
       // AI validation is non-fatal — we still save the algorithmic planning
     }
 
-    // Delete existing planning for this project (only one planning per project)
-    try {
-      await (admin as any)
-        .from("project_plannings")
-        .delete()
-        .eq("project_id", project_id)
-        .eq("organization_id", userProfile.organization_id);
-    } catch {
-      // Ignore if table doesn't exist
-    }
+    // NOTE: only one planning per project, but the previous one is deleted only
+    // AFTER the new planning + phases + tasks are written (see below). Deleting
+    // first meant any failure during insert wiped the existing planning.
 
     // Insert planning
     const { data: planningRow, error: planningError } = await (admin as any)
@@ -299,6 +298,9 @@ export async function POST(request: NextRequest) {
     }
 
     const planningId = planningRow.id;
+    // Tracks whether every phase was written — the previous planning is only
+    // retired when the new structure is complete.
+    let structureComplete = true;
 
     // Insert phases and tasks
     for (const phase of planning.phases) {
@@ -318,6 +320,7 @@ export async function POST(request: NextRequest) {
 
       if (phaseError || !phaseRow) {
         console.error("[planning/generate] Insert phase error:", phaseError);
+        structureComplete = false;
         continue;
       }
 
@@ -383,6 +386,25 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       console.error("[planning/generate] Insert dependencies error:", err);
+    }
+
+    // Retire the previous planning(s) only now that the new one is fully written.
+    if (structureComplete) {
+      try {
+        await (admin as any)
+          .from("project_plannings")
+          .delete()
+          .eq("project_id", project_id)
+          .eq("organization_id", userProfile.organization_id)
+          .neq("id", planningId);
+      } catch (err) {
+        // Non-fatal: the new planning exists; a stale one may linger.
+        console.error("[planning/generate] Cleanup of previous planning failed:", err);
+      }
+    } else {
+      console.warn(
+        `[planning/generate] Phase inserts incomplete — previous planning kept for project=${project_id}`,
+      );
     }
 
     // Track API usage (mechanical generation + AI validation)

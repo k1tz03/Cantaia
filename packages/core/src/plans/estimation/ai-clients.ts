@@ -2,6 +2,7 @@
 // Chaque client envoie un plan (image base64) avec un prompt et retourne le JSON parsé
 
 import type { Passe2Result } from './types';
+import { parseAIJson } from '../../ai/ai-utils';
 
 interface AICallResult<T> {
   result: T | null;
@@ -10,17 +11,14 @@ interface AICallResult<T> {
   error: string | null;
 }
 
-// Extrait le JSON d'une réponse qui peut contenir des fences ```json ... ```
+// Parse tolérant (fences markdown, préambules GPT/Gemini, virgules traînantes) —
+// évite qu'un simple préambule textuel exclue un modèle du consensus (B18).
 function parseJSONResponse<T>(text: string): T {
-  let cleaned = text.trim();
-
-  // Retirer les fences markdown
-  const jsonFenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (jsonFenceMatch) {
-    cleaned = jsonFenceMatch[1].trim();
+  const parsed = parseAIJson<T>(text);
+  if (parsed === null) {
+    throw new Error(`Réponse IA non parsable en JSON (${text.length} chars): ${text.slice(0, 200)}`);
   }
-
-  return JSON.parse(cleaned) as T;
+  return parsed;
 }
 
 // ─── Claude Vision ───
@@ -59,7 +57,7 @@ export async function callClaudeVision<T = Passe2Result>(
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
-      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      system: systemPrompt,
       messages: [
         {
           role: "user",
@@ -68,7 +66,6 @@ export async function callClaudeVision<T = Passe2Result>(
             {
               type: "text",
               text: userPrompt,
-              cache_control: { type: "ephemeral" },
             },
           ],
         },
@@ -105,9 +102,9 @@ export async function callClaudeText<T>(
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 8000,
-      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      system: systemPrompt,
       messages: [
-        { role: "user", content: [{ type: "text", text: userPrompt, cache_control: { type: "ephemeral" } }] },
+        { role: "user", content: userPrompt },
       ],
     });
 

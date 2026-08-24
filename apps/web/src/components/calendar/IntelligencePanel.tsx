@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Zap,
   Mail,
@@ -124,16 +125,18 @@ const PRIORITY_DOT: Record<string, string> = {
 
 // ── Helpers ───────────────────────────────────────────────
 
-function formatRelativeTime(timestamp: string): string {
+type Translator = (key: string, values?: Record<string, string | number | Date>) => string;
+
+function formatRelativeTime(timestamp: string, t: Translator): string {
   const diff = Date.now() - new Date(timestamp).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "maintenant";
-  if (minutes < 60) return `il y a ${minutes}min`;
+  if (minutes < 1) return t("relNow");
+  if (minutes < 60) return t("relMinutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours}h`;
+  if (hours < 24) return t("relHours", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return "hier";
-  return `il y a ${days}j`;
+  if (days === 1) return t("relYesterday");
+  return t("relDays", { count: days });
 }
 
 function daysUntil(deadline: string): number {
@@ -162,6 +165,7 @@ function WeatherWidget({
   weather: CalendarWeather;
   onCityChange?: (city: WeatherCity) => void;
 }) {
+  const t = useTranslations("calendar");
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -240,7 +244,7 @@ function WeatherWidget({
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Rechercher une ville..."
+                  placeholder={t("searchCity")}
                   className="w-full rounded-md border border-[#27272A] bg-[#0F0F11] px-2.5 py-1.5 text-xs text-[#FAFAFA] placeholder-[#52525B] outline-none focus:border-[#F97316]/50"
                 />
               </div>
@@ -248,7 +252,7 @@ function WeatherWidget({
               {/* City list */}
               <div className="max-h-60 overflow-y-auto py-1">
                 {filteredCities.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-[#52525B]">Aucun resultat</p>
+                  <p className="px-3 py-2 text-xs text-[#52525B]">{t("noResults")}</p>
                 ) : (
                   filteredCities.map((city) => {
                     const isActive = city.name === currentCity.name;
@@ -336,6 +340,7 @@ function PrepSection({
 // ── Meeting Prep Panel ────────────────────────────────────
 
 function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
+  const t = useTranslations("calendar");
   return (
     <div className="space-y-1">
       {/* Project Summary */}
@@ -347,7 +352,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
 
       {/* Unread Emails */}
       <PrepSection
-        title="Emails non traites"
+        title={t("prepEmails")}
         count={prep.unread_emails.length}
         countColor="bg-[#3B82F6]/15 text-[#3B82F6]"
         defaultOpen={prep.unread_emails.length > 0}
@@ -362,13 +367,13 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
           </div>
         ))}
         {prep.unread_emails.length === 0 && (
-          <p className="text-[10px] text-[#52525B] px-1">Aucun email en attente</p>
+          <p className="text-[10px] text-[#52525B] px-1">{t("prepNoEmails")}</p>
         )}
       </PrepSection>
 
       {/* Overdue Tasks */}
       <PrepSection
-        title="Taches en retard"
+        title={t("prepOverdueTasks")}
         count={prep.overdue_tasks.length}
         countColor="bg-[#EF4444]/15 text-[#EF4444]"
         defaultOpen={prep.overdue_tasks.length > 0}
@@ -380,7 +385,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
               <p className="text-xs text-[#FAFAFA] truncate">{task.title}</p>
               <div className="flex items-center gap-2 text-[10px]">
                 <span className="text-[#EF4444] font-medium">
-                  {task.days_overdue}j de retard
+                  {t("daysOverdue", { count: task.days_overdue })}
                 </span>
                 {task.assignee && (
                   <span className="text-[#71717A]">{task.assignee}</span>
@@ -393,7 +398,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
 
       {/* Open Reserves */}
       <PrepSection
-        title="Reserves ouvertes"
+        title={t("prepOpenReserves")}
         count={prep.open_reserves.length}
         countColor="bg-[#F59E0B]/15 text-[#F59E0B]"
       >
@@ -421,7 +426,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
 
       {/* Key Points */}
       <PrepSection
-        title="Points cles"
+        title={t("prepKeyPoints")}
         count={prep.key_points.length}
         defaultOpen={prep.key_points.length > 0}
       >
@@ -444,7 +449,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
 
       {/* Suggested Agenda */}
       <PrepSection
-        title="Agenda suggere"
+        title={t("prepSuggestedAgenda")}
         count={prep.suggested_agenda.length}
         defaultOpen={prep.suggested_agenda.length > 0}
       >
@@ -474,6 +479,7 @@ function MeetingPrepSection({ prep }: { prep: MeetingPrepData }) {
 // ── Feed Card ─────────────────────────────────────────────
 
 function FeedCard({ item }: { item: IntelligenceFeedItem }) {
+  const t = useTranslations("calendar");
   const Icon = FEED_ICON[item.type] || Bell;
   const dotClass = URGENCY_DOT[item.urgency] || URGENCY_DOT.low;
 
@@ -508,7 +514,7 @@ function FeedCard({ item }: { item: IntelligenceFeedItem }) {
             </span>
           )}
           <span className="text-[10px] text-[#52525B]">
-            {formatRelativeTime(item.timestamp)}
+            {formatRelativeTime(item.timestamp, t)}
           </span>
         </div>
       </div>
@@ -533,6 +539,7 @@ function FeedCard({ item }: { item: IntelligenceFeedItem }) {
 // ── Deadline Card ─────────────────────────────────────────
 
 function DeadlineCard({ item }: { item: IntelligenceFeedItem }) {
+  const t = useTranslations("calendar");
   const days = daysUntil(item.timestamp);
   const maxDays = 14;
   const barColor = deadlineBarColor(days);
@@ -553,7 +560,7 @@ function DeadlineCard({ item }: { item: IntelligenceFeedItem }) {
               : "text-[#10B981]"
           }`}
         >
-          J-{Math.max(0, days)}
+          {t("daysLeft", { count: Math.max(0, days) })}
         </span>
       </div>
       {/* Progress bar */}
@@ -579,6 +586,7 @@ export function IntelligencePanel({
   meetingPrep,
   onCityChange,
 }: IntelligencePanelProps) {
+  const t = useTranslations("calendar");
   // Split deadlines from the rest of the feed
   const { deadlines, alerts } = useMemo(() => {
     const deadlines: IntelligenceFeedItem[] = [];
@@ -604,7 +612,7 @@ export function IntelligencePanel({
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-[#F97316]" />
             <h3 className="text-sm font-semibold text-[#FAFAFA]">
-              Preparation IA
+              {t("meetingPrep")}
             </h3>
           </div>
 
@@ -620,7 +628,7 @@ export function IntelligencePanel({
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4 text-center">
               <Sparkles className="mx-auto h-5 w-5 text-[#52525B] mb-2" />
               <p className="text-xs text-[#52525B]">
-                Selectionnez un evenement pour voir la preparation IA
+                {t("selectEventForPrep")}
               </p>
             </div>
           )}
@@ -632,7 +640,7 @@ export function IntelligencePanel({
             <div className="flex items-center gap-2 mb-3">
               <Clock className="h-4 w-4 text-[#F59E0B]" />
               <h3 className="text-sm font-semibold text-[#FAFAFA]">
-                Deadlines
+                {t("deadlines")}
               </h3>
               <span className="ml-auto rounded-full bg-[#F59E0B]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#F59E0B]">
                 {deadlines.length}
@@ -651,7 +659,7 @@ export function IntelligencePanel({
           <div className="flex items-center gap-2 mb-3">
             <Zap className="h-4 w-4 text-[#F97316]" />
             <h3 className="text-sm font-semibold text-[#FAFAFA]">
-              Intelligence
+              {t("intelligence")}
             </h3>
             {alerts.length > 0 && (
               <span className="ml-auto rounded-full bg-[#F97316]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#F97316]">
@@ -669,7 +677,7 @@ export function IntelligencePanel({
           ) : (
             <div className="rounded-lg border border-[#27272A] bg-[#18181B] p-4 text-center">
               <p className="text-xs text-[#52525B]">
-                Aucune alerte — tout roule
+                {t("noAlerts")}
               </p>
               <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#10B981]" />
             </div>

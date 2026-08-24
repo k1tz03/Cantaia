@@ -33,7 +33,18 @@ export interface Passe1Result {
 // ─── Passe 2 : Métré ───
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'assumption';
-export type PriceSource = 'historique_interne' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
+/**
+ * Provenance d'un prix unitaire.
+ *
+ * `historique_interne`      — offres réelles de CETTE organisation (offer_line_items,
+ *                             + ingested_offer_lines filtrées sur org_id).
+ * `donnees_communautaires`  — agrégat cross-org (mv_reference_prices). Ce n'est PAS
+ *                             de l'historique interne : ne jamais l'étiqueter comme tel,
+ *                             l'utilisateur croirait à ses propres données.
+ * `benchmark_cantaia`       — benchmark C2 anonymisé (>= 3 contributeurs).
+ * `referentiel_crb`         — référentiel statique CRB.
+ */
+export type PriceSource = 'historique_interne' | 'donnees_communautaires' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
 
 export interface SousPoste {
   sous_poste: string;
@@ -228,6 +239,7 @@ export interface Passe4Result {
     score_global: number;
     repartition_sources: {
       historique_interne_pct: number;
+      donnees_communautaires_pct: number;
       benchmark_cantaia_pct: number;
       referentiel_crb_pct: number;
       ratio_estimation_pct: number;
@@ -283,6 +295,13 @@ export interface EstimationPipelineResult {
   project_id: string;
   org_id: string;
   created_at: string;
+  /**
+   * Id de la ligne `plan_estimates` créée à la fin du pipeline (migration 022 +
+   * 084). `undefined` si la sauvegarde a échoué — dans ce cas les boucles
+   * d'apprentissage (corrections quantité, calibration prix) ne peuvent pas
+   * référencer l'estimation et le client doit le signaler.
+   */
+  estimate_id?: string;
   passe1: Passe1Result;
   consensus_metrage: ConsensusResult;
   passe3: Passe3Result;

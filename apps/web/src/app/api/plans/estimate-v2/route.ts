@@ -2,12 +2,70 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runEstimationPipeline } from "@cantaia/core/plans/estimation/pipeline";
-import { getBureauProfile, updateBureauProfile } from "@cantaia/core/plans/estimation/calibration-engine";
+import {
+  getBureauProfile,
+  updateBureauProfile,
+  getQuantityCalibration,
+  getPriceCalibration,
+} from "@cantaia/core/plans/estimation/calibration-engine";
 import { verifyCrossPlan } from "@cantaia/core/plans/estimation";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 // Multi-model 4-pass pipeline can take several minutes
 export const maxDuration = 300;
+
+/**
+ * Télécharge un fichier de plan depuis Supabase Storage.
+ *
+ * B16 — L'ancien parsing supposait une URL publique
+ * (`/storage/v1/object/public/<bucket>/<path>`) et cassait dès que le bucket
+ * `plans` passait en privé (URL signée `/object/sign/...?token=…`), ou pour
+ * une URL authentifiée `/object/<bucket>/<path>`. On gère les trois formes,
+ * puis on retombe sur un `fetch()` direct (utile pour une URL signée encore
+ * valide ou un stockage externe).
+ */
+async function downloadPlanFile(
+  admin: any,
+  fileUrl: string
+): Promise<{ buffer: Buffer } | { error: string }> {
+  const match = fileUrl.match(
+    /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?([^/?]+)\/(.+?)(?:\?|$)/
+  );
+
+  if (match) {
+    const bucketName = match[1];
+    // Les chemins Storage peuvent contenir des caractères encodés (espaces,
+    // accents) — l'API `download()` attend le chemin décodé.
+    let objectPath = match[2];
+    try {
+      objectPath = decodeURIComponent(objectPath);
+    } catch {
+      /* chemin déjà décodé */
+    }
+
+    const { data, error } = await admin.storage.from(bucketName).download(objectPath);
+    if (!error && data) {
+      return { buffer: Buffer.from(await data.arrayBuffer()) };
+    }
+    console.warn(
+      `[plans] Storage download échoué (bucket=${bucketName}) — fallback fetch direct:`,
+      error?.message
+    );
+  }
+
+  // Fallback : URL signée encore valide, ou hébergement externe.
+  try {
+    const res = await fetch(fileUrl);
+    if (!res.ok) {
+      return { error: `HTTP ${res.status} sur le fichier du plan` };
+    }
+    return { buffer: Buffer.from(await res.arrayBuffer()) };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Téléchargement du plan impossible",
+    };
+  }
+}
 
 /**
  * GET /api/plans/estimate-v2?plan_id=xxx
@@ -58,11 +116,15 @@ export async function GET(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  if (!estimate) {
+  if (!estimate?.estimate_result) {
     return NextResponse.json({ error: "No estimation found" }, { status: 404 });
   }
 
-  return NextResponse.json({ estimation: estimate.estimate_result });
+  // `estimate_id` est requis par les boucles d'apprentissage (corrections
+  // quantité / calibration prix) : il référence la ligne `plan_estimates`.
+  return NextResponse.json({
+    estimation: { ...estimate.estimate_result, estimate_id: estimate.id },
+  });
 }
 
 /**
@@ -136,22 +198,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file found for this plan" }, { status: 404 });
     }
 
-    // Télécharger le fichier depuis Supabase Storage
-    const filePath = version.file_url.replace(/^.*\/storage\/v1\/object\/public\//, '');
-    const bucketName = filePath.split('/')[0];
-    const objectPath = filePath.split('/').slice(1).join('/');
-
-    const { data: fileData, error: dlError } = await adminClient.storage
-      .from(bucketName || 'plans')
-      .download(objectPath || filePath);
-
-    if (dlError || !fileData) {
+    // Télécharger le fichier depuis Supabase Storage (public, signé ou authentifié)
+    const download = await downloadPlanFile(adminClient, version.file_url);
+    if ("error" in download) {
+      console.error("[estimate-v2] Téléchargement du plan échoué:", download.error);
       return NextResponse.json({ error: "Failed to download plan file" }, { status: 500 });
     }
 
     // Convertir en base64
-    const buffer = Buffer.from(await fileData.arrayBuffer());
-    const imageBase64 = buffer.toString('base64');
+    const imageBase64 = download.buffer.toString('base64');
 
     // Déterminer le media type
     const ext = (version.file_name || '').toLowerCase();
@@ -162,21 +217,36 @@ export async function POST(request: NextRequest) {
     else if (ext.endsWith('.webp')) mediaType = 'image/webp';
     else if (ext.endsWith('.pdf')) mediaType = 'application/pdf';
 
+    const regionResolved = region || 'vaud';
+
     // Calculer les poids des modèles depuis les profils d'erreur C2 (cross-org)
+    //
+    // B7 — La colonne s'appelle `nb_corrections` (migration 043), pas
+    // `nombre_corrections`. PostgREST renvoyait une 400 sur le SELECT, le
+    // catch l'avalait, et les poids adaptatifs n'ont donc JAMAIS été actifs.
     const modelWeights: Record<string, number> = {};
     try {
-      const { data: profiles } = await (adminClient as any)
+      const { data: profiles, error: profilesError } = await (adminClient as any)
         .from("model_error_profiles")
-        .select("provider, discipline, ecart_moyen_pct, nombre_corrections");
+        .select("provider, discipline, ecart_moyen_pct, nb_corrections");
+
+      if (profilesError) {
+        console.warn("[estimate-v2] model_error_profiles SELECT error:", profilesError.message);
+      }
 
       if (profiles?.length) {
-        const byProvider: Record<string, number[]> = {};
+        // Moyenne pondérée par le nombre de corrections : un profil bâti sur
+        // 50 corrections doit peser plus qu'un profil bâti sur 1.
+        const byProvider: Record<string, { sum: number; weight: number }> = {};
         for (const p of profiles) {
-          if (!byProvider[p.provider]) byProvider[p.provider] = [];
-          byProvider[p.provider].push(p.ecart_moyen_pct ?? 0.15);
+          const samples = Math.max(Number(p.nb_corrections) || 0, 1);
+          const err = Number(p.ecart_moyen_pct ?? 0.15);
+          if (!byProvider[p.provider]) byProvider[p.provider] = { sum: 0, weight: 0 };
+          byProvider[p.provider].sum += err * samples;
+          byProvider[p.provider].weight += samples;
         }
-        for (const [provider, errors] of Object.entries(byProvider)) {
-          const avgError = errors.reduce((a: number, b: number) => a + b, 0) / errors.length;
+        for (const [provider, agg] of Object.entries(byProvider)) {
+          const avgError = agg.weight > 0 ? agg.sum / agg.weight : 0.15;
           modelWeights[provider] = 1 / (1 + avgError / 10);
         }
         // Normaliser so que la somme des poids ≈ 3.0 (un poids neutre de 1 par modèle)
@@ -194,20 +264,109 @@ export async function POST(request: NextRequest) {
       console.warn("[estimate-v2] Could not load model error profiles, using equal weights:", weightErr);
     }
 
+    // ── Calibrations apprises (B7) ────────────────────────────────────────
+    // Le pipeline accepte `qtyCalibrations` (clé `cfc::unite`) et
+    // `priceCalibrations` (clé `cfc::region`) mais PERSONNE ne les remplissait :
+    // getQuantityCalibration/getPriceCalibration n'avaient aucun appelant, donc
+    // la boucle de calibration était écrite mais jamais relue.
+    //
+    // On ne connaît les CFC du plan qu'après la Passe 2, donc on précharge les
+    // coefficients à partir des corrections déjà enregistrées par l'org.
+    const qtyCalibrations = new Map<string, number>();
+    const priceCalibrations = new Map<string, number>();
+    const MAX_CALIBRATION_LOOKUPS = 40; // borne la latence (chaque lookup = 1-3 requêtes)
+
+    try {
+      const { data: qcRows } = await (adminClient as any)
+        .from("quantity_corrections")
+        .select("cfc_code, unite, discipline, bureau_auteur")
+        .eq("org_id", userOrg.organization_id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      const seenQty = new Set<string>();
+      const qtyTargets: Array<{ cfc_code: string; unite: string; discipline: string; bureau_auteur: string | null }> = [];
+      for (const row of qcRows ?? []) {
+        if (!row.cfc_code || !row.unite) continue;
+        const key = `${row.cfc_code}::${row.unite}`;
+        if (seenQty.has(key)) continue;
+        seenQty.add(key);
+        qtyTargets.push({
+          cfc_code: row.cfc_code,
+          unite: row.unite,
+          discipline: row.discipline || "architecture",
+          bureau_auteur: row.bureau_auteur ?? null,
+        });
+        if (qtyTargets.length >= MAX_CALIBRATION_LOOKUPS) break;
+      }
+
+      for (const target of qtyTargets) {
+        const cal = await getQuantityCalibration({
+          org_id: userOrg.organization_id,
+          cfc_code: target.cfc_code,
+          discipline: target.discipline,
+          bureau_auteur: target.bureau_auteur,
+          supabase: adminClient,
+        });
+        // `mv_qty_calibration` exige déjà >= 3 corrections ; on ignore les
+        // coefficients neutres pour ne pas polluer la Map.
+        if (cal.specificity !== "none" && cal.coefficient > 0 && cal.coefficient !== 1) {
+          qtyCalibrations.set(`${target.cfc_code}::${target.unite}`, cal.coefficient);
+        }
+      }
+    } catch (qtyErr) {
+      console.warn("[estimate-v2] Chargement des calibrations quantité échoué (non-fatal):", qtyErr);
+    }
+
+    try {
+      const { data: pcRows } = await (adminClient as any)
+        .from("price_calibrations")
+        .select("cfc_code")
+        .eq("org_id", userOrg.organization_id)
+        .eq("region", regionResolved)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      const seenCfc = new Set<string>();
+      for (const row of pcRows ?? []) {
+        if (!row.cfc_code || seenCfc.has(row.cfc_code)) continue;
+        seenCfc.add(row.cfc_code);
+        if (seenCfc.size > MAX_CALIBRATION_LOOKUPS) break;
+
+        const cal = await getPriceCalibration({
+          org_id: userOrg.organization_id,
+          cfc_code: row.cfc_code,
+          region: regionResolved,
+          supabase: adminClient,
+        });
+        if (cal.nb_calibrations >= 2 && cal.coefficient > 0 && cal.coefficient !== 1) {
+          priceCalibrations.set(`${row.cfc_code}::${regionResolved}`, cal.coefficient);
+        }
+      }
+    } catch (priceErr) {
+      console.warn("[estimate-v2] Chargement des calibrations prix échoué (non-fatal):", priceErr);
+    }
+
+    if (qtyCalibrations.size > 0 || priceCalibrations.size > 0) {
+      console.log(
+        `[estimate-v2] Calibrations chargées : ${qtyCalibrations.size} quantité, ${priceCalibrations.size} prix`
+      );
+    }
+
     // Récupérer le profil de bureau depuis la dernière analyse connue du plan
     // (le nom du bureau n'est connu qu'après Passe 1, donc on utilise la valeur du dernier run)
     let bureauEnrichment: string | undefined;
     try {
-      const { data: lastAnalysis } = await (adminClient as any)
-        .from("plan_analyses")
-        .select("result")
+      const { data: lastEstimate } = await (adminClient as any)
+        .from("plan_estimates")
+        .select("estimate_result")
         .eq("plan_id", plan_id)
-        .eq("analysis_type", "estimation_v2")
+        .eq("organization_id", userOrg.organization_id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const lastBureauName = lastAnalysis?.result?.passe1?.cartouche?.auteur_bureau;
+      const lastBureauName = lastEstimate?.estimate_result?.passe1?.cartouche?.auteur_bureau;
       if (lastBureauName) {
         const bureauData = await getBureauProfile({
           org_id: userOrg.organization_id,
@@ -231,14 +390,25 @@ export async function POST(request: NextRequest) {
       org_id: userOrg.organization_id,
       image_base64: imageBase64,
       media_type: mediaType,
-      region: region || 'vaud',
+      region: regionResolved,
       type_batiment: type_batiment || 'logement_collectif_standard',
       acces_chantier: acces_chantier || 'normal',
       periode_travaux: periode_travaux || `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
       supabase: adminClient,
+      user_id: user.id,
       modelWeights: Object.keys(modelWeights).length > 0 ? (modelWeights as any) : undefined,
       bureauEnrichment,
+      qtyCalibrations: qtyCalibrations.size > 0 ? qtyCalibrations : undefined,
+      priceCalibrations: priceCalibrations.size > 0 ? priceCalibrations : undefined,
     });
+
+    if (!result.estimate_id) {
+      // La sauvegarde a échoué (détails dans les logs du pipeline). On renvoie
+      // quand même le résultat — mais le client doit savoir que les boucles
+      // d'apprentissage (correction quantité / calibration prix) seront
+      // indisponibles pour cette estimation.
+      console.warn("[estimate-v2] Estimation non persistée — corrections/calibration indisponibles");
+    }
 
     // Mettre à jour le profil du bureau avec le résultat de cette analyse (Passe 1)
     const detectedBureauName = result.passe1?.cartouche?.auteur_bureau;

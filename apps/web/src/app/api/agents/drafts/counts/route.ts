@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * GET /api/agents/drafts/counts
- * Returns the count of pending email drafts for the user's organization.
+ * Returns the count of pending email drafts belonging to the CURRENT USER.
+ * Kept in sync with GET /api/agents/drafts, which is user-scoped (CAL.H1) —
+ * an org-wide count here would show a badge for drafts the user cannot open.
  * Used by Sidebar badge and Mail page filter.
  */
 export async function GET() {
@@ -28,6 +30,7 @@ export async function GET() {
     .from("email_drafts")
     .select("id", { count: "exact", head: true })
     .eq("organization_id", profile.organization_id)
+    .eq("user_id", user.id)
     .eq("status", "pending");
 
   if (error) {

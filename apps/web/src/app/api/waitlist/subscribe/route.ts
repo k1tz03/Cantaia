@@ -10,7 +10,7 @@
  *
  * Protection:
  *   - Zod validation (email + optional locale/source)
- *   - In-memory rate limit: 5 requests / IP / hour
+ *   - Distributed rate limit: 5 requests / IP / hour (Postgres-backed, migration 079)
  *   - Silent no-op on duplicate (avoids leaking whether an email is registered)
  *   - No confirmation email on duplicate (avoids double-sending + existence leak)
  */
@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody } from "@/lib/api/parse-body";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   WAITLIST_CONFIRMATION_FROM,
   WAITLIST_CONFIRMATION_HTML,
@@ -34,37 +35,28 @@ const bodySchema = z.object({
   source: z.string().trim().min(1).max(64).optional(),
 });
 
-// ─── In-memory rate limit (per serverless instance) ─────────────────────
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+// ─── Rate limit: 5 / IP / hour, shared across serverless instances ──────
+const RATE_LIMIT_WINDOW_SEC = 60 * 60; // 1 hour
 const RATE_LIMIT_MAX = 5;
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+/**
+ * Resolve the caller IP from proxy headers.
+ *
+ * `x-forwarded-for` is a client-appendable list: a spoofed request can prepend
+ * arbitrary values, so the FIRST entry is attacker-controlled. Each trusted
+ * proxy appends the address it actually saw, therefore the LAST hop is the one
+ * written by the edge that terminated our connection — that is the value we key
+ * the rate limiter on. Falls back to `x-real-ip` (set by the platform).
+ */
 function getClientIp(request: NextRequest): string {
   const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
   const xrip = request.headers.get("x-real-ip");
   if (xrip) return xrip.trim();
   return "unknown";
-}
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  // Periodic cleanup (avoid unbounded growth)
-  if (rateLimitMap.size > 5_000) {
-    for (const [key, val] of rateLimitMap.entries()) {
-      if (val.resetAt < now) rateLimitMap.delete(key);
-    }
-  }
-
-  if (!entry || entry.resetAt < now) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count += 1;
-  return true;
 }
 
 // ─── Resend confirmation email (fire-and-forget) ─────────────────────────
@@ -147,7 +139,11 @@ export async function POST(request: NextRequest) {
 
   const ip = getClientIp(request);
 
-  if (!checkRateLimit(ip)) {
+  const limit = await rateLimit(`waitlist:${ip}`, {
+    limit: RATE_LIMIT_MAX,
+    windowSec: RATE_LIMIT_WINDOW_SEC,
+  });
+  if (!limit.allowed) {
     console.log(
       JSON.stringify({
         level: "warn",
@@ -159,7 +155,10 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json(
       { error: "Trop de tentatives. Réessayez dans une heure." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSec || RATE_LIMIT_WINDOW_SEC) },
+      },
     );
   }
 

@@ -6,6 +6,7 @@ import {
   fetchGraphCalendarEvents,
   graphEventToCalendarEvent,
   extractAttendeesFromGraphEvent,
+  isPrivateGraphCalendarEvent,
 } from "@cantaia/core/calendar";
 import { trackApiUsage } from "@cantaia/core/tracking";
 
@@ -120,9 +121,24 @@ export async function POST() {
     // Upsert events by outlook_event_id
     let imported = 0;
     let updated = 0;
+    let skippedPrivate = 0;
 
     for (const graphEvent of graphResult.events) {
       try {
+        // CAL.H1: never import private/confidential Outlook events into the
+        // org-visible table. If the event was imported before its sensitivity
+        // changed, remove the already-imported copy (invitations cascade).
+        if (isPrivateGraphCalendarEvent(graphEvent)) {
+          skippedPrivate++;
+          await (admin as any)
+            .from("calendar_events")
+            .delete()
+            .eq("outlook_event_id", graphEvent.id)
+            .eq("organization_id", profile.organization_id)
+            .eq("sync_source", "outlook");
+          continue;
+        }
+
         const calendarData = graphEventToCalendarEvent(
           graphEvent,
           user.id,
@@ -221,18 +237,20 @@ export async function POST() {
         events_fetched: graphResult.events.length,
         imported,
         updated,
+        skipped_private: skippedPrivate,
         has_delta: !!graphResult.deltaLink,
       },
     }).catch(() => {});
 
     console.log(
-      `[calendar/sync] Completed: ${imported} imported, ${updated} updated, ${graphResult.events.length} fetched`
+      `[calendar/sync] Completed: ${imported} imported, ${updated} updated, ${skippedPrivate} private skipped, ${graphResult.events.length} fetched`
     );
 
     return NextResponse.json({
       success: true,
       imported,
       updated,
+      skipped_private: skippedPrivate,
       total_fetched: graphResult.events.length,
       total_events: totalImported,
     });

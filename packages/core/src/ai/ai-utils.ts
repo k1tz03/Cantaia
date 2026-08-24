@@ -229,32 +229,72 @@ export function cleanEmailForAI(html: string, maxChars = 8000): string {
   return text;
 }
 
-// ── Cached Anthropic Client Factory ──────────────────────────
+// ── Tolerant AI JSON Parser ──────────────────────────────────
 
-// WeakRef-compatible cache by API key
-const clientCache = new Map<string, unknown>();
+/** Remove trailing commas before } or ] (common LLM output defect). */
+function stripTrailingCommas(text: string): string {
+  return text.replace(/,\s*([}\]])/g, "$1");
+}
 
 /**
- * Create or reuse an Anthropic client instance with optional timeout.
- * Uses a simple cache keyed by API key.
+ * Parse JSON from a raw AI response with a tolerant multi-strategy approach:
+ * 1. Strip markdown code fences, then direct JSON.parse
+ * 2. Retry after removing trailing commas
+ * 3. Extract from the first "{" to the last "}" (handles GPT/Gemini preambles
+ *    and epilogues), with and without trailing commas
+ * 4. Same extraction for top-level arrays ("[" … "]")
+ * Returns null if nothing parseable is found — never throws.
  */
-export function createAnthropicClient(
-  apiKey: string,
-  timeoutMs = 60000
-): unknown {
-  const cacheKey = `${apiKey}:${timeoutMs}`;
+export function parseAIJson<T>(raw: string): T | null {
+  if (!raw) return null;
 
-  const cached = clientCache.get(cacheKey);
-  if (cached) return cached;
+  let text = raw.trim();
 
-  // We return a factory promise since Anthropic SDK is dynamically imported
-  // The caller should await this in an async context
-  // For now, we store the config and let callers use it
-  const config = {
-    apiKey,
-    timeout: timeoutMs,
-  };
+  // Strip markdown code fences if present
+  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+  }
 
-  clientCache.set(cacheKey, config);
-  return config;
+  // Strategy 1: direct parse
+  try {
+    return JSON.parse(text) as T;
+  } catch { /* continue */ }
+
+  // Strategy 2: fix trailing commas
+  try {
+    return JSON.parse(stripTrailingCommas(text)) as T;
+  } catch { /* continue */ }
+
+  // Strategy 3: extract first "{" → last "}" (preamble/epilogue tolerant)
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = text.substring(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate) as T;
+    } catch { /* continue */ }
+    try {
+      return JSON.parse(stripTrailingCommas(candidate)) as T;
+    } catch { /* continue */ }
+  }
+
+  // Strategy 4: top-level array extraction
+  const firstBracket = text.indexOf("[");
+  const lastBracket = text.lastIndexOf("]");
+  if (
+    firstBracket !== -1 &&
+    lastBracket > firstBracket &&
+    (firstBrace === -1 || firstBracket < firstBrace)
+  ) {
+    const candidate = text.substring(firstBracket, lastBracket + 1);
+    try {
+      return JSON.parse(candidate) as T;
+    } catch { /* continue */ }
+    try {
+      return JSON.parse(stripTrailingCommas(candidate)) as T;
+    } catch { /* continue */ }
+  }
+
+  return null;
 }

@@ -34,7 +34,13 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
-    // Verify submission belongs to user's org
+    if (!profile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const orgId = profile.organization_id;
+
+    // Verify submission belongs to user's org (unconditional — an orphan
+    // submission with no project is never readable)
     const { data: submissionCheck } = await (admin as any)
       .from("submissions")
       .select("project_id, projects!submissions_project_id_fkey(organization_id)")
@@ -45,7 +51,7 @@ export async function GET(
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
     const proj = (submissionCheck as any).projects;
-    if (proj && profile?.organization_id && proj.organization_id !== profile.organization_id) {
+    if (!proj || proj.organization_id !== orgId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -76,11 +82,11 @@ export async function GET(
     const cfcCodes = [...new Set(items.map((i: any) => i.cfc_code).filter(Boolean))];
     let historicalPrices: Record<string, number[]> = {};
 
-    if (cfcCodes.length > 0 && profile?.organization_id) {
+    if (cfcCodes.length > 0) {
       const { data: historicalLines } = await (admin as any)
         .from("ingested_offer_lines")
         .select("cfc_code, unit_price_ht, unit")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", orgId)
         .in("cfc_code", cfcCodes)
         .gte("created_at", sixMonthsAgo.toISOString());
 
@@ -94,13 +100,23 @@ export async function GET(
       }
     }
 
-    // Get prices from other submissions' quotes (cross-project comparison)
-    const { data: otherQuotes } = await (admin as any)
+    // Get prices from other submissions' quotes (cross-project comparison).
+    // H5: the join on submissions!inner + organization_id filter keeps this inside
+    // the caller's organization — without it, every org's quoted prices were used
+    // as the "market reference" and leaked back through the alert payload.
+    const { data: otherQuotes, error: otherQuotesError } = await (admin as any)
       .from("submission_quotes")
-      .select("item_id, unit_price_ht, submission_items!inner(description, cfc_code, unit)")
+      .select(
+        "item_id, unit_price_ht, submission_items!inner(description, cfc_code, unit), submissions!inner(organization_id)"
+      )
+      .eq("submissions.organization_id", orgId)
       .neq("submission_id", submissionId)
       .gte("extracted_at", sixMonthsAgo.toISOString())
       .not("unit_price_ht", "is", null);
+
+    if (otherQuotesError) {
+      console.warn("[price-alerts] cross-project query failed:", otherQuotesError.message);
+    }
 
     const crossProjectPrices: Record<string, number[]> = {};
     if (otherQuotes) {

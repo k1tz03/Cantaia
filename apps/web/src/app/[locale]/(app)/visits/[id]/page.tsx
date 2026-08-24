@@ -20,6 +20,7 @@ import {
   Download,
   Camera,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ClientVisit, VisitPhoto } from "@cantaia/database";
@@ -28,6 +29,9 @@ import { PhotoCapture } from "@/components/visits/PhotoCapture";
 import { HandwrittenNotesResult } from "@/components/visits/HandwrittenNotesResult";
 
 type Tab = "report" | "transcription" | "photos" | "tasks" | "documents";
+
+/** `signed_url` is added by GET /api/visits/photos (private `audio` bucket). */
+type VisitPhotoWithUrl = VisitPhoto & { signed_url?: string | null };
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("fr-CH", {
@@ -211,6 +215,9 @@ export default function VisitDetailPage() {
         })}
       </div>
 
+      {/* Failure banners with retry */}
+      <FailureBanner visit={visit} onRetried={loadVisit} />
+
       {/* Tab content */}
       {activeTab === "report" && <ReportTab visit={visit} report={report} />}
       {activeTab === "transcription" && <TranscriptionTab visit={visit} />}
@@ -221,9 +228,106 @@ export default function VisitDetailPage() {
   );
 }
 
+/* ═══════ Failure banner + retry ═══════ */
+function FailureBanner({ visit, onRetried }: { visit: ClientVisit; onRetried: () => void }) {
+  const [retrying, setRetrying] = useState<"transcription" | "report" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const transcriptionFailed = visit.transcription_status === "failed";
+  const reportFailed = (visit.report_status as string) === "failed";
+
+  if (!transcriptionFailed && !reportFailed) return null;
+
+  async function retry(kind: "transcription" | "report") {
+    setRetrying(kind);
+    setError(null);
+    try {
+      const endpoint =
+        kind === "transcription" ? "/api/visits/transcribe" : "/api/visits/generate-report";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visit_id: visit.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "L'opération a échoué. Réessayez plus tard.");
+      }
+      onRetried();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "L'opération a échoué.");
+    } finally {
+      setRetrying(null);
+    }
+  }
+
+  return (
+    <div className="mb-6 space-y-3">
+      {transcriptionFailed && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <div className="flex items-start gap-2 text-sm text-red-400">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>La transcription de l&apos;enregistrement a échoué.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => retry("transcription")}
+            disabled={retrying !== null}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {retrying === "transcription" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {reportFailed && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="flex items-start gap-2 text-sm text-amber-400">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>La génération du rapport IA a échoué.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => retry("report")}
+            disabled={retrying !== null || !visit.transcription}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+          >
+            {retrying === "report" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>
+      )}
+    </div>
+  );
+}
+
 /* ═══════ Report Tab ═══════ */
 function ReportTab({ visit, report }: { visit: ClientVisit; report: any }) {
   const t = useTranslations("visits");
+
+  if (!report.summary && (visit.report_status as string) === "failed") {
+    return (
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-8 text-center">
+        <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-red-500" />
+        <p className="text-sm font-medium text-red-400">
+          Le rapport n&apos;a pas pu être généré. Utilisez le bouton « Réessayer » ci-dessus.
+        </p>
+      </div>
+    );
+  }
 
   if (!report.summary && visit.report_status !== "completed") {
     return (
@@ -392,10 +496,22 @@ function TranscriptionTab({ visit }: { visit: ClientVisit }) {
   const t = useTranslations("visits");
 
   if (!visit.transcription) {
+    const failed = visit.transcription_status === "failed";
     return (
       <div className="rounded-lg border border-[#27272A] bg-[#0F0F11] p-8 text-center">
-        <Mic className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
-        <p className="text-sm text-[#71717A]">{t("transcribing")}</p>
+        {failed ? (
+          <>
+            <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-500" />
+            <p className="text-sm text-red-400">
+              La transcription a échoué. Utilisez le bouton « Réessayer » ci-dessus.
+            </p>
+          </>
+        ) : (
+          <>
+            <Mic className="mx-auto mb-3 h-8 w-8 text-[#71717A]" />
+            <p className="text-sm text-[#71717A]">{t("transcribing")}</p>
+          </>
+        )}
       </div>
     );
   }
@@ -428,10 +544,12 @@ function TasksTab({ visit }: { visit: ClientVisit }) {
   async function loadTasks() {
     try {
       const supabase = createClient();
+      // Tasks created from a visit carry source_id = visit id.
+      // (`source` is the task_source enum — there is no 'client_visit' value,
+      // and `source_type` does not exist on the tasks table.)
       const { data } = await (supabase.from("tasks") as any)
         .select("id, title, status, priority, due_date")
         .eq("source_id", visit.id)
-        .eq("source_type", "client_visit")
         .order("created_at");
       setTasks(data || []);
     } catch {
@@ -449,7 +567,10 @@ function TasksTab({ visit }: { visit: ClientVisit }) {
     <div className="rounded-lg border border-[#27272A] bg-[#0F0F11]">
       {tasks.length === 0 ? (
         <div className="py-12 text-center text-sm text-[#71717A]">
-          {t("tabTasks")} — Aucune tâche créée
+          {t("tabTasks")} —{" "}
+          {visit.project_id
+            ? "Aucune tâche créée"
+            : "Aucune tâche : cette visite n'est liée à aucun projet"}
         </div>
       ) : (
         <div className="divide-y divide-border">
@@ -550,7 +671,7 @@ function DocumentsTab({ visit }: { visit: ClientVisit }) {
 /* ═══════ Photos Tab ═══════ */
 function PhotosTab({ visit, onPhotosChanged }: { visit: ClientVisit; onPhotosChanged: () => void }) {
   const t = useTranslations("visits");
-  const [photos, setPhotos] = useState<VisitPhoto[]>([]);
+  const [photos, setPhotos] = useState<VisitPhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [orgId, setOrgId] = useState("");

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
 import {
   Building2,
   ArrowLeft,
@@ -437,8 +438,12 @@ export default function OrganizationDetailPage() {
 
               {/* Profitability banner */}
               {(() => {
-                const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
-                const revenue = PLAN_PRICES[orgPlan] || 0;
+                // Per-user pricing estimate: pricePerUser × max(membres, minUsers).
+                // NOTE: interim — replaced by the credits-based billing model later.
+                const pricing = PLAN_PRICING[orgPlan as PlanName];
+                const revenue = pricing && pricing.pricePerUser > 0
+                  ? pricing.pricePerUser * Math.max(members.length, pricing.minUsers)
+                  : 0;
                 const costMonthly = statsData.overview.projected_monthly;
                 const margin = revenue > 0 ? ((revenue - costMonthly) / revenue) * 100 : 0;
                 const profitable = revenue >= costMonthly;

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -75,6 +75,26 @@ export async function POST(request: NextRequest) {
 
   // Get or create conversation
   let conversationId = body.conversation_id;
+
+  if (conversationId) {
+    // IDOR guard: the admin client bypasses RLS, so ownership must be
+    // verified explicitly before appending to an existing conversation.
+    const { data: existingConv } = await (admin as any)
+      .from("chat_conversations")
+      .select("id, user_id, organization_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    if (
+      !existingConv ||
+      existingConv.user_id !== user.id ||
+      existingConv.organization_id !== userOrg.organization_id
+    ) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+      });
+    }
+  }
 
   if (!conversationId) {
     const title = body.message.slice(0, 100).trim();
@@ -287,8 +307,16 @@ export async function POST(request: NextRequest) {
       ).catch(() => {});
     } finally {
       await writer.close().catch(() => {});
+    }
+  })();
 
-      // Save assistant message + track usage (fire and forget)
+  // Don't await streamPromise — let it run while the response streams.
+  // `after()` keeps the serverless function alive until persistence finishes,
+  // so assistant messages and cost tracking are never dropped on Vercel.
+  after(async () => {
+    try {
+      await streamPromise;
+
       if (fullResponse) {
         const { error: msgError } = await (admin as any)
           .from("chat_messages")
@@ -304,7 +332,7 @@ export async function POST(request: NextRequest) {
           console.error("[chat] Failed to save assistant message:", msgError);
         }
 
-        trackApiUsage({
+        await trackApiUsage({
           supabase: admin,
           userId: user.id,
           organizationId: userOrg.organization_id,
@@ -314,7 +342,7 @@ export async function POST(request: NextRequest) {
           inputTokens: finalUsage.input_tokens,
           outputTokens: finalUsage.output_tokens,
           metadata: { conversation_id: conversationId },
-        });
+        }).catch(() => {});
       }
 
       // Update conversation timestamp
@@ -325,11 +353,10 @@ export async function POST(request: NextRequest) {
       if (tsError) {
         console.error("[chat] Failed to update conversation timestamp:", tsError);
       }
+    } catch (err) {
+      console.error("[chat] Post-stream persistence failed:", err);
     }
-  })();
-
-  // Don't await streamPromise — let it run while the response streams
-  void streamPromise;
+  });
 
   return new Response(readable, {
     headers: {

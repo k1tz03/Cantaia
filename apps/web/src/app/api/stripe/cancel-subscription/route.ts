@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import Stripe from "stripe";
 
 function getStripe() {
@@ -9,30 +9,19 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Only org admins (admin/director) or superadmins can manage billing
+    const check = await requireOrgAdmin();
+    if (!check.authorized) {
+      return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
     const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("users")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
-    }
-
     const { data: org } = await admin
       .from("organizations")
       .select("stripe_subscription_id")
-      .eq("id", profile.organization_id)
+      .eq("id", check.profile.organization_id)
       .single();
 
     if (!org?.stripe_subscription_id) {

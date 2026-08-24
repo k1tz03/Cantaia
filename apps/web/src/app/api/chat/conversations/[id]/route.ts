@@ -33,7 +33,7 @@ export async function GET(
 
   const { data: messages, error } = await (admin as any)
     .from("chat_messages")
-    .select("id, role, content, model, input_tokens, output_tokens, created_at")
+    .select("id, role, content, model, input_tokens, output_tokens, attachments, created_at")
     .eq("conversation_id", id)
     .order("created_at", { ascending: true });
 

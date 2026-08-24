@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+/**
+ * M8: escape every value interpolated into the previewed HTML email.
+ * Must stay identical to the escaping done in send-price-requests so the preview
+ * matches what the supplier actually receives.
+ */
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function cleanDescriptionForSupplier(desc: string): string {
   let cleaned = desc;
   cleaned = cleaned.replace(/^(?:fourniture\s+et\s+(?:pose|mise\s+en\s+(?:place|œuvre|oeuvre))\s+(?:de\s+|d[''])?)/i, "");
@@ -126,7 +142,7 @@ export async function GET(
       : "dans les meilleurs délais";
 
     const itemsTable = groupItems
-      .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i.item_number || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;">${cleanDescriptionForSupplier(i.description || "")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i.unit || "-"}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
+      .map((i: any) => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(i.item_number || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;">${escapeHtml(cleanDescriptionForSupplier(i.description || ""))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${escapeHtml(i.unit || "-")}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${i.quantity != null ? Number(i.quantity).toLocaleString("fr-CH") : "-"}</td></tr>`)
       .join("\n");
 
     const projectCode = (submission as any).projects?.code;
@@ -136,9 +152,9 @@ export async function GET(
     const senderName = `${userProfile?.first_name || ""} ${userProfile?.last_name || ""}`.trim();
 
     const html = `
-<p>${greeting},</p>
+<p>${escapeHtml(greeting)},</p>
 
-<p>Dans le cadre du projet <strong>${projectName}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${group}</strong>) :</p>
+<p>Dans le cadre du projet <strong>${escapeHtml(projectName)}</strong>, nous vous sollicitons pour une offre de prix concernant les postes suivants (<strong>${escapeHtml(group)}</strong>) :</p>
 
 <table style="border-collapse:collapse;width:100%;font-size:13px;margin:16px 0;">
   <thead>
@@ -154,17 +170,17 @@ export async function GET(
   </tbody>
 </table>
 
-<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${deadlineStr}</strong>.</p>
+<p>Merci de nous transmettre votre offre de prix unitaires HT pour ces postes, <strong>avant le ${escapeHtml(deadlineStr)}</strong>.</p>
 
 <p style="background:#f0f9ff;padding:12px;border-radius:6px;border-left:4px solid #3b82f6;margin:16px 0;">
-  <strong>Important :</strong> Merci de mentionner le code <strong>${trackingCode}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
+  <strong>Important :</strong> Merci de mentionner le code <strong>${escapeHtml(trackingCode)}</strong> dans votre réponse ou en objet de mail, afin de faciliter le traitement de votre offre.
 </p>
 
 <p>Nous restons à votre disposition pour tout renseignement complémentaire.</p>
 
 <p>Cordialement,<br/>
-<strong>${senderName}</strong>${userProfile?.job_title ? `<br/>${userProfile.job_title}` : ""}<br/>
-${org?.name || ""}</p>
+<strong>${escapeHtml(senderName)}</strong>${userProfile?.job_title ? `<br/>${escapeHtml(userProfile.job_title)}` : ""}<br/>
+${escapeHtml(org?.name || "")}</p>
 `.trim();
 
     // Generate plain text table for editable textarea

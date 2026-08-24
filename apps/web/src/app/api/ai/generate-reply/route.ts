@@ -189,30 +189,37 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Track AI reply generation ──
-  try {
-    const { error: feedbackInsertError } = await (adminClient as any).from("email_classification_feedback").insert({
+  // B16: this used to INSERT into `email_classification_feedback` with columns
+  // that do not exist (feedback_type / original_value / new_value / metadata /
+  // user_id). Migration 025 defines only original_project_id,
+  // corrected_project_id, original_classification, corrected_classification and
+  // created_by — see saveFeedbackRecord() in
+  // packages/core/src/emails/classification-learning.ts, the canonical writer.
+  // Every insert therefore failed silently.
+  //
+  // We deliberately do NOT rewrite it onto the real columns: that table means
+  // "the user corrected the AI". Three consumers read it that way —
+  // aggregate_email_benchmarks() (avg_correction_rate, a cross-org C2 metric),
+  // /api/intelligence/stats (email learning dimension) and
+  // /api/cron/extract-patterns. Generating a draft reply is not a correction,
+  // so the details belong in api_usage_logs, next to the AI call itself.
+  trackApiUsage({
+    supabase: adminClient,
+    userId: user.id,
+    organizationId: userProfile.organization_id ?? "",
+    actionType: "email_reply",
+    apiProvider: "anthropic",
+    metadata: {
       email_id: body.email_id,
-      organization_id: userProfile.organization_id,
-      user_id: user.id,
-      feedback_type: "ai_reply_generated",
-      original_value: null,
-      new_value: result.reply_text.substring(0, 500),
-      metadata: {
-        tone: body.tone || null,
-        length: body.length || null,
-        model_used: "claude-sonnet-4-5-20250929",
-        no_reply_needed: result.no_reply_needed,
-        reply_length: result.reply_text.length,
-        had_thread_context: !!body.thread_context,
-        had_full_body: !!bodyFull,
-      },
-    });
-    if (feedbackInsertError) {
-      console.error("[generate-reply] Failed to log AI reply feedback:", feedbackInsertError.message);
-    }
-  } catch (feedbackErr) {
-    console.error("[generate-reply] feedback tracking error:", feedbackErr);
-  }
+      event: "ai_reply_generated",
+      tone: body.tone || null,
+      length: body.length || null,
+      no_reply_needed: result.no_reply_needed,
+      reply_length: result.reply_text.length,
+      had_thread_context: !!body.thread_context,
+      had_full_body: !!bodyFull,
+    },
+  });
 
   return NextResponse.json({
     success: true,

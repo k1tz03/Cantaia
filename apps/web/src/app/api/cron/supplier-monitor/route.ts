@@ -4,8 +4,20 @@ import { getAgentConfig, runAgentLoop } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "../../agents/[type]/stream/tool-handlers";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { isAuthorizedCron } from "@/lib/cron-auth";
+import {
+  nextAgentBudgetMs,
+  isSuccessfulToolResult,
+  extractSavedCount,
+  countToolInputArray,
+} from "../agent-cron-utils";
 
 export const maxDuration = 300;
+
+/** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 /**
  * POST /api/cron/supplier-monitor
@@ -18,13 +30,11 @@ export const maxDuration = 300;
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const cronStart = Date.now();
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
@@ -73,7 +83,16 @@ export async function POST(request: NextRequest) {
 
   const results: { orgId: string; alertsGenerated: number; suppliersAnalyzed: number; status: string; error?: string }[] = [];
 
+  const skippedOrgs: string[] = [];
+
   for (const [orgId, userId] of orgUserMap) {
+    // AGT.H4 — stop cleanly before Vercel kills the function mid-org.
+    const orgBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
+    if (orgBudgetMs === null) {
+      skippedOrgs.push(orgId);
+      continue;
+    }
+
     try {
       const sessionId = crypto.randomUUID();
       const dbSessionId = crypto.randomUUID();
@@ -95,16 +114,25 @@ export async function POST(request: NextRequest) {
       const startTime = Date.now();
       let alertsGenerated = 0;
 
+      // AGT.M2 — count alerts the handler actually persisted. A tool call that
+      // was rejected (e.g. supplier_id outside the org) must not produce a
+      // notification claiming alerts were created.
+      const requestedByToolUseId = new Map<string, number>();
+
       const onEvent = (eventType: string, data: Record<string, unknown>) => {
-        if (eventType === "agent.tool_use" && data.tool_name === "save_supplier_alerts") {
-          try {
-            const alerts = typeof data.tool_input === "object" && data.tool_input
-              ? (data.tool_input as Record<string, unknown>).alerts
-              : null;
-            if (typeof alerts === "string") {
-              alertsGenerated += JSON.parse(alerts).length;
-            }
-          } catch { /* count stays 0 */ }
+        if (data.tool_name !== "save_supplier_alerts") return;
+        const toolUseId = typeof data.tool_use_id === "string" ? data.tool_use_id : "";
+
+        if (eventType === "agent.tool_use") {
+          requestedByToolUseId.set(toolUseId, countToolInputArray(data, "alerts"));
+          return;
+        }
+
+        if (eventType === "custom_tool_result") {
+          const requested = requestedByToolUseId.get(toolUseId) ?? 0;
+          requestedByToolUseId.delete(toolUseId);
+          if (!isSuccessfulToolResult(data)) return;
+          alertsGenerated += extractSavedCount(data) ?? requested;
         }
       };
 
@@ -132,7 +160,7 @@ export async function POST(request: NextRequest) {
             admin,
           }),
         onEvent,
-        maxDurationMs: agentConfig.maxDurationMs,
+        maxDurationMs: orgBudgetMs,
       });
 
       const durationMs = Date.now() - startTime;
@@ -199,12 +227,23 @@ export async function POST(request: NextRequest) {
 
   const totalAlerts = results.reduce((sum, r) => sum + r.alertsGenerated, 0);
   const totalSuppliers = results.reduce((sum, r) => sum + r.suppliersAnalyzed, 0);
-  console.log(`[cron/supplier-monitor] Done. ${totalAlerts} alerts for ${totalSuppliers} suppliers across ${results.length} orgs`);
+  console.log(
+    `[cron/supplier-monitor] Done in ${Math.round((Date.now() - cronStart) / 1000)}s. ` +
+    `${totalAlerts} alerts for ${totalSuppliers} suppliers across ${results.length} orgs`
+  );
+
+  if (skippedOrgs.length > 0) {
+    console.warn(
+      `[cron/supplier-monitor] Time budget exhausted — ${skippedOrgs.length} org(s) not processed: ${skippedOrgs.join(", ")}`
+    );
+  }
 
   return NextResponse.json({
     total_orgs: results.length,
     total_alerts: totalAlerts,
     total_suppliers_analyzed: totalSuppliers,
+    skipped_orgs: skippedOrgs,
+    duration_ms: Date.now() - cronStart,
     results,
   });
 }

@@ -3,10 +3,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/cron/calibrate
- * CRON Vercel — toutes les heures à :30
+ * CRON Vercel — hebdomadaire, lundi 05h00 (voir apps/web/vercel.json)
  * Rafraîchit les vues matérialisées et met à jour les profils d'erreur modèle
  */
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/cron/calibrate
+ * Vercel Cron invokes scheduled paths with GET — delegate to POST.
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,18 +36,18 @@ export async function POST(request: NextRequest) {
       logs.push(`View refresh error: ${err instanceof Error ? err.message : 'unknown'}`);
     }
 
-    // 2. Vérifier les nouvelles corrections
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // 2. Vérifier les nouvelles corrections (fenêtre = 7 jours, aligné sur le cron hebdo)
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { count: newCorrections } = await (adminClient as any)
       .from("quantity_corrections")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", oneHourAgo);
+      .gte("created_at", oneWeekAgo);
 
     const { count: newCalibrations } = await (adminClient as any)
       .from("price_calibrations")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", oneHourAgo);
+      .gte("created_at", oneWeekAgo);
 
     logs.push(`New corrections: ${newCorrections ?? 0}, New calibrations: ${newCalibrations ?? 0}`);
 
@@ -51,17 +59,12 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
     logs.push(`Duration: ${duration}ms`);
 
-    // Logger
-    try {
-      await (adminClient as any).from("api_usage_logs").insert({
-        endpoint: "/api/cron/calibrate",
-        method: "POST",
-        duration_ms: duration,
-        metadata: { logs, new_corrections: newCorrections, new_calibrations: newCalibrations },
-      });
-    } catch {
-      // Non bloquant
-    }
+    // Log console uniquement — api_usage_logs trace les appels IA facturés
+    // (schéma 004 : action_type/api_provider/model/tokens), pas les runs de cron.
+    console.log(
+      `[cron/calibrate] Done in ${duration}ms — corrections: ${newCorrections ?? 0}, calibrations: ${newCalibrations ?? 0}`,
+      logs
+    );
 
     return NextResponse.json({ success: true, logs, duration_ms: duration });
   } catch (err) {

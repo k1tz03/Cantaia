@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
+import { toLocalISOString, toLocalDateString, toLocaleTag } from "./datetime-utils";
 import {
   X,
   Edit3,
@@ -31,14 +33,14 @@ interface EventDetailPanelProps {
 
 // ── Constants ────────────────────────────────────────────
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  meeting: "Reunion",
-  site_visit: "Visite chantier",
-  call: "Appel",
-  deadline: "Deadline",
-  construction: "Construction",
-  milestone: "Jalon",
-  other: "Autre",
+const EVENT_TYPE_LABEL_KEYS: Record<string, string> = {
+  meeting: "typeMeeting",
+  site_visit: "typeSiteVisit",
+  call: "typeCall",
+  deadline: "typeDeadline",
+  construction: "typeConstruction",
+  milestone: "typeMilestone",
+  other: "typeOther",
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -52,32 +54,32 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 };
 
 const EVENT_TYPES = [
-  { value: "meeting", label: "Reunion" },
-  { value: "site_visit", label: "Visite chantier" },
-  { value: "call", label: "Appel" },
-  { value: "deadline", label: "Deadline" },
-  { value: "construction", label: "Construction" },
-  { value: "other", label: "Autre" },
+  { value: "meeting", labelKey: "typeMeeting" },
+  { value: "site_visit", labelKey: "typeSiteVisit" },
+  { value: "call", labelKey: "typeCall" },
+  { value: "deadline", labelKey: "typeDeadline" },
+  { value: "construction", labelKey: "typeConstruction" },
+  { value: "other", labelKey: "typeOther" },
 ] as const;
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  confirmed: { label: "Confirme", color: "#10B981" },
-  tentative: { label: "Provisoire", color: "#F59E0B" },
-  cancelled: { label: "Annule", color: "#EF4444" },
+const STATUS_META: Record<string, { labelKey: string; color: string }> = {
+  confirmed: { labelKey: "statusConfirmed", color: "#10B981" },
+  tentative: { labelKey: "statusTentative", color: "#F59E0B" },
+  cancelled: { labelKey: "statusCancelled", color: "#EF4444" },
 };
 
-const RESPONSE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  accepted: { label: "Accepte", color: "#10B981" },
-  declined: { label: "Refuse", color: "#EF4444" },
-  tentative: { label: "Peut-etre", color: "#F59E0B" },
-  pending: { label: "En attente", color: "#71717A" },
+const RESPONSE_STATUS_META: Record<string, { labelKey: string; color: string }> = {
+  accepted: { labelKey: "responseAccepted", color: "#10B981" },
+  declined: { labelKey: "responseDeclined", color: "#EF4444" },
+  tentative: { labelKey: "responseTentative", color: "#F59E0B" },
+  pending: { labelKey: "responsePending", color: "#71717A" },
 };
 
 // ── Helpers ──────────────────────────────────────────────
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, localeTag: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("fr-CH", {
+  return d.toLocaleDateString(localeTag, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -85,13 +87,15 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, localeTag: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" });
 }
 
+// CAL.C1: use the LOCAL calendar date (iso.split("T")[0] would return the
+// UTC date, off by one around midnight for UTC-stored timestamps)
 function formatDateForInput(iso: string): string {
-  return iso.split("T")[0];
+  return toLocalDateString(new Date(iso));
 }
 
 function formatTimeForInput(iso: string): string {
@@ -114,6 +118,9 @@ function getInitials(email: string, name?: string | null): string {
 // ── Component ────────────────────────────────────────────
 
 export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: EventDetailPanelProps) {
+  const t = useTranslations("calendar");
+  const locale = useLocale();
+  const localeTag = toLocaleTag(locale);
   const [detailedEvent, setDetailedEvent] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -182,12 +189,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
     if (!detailedEvent) return;
     setSaving(true);
     try {
+      // CAL.C1: build ISO datetimes WITH the browser's local UTC offset so
+      // Postgres stores the correct instant (naive strings were read as UTC)
       const startAt = editAllDay
-        ? `${editDate}T00:00:00`
-        : `${editDate}T${editStartTime}:00`;
+        ? toLocalISOString(editDate, "00:00")
+        : toLocalISOString(editDate, editStartTime);
       const endAt = editAllDay
-        ? `${editDate}T23:59:59`
-        : `${editDate}T${editEndTime}:00`;
+        ? toLocalISOString(editDate, "23:59")
+        : toLocalISOString(editDate, editEndTime);
 
       const res = await fetch(`/api/calendar/events/${detailedEvent.id}`, {
         method: "PATCH",
@@ -205,19 +214,19 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Echec de la mise a jour");
+        throw new Error(err.error || t("updateFailed"));
       }
 
-      toast.success("Evenement mis a jour");
+      toast.success(t("eventUpdated"));
       setEditing(false);
       await fetchDetail(detailedEvent.id);
       onUpdated();
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la mise a jour");
+      toast.error(err.message || t("updateError"));
     } finally {
       setSaving(false);
     }
-  }, [detailedEvent, editTitle, editDescription, editLocation, editDate, editStartTime, editEndTime, editType, editAllDay, fetchDetail, onUpdated]);
+  }, [detailedEvent, editTitle, editDescription, editLocation, editDate, editStartTime, editEndTime, editType, editAllDay, fetchDetail, onUpdated, t]);
 
   // ── Delete event ─────────────────────────────────────
 
@@ -231,19 +240,19 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Echec de la suppression");
+        throw new Error(err.error || t("deleteFailed"));
       }
 
-      toast.success("Evenement supprime");
+      toast.success(t("eventCancelled"));
       onDeleted();
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la suppression");
+      toast.error(err.message || t("deleteError"));
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
     }
-  }, [detailedEvent, onDeleted, onClose]);
+  }, [detailedEvent, onDeleted, onClose, t]);
 
   // ── Don't render if no event ─────────────────────────
 
@@ -251,8 +260,10 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
 
   const ev = detailedEvent || event;
   const typeColor = EVENT_TYPE_COLORS[ev.event_type] || "#71717A";
-  const typeLabel = EVENT_TYPE_LABELS[ev.event_type] || ev.event_type;
-  const statusInfo = STATUS_LABELS[ev.status] || STATUS_LABELS.confirmed;
+  const typeLabel = EVENT_TYPE_LABEL_KEYS[ev.event_type]
+    ? t(EVENT_TYPE_LABEL_KEYS[ev.event_type])
+    : ev.event_type;
+  const statusMeta = STATUS_META[ev.status] || STATUS_META.confirmed;
   const invitations: CalendarInvitation[] = (ev as any).invitations || [];
 
   return (
@@ -273,7 +284,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               style={{ backgroundColor: typeColor }}
             />
             <h2 className="text-[15px] font-semibold text-[#FAFAFA] font-display truncate max-w-[260px]">
-              {editing ? "Modifier l'evenement" : ev.title}
+              {editing ? t("editEvent") : ev.title}
             </h2>
           </div>
           <div className="flex items-center gap-1">
@@ -282,14 +293,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <button
                   onClick={enterEditMode}
                   className="flex items-center justify-center w-8 h-8 rounded-md text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A] transition-colors"
-                  title="Modifier"
+                  title={t("edit")}
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="flex items-center justify-center w-8 h-8 rounded-md text-[#A1A1AA] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
-                  title="Supprimer"
+                  title={t("delete")}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -332,16 +343,16 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold"
                 style={{
-                  backgroundColor: `${statusInfo.color}15`,
-                  color: statusInfo.color,
+                  backgroundColor: `${statusMeta.color}15`,
+                  color: statusMeta.color,
                 }}
               >
-                {statusInfo.label}
+                {t(statusMeta.labelKey)}
               </span>
               {ev.ai_suggested && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#F97316]/10 text-[#F97316] text-[11px] font-semibold">
                   <Sparkles className="w-3 h-3" />
-                  Cree par IA
+                  {t("createdByAI")}
                 </span>
               )}
               {ev.outlook_event_id && (
@@ -363,18 +374,18 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <Calendar className="w-4 h-4 text-[#71717A] mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-[13px] text-[#FAFAFA] capitalize">
-                    {formatDateTime(ev.start_at)}
+                    {formatDateTime(ev.start_at, localeTag)}
                   </p>
                   {!ev.all_day && (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <Clock className="w-3.5 h-3.5 text-[#52525B]" />
                       <p className="text-[12px] text-[#A1A1AA]">
-                        {formatTime(ev.start_at)} — {formatTime(ev.end_at)}
+                        {formatTime(ev.start_at, localeTag)} — {formatTime(ev.end_at, localeTag)}
                       </p>
                     </div>
                   )}
                   {ev.all_day && (
-                    <p className="text-[12px] text-[#A1A1AA] mt-0.5">Toute la journee</p>
+                    <p className="text-[12px] text-[#A1A1AA] mt-0.5">{t("allDayFull")}</p>
                   )}
                 </div>
               </div>
@@ -415,7 +426,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="w-4 h-4 text-[#71717A]" />
                   <span className="text-[12px] font-medium text-[#71717A] uppercase tracking-wider">
-                    Description
+                    {t("descriptionLabel")}
                   </span>
                 </div>
                 <p className="text-[13px] text-[#A1A1AA] leading-relaxed whitespace-pre-wrap">
@@ -430,12 +441,12 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <div className="flex items-center gap-2 mb-3">
                   <Users className="w-4 h-4 text-[#71717A]" />
                   <span className="text-[12px] font-medium text-[#71717A] uppercase tracking-wider">
-                    Participants ({invitations.length})
+                    {t("attendeesCount", { count: invitations.length })}
                   </span>
                 </div>
                 <div className="space-y-2">
                   {invitations.map((inv, i) => {
-                    const responseInfo = RESPONSE_STATUS_LABELS[inv.response_status] || RESPONSE_STATUS_LABELS.pending;
+                    const responseInfo = RESPONSE_STATUS_META[inv.response_status] || RESPONSE_STATUS_META.pending;
                     return (
                       <div key={inv.id || i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A]">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#27272A] text-[11px] font-bold text-[#A1A1AA] flex-shrink-0">
@@ -445,7 +456,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                           <p className="text-[13px] text-[#FAFAFA] truncate">
                             {inv.attendee_name || inv.attendee_email.split("@")[0]}
                             {inv.is_organizer && (
-                              <span className="ml-1.5 text-[10px] text-[#F97316] font-medium">(organisateur)</span>
+                              <span className="ml-1.5 text-[10px] text-[#F97316] font-medium">{t("organizer")}</span>
                             )}
                           </p>
                           <p className="text-[11px] text-[#52525B] truncate">{inv.attendee_email}</p>
@@ -457,7 +468,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                             color: responseInfo.color,
                           }}
                         >
-                          {responseInfo.label}
+                          {t(responseInfo.labelKey)}
                         </span>
                       </div>
                     );
@@ -472,7 +483,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="w-4 h-4 text-[#F97316]" />
                   <span className="text-[12px] font-medium text-[#F97316] uppercase tracking-wider">
-                    Preparation IA
+                    {t("meetingPrep")}
                   </span>
                 </div>
                 <div className="p-3 rounded-lg bg-[#F97316]/5 border border-[#F97316]/10">
@@ -488,9 +499,9 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {/* Metadata */}
             <div className="pt-2 border-t border-[#27272A]">
               <div className="flex items-center justify-between text-[11px] text-[#52525B]">
-                <span>Cree le {new Date(ev.created_at).toLocaleDateString("fr-CH")}</span>
+                <span>{t("createdOn", { date: new Date(ev.created_at).toLocaleDateString(localeTag) })}</span>
                 {ev.last_synced_at && (
-                  <span>Sync: {new Date(ev.last_synced_at).toLocaleString("fr-CH", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
+                  <span>{t("syncedAt", { date: new Date(ev.last_synced_at).toLocaleString(localeTag, { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) })}</span>
                 )}
               </div>
             </div>
@@ -503,30 +514,30 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {/* Title */}
             <div>
               <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                Titre
+                {t("titleLabel")}
               </label>
               <input
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
-                placeholder="Titre de l'evenement"
+                placeholder={t("editTitlePlaceholder")}
               />
             </div>
 
             {/* Event type */}
             <div>
               <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                Type
+                {t("typeLabel")}
               </label>
               <select
                 value={editType}
                 onChange={(e) => setEditType(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
               >
-                {EVENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {EVENT_TYPES.map((et) => (
+                  <option key={et.value} value={et.value}>
+                    {t(et.labelKey)}
                   </option>
                 ))}
               </select>
@@ -547,13 +558,13 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                   }`}
                 />
               </button>
-              <span className="text-[13px] text-[#A1A1AA]">Toute la journee</span>
+              <span className="text-[13px] text-[#A1A1AA]">{t("allDayFull")}</span>
             </div>
 
             {/* Date */}
             <div>
               <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                Date
+                {t("dateLabel")}
               </label>
               <input
                 type="date"
@@ -568,7 +579,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                    Debut
+                    {t("startLabel")}
                   </label>
                   <input
                     type="time"
@@ -579,7 +590,7 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                    Fin
+                    {t("endLabel")}
                   </label>
                   <input
                     type="time"
@@ -594,28 +605,28 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
             {/* Location */}
             <div>
               <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                Lieu
+                {t("locationLabel")}
               </label>
               <input
                 type="text"
                 value={editLocation}
                 onChange={(e) => setEditLocation(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors"
-                placeholder="Lieu (optionnel)"
+                placeholder={t("locationOptional")}
               />
             </div>
 
             {/* Description */}
             <div>
               <label className="block text-[11px] font-medium text-[#71717A] uppercase tracking-wider mb-1.5">
-                Description
+                {t("descriptionLabel")}
               </label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 rounded-lg bg-[#18181B] border border-[#27272A] text-[13px] text-[#FAFAFA] placeholder-[#52525B] focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/20 transition-colors resize-none"
-                placeholder="Description (optionnel)"
+                placeholder={t("descriptionOptional")}
               />
             </div>
 
@@ -631,14 +642,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                 ) : (
                   <Save className="w-4 h-4" />
                 )}
-                Enregistrer
+                {t("save")}
               </button>
               <button
                 onClick={() => setEditing(false)}
                 disabled={saving}
                 className="px-4 py-2.5 rounded-lg border border-[#27272A] bg-[#18181B] text-[13px] font-medium text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
               >
-                Annuler
+                {t("cancel")}
               </button>
             </div>
           </div>
@@ -654,12 +665,15 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                   <AlertTriangle className="w-5 h-5 text-[#EF4444]" />
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-semibold text-[#FAFAFA]">Supprimer l&apos;evenement ?</h3>
-                  <p className="text-[12px] text-[#71717A]">Cette action est irreversible</p>
+                  <h3 className="text-[15px] font-semibold text-[#FAFAFA]">{t("deleteConfirmTitle")}</h3>
+                  {/* CAL.B2: DELETE is a soft delete (status=cancelled), not irreversible destruction */}
+                  <p className="text-[12px] text-[#71717A]">{t("deleteConfirmSubtitle")}</p>
                 </div>
               </div>
               <p className="text-[13px] text-[#A1A1AA] mb-5">
-                L&apos;evenement &laquo;{ev.title}&raquo; sera supprime{ev.outlook_event_id ? " de Cantaia et d'Outlook" : ""}.
+                {ev.outlook_event_id
+                  ? t("deleteConfirmBodyOutlook", { title: ev.title })
+                  : t("deleteConfirmBody", { title: ev.title })}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -672,14 +686,14 @@ export function EventDetailPanel({ event, onClose, onUpdated, onDeleted }: Event
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
-                  Supprimer
+                  {t("delete")}
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={deleting}
                   className="px-4 py-2.5 rounded-lg border border-[#27272A] bg-[#1C1C1F] text-[13px] font-medium text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
                 >
-                  Annuler
+                  {t("cancel")}
                 </button>
               </div>
             </div>

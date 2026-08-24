@@ -123,6 +123,9 @@ export function requiredPlanFor(feature: FeatureName): PlanName {
 
 /**
  * Count AI calls for an org this month. Uses admin client to bypass RLS.
+ * 3D extractions (`plan_3d_extract`) are EXCLUDED: they are metered on their
+ * own axis via `max3dExtractionsPerMonth` (see check3dExtractionLimit) and
+ * must not double-count against the generic aiCalls budget.
  */
 export async function getUsageCount(
   supabase: any,
@@ -136,6 +139,7 @@ export async function getUsageCount(
     .from("api_usage_logs")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organizationId)
+    .neq("action_type", PLAN_3D_EXTRACT_ACTION)
     .gte("created_at", startOfMonth.toISOString());
 
   if (error) {

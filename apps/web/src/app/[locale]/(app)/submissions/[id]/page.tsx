@@ -29,12 +29,61 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import DOMPurify from "dompurify";
 import MonteCarloChart from "@/components/submissions/MonteCarloChart";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
 import { PriceRequestV2 } from "@/components/submissions/detail/PriceRequestV2";
 import { useAgent } from "@/lib/hooks/use-agent";
 import { AgentAnalysisPanel } from "@/components/agents/AgentAnalysisPanel";
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Sanitize a supplier response email before rendering it with
+ * dangerouslySetInnerHTML. The HTML comes from an external third party
+ * (the supplier's mail client) and must never be injected raw.
+ *
+ * Same policy as the Mail module (`(app)/mail/page.tsx`):
+ * - allow-list of layout/text tags + images
+ * - `data:` URIs restricted to images only (blocks `data:text/html`)
+ * - returns "" during SSR, where DOMPurify has no DOM to work with
+ */
+function sanitizeSupplierEmailHtml(html: string): string {
+  if (typeof window === "undefined") return ""; // SSR: never render unsanitized HTML
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "p", "div", "span", "br", "hr", "a", "b", "i", "u", "em", "strong",
+      "table", "thead", "tbody", "tr", "td", "th", "caption", "colgroup", "col",
+      "ul", "ol", "li", "blockquote", "pre", "code", "h1", "h2", "h3", "h4", "h5", "h6",
+      "img", "figure", "figcaption", "sup", "sub", "small", "s", "del", "ins",
+      "font", "center",
+    ],
+    ALLOWED_ATTR: [
+      "href", "target", "rel", "style", "class", "id",
+      "src", "alt", "width", "height", "title",
+      "border", "cellpadding", "cellspacing", "align", "valign",
+      "bgcolor", "color", "size", "face",
+      "colspan", "rowspan",
+    ],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|data:image\/|\/api\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ADD_ATTR: ["target"],
+  });
+}
+
+/** A DB row stuck in `analyzing` for longer than this is considered dead
+ *  (the serverless function was killed before it could write a final status). */
+const STALE_ANALYZING_MS = 10 * 60 * 1000; // 10 min — mirrors the server watchdog
+
+function isStaleAnalyzing(submission: { analysis_status: string; updated_at?: string | null } | null): boolean {
+  if (!submission || submission.analysis_status !== "analyzing") return false;
+  if (!submission.updated_at) return true;
+  const updated = new Date(submission.updated_at).getTime();
+  if (Number.isNaN(updated)) return true;
+  return Date.now() - updated > STALE_ANALYZING_MS;
+}
+
 // ── Local types matching API response ────────────────────────
 interface SubmissionData {
   id: string;
@@ -136,6 +185,8 @@ interface PriceRequestData {
   relance_count: number;
   last_relance_at: string | null;
   conditions_text: string | null;
+  /** Populated when status === "failed" (migration 082) */
+  send_error?: string | null;
   suppliers?: {
     id: string;
     company_name: string;
@@ -174,6 +225,8 @@ export default function SubmissionDetailPage() {
   // Mutex: true while handleReanalyze owns the analysis loop.
   // Prevents the polling useEffect from interfering (overwriting "error" back to "analyzing").
   const reanalyzeActiveRef = useRef(false);
+  // H3: guarantees the auto-pilot only claims the analysis once per page mount.
+  const autoStartedRef = useRef(false);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [sentRequestsCollapsed, setSentRequestsCollapsed] = useState(true);
 
@@ -360,6 +413,15 @@ export default function SubmissionDetailPage() {
 
       if (!prepRes.ok) {
         const err = await prepRes.json().catch(() => ({ error: `HTTP ${prepRes.status}` }));
+        // H7: 409 = another client is already driving the analysis. Not an error —
+        // release the mutex and let the polling effect follow its progress.
+        if (prepRes.status === 409) {
+          console.log("[handleReanalyze] analysis already in progress elsewhere — yielding to poller");
+          setAnalyzing(false);
+          setAnalysisProgress(0);
+          await fetchData();
+          return;
+        }
         throw new Error(err.error || `Erreur de préparation (HTTP ${prepRes.status})`);
       }
 
@@ -472,6 +534,40 @@ export default function SubmissionDetailPage() {
     );
   };
 
+  // ── H3: auto-pilot the chunked analysis ───────────────────────────────────
+  //
+  // A scanned PDF needs the client to drive the CHUNK loop: PREPARE only returns
+  // a chunk plan, it does not process pages. Previously nobody drove that loop
+  // when the upload page fired PREPARE and navigated away, so the submission sat
+  // in "analyzing" until the 300 s client timeout — on every single page load.
+  //
+  // The upload page no longer triggers the analysis: the detail page owns it.
+  // We claim it here when:
+  //   - status is "pending"  → analysis was never started, or
+  //   - status is "analyzing" but the row is stale (H7) → the previous run died.
+  // A fresh "analyzing" row means another tab/user is actively driving the loop,
+  // so we leave it alone and let the polling effect follow its progress.
+  useEffect(() => {
+    if (!submission || loading) return;
+    if (autoStartedRef.current || reanalyzeActiveRef.current) return;
+    if (analyzing || agent.isRunning) return;
+
+    const shouldStart =
+      submission.analysis_status === "pending" || isStaleAnalyzing(submission);
+    if (!shouldStart) return;
+
+    autoStartedRef.current = true;
+    console.log(
+      `[submission detail] auto-starting analysis (status=${submission.analysis_status}, stale=${isStaleAnalyzing(submission)})`
+    );
+    if (USE_MANAGED_AGENTS) {
+      handleAgentAnalyze();
+    } else {
+      handleReanalyze();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, submission?.analysis_status, submission?.updated_at]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -492,6 +588,9 @@ export default function SubmissionDetailPage() {
   }
 
   const materialGroups = [...new Set(items.map((i) => i.material_group))].sort();
+
+  // Requests that reached the "history" stage: actually sent, or attempted and failed.
+  const historyRequests = priceRequests.filter((pr) => pr.sent_at || pr.status === "failed");
 
   const tabs: { key: Tab; label: string; icon: React.ComponentType<any>; count?: number }[] = [
     { key: "items", label: "Postes", icon: FileSpreadsheet, count: items.length },
@@ -541,7 +640,11 @@ export default function SubmissionDetailPage() {
                 Planning
               </Link>
             )}
-            {(submission.analysis_status === "done" || submission.analysis_status === "error" || submission.analysis_status === "pending") && (
+            {/* H7: also offer the button when the row is stuck in a stale "analyzing" state */}
+            {(submission.analysis_status === "done" ||
+              submission.analysis_status === "error" ||
+              submission.analysis_status === "pending" ||
+              isStaleAnalyzing(submission)) && (
               <button
                 onClick={USE_MANAGED_AGENTS ? handleAgentAnalyze : handleReanalyze}
                 disabled={analyzing || agent.isRunning}
@@ -599,8 +702,22 @@ export default function SubmissionDetailPage() {
         />
       )}
 
+      {/* H7: a row stuck in "analyzing" past the watchdog window is dead, not running */}
+      {!USE_MANAGED_AGENTS && !analyzing && isStaleAnalyzing(submission) && (
+        <div className="mx-6 mt-6 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-400">Analyse interrompue</p>
+            <p className="text-xs text-amber-500/80">
+              L&apos;analyse précédente ne répond plus. Cliquez sur « Ré-analyser » pour la relancer.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Legacy analysis progress — shown when NOT using managed agents */}
-      {(!USE_MANAGED_AGENTS) && (analyzing || submission?.analysis_status === "analyzing") && (
+      {(!USE_MANAGED_AGENTS) &&
+        (analyzing || (submission?.analysis_status === "analyzing" && !isStaleAnalyzing(submission))) && (
         <div className="mx-6 mt-6 bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 text-[#F97316] animate-spin shrink-0" />
@@ -656,21 +773,25 @@ export default function SubmissionDetailPage() {
         )}
         {activeTab === "requests" && (
           <div className="space-y-6">
-            {/* Sent requests history — collapsible */}
-            {priceRequests.filter((pr) => pr.sent_at).length > 0 && (
+            {/* Request history — collapsible.
+                H2: a request whose email never left the mailbox now has status
+                "failed" and no sent_at; it must still be listed, flagged as such,
+                instead of disappearing from the history. */}
+            {historyRequests.length > 0 && (
               <div className="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden">
                 <button
                   onClick={() => setSentRequestsCollapsed((p) => !p)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#27272A] border-b border-[#27272A] hover:bg-[#27272A]/80 transition-colors"
                 >
-                  <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({priceRequests.filter((pr) => pr.sent_at).length})</h3>
+                  <h3 className="text-sm font-medium text-[#FAFAFA]">Demandes envoyées ({historyRequests.length})</h3>
                   <ChevronDown className={`h-4 w-4 text-[#71717A] transition-transform ${sentRequestsCollapsed ? "" : "rotate-180"}`} />
                 </button>
                 {!sentRequestsCollapsed && (
                   <div className="divide-y divide-[#27272A] max-h-[400px] overflow-y-auto">
-                    {priceRequests.filter((pr) => pr.sent_at).map((pr) => {
+                    {historyRequests.map((pr) => {
                       const hasQuotes = quotes.some((q) => q.request_id === pr.id);
                       const isResponded = pr.status === "responded" || hasQuotes;
+                      const hasFailed = pr.status === "failed";
                       return (
                         <div key={pr.id} className="px-4 py-3 flex items-center gap-3">
                           <div className="flex-1 min-w-0">
@@ -680,21 +801,30 @@ export default function SubmissionDetailPage() {
                             <div className="text-xs text-[#71717A] mt-0.5">
                               {pr.material_group} · {pr.items_requested?.length || 0} postes · Code: {pr.tracking_code}
                             </div>
+                            {hasFailed && pr.send_error && (
+                              <div className="text-[11px] text-red-400 mt-1">{pr.send_error}</div>
+                            )}
                           </div>
                           <div className="text-right shrink-0">
                             <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                              isResponded
+                              hasFailed
+                                ? "bg-red-500/10 text-red-400"
+                                : isResponded
                                 ? "bg-green-500/10 text-green-400"
                                 : "bg-amber-500/10 text-amber-400"
                             }`}>
-                              {isResponded ? (
+                              {hasFailed ? (
+                                <><AlertCircle className="h-3 w-3" /> Échec d&apos;envoi</>
+                              ) : isResponded ? (
                                 <><CheckCircle2 className="h-3 w-3" /> Répondu</>
                               ) : (
                                 <><Send className="h-3 w-3" /> En attente</>
                               )}
                             </span>
                             <div className="text-[10px] text-[#71717A] mt-0.5">
-                              Envoyé le {new Date(pr.sent_at!).toLocaleDateString("fr-CH")}
+                              {pr.sent_at
+                                ? `Envoyé le ${new Date(pr.sent_at).toLocaleDateString("fr-CH")}`
+                                : "Non envoyé"}
                             </div>
                           </div>
                         </div>
@@ -719,6 +849,7 @@ export default function SubmissionDetailPage() {
         {activeTab === "comparison" && (
           <ComparisonTabContent
             submissionId={id}
+            projectId={submission.project_id}
             items={items}
             materialGroups={materialGroups}
             priceRequests={priceRequests}
@@ -997,6 +1128,7 @@ function ItemsTabContent({
 // ── Tab 3: Comparative analysis ──────────────────────────────
 function ComparisonTabContent({
   submissionId,
+  projectId,
   items,
   materialGroups,
   priceRequests,
@@ -1005,6 +1137,7 @@ function ComparisonTabContent({
   onRefresh,
 }: {
   submissionId: string;
+  projectId: string | null;
   items: SubmissionItem[];
   materialGroups: string[];
   priceRequests: PriceRequestData[];
@@ -1096,6 +1229,23 @@ function ComparisonTabContent({
       if (!res.ok || !json.success) {
         throw new Error(json.error || "Erreur lors de l'attribution");
       }
+
+      // Learning loop: an award is the ground truth that calibrates future estimates.
+      // The award handler runs autoCalibrate() server-side whenever it can; we only
+      // call the public route when it reported that it did not (missing project,
+      // fire-and-forget failure), so calibrations are never inserted twice.
+      if (!json.auto_calibration_started && projectId) {
+        fetch("/api/plans/auto-calibrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: projectId,
+            submission_id: submissionId,
+            offer_id: confirmAward.requestId,
+          }),
+        }).catch((err) => console.warn("[award] auto-calibrate call failed (non-blocking):", err));
+      }
+
       setAwardSuccess(`Fournisseur "${confirmAward.supplierName}" attribué`);
       setConfirmAward(null);
       onRefresh();
@@ -1487,7 +1637,8 @@ function ComparisonTabContent({
                   <div className="bg-white text-black rounded-lg p-4 text-sm leading-relaxed overflow-auto max-h-[45vh]">
                     {emailData.body_html ? (
                       <div
-                        dangerouslySetInnerHTML={{ __html: emailData.body_html }}
+                        // C1: supplier-supplied HTML — sanitized with DOMPurify before injection
+                        dangerouslySetInnerHTML={{ __html: sanitizeSupplierEmailHtml(emailData.body_html) }}
                         className="[&_img]:max-w-full [&_img]:h-auto [&_table]:border-collapse [&_td]:p-1"
                       />
                     ) : emailData.body_text ? (

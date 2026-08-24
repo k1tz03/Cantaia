@@ -165,29 +165,44 @@ export default function AdminMembersTab() {
 
   async function handleChangeRole(memberId: string, newRole: string) {
     try {
-      const supabase = createClient();
-      await (supabase.from("users") as any)
-        .update({ role: newRole })
-        .eq("id", memberId);
+      // Server route (admin client) — direct browser Supabase writes on
+      // `users` are blocked by RLS and silently match 0 rows.
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setToast({ type: "error", text: data?.error || "Impossible de modifier le rôle" });
+        loadMembers(); // reset the optimistic <select> value
+        return;
+      }
       setToast({ type: "success", text: t("roleChanged") });
       loadMembers();
     } catch (err) {
       console.error("Failed to change role:", err);
+      setToast({ type: "error", text: "Impossible de modifier le rôle" });
     }
   }
 
   async function handleDeleteMember(memberId: string) {
     try {
-      // Remove from organization by setting organization_id to null
-      const supabase = createClient();
-      await (supabase.from("users") as any)
-        .update({ organization_id: null })
-        .eq("id", memberId);
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
       setShowDeleteConfirm(null);
+      if (!res.ok) {
+        setToast({ type: "error", text: data?.error || "Impossible de retirer le membre" });
+        return;
+      }
       setToast({ type: "success", text: t("memberDeleted") });
       loadMembers();
     } catch (err) {
       console.error("Failed to delete member:", err);
+      setShowDeleteConfirm(null);
+      setToast({ type: "error", text: "Impossible de retirer le membre" });
     }
   }
 

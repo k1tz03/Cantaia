@@ -40,6 +40,9 @@ import { ProjectPlanningTab } from "@/components/projects/ProjectPlanningTab";
 import { ProjectSiteReportsTab } from "@/components/projects/ProjectSiteReportsTab";
 import { useActiveProject } from "@/lib/contexts/active-project-context";
 import { ProjectBreadcrumb } from "@/components/ui/ProjectBreadcrumb";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import type { TaskStatus } from "@cantaia/database";
 
 const baseTabs = [
   { key: "overview", icon: LayoutDashboard },
@@ -62,6 +65,7 @@ export default function ProjectDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const t = useTranslations("projects");
+  const tTasks = useTranslations("tasks");
   const activeTab = searchParams.get("tab") || "overview";
   const setActiveTab = useCallback((tab: string) => {
     const url = new URL(window.location.href);
@@ -85,17 +89,25 @@ export default function ProjectDetailPage() {
   const [meetings, setMeetings] = useState<any[]>([]);
   // submissions now fetched directly by ProjectSubmissionsTab
   const [plans, setPlans] = useState<any[]>([]);
+  const [openReservesCount, setOpenReservesCount] = useState(0);
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+
+  const refreshTasks = useCallback(async () => {
+    if (!params.id) return;
+    try {
+      const res = await fetch(`/api/tasks?project_id=${params.id}&limit=1000`);
+      const data = await res.json();
+      if (data.success && data.tasks) setTasks(data.tasks);
+    } catch (err) {
+      console.error("Failed to load tasks:", err);
+    }
+  }, [params.id]);
 
   useEffect(() => {
     if (!params.id) return;
     const projectId = params.id as string;
 
-    fetch(`/api/tasks?project_id=${projectId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.tasks) setTasks(data.tasks);
-      })
-      .catch((err) => console.error("Failed to load tasks:", err));
+    refreshTasks();
 
     fetch(`/api/pv?project_id=${projectId}`)
       .then((res) => res.json())
@@ -113,7 +125,20 @@ export default function ProjectDetailPage() {
       })
       .catch((err) => console.error("Failed to load plans:", err));
 
-  }, [params.id]);
+    // Open reserves drive the badge on the Clôture tab
+    (async () => {
+      try {
+        const supabase = createSupabaseClient();
+        const { count } = await (supabase.from("reception_reserves") as any)
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", projectId)
+          .neq("status", "verified");
+        setOpenReservesCount(count || 0);
+      } catch {
+        // Table may not exist yet — badge simply stays hidden
+      }
+    })();
+  }, [params.id, refreshTasks]);
 
   if (projectLoading) {
     return (
@@ -134,8 +159,6 @@ export default function ProjectDetailPage() {
   const showClosureTab = ["active", "on_hold", "closing", "completed"].includes(project.status);
   const tabs = baseTabs.filter((tab) => tab.key !== "closure" || showClosureTab);
 
-  const openReservesCount = 0;
-
   const openTasks = tasks.filter(
     (t) => t.status === "todo" || t.status === "in_progress"
   );
@@ -146,6 +169,35 @@ export default function ProjectDetailPage() {
       t.status !== "done" &&
       t.status !== "cancelled"
   );
+
+  async function handleTaskStatusChange(taskId: string, status: TaskStatus) {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? data.task : t)));
+        setSelectedTask((prev) => (prev?.id === taskId ? data.task : prev));
+      }
+    } catch (err) {
+      console.error("[Task] Status change error:", err);
+    }
+  }
+
+  async function executeTaskDelete(taskId: string) {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (res.ok) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      }
+    } catch (err) {
+      console.error("[Task] Delete error:", err);
+    }
+    setSelectedTask(null);
+  }
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -291,7 +343,7 @@ export default function ProjectDetailPage() {
       <TaskCreateModal
         open={taskModalOpen || !!editTask}
         onClose={() => { setTaskModalOpen(false); setEditTask(null); }}
-        onCreated={() => { setTaskModalOpen(false); setEditTask(null); }}
+        onCreated={() => { setTaskModalOpen(false); setEditTask(null); refreshTasks(); }}
         prefill={taskModalOpen && !editTask ? { project_id: project.id } : undefined}
         editTask={editTask ? {
           id: editTask.id,
@@ -315,10 +367,22 @@ export default function ProjectDetailPage() {
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
           onEdit={(task) => { setEditTask(task); setSelectedTask(null); }}
-          onDelete={(taskId) => { console.log("[Task] Delete:", taskId); setSelectedTask(null); }}
-          onStatusChange={(taskId, status) => { console.log("[Task] Status:", taskId, status); setSelectedTask(null); }}
+          onDelete={(taskId) => setDeleteTaskId(taskId)}
+          onStatusChange={handleTaskStatusChange}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deleteTaskId}
+        onClose={() => setDeleteTaskId(null)}
+        onConfirm={async () => {
+          if (deleteTaskId) await executeTaskDelete(deleteTaskId);
+          setDeleteTaskId(null);
+        }}
+        title={tTasks("deleteConfirm")}
+        description={tTasks("deleteDescription")}
+        variant="danger"
+      />
     </div>
   );
 }

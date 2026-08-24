@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Signed URL lifetime for photo previews. */
+const SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -48,7 +51,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to load photos" }, { status: 500 });
     }
 
-    return NextResponse.json({ photos: photos || [] });
+    // The `audio` bucket is private — hand the client signed URLs instead of
+    // letting it build public URLs that would 404.
+    const rows = (photos || []) as Array<{ file_url: string }>;
+    let signedUrls: Record<string, string> = {};
+
+    if (rows.length > 0) {
+      const paths = rows.map((p) => p.file_url);
+      const { data: signed, error: signErr } = await admin.storage
+        .from("audio")
+        .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+
+      if (signErr) {
+        console.error("[PhotoList] Signed URL error:", signErr);
+      } else {
+        signedUrls = Object.fromEntries(
+          (signed || [])
+            .filter((s) => s.signedUrl && s.path)
+            .map((s) => [s.path as string, s.signedUrl as string])
+        );
+      }
+    }
+
+    return NextResponse.json({
+      photos: rows.map((p) => ({ ...p, signed_url: signedUrls[p.file_url] ?? null })),
+    });
   } catch (error) {
     console.error("[PhotoList] Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAssignableRole } from "@/lib/admin/require-org-admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 /**
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   // Get invite
   const { data: invite } = await (admin.from("organization_invites") as any)
-    .select("id, organization_id, role, first_name, last_name, status")
+    .select("id, organization_id, role, first_name, last_name, status, expires_at")
     .eq("token", token)
     .eq("status", "pending")
     .maybeSingle();
@@ -92,8 +93,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired invite" }, { status: 400 });
   }
 
-  // Update user with organization_id and role
-  const role = invite.role === "admin" ? "admin" : "project_manager";
+  // Re-check expiry at acceptance time (the GET check is only informative)
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    return NextResponse.json({ error: "Invite expired" }, { status: 400 });
+  }
+
+  // Respect the invited role (whitelisted) — no silent upgrade to
+  // project_manager, which would grant Direction/Admin access.
+  const role = isAssignableRole(invite.role) ? invite.role : "member";
   await (admin.from("users") as any)
     .update({
       organization_id: invite.organization_id,

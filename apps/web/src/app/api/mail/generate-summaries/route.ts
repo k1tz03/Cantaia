@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { trackApiUsage } from "@cantaia/core/tracking";
 
 export const maxDuration = 120;
+
+const SUMMARY_MODEL = "claude-sonnet-4-5-20250929";
 
 /**
  * POST /api/mail/generate-summaries
@@ -82,7 +85,7 @@ export async function POST() {
         console.log(`[SUMMARY] Processing email ${email.id}: "${email.subject}" (${truncated.length} chars)`);
 
         const response = await client.messages.create({
-          model: "claude-sonnet-4-5-20250929",
+          model: SUMMARY_MODEL,
           max_tokens: 150,
           system: "Résume cet email en 1-2 phrases maximum, en français, de façon neutre et factuelle. Ne commence pas par 'Cet email' ou 'L'email'.",
           messages: [
@@ -91,6 +94,19 @@ export async function POST() {
               content: `Sujet : ${email.subject}\nCorps : ${truncated}`,
             },
           ],
+        });
+
+        // B13: Sonnet summaries (10 per click) were invisible in api_usage_logs
+        trackApiUsage({
+          supabase: admin,
+          userId: user.id,
+          organizationId: userProfile?.organization_id ?? "",
+          actionType: "email_summary",
+          apiProvider: "anthropic",
+          model: SUMMARY_MODEL,
+          inputTokens: response.usage?.input_tokens ?? 0,
+          outputTokens: response.usage?.output_tokens ?? 0,
+          metadata: { email_id: email.id },
         });
 
         const summary = (response.content[0] as any)?.text?.trim();

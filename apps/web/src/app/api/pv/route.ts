@@ -18,24 +18,27 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const projectId = request.nextUrl.searchParams.get("project_id");
 
-    // Get user's projects via project_members
-    const { data: memberships } = await admin
-      .from("project_members")
-      .select("project_id")
-      .eq("user_id", user.id);
+    // Scope by organization (same rule as POST). Scoping by project_members
+    // hid colleagues' PVs, since only the project creator is a member.
+    const { data: userProfile } = await admin
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    const projectIds = (memberships || []).map((m: any) => m.project_id);
-
-    if (projectIds.length === 0) {
+    if (!userProfile?.organization_id) {
       return NextResponse.json({ success: true, meetings: [] });
     }
 
+    // `projects!inner` + a filter on the embedded org keeps the scoping in a
+    // single query (no unbounded .in() list of project ids).
     let query = admin
       .from("meetings")
-      .select("*, projects(id, name, code, color)")
-      .in("project_id", projectIds)
+      .select("*, projects!inner(id, name, code, color, organization_id)")
+      .eq("projects.organization_id", userProfile.organization_id)
       .order("meeting_date", { ascending: false });
 
+    // A project_id filter is still constrained by the org join above
     if (projectId) {
       query = query.eq("project_id", projectId);
     }

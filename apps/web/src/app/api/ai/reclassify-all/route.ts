@@ -170,8 +170,9 @@ export async function POST() {
   let newProjectsSuggested = 0;
   let tasksCreated = 0;
 
-  // Collect IDs of emails that just need is_processed=true (batch at end)
-  const markProcessedIds: string[] = [];
+  // NOTE: reclassification MUST NEVER write is_processed.
+  // It only changes the classification / project assignment — marking emails as
+  // processed here would silently empty the Decisions buckets (B1).
 
   if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] ${(emails || []).length} emails to reclassify, AI key: ${anthropicApiKey ? "OK" : "MISSING"}`);
 
@@ -208,7 +209,6 @@ export async function POST() {
               ai_project_match_confidence: Math.round(localMatch.confidence * 100),
               classification_status: "auto_classified",
               suggested_project_data: null,
-              is_processed: true,
             })
             .eq("id", email.id);
 
@@ -234,7 +234,6 @@ export async function POST() {
               classification: "action_required",
               classification_status: "new_project_suggested",
               suggested_project_data: suggestion,
-              is_processed: true,
             })
             .eq("id", email.id);
           newProjectsSuggested++;
@@ -244,18 +243,12 @@ export async function POST() {
 
       // ── SECOND PASS: Queue for AI classification ──
       if (!anthropicApiKey) {
-        if (!email.is_processed) {
-          markProcessedIds.push(email.id);
-        }
         continue;
       }
 
       // Skip AI if the subject clearly identifies an unknown project
       if (isUnknownProjectSubject(email.subject, projects)) {
         if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] SKIP AI: "${email.subject}" — first segment is unknown project`);
-        if (!email.is_processed) {
-          markProcessedIds.push(email.id);
-        }
         continue;
       }
 
@@ -329,7 +322,6 @@ export async function POST() {
             ai_classification_confidence: result.classification_confidence,
             ai_project_match_confidence: result.project_match_confidence,
             classification_status: "auto_classified",
-            is_processed: true,
           })
           .eq("id", email.id);
 
@@ -375,28 +367,11 @@ export async function POST() {
           console.error(`[reclassify-all] Rate limited / overloaded — aborting batch`);
           throw err; // Abort the entire batch
         }
+        // Leave the email untouched: a failed reclassification must not
+        // remove it from the Decisions queue (B1).
         console.error(`[reclassify-all] AI failed for "${email.subject}":`, err);
-        try {
-          await adminClient
-            .from("email_records")
-            .update({ is_processed: true })
-            .eq("id", email.id);
-        } catch { /* ignore */ }
       }
     }, 5); // concurrency = 5
-  }
-
-  // Batch update all emails that just need is_processed=true
-  if (markProcessedIds.length > 0) {
-    const CHUNK = 200;
-    for (let i = 0; i < markProcessedIds.length; i += CHUNK) {
-      const chunk = markProcessedIds.slice(i, i + CHUNK);
-      await adminClient
-        .from("email_records")
-        .update({ is_processed: true })
-        .in("id", chunk);
-    }
-    if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Batch marked ${markProcessedIds.length} emails as processed`);
   }
 
   if (process.env.NODE_ENV === "development") console.log(`[reclassify-all] Done: ${emailsClassified} new, ${emailsReclassified} reclassified, ${emailsDeclassified} declassified, ${newProjectsSuggested} suggestions, ${tasksCreated} tasks`);

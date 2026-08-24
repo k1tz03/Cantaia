@@ -48,13 +48,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Query calendar events with org IDOR protection
+    // Validate + normalize to safe ISO strings (also sanitizes the values
+    // interpolated into the PostgREST .or() filter below)
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return NextResponse.json(
+        { error: "start and end must be valid ISO dates" },
+        { status: 400 }
+      );
+    }
+    const startIso = startDate.toISOString();
+    const endIso = endDate.toISOString();
+
+    // Query calendar events with org IDOR protection.
+    // CAL.M2: proper overlap test (start_at < end AND coalesce(end_at, start_at) >= start)
+    // so multi-day events spanning the range boundary are included.
     let query = (admin as any)
       .from("calendar_events")
       .select("*")
       .eq("organization_id", profile.organization_id)
-      .gte("start_at", start)
-      .lte("start_at", end)
+      .lt("start_at", endIso)
+      .or(`end_at.gt.${startIso},and(end_at.is.null,start_at.gte.${startIso})`)
       .neq("status", "cancelled")
       .order("start_at", { ascending: true });
 

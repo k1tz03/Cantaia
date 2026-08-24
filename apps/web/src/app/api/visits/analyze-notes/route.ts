@@ -52,9 +52,10 @@ export async function POST(request: NextRequest) {
 
     const { photo_id } = body;
 
-    // Get photo record — verify org ownership
+    // Get photo record — verify org ownership BEFORE running the shared job
+    // (the job itself uses the service-role client and skips RLS).
     const { data: photo } = await ((admin as any).from("visit_photos"))
-      .select("id, visit_id, organization_id, file_url, photo_type, mime_type, ai_analysis_status")
+      .select("id, visit_id, organization_id, photo_type")
       .eq("id", photo_id)
       .eq("organization_id", userRow.organization_id)
       .maybeSingle();
@@ -67,99 +68,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Photo is not of type handwritten_notes" }, { status: 400 });
     }
 
-    // Mark as processing
-    await ((admin as any).from("visit_photos"))
-      .update({ ai_analysis_status: "processing" })
-      .eq("id", photo_id);
+    const { runHandwrittenNotesAnalysis } = await import("@cantaia/core/visits");
 
-    // Download image from storage
-    const { data: fileData, error: downloadErr } = await admin.storage
-      .from("audio")
-      .download(photo.file_url);
-
-    if (downloadErr || !fileData) {
-      await ((admin as any).from("visit_photos"))
-        .update({ ai_analysis_status: "failed" })
-        .eq("id", photo_id);
-      return NextResponse.json({ error: "Failed to download image" }, { status: 500 });
-    }
-
-    const arrayBuffer = await fileData.arrayBuffer();
-    const imageBase64 = Buffer.from(arrayBuffer).toString("base64");
-
-    // Get visit context
-    const { data: visit } = await ((admin as any).from("client_visits"))
-      .select("client_name, visit_date, title")
-      .eq("id", photo.visit_id)
-      .maybeSingle();
-
-    // Call AI analyzer
-    if (!process.env.ANTHROPIC_API_KEY) {
-      await ((admin as any).from("visit_photos"))
-        .update({ ai_analysis_status: "failed" })
-        .eq("id", photo_id);
-      return NextResponse.json({ error: "AI service not configured" }, { status: 503 });
-    }
-
-    const { analyzeHandwrittenNotes } = await import("@cantaia/core/visits");
-
-    const mediaType = (photo.mime_type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
-
-    const result = await analyzeHandwrittenNotes({
-      imageBase64,
-      mediaType,
-      context: {
-        client_name: visit?.client_name,
-        visit_date: visit?.visit_date,
-        project_type: visit?.title || undefined,
-      },
+    const result = await runHandwrittenNotesAnalysis({
+      admin: admin as any,
+      photoId: photo_id,
+      userId: user.id,
     });
 
-    // Update photo with analysis results
-    await ((admin as any).from("visit_photos"))
-      .update({
-        ai_transcription: result.analysis.transcribed_text,
-        ai_sketch_description: result.analysis.sketches.length > 0
-          ? result.analysis.sketches.map((s: { description: string }) => s.description).join("\n---\n")
-          : null,
-        ai_analysis_status: "completed",
-        ai_confidence: result.analysis.confidence,
-        ai_analysis_result: result.analysis,
-      })
-      .eq("id", photo_id);
-
-    // Update visit's aggregated handwritten transcription
-    const { data: allNotes } = await ((admin as any).from("visit_photos"))
-      .select("ai_transcription")
-      .eq("visit_id", photo.visit_id)
-      .eq("photo_type", "handwritten_notes")
-      .eq("ai_analysis_status", "completed")
-      .not("ai_transcription", "is", null);
-
-    if (allNotes && allNotes.length > 0) {
-      const aggregated = allNotes
-        .map((n: { ai_transcription: string }) => n.ai_transcription)
-        .join("\n\n---\n\n");
-      await ((admin as any).from("client_visits"))
-        .update({ handwritten_notes_transcription: aggregated })
-        .eq("id", photo.visit_id);
-    }
-
-    // Track API usage
-    try {
-      await ((admin as any).from("api_usage_logs")).insert({
-        user_id: user.id,
-        organization_id: userRow.organization_id,
-        action_type: "handwritten_notes_analysis",
-        api_provider: "anthropic",
-        model: "claude-sonnet-4-5-20250929",
-        input_tokens: Math.round(result.tokens_used * 0.8),
-        output_tokens: Math.round(result.tokens_used * 0.2),
-        estimated_cost_chf: (result.tokens_used * 0.003) / 1000,
-        metadata: { photo_id, visit_id: photo.visit_id, latency_ms: result.latency_ms },
-      });
-    } catch {
-      // non-critical
+    if (!result.ok) {
+      const status = result.error === "AI service not configured" ? 503 : 500;
+      return NextResponse.json({ error: result.error || "Analysis failed" }, { status });
     }
 
     return NextResponse.json({
@@ -170,19 +89,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("[AnalyzeNotes] Error:", error);
-
-    // Try to mark as failed
-    try {
-      const admin = createAdminClient();
-      const body = await request.clone().json().catch(() => null);
-      if (body?.photo_id) {
-        await ((admin as any).from("visit_photos"))
-          .update({ ai_analysis_status: "failed" })
-          .eq("id", body.photo_id);
-      }
-    } catch {
-      // ignore
-    }
+    // runHandwrittenNotesAnalysis() already marks the photo as failed;
+    // anything reaching here happened before the job started.
 
     const { isRetryableAIError, classifyAIError } = await import("@cantaia/core/ai");
     if (isRetryableAIError(error)) {

@@ -169,11 +169,11 @@ export async function GET() {
     }
   } catch {}
 
-  // Email classification feedback
+  // Email classification feedback (migration 025: corrected_classification)
   try {
     const { data: emailFb } = await (admin as any)
       .from("email_classification_feedback")
-      .select("id, new_classification, created_at")
+      .select("id, corrected_classification, created_at")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
       .limit(3);
@@ -181,8 +181,8 @@ export async function GET() {
       for (const c of emailFb) {
         journal.push({
           type: "email_feedback",
-          description: c.new_classification
-            ? `Email reclasse en ${c.new_classification}`
+          description: c.corrected_classification
+            ? `Email reclasse en ${c.corrected_classification}`
             : "Feedback classification email",
           date: c.created_at,
         });
@@ -200,32 +200,31 @@ export async function GET() {
 
   let c2 = { opted_in: false, market_prices: 0, suppliers_scored: 0 };
   try {
-    const { data: consent } = await (admin as any)
+    // Migration 024: one row per (organization_id, module) with an opted_in boolean
+    const { data: consentRows } = await (admin as any)
       .from("aggregation_consent")
-      .select("modules_opted_in")
+      .select("module, opted_in")
       .eq("organization_id", orgId)
-      .single();
+      .in("module", ["prix", "fournisseurs"]);
 
-    if (consent?.modules_opted_in) {
-      const modules = consent.modules_opted_in;
-      const hasOptIn =
-        modules.prix === true || modules.fournisseurs === true;
-      c2.opted_in = hasOptIn;
+    const hasOptIn = (consentRows || []).some(
+      (r: { module: string; opted_in: boolean }) => r.opted_in === true
+    );
+    c2.opted_in = hasOptIn;
 
-      if (hasOptIn) {
-        try {
-          const { count: marketCount } = await (admin as any)
-            .from("market_benchmarks")
-            .select("id", { count: "exact", head: true });
-          c2.market_prices = marketCount || 0;
-        } catch {}
-        try {
-          const { count: supScoreCount } = await (admin as any)
-            .from("supplier_market_scores")
-            .select("id", { count: "exact", head: true });
-          c2.suppliers_scored = supScoreCount || 0;
-        } catch {}
-      }
+    if (hasOptIn) {
+      try {
+        const { count: marketCount } = await (admin as any)
+          .from("market_benchmarks")
+          .select("id", { count: "exact", head: true });
+        c2.market_prices = marketCount || 0;
+      } catch {}
+      try {
+        const { count: supScoreCount } = await (admin as any)
+          .from("supplier_market_scores")
+          .select("id", { count: "exact", head: true });
+        c2.suppliers_scored = supScoreCount || 0;
+      } catch {}
     }
   } catch {}
 
@@ -248,11 +247,22 @@ export async function GET() {
   } catch {}
 
   try {
-    const { count } = await (admin as any)
-      .from("email_records")
-      .select("id", { count: "exact", head: true })
-      .not("classification", "is", null);
-    orgCounters.emails_classified = count || 0;
+    // Scope the count to the organization's members (email_records is user-scoped;
+    // organization_id is not reliably backfilled on legacy rows)
+    const { data: orgMembers } = await (admin as any)
+      .from("users")
+      .select("id")
+      .eq("organization_id", orgId);
+    const memberIds = (orgMembers || []).map((m: { id: string }) => m.id);
+
+    if (memberIds.length > 0) {
+      const { count } = await (admin as any)
+        .from("email_records")
+        .select("id", { count: "exact", head: true })
+        .in("user_id", memberIds)
+        .not("classification", "is", null);
+      orgCounters.emails_classified = count || 0;
+    }
   } catch {}
 
   return NextResponse.json({

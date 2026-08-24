@@ -23,6 +23,13 @@ interface Props {
   consensusMethode?: string;
   onSave: (data: { quantite_corrigee: number; raison: string; commentaire?: string }) => Promise<void>;
   onClose: () => void;
+  /**
+   * Erreur remontée par le parent quand l'enregistrement échoue. `onSave` doit
+   * alors *rejeter* : la modale reste ouverte (son `catch` réactive le bouton)
+   * et affiche ce message. Sans ça, l'ancienne version se fermait sur un faux
+   * succès à chaque 400 de l'API (cf. B3).
+   */
+  error?: string;
 }
 
 const RAISONS = [
@@ -35,7 +42,7 @@ const RAISONS = [
   { value: 'autre', label: 'Autre raison' },
 ];
 
-export default function QuantityCorrectionModal({ poste, consensusValeurs, consensusMethode, onSave, onClose }: Props) {
+export default function QuantityCorrectionModal({ poste, consensusValeurs, consensusMethode, onSave, onClose, error }: Props) {
   const [quantiteCorrigee, setQuantiteCorrigee] = useState<string>(String(poste.quantite));
   const [raison, setRaison] = useState<string>('');
   const [commentaire, setCommentaire] = useState('');
@@ -156,6 +163,12 @@ export default function QuantityCorrectionModal({ poste, consensusValeurs, conse
           <div className="text-xs text-[#8A9CA8] bg-[#F97316]/10 rounded p-2">
             Cette correction améliorera les futures estimations sur ce type d'élément.
           </div>
+
+          {error && (
+            <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">

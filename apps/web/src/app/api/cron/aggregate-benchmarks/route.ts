@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * GET /api/cron/aggregate-benchmarks
+ * Vercel Cron invokes scheduled paths with GET — delegate to POST.
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
+/**
  * POST /api/cron/aggregate-benchmarks
  * Vercel CRON — runs hourly to process aggregation queue and update C2 benchmarks.
  * Protected by CRON_SECRET.
@@ -63,19 +71,72 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Mark queue events as processed
-    const { error: updateError } = await (admin as any)
-      .from("aggregation_queue")
-      .update({ processed_at: new Date().toISOString() })
-      .is("processed_at", null);
+    // Mark queue events as processed — but ONLY those whose consumer RPCs succeeded.
+    // Events tied to a failed aggregation stay in the queue and are retried next run.
+    const succeededFns = new Set(
+      results.filter((r) => r.status === "ok").map((r) => r.fn)
+    );
+    const failedFns = aggregations.filter((fn) => !succeededFns.has(fn));
 
-    if (updateError) {
-      console.error("[cron/aggregate] Failed to mark events as processed:", updateError);
+    // Map each queue source_table (migration 038 triggers) to the aggregation
+    // functions that consume its data. Tables absent from this map (e.g.
+    // submission_corrections, plan_analysis_corrections — consumed by the C3
+    // weekly extract, not by these RPCs) are only marked when ALL RPCs succeed.
+    const QUEUE_CONSUMERS: Record<string, string[]> = {
+      supplier_offers: [
+        "aggregate_market_benchmarks",
+        "aggregate_supplier_scores",
+        "aggregate_regional_price_index",
+      ],
+      email_classification_feedback: ["aggregate_email_benchmarks"],
+      pv_corrections: ["aggregate_pv_benchmarks"],
+      chat_feedback: ["aggregate_chat_analytics"],
+      visit_report_corrections: ["aggregate_visit_benchmarks"],
+      estimate_accuracy_log: ["aggregate_project_benchmarks"],
+      task_status_log: ["aggregate_task_benchmarks"],
+    };
+
+    if (failedFns.length === 0) {
+      // Full success → mark everything pending as processed
+      const { error: updateError } = await (admin as any)
+        .from("aggregation_queue")
+        .update({ processed_at: new Date().toISOString() })
+        .is("processed_at", null);
+
+      if (updateError) {
+        console.error("[cron/aggregate] Failed to mark events as processed:", updateError);
+      }
+    } else {
+      // Partial failure → only mark events whose consumer functions ALL succeeded
+      const processableTables = Object.entries(QUEUE_CONSUMERS)
+        .filter(([, fns]) => fns.every((fn) => succeededFns.has(fn)))
+        .map(([table]) => table);
+
+      if (processableTables.length > 0) {
+        const { error: updateError } = await (admin as any)
+          .from("aggregation_queue")
+          .update({ processed_at: new Date().toISOString() })
+          .is("processed_at", null)
+          .in("source_table", processableTables);
+
+        if (updateError) {
+          console.error("[cron/aggregate] Failed to mark events as processed:", updateError);
+        }
+      }
+
+      const { count: remaining } = await (admin as any)
+        .from("aggregation_queue")
+        .select("*", { count: "exact", head: true })
+        .is("processed_at", null);
+
+      console.error(
+        `[cron/aggregate] ${failedFns.length} aggregation(s) failed (${failedFns.join(", ")}) — ${remaining ?? "?"} event(s) left in queue for retry`
+      );
     }
 
-    const succeeded = results.filter((r) => r.status === "ok").length;
+    const succeeded = succeededFns.size;
     if (process.env.NODE_ENV === "development") console.log(
-      `[cron/aggregate] Done: ${succeeded}/${aggregations.length} functions succeeded, ${count} events processed`
+      `[cron/aggregate] Done: ${succeeded}/${aggregations.length} functions succeeded, ${count} events pending at start`
     );
 
     return NextResponse.json({
@@ -83,6 +144,7 @@ export async function POST(request: NextRequest) {
       pending_events: count,
       results,
       succeeded,
+      failed: failedFns,
       total: aggregations.length,
     });
   } catch (err: unknown) {

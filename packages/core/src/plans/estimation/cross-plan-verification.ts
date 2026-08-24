@@ -40,36 +40,66 @@ export async function verifyCrossPlan(params: {
 }): Promise<CrossPlanVerification> {
   const { project_id, org_id, supabase } = params;
 
-  // Récupérer toutes les analyses de plans du projet
-  const { data: analyses } = await supabase
-    .from('plan_analyses')
-    .select('plan_id, result, plan_registry!inner(discipline, plan_number)')
-    .eq('plan_registry.project_id', project_id)
-    .eq('plan_registry.organization_id', org_id)
-    .eq('analysis_type', 'estimation_v2')
-    .order('created_at', { ascending: false });
+  const emptyResult: CrossPlanVerification = {
+    project_id,
+    plans_compares: [],
+    verifications: [],
+    score_coherence_projet: 100,
+    alertes: ['Pas assez de plans analysés pour une vérification croisée (minimum 2)'],
+  };
 
-  if (!analyses || analyses.length < 2) {
-    return {
-      project_id,
-      plans_compares: [],
-      verifications: [],
-      score_coherence_projet: 100,
-      alertes: ['Pas assez de plans analysés pour une vérification croisée (minimum 2)'],
-    };
+  // B10 — Les estimations V2 vivent dans `plan_estimates` (migrations 022+084),
+  // pas dans `plan_analyses.result` avec un `analysis_type` inexistant. Cette
+  // requête ne renvoyait donc JAMAIS rien : la vérification croisée était un
+  // no-op permanent.
+  const { data: estimates, error: estimatesError } = await supabase
+    .from('plan_estimates')
+    .select('plan_id, estimate_result, created_at')
+    .eq('project_id', project_id)
+    .eq('organization_id', org_id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (estimatesError) {
+    console.warn('[cross-plan] Lecture plan_estimates échouée:', estimatesError.message);
+    return emptyResult;
   }
 
-  // Mapper les analyses par discipline
+  if (!estimates || estimates.length < 2) {
+    return emptyResult;
+  }
+
+  // Discipline / numéro viennent du registre. Requête séparée plutôt qu'un
+  // embed PostgREST : plan_estimates a deux FK sortantes (plan_registry et
+  // plan_analyses), et l'embed implicite est fragile si le schéma bouge.
+  const planIds = Array.from(new Set<string>(estimates.map((e: any) => e.plan_id)));
+  const { data: registryRows } = await supabase
+    .from('plan_registry')
+    .select('id, discipline, plan_number')
+    .in('id', planIds);
+
+  const registryById = new Map<string, { discipline: string | null; plan_number: string | null }>();
+  for (const r of registryRows ?? []) {
+    registryById.set(r.id, { discipline: r.discipline, plan_number: r.plan_number });
+  }
+
+  // Mapper les estimations par discipline (la plus récente gagne — la liste
+  // est déjà triée created_at DESC).
   const byDiscipline = new Map<string, { plan_id: string; numero: string; result: any }>();
-  for (const a of analyses) {
-    const disc = a.plan_registry?.discipline;
+  for (const e of estimates) {
+    const reg = registryById.get(e.plan_id);
+    const disc = reg?.discipline;
     if (disc && !byDiscipline.has(disc)) {
       byDiscipline.set(disc, {
-        plan_id: a.plan_id,
-        numero: a.plan_registry?.plan_number ?? '',
-        result: a.result,
+        plan_id: e.plan_id,
+        numero: reg?.plan_number ?? '',
+        result: e.estimate_result,
       });
     }
+  }
+
+  if (byDiscipline.size < 2) {
+    return emptyResult;
   }
 
   const plansCompares = Array.from(byDiscipline.entries()).map(([disc, data]) => ({
@@ -131,7 +161,7 @@ export async function verifyCrossPlan(params: {
 
   // Sauvegarder le résultat
   try {
-    await supabase.from('cross_plan_verifications').insert({
+    const { error: saveError } = await supabase.from('cross_plan_verifications').insert({
       org_id,
       project_id,
       plans_compares: plansCompares,
@@ -139,8 +169,12 @@ export async function verifyCrossPlan(params: {
       score_coherence_projet: score,
       alertes,
     });
-  } catch {
+    if (saveError) {
+      console.warn('[cross-plan] Sauvegarde échouée (non bloquant):', saveError.message);
+    }
+  } catch (err) {
     // Non bloquant
+    console.warn('[cross-plan] Sauvegarde échouée (non bloquant):', err);
   }
 
   return { project_id, plans_compares: plansCompares, verifications, score_coherence_projet: score, alertes };

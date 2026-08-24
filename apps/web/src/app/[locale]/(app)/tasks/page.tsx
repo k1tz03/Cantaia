@@ -28,7 +28,7 @@ export default function TasksPage() {
 
   async function refreshTasks() {
     try {
-      const res = await fetch("/api/tasks");
+      const res = await fetch("/api/tasks?limit=1000");
       const data = await res.json();
       if (data.success) {
         if (data.tasks) setTasks(data.tasks);
@@ -231,24 +231,40 @@ export default function TasksPage() {
     setSelectedTask(null);
   }
 
-  function handleBulkStatusChange(status: TaskStatus) {
+  /** Applies the same PATCH to every selected task, then refreshes from the server. */
+  async function applyBulkPatch(patch: Record<string, unknown>) {
     const ids = Array.from(selected);
-    console.log("[Task] Bulk status change:", ids.length, "tasks →", status);
+    if (ids.length === 0) return;
+
+    for (const id of ids) {
+      try {
+        await fetch(`/api/tasks/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+      } catch (err) {
+        console.error("[Task] Bulk update error on", id, err);
+      }
+    }
+
     setSelected(new Set());
+    setSelectedTask(null);
+    await refreshTasks();
   }
 
-  function handleBulkPriorityChange(priority: TaskPriority) {
-    const ids = Array.from(selected);
-    console.log("[Task] Bulk priority change:", ids.length, "tasks →", priority);
-    setSelected(new Set());
+  async function handleBulkStatusChange(status: TaskStatus) {
+    await applyBulkPatch({ status });
   }
 
-  function handleBulkAssign() {
+  async function handleBulkPriorityChange(priority: TaskPriority) {
+    await applyBulkPatch({ priority });
+  }
+
+  async function handleBulkAssign() {
     const name = prompt(t("bulkAssignPrompt"));
-    if (!name) return;
-    const ids = Array.from(selected);
-    console.log("[Task] Bulk assign:", ids.length, "tasks →", name);
-    setSelected(new Set());
+    if (!name || !name.trim()) return;
+    await applyBulkPatch({ assigned_to_name: name.trim() });
   }
 
   function handleBulkDelete() {
@@ -352,14 +368,7 @@ export default function TasksPage() {
         onCreated={async () => {
           setCreateModalOpen(false);
           setEditTask(null);
-          try {
-            const res = await fetch("/api/tasks");
-            const data = await res.json();
-            if (data.success) {
-              if (data.tasks) setTasks(data.tasks);
-              if (data.projects) setProjects(data.projects);
-            }
-          } catch {}
+          await refreshTasks();
         }}
         projects={projects}
         editTask={

@@ -117,7 +117,7 @@ export async function PATCH(
 
     const { data: profile } = await admin
       .from("users")
-      .select("organization_id")
+      .select("organization_id, role, is_superadmin")
       .eq("id", user.id)
       .single();
 
@@ -135,6 +135,19 @@ export async function PATCH(
 
     if (!existing) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // CAL.M1: only the event owner or an admin/director can modify it
+    const isOwner = existing.user_id === user.id;
+    const isOrgAdmin =
+      profile.role === "admin" ||
+      profile.role === "director" ||
+      profile.is_superadmin === true;
+    if (!isOwner && !isOrgAdmin) {
+      return NextResponse.json(
+        { error: "Only the event owner or an admin can modify this event" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -262,7 +275,7 @@ export async function DELETE(
 
     const { data: profile } = await admin
       .from("users")
-      .select("organization_id")
+      .select("organization_id, role, is_superadmin")
       .eq("id", user.id)
       .single();
 
@@ -280,6 +293,19 @@ export async function DELETE(
 
     if (!existing) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // CAL.M1: only the event owner or an admin/director can cancel it
+    const isOwner = existing.user_id === user.id;
+    const isOrgAdmin =
+      profile.role === "admin" ||
+      profile.role === "director" ||
+      profile.is_superadmin === true;
+    if (!isOwner && !isOrgAdmin) {
+      return NextResponse.json(
+        { error: "Only the event owner or an admin can delete this event" },
+        { status: 403 }
+      );
     }
 
     // Delete from Microsoft Graph if connected

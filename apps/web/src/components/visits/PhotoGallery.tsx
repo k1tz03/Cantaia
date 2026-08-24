@@ -15,8 +15,11 @@ import {
 import type { VisitPhoto } from "@cantaia/database";
 import { createClient } from "@/lib/supabase/client";
 
+/** `signed_url` is added by GET/POST /api/visits/photos (private bucket). */
+type VisitPhotoWithUrl = VisitPhoto & { signed_url?: string | null };
+
 interface PhotoGalleryProps {
-  photos: VisitPhoto[];
+  photos: VisitPhotoWithUrl[];
   onDelete?: (photoId: string) => void;
   onUpdateCaption?: (photoId: string, caption: string) => void;
   readOnly?: boolean;
@@ -37,10 +40,10 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
     );
   }
 
-  function getPublicUrl(fileUrl: string) {
-    const supabase = createClient();
-    const { data } = supabase.storage.from("audio").getPublicUrl(fileUrl);
-    return data.publicUrl;
+  // The `audio` bucket is private: the API hands us a signed URL. Keep an
+  // empty src rather than a public URL that would 404.
+  function getPhotoUrl(photo: VisitPhotoWithUrl) {
+    return photo.signed_url || "";
   }
 
   function openLightbox(index: number) {
@@ -98,7 +101,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={getPublicUrl(photo.file_url)}
+                src={getPhotoUrl(photo)}
                 alt={photo.caption || photo.file_name}
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
@@ -207,7 +210,7 @@ export function PhotoGallery({ photos, onDelete, onUpdateCaption, readOnly = fal
           <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={getPublicUrl(photos[lightboxIndex].file_url)}
+              src={getPhotoUrl(photos[lightboxIndex])}
               alt={photos[lightboxIndex].caption || ""}
               className="max-h-[85vh] max-w-full rounded-lg object-contain"
             />

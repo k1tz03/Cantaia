@@ -91,81 +91,100 @@ export async function POST(
 
     if (process.env.NODE_ENV === "development") console.log(`[Finalize] Meeting ${id}: ${allActions.length} total actions found`);
 
-    // Create tasks for selected actions
+    // Build the task rows for the selected actions
     const selectedIndices = new Set(body.selected_action_indices || []);
-    let tasksCreated = 0;
     const errors: string[] = [];
     const insertErrors: any[] = [];
 
-    for (let i = 0; i < allActions.length; i++) {
-      if (!selectedIndices.has(i)) continue;
-
-      const action = allActions[i];
-
-      // Parse deadline (Swiss format DD.MM.YYYY → YYYY-MM-DD)
-      let dueDate: string | null = null;
-      if (action.deadline) {
-        const dateMatch = action.deadline.match(
-          /(\d{2})\.(\d{2})\.(\d{4})/
-        );
-        if (dateMatch) {
-          dueDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+    const taskRows = allActions
+      .map((action, i) => ({ action, i }))
+      .filter(({ i }) => selectedIndices.has(i))
+      .map(({ action }) => {
+        // Parse deadline (Swiss format DD.MM.YYYY → YYYY-MM-DD)
+        let dueDate: string | null = null;
+        if (action.deadline) {
+          const dateMatch = action.deadline.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+          if (dateMatch) {
+            dueDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+          }
         }
-      }
 
-      const taskData = {
-        project_id: meeting.project_id,
-        created_by: user.id,
-        title: action.description,
-        description: `Source : PV Séance #${meeting.meeting_number} — ${action.sectionNumber}. ${action.sectionTitle}`,
-        status: "todo",
-        priority: action.priority === "urgent" ? "urgent" : "medium",
-        source: "meeting",
-        source_id: meeting.id,
-        source_reference: `PV #${meeting.meeting_number}, §${action.sectionNumber}`,
-        assigned_to_name: action.responsible_name || null,
-        assigned_to_company: action.responsible_company || null,
-        due_date: dueDate,
-      };
+        return {
+          project_id: meeting.project_id,
+          created_by: user.id,
+          title: action.description,
+          description: `Source : PV Séance #${meeting.meeting_number} — ${action.sectionNumber}. ${action.sectionTitle}`,
+          status: "todo",
+          priority: action.priority === "urgent" ? "urgent" : "medium",
+          source: "meeting",
+          source_id: meeting.id,
+          source_reference: `PV #${meeting.meeting_number}, §${action.sectionNumber}`,
+          assigned_to_name: action.responsible_name || null,
+          assigned_to_company: action.responsible_company || null,
+          due_date: dueDate,
+        };
+      });
 
-      if (process.env.NODE_ENV === "development") console.log(`[Finalize] Inserting task ${i}: ${taskData.title} (status=${taskData.status}, source=${taskData.source})`);
+    // Single batch insert — all-or-nothing, so the meeting is never marked
+    // "finalized" while only part of its actions became tasks.
+    let tasksCreated = 0;
+    if (taskRows.length > 0) {
+      if (process.env.NODE_ENV === "development") console.log(`[Finalize] Batch inserting ${taskRows.length} tasks`);
 
-      const { data: insertedTask, error: insertError } = await admin
+      const { data: insertedTasks, error: insertError } = await admin
         .from("tasks")
-        .insert(taskData as any)
-        .select()
-        .single();
+        .insert(taskRows as any)
+        .select("id");
 
       if (insertError) {
-        console.error(`[Finalize] INSERT ERROR for task ${i}:`, JSON.stringify(insertError));
-        errors.push(action.description);
+        console.error("[Finalize] BATCH INSERT ERROR:", JSON.stringify(insertError));
+        errors.push(...taskRows.map((r) => r.title));
         insertErrors.push({
-          index: i,
-          title: action.description,
           error: insertError.message,
           code: insertError.code,
           details: insertError.details,
           hint: insertError.hint,
         });
-      } else {
-        if (process.env.NODE_ENV === "development") console.log(`[Finalize] Task ${i} created: ${insertedTask?.id}`);
-        tasksCreated++;
+
+        // Do NOT finalize: nothing was created
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Échec de la création des tâches — le PV n'a pas été finalisé.",
+            tasks_created: 0,
+            errors,
+            insert_errors: insertErrors,
+          },
+          { status: 500 }
+        );
       }
+
+      tasksCreated = insertedTasks?.length ?? taskRows.length;
     }
 
-    // Update meeting status to finalized
-    await admin
+    // Update meeting status to finalized (only once the tasks are persisted)
+    const { error: statusError } = await admin
       .from("meetings")
       .update({ status: "finalized" } as any)
       .eq("id", id);
 
-    if (process.env.NODE_ENV === "development") console.log(`[Finalize] Done: ${tasksCreated} tasks created, ${errors.length} errors`);
+    if (statusError) {
+      console.error("[Finalize] Failed to set meeting status:", statusError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Les tâches ont été créées mais le PV n'a pas pu être finalisé.",
+          tasks_created: tasksCreated,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (process.env.NODE_ENV === "development") console.log(`[Finalize] Done: ${tasksCreated} tasks created`);
 
     return NextResponse.json({
       success: true,
       tasks_created: tasksCreated,
-      errors: errors.length > 0 ? errors : undefined,
-      insert_errors: insertErrors.length > 0 ? insertErrors : undefined,
     });
   } catch (error) {
     console.error("[Finalize] Error:", error);

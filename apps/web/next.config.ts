@@ -4,6 +4,20 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+// `next dev` (Turbopack/webpack HMR + React Refresh) evaluates code through
+// eval(), so 'unsafe-eval' is required locally — but NEVER in production.
+// 'unsafe-inline' stays in both: Next.js injects inline bootstrap scripts and
+// we do not emit per-request nonces (that would require middleware-generated
+// CSP headers and `next/script` nonce plumbing on every page).
+const isDev = process.env.NODE_ENV !== "production";
+const scriptSrc = [
+  "script-src 'self' 'unsafe-inline'",
+  isDev ? "'unsafe-eval'" : null,
+  "https://js.stripe.com https://*.sentry.io",
+]
+  .filter(Boolean)
+  .join(" ");
+
 const nextConfig: NextConfig = {
   eslint: {
     // Lint is handled separately in CI (pnpm lint) — not during next build
@@ -59,9 +73,11 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.sentry.io",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https: http:",
+              // No `http:` — remote images must be served over TLS. `https:` stays
+              // broad because email HTML embeds arbitrary third-party image hosts.
+              "img-src 'self' data: blob: https:",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://*.supabase.in https://*.sentry.io https://api.stripe.com https://login.microsoftonline.com https://graph.microsoft.com",
               "frame-src 'self' https://js.stripe.com https://*.supabase.co https://*.supabase.in",

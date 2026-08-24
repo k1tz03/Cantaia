@@ -73,6 +73,22 @@ export async function POST(request: NextRequest) {
     let participants = body.participants;
     const language = body.language || "fr";
 
+    // Remembered so a failed generation can restore it instead of leaving the
+    // meeting stuck in "generating_pv" forever.
+    let previousStatus: string | null = null;
+
+    /** Restore the meeting's pre-generation status after a failure. */
+    const restoreStatus = async () => {
+      if (!previousStatus) return;
+      const { error: restoreErr } = await admin
+        .from("meetings")
+        .update({ status: previousStatus } as any)
+        .eq("id", meeting_id);
+      if (restoreErr) {
+        console.error("[GeneratePV] Failed to restore meeting status:", restoreErr);
+      }
+    };
+
     if (!transcript) {
       // Fetch meeting + project from DB (with org check)
       const { data: meeting } = await admin
@@ -102,6 +118,7 @@ export async function POST(request: NextRequest) {
       }
 
       transcript = meeting.transcription_raw;
+      previousStatus = (meeting as any).status ?? null;
       const project = meeting.projects as any;
       project_name = project?.name || "Projet";
       project_code = project?.code || "";
@@ -118,8 +135,22 @@ export async function POST(request: NextRequest) {
       `transcript: ${transcript.length} chars`
     );
 
-    if (USE_MOCK_PV || !process.env.ANTHROPIC_API_KEY) {
-      if (process.env.NODE_ENV === "development") console.log("[GeneratePV] Using mock PV generation");
+    // Mock PV is DEV-ONLY: in production a missing key must surface as an
+    // error rather than persist a fictional PV over a real meeting.
+    const useMockPv =
+      process.env.NODE_ENV === "development" &&
+      (USE_MOCK_PV || !process.env.ANTHROPIC_API_KEY);
+
+    if (!useMockPv && !process.env.ANTHROPIC_API_KEY) {
+      await restoreStatus();
+      return NextResponse.json(
+        { error: "Génération indisponible : la clé ANTHROPIC_API_KEY n'est pas configurée." },
+        { status: 503 }
+      );
+    }
+
+    if (useMockPv) {
+      console.warn("[GeneratePV] DEV ONLY — using mock PV generation");
       const mockPV = {
         header: {
           project_name: project_name || "Projet Test",
@@ -200,12 +231,14 @@ export async function POST(request: NextRequest) {
       });
     } catch (aiError: any) {
       console.error("[GeneratePV] AI error:", aiError?.message);
+      await restoreStatus();
       const err = classifyAIError(aiError);
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
+      await restoreStatus();
       return NextResponse.json(
         { error: "No text response from Claude" },
         { status: 502 }
@@ -220,6 +253,7 @@ export async function POST(request: NextRequest) {
       pvContent = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
       console.error("[GeneratePV] Failed to parse PV JSON:", parseErr);
+      await restoreStatus();
       return NextResponse.json(
         { error: "Failed to parse PV content", raw: textBlock.text },
         { status: 502 }

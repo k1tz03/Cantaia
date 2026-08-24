@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -51,9 +52,13 @@ function formatFullDate(date: Date, locale: string): string {
   });
 }
 
-/** Get ISO date string YYYY-MM-DD */
+/** Get the LOCAL date string YYYY-MM-DD (CAL.B1: toISOString() returns the
+ *  UTC date, which is off by one in the evening/morning around midnight) */
 function toISODate(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** Get the start of the week (Monday) */
@@ -135,20 +140,20 @@ function isSameDay(a: Date, b: Date): boolean {
    ═══════════════════════════════════════════════════════════ */
 
 const AI_CHIPS = [
-  { label: "Reunion", icon: "calendar", command: "Planifie une reunion " },
-  { label: "Visite chantier", icon: "hardhat", command: "Planifie une visite chantier " },
-  { label: "Creneau libre", icon: "clock", command: "Trouve un creneau libre " },
-  { label: "Resume semaine", icon: "zap", command: "Fais un resume de ma semaine" },
+  { labelKey: "aiChipMeeting", commandKey: "aiCmdMeeting", autoSubmit: false },
+  { labelKey: "aiChipSiteVisit", commandKey: "aiCmdSiteVisit", autoSubmit: false },
+  { labelKey: "aiChipFreeSlot", commandKey: "aiCmdFreeSlot", autoSubmit: false },
+  { labelKey: "aiChipWeekSummary", commandKey: "aiCmdWeekSummary", autoSubmit: true },
 ] as const;
 
 /* ═══════════════════════════════════════════════════════════
    VIEW MODE TABS
    ═══════════════════════════════════════════════════════════ */
 
-const VIEW_MODES: Array<{ key: ViewMode; label: string }> = [
-  { key: "day", label: "Jour" },
-  { key: "week", label: "Semaine" },
-  { key: "month", label: "Mois" },
+const VIEW_MODES: Array<{ key: ViewMode; labelKey: string }> = [
+  { key: "day", labelKey: "day" },
+  { key: "week", labelKey: "week" },
+  { key: "month", labelKey: "month" },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -158,6 +163,7 @@ const VIEW_MODES: Array<{ key: ViewMode; label: string }> = [
 export default function CalendarPage() {
   const t = useTranslations("calendar");
   const locale = useLocale();
+  const router = useRouter();
   const aiInputRef = useRef<HTMLInputElement>(null);
 
   /* ---- State ---- */
@@ -191,14 +197,18 @@ export default function CalendarPage() {
     try {
       const { start, end } = getDateRange(selectedDate, viewMode);
       const res = await fetch(`/api/calendar/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
-      if (res.status === 401) return;
+      if (res.status === 401) {
+        // CAL.M3: session expired — redirect to login (pattern MAIL.FIX3)
+        router.replace("/login");
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch events");
       const data = await res.json();
       if (data.events) setEvents(data.events);
     } catch (err) {
       console.error("Calendar: failed to fetch events", err);
     }
-  }, [selectedDate, viewMode]);
+  }, [selectedDate, viewMode, router]);
 
   const [weatherCity, setWeatherCity] = useState<WeatherCity>(() => getStoredCity());
 
@@ -240,14 +250,14 @@ export default function CalendarPage() {
       const res = await fetch("/api/calendar/sync", { method: "POST" });
       if (!res.ok) throw new Error("Sync failed");
       const data = await res.json();
-      toast.success(data.message || "Calendrier synchronise");
+      toast.success(data.message || t("synced"));
       await fetchEvents();
     } catch {
-      toast.error("Erreur de synchronisation");
+      toast.error(t("syncError"));
     } finally {
       setSyncing(false);
     }
-  }, [fetchEvents]);
+  }, [fetchEvents, t]);
 
   /* ---- AI Command ---- */
 
@@ -278,7 +288,7 @@ export default function CalendarPage() {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         console.error("[Calendar AI] API error:", res.status, errData);
-        toast.error(errData.detail || errData.error || `Erreur serveur (${res.status})`);
+        toast.error(errData.detail || errData.error || t("serverError", { status: res.status }));
         return;
       }
       const data = await res.json();
@@ -290,16 +300,16 @@ export default function CalendarPage() {
           await fetchEvents();
         }
       } else {
-        toast.error(result?.message || "L'IA n'a pas pu traiter la commande");
+        toast.error(result?.message || t("aiCommandFailed"));
       }
     } catch (err) {
       console.error("[Calendar AI] Fetch error:", err);
-      toast.error("Erreur lors du traitement de la commande IA");
+      toast.error(t("aiCommandError"));
     } finally {
       setAiProcessing(false);
       setAiCommand("");
     }
-  }, [aiCommand, selectedDate, viewMode, events, fetchEvents]);
+  }, [aiCommand, selectedDate, viewMode, events, fetchEvents, t]);
 
   /* ---- Navigation ---- */
 
@@ -379,14 +389,14 @@ export default function CalendarPage() {
               <button
                 onClick={goPrev}
                 className="flex items-center justify-center w-7 h-7 rounded-md border border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
-                title="Precedent"
+                title={t("prev")}
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={goNext}
                 className="flex items-center justify-center w-7 h-7 rounded-md border border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors"
-                title="Suivant"
+                title={t("next")}
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -403,7 +413,7 @@ export default function CalendarPage() {
                   : "border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46]"
               }`}
             >
-              Aujourd&apos;hui
+              {t("today")}
             </button>
 
             {/* View mode switcher */}
@@ -418,7 +428,7 @@ export default function CalendarPage() {
                       : "text-[#71717A] hover:text-[#A1A1AA]"
                   }`}
                 >
-                  {vm.label}
+                  {t(vm.labelKey)}
                 </button>
               ))}
             </div>
@@ -433,10 +443,10 @@ export default function CalendarPage() {
                   ? "border-[#F97316]/30 bg-[#F97316]/10 text-[#F97316]"
                   : "border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46]"
               }`}
-              title="Calendriers equipe"
+              title={t("teamCalendars")}
             >
               <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Equipe</span>
+              <span className="hidden sm:inline">{t("team")}</span>
             </button>
 
             <button
@@ -445,7 +455,7 @@ export default function CalendarPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md border border-[#27272A] bg-[#18181B] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#3F3F46] transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Sync</span>
+              <span className="hidden sm:inline">{t("sync")}</span>
             </button>
 
             <button
@@ -453,7 +463,7 @@ export default function CalendarPage() {
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-semibold rounded-md bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors shadow-sm shadow-[#F97316]/20"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Nouvel evenement</span>
+              <span className="hidden sm:inline">{t("newEvent")}</span>
             </button>
           </div>
         </div>
@@ -497,7 +507,7 @@ export default function CalendarPage() {
                   handleAICommand();
                 }
               }}
-              placeholder="Planifie une reunion CVC mardi a 14h avec Sophie..."
+              placeholder={t("aiPlaceholder")}
               className="flex-1 bg-transparent text-[13px] text-[#FAFAFA] placeholder-[#52525B] outline-none font-sans"
               disabled={aiProcessing}
             />
@@ -506,19 +516,20 @@ export default function CalendarPage() {
             <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
               {AI_CHIPS.map((chip) => (
                 <button
-                  key={chip.label}
+                  key={chip.labelKey}
                   onClick={() => {
-                    setAiCommand(chip.command);
+                    const command = t(chip.commandKey);
+                    setAiCommand(command);
                     aiInputRef.current?.focus();
-                    if (chip.command.endsWith("semaine")) {
-                      // Auto-submit for "Resume semaine"
-                      handleAICommand(chip.command);
+                    if (chip.autoSubmit) {
+                      // Auto-submit for "Week summary"
+                      handleAICommand(command);
                     }
                   }}
                   disabled={aiProcessing}
                   className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-[#27272A] bg-[#1C1C1F] text-[#71717A] hover:text-[#A1A1AA] hover:border-[#3F3F46] transition-colors whitespace-nowrap disabled:opacity-50"
                 >
-                  {chip.label}
+                  {t(chip.labelKey)}
                 </button>
               ))}
             </div>
@@ -542,7 +553,7 @@ export default function CalendarPage() {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-6 h-6 text-[#F97316] animate-spin" />
-            <span className="text-[13px] text-[#52525B]">Chargement du calendrier...</span>
+            <span className="text-[13px] text-[#52525B]">{t("loading")}</span>
           </div>
         </div>
       ) : (
@@ -593,7 +604,6 @@ export default function CalendarPage() {
         onCreated={async () => {
           setShowCreateModal(false);
           await fetchEvents();
-          toast.success("Evenement cree");
         }}
       />
 

@@ -39,9 +39,6 @@ export const MICROSOFT_GRAPH_SCOPES = [
 
 export const EMAIL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-export const AI_MODELS = {
-  classifier: "claude-sonnet-4-5-20250929",
-  pvGenerator: "claude-sonnet-4-5-20250929",
-  briefing: "claude-sonnet-4-5-20250929",
-  transcription: "whisper-1",
-} as const;
+// NOTE: AI model IDs live in packages/core/src/ai/ai-utils.ts (AI_MODELS /
+// MODEL_FOR_TASK). The duplicate table that used to live here was dead code
+// (no imports) and drifted out of sync — removed intentionally.

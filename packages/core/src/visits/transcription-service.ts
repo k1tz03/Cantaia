@@ -62,36 +62,58 @@ Je comprends, je ferai un devis compétitif. Je vous l'envoie d'ici la fin de la
 
 Super, merci beaucoup Monsieur Ray.`;
 
+/** Whisper hard limit is 25 MB — we keep a safety margin. */
+const WHISPER_MAX_BYTES = 24 * 1024 * 1024;
+
 /**
- * Transcribe visit audio using Whisper API or mock data.
+ * Transcribe visit audio with the Whisper API.
+ *
+ * The mock transcript is ONLY returned in local development when no
+ * OPENAI_API_KEY is configured. In every other case (production, or a missing
+ * / undownloadable audio file) this throws so the caller can mark the visit
+ * as failed instead of persisting fictional data as if it were real.
  */
 export async function transcribeVisitAudio(
   audioBlob: Blob | null,
   language: string = "fr"
 ): Promise<TranscriptionResult> {
-  const useMock = !audioBlob || !process.env.OPENAI_API_KEY;
+  const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
+  const isDev = process.env.NODE_ENV === "development";
 
-  if (useMock) {
-    console.log("[Visit Transcription] Using mock transcription");
-    return {
-      text: MOCK_VISIT_TRANSCRIPT,
-      segments: parseMockSegments(MOCK_VISIT_TRANSCRIPT),
-      language: "fr",
-      duration: 2712, // ~45 min
-      provider: "mock",
-    };
+  if (!hasApiKey) {
+    if (isDev) {
+      console.warn(
+        "[Visit Transcription] DEV ONLY — no OPENAI_API_KEY, returning mock transcript"
+      );
+      return {
+        text: MOCK_VISIT_TRANSCRIPT,
+        segments: parseMockSegments(MOCK_VISIT_TRANSCRIPT),
+        language: "fr",
+        duration: 2712, // ~45 min
+        provider: "mock",
+      };
+    }
+    throw new Error(
+      "Transcription indisponible : la clé OPENAI_API_KEY n'est pas configurée."
+    );
+  }
+
+  if (!audioBlob) {
+    throw new Error(
+      "Transcription impossible : le fichier audio est introuvable ou n'a pas pu être téléchargé."
+    );
+  }
+
+  // Files above the Whisper limit must be compressed client-side
+  // (see @/lib/audio/compress-audio) before reaching this function.
+  if (audioBlob.size > WHISPER_MAX_BYTES) {
+    throw new Error(
+      `Fichier audio trop volumineux (${(audioBlob.size / (1024 * 1024)).toFixed(1)} MB). ` +
+        "La limite de transcription est de 24 MB — compressez l'enregistrement avant de réessayer."
+    );
   }
 
   console.log(`[Visit Transcription] Calling Whisper API... (${(audioBlob.size / (1024 * 1024)).toFixed(1)} MB)`);
-
-  // For large files (> 24 MB), use chunked transcription via the API route.
-  // The /api/pv/transcribe and /api/visits/transcribe routes handle chunking
-  // with ffmpeg. Direct calls here are for files within the Whisper 25 MB limit.
-  if (audioBlob.size > 24 * 1024 * 1024) {
-    console.warn(
-      "[Visit Transcription] File > 24 MB — use the API route with chunked transcription instead"
-    );
-  }
 
   const formData = new FormData();
   formData.append("file", audioBlob, "recording.webm");

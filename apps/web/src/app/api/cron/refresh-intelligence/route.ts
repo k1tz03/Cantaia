@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 export const maxDuration = 120;
+
+/** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 /**
  * POST /api/cron/refresh-intelligence
@@ -10,10 +16,7 @@ export const maxDuration = 120;
  * Scheduled: daily at 3:30 AM.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -6,6 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * GET /api/admin/clients
  * Returns all members of the authenticated user's organization.
  * Uses admin client to bypass RLS (avoids users table recursion).
+ *
+ * NOTE: deliberately NOT gated behind requireOrgAdmin — this is the org
+ * member directory (name, email, role) consumed by non-admin surfaces too
+ * (team calendar panel, org dashboard view). It only ever returns members
+ * of the caller's own organization. Admin-only analytics live in
+ * team-health / activity-feed / usage-stats, which ARE admin-gated.
  */
 export async function GET() {
   const supabase = await createClient();

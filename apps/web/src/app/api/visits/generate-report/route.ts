@@ -42,7 +42,22 @@ interface VisitReport {
   ai_parse_failed?: boolean;
 }
 
+/** Never leave a visit stuck in `report_status: "generating"`. */
+async function markReportFailed(client: any, visitId: string) {
+  try {
+    await (client.from("client_visits") as any)
+      .update({ report_status: "failed" })
+      .eq("id", visitId);
+  } catch (err) {
+    console.error("[Visit Report] Failed to mark report as failed:", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
+  // Captured outside the try: the request body is consumed by parseBody(),
+  // so request.clone() is no longer usable from the catch block.
+  let failedVisitId: string | null = null;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -61,6 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { visit_id } = reqBody;
+    failedVisitId = visit_id;
 
     // Get the visit
     const { data: visit, error: visitErr } = await (supabase.from("client_visits") as any)
@@ -100,6 +116,7 @@ export async function POST(request: NextRequest) {
       // Check AI usage limit
       const usageCheck = await checkUsageLimit(admin, userData.organization_id, org?.subscription_plan || "trial");
       if (!usageCheck.allowed) {
+        await markReportFailed(supabase, visit_id);
         return NextResponse.json(
           { error: "usage_limit_reached", current: usageCheck.current, limit: usageCheck.limit, required_plan: usageCheck.requiredPlan },
           { status: 429 }
@@ -108,6 +125,22 @@ export async function POST(request: NextRequest) {
     }
 
     const userName = userData ? `${userData.first_name} ${userData.last_name}` : "";
+
+    // Best-effort: analyse handwritten notes still pending so the report
+    // is not generated without them when the user chains actions quickly.
+    try {
+      const { analyzePendingVisitNotes } = await import("@cantaia/core/visits");
+      const analysed = await analyzePendingVisitNotes({
+        admin: admin as any,
+        visitId: visit_id,
+        userId: user.id,
+      });
+      if (analysed > 0) {
+        console.log(`[Visit Report] Analysed ${analysed} pending handwritten note(s) before generating`);
+      }
+    } catch (notesErr) {
+      console.warn("[Visit Report] Pending notes analysis skipped (non-blocking):", notesErr);
+    }
 
     // Fetch handwritten notes if available
     let handwrittenNotes: string | undefined;
@@ -143,10 +176,20 @@ export async function POST(request: NextRequest) {
     const { buildVisitReportPrompt, getMockVisitReport } = await import("@cantaia/core/visits");
 
     let report: VisitReport;
-    const useMock = !process.env.ANTHROPIC_API_KEY;
+    // Mock reports are DEV-ONLY. In production a missing key is a hard failure:
+    // writing a fictional report over a real visit is worse than no report.
+    const useMock = !process.env.ANTHROPIC_API_KEY && process.env.NODE_ENV === "development";
+
+    if (!process.env.ANTHROPIC_API_KEY && !useMock) {
+      await markReportFailed(supabase, visit_id);
+      return NextResponse.json(
+        { error: "Génération indisponible : la clé ANTHROPIC_API_KEY n'est pas configurée.", visit_id, report_status: "failed" },
+        { status: 503 }
+      );
+    }
 
     if (useMock) {
-      if (process.env.NODE_ENV === "development") console.log("[Visit Report] Using mock report");
+      console.warn("[Visit Report] DEV ONLY — no ANTHROPIC_API_KEY, using mock report");
       report = getMockVisitReport();
     } else {
       // Real Claude API call
@@ -176,18 +219,23 @@ export async function POST(request: NextRequest) {
       }
       const text = content.type === "text" ? content.text : "";
 
-      // Parse JSON from response
+      // Parse JSON from response — NO mock fallback: a template report would
+      // silently overwrite the real visit data with fictional content.
       try {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          report = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error("No JSON in response");
-        }
+        if (!jsonMatch) throw new Error("No JSON in response");
+        report = JSON.parse(jsonMatch[0]);
       } catch {
-        console.error("[Visit Report] Failed to parse AI response, falling back to template. Raw:", text.substring(0, 300));
-        report = getMockVisitReport() as VisitReport;
-        report.ai_parse_failed = true;
+        console.error("[Visit Report] Failed to parse AI response. Raw:", text.substring(0, 300));
+        await markReportFailed(supabase, visit_id);
+        return NextResponse.json(
+          {
+            error: "La réponse de l'IA n'a pas pu être interprétée. Relancez la génération du rapport.",
+            visit_id,
+            report_status: "failed",
+          },
+          { status: 502 }
+        );
       }
 
       // Track API usage
@@ -233,9 +281,18 @@ export async function POST(request: NextRequest) {
       .eq("id", visit_id);
 
     // ──── Auto-create tasks (21.5) ────
+    // `tasks.project_id` is NOT NULL: a prospect visit without a linked
+    // project cannot carry tasks. Skip creation entirely in that case.
 
     let quoteTaskId: string | null = null;
+    const createdTasks: string[] = [];
+    const taskErrors: string[] = [];
 
+    if (!visit.project_id) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Visit Report] No linked project — skipping task creation (prospect visit)");
+      }
+    } else {
     // Main task: establish quote
     if (report.client_requests && report.client_requests.length > 0) {
       const requestsList = report.client_requests
@@ -263,55 +320,72 @@ export async function POST(request: NextRequest) {
       const urgency = report.timeline?.urgency;
       const priority = (urgency === "high" || urgency === "critical") ? "high" : "medium";
 
-      const { data: quoteTask } = await (supabase.from("tasks") as any)
+      // NOTE: real `tasks` columns are assigned_to / source / source_id
+      // (see migrations 001 + 006). `source` is the task_source enum
+      // ('email' | 'meeting' | 'manual' | 'reserve') — there is no 'visit'
+      // value, so we use 'manual' and carry the visit id in source_id.
+      const { data: quoteTask, error: quoteTaskErr } = await (admin.from("tasks") as any)
         .insert({
           title: `Établir devis — ${visit.client_name}${report.title ? ` — ${report.title}` : ""}`,
           description: `Suite à la visite du ${visit.visit_date}.\n\nDemandes du client :\n${requestsList}\n\n${budgetInfo}\n${timelineInfo}`,
-          project_id: visit.project_id || null,
-          organization_id: visit.organization_id,
-          assignee_id: visit.created_by,
+          project_id: visit.project_id,
+          created_by: visit.created_by || user.id,
+          assigned_to: visit.created_by || user.id,
           priority,
           due_date: dueDate.toISOString().split("T")[0],
           status: "todo",
-          source_type: "client_visit",
+          source: "manual",
           source_id: visit_id,
+          source_reference: `Visite client — ${visit.client_name}`,
         })
         .select("id")
         .single();
 
-      if (quoteTask) {
+      if (quoteTaskErr) {
+        console.error("[Visit Report] Quote task insert failed:", quoteTaskErr);
+        taskErrors.push(quoteTaskErr.message);
+      } else if (quoteTask) {
         quoteTaskId = quoteTask.id;
-        await (supabase.from("client_visits") as any)
+        const { error: linkErr } = await (admin.from("client_visits") as any)
           .update({ quote_task_id: quoteTask.id })
           .eq("id", visit_id);
+        if (linkErr) {
+          console.error("[Visit Report] Failed to link quote_task_id:", linkErr);
+        }
       }
     }
 
     // Next steps tasks (only actionable ones)
-    const createdTasks: string[] = [];
     if (report.next_steps && report.next_steps.length > 0) {
       for (const step of report.next_steps) {
         // Skip the main "devis" step since we already created it
         if (step.toLowerCase().includes("devis")) continue;
 
-        const { data: stepTask } = await (supabase.from("tasks") as any)
+        const { data: stepTask, error: stepTaskErr } = await (admin.from("tasks") as any)
           .insert({
             title: step,
             description: `Suite à la visite — ${visit.client_name} (${visit.visit_date})`,
-            project_id: visit.project_id || null,
-            organization_id: visit.organization_id,
-            assignee_id: visit.created_by,
+            project_id: visit.project_id,
+            created_by: visit.created_by || user.id,
+            assigned_to: visit.created_by || user.id,
             priority: "medium",
             due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
             status: "todo",
-            source_type: "client_visit",
+            source: "manual",
             source_id: visit_id,
+            source_reference: `Visite client — ${visit.client_name}`,
           })
           .select("id")
           .single();
 
-        if (stepTask) createdTasks.push(stepTask.id);
+        if (stepTaskErr) {
+          console.error("[Visit Report] Step task insert failed:", stepTaskErr);
+          taskErrors.push(stepTaskErr.message);
+        } else if (stepTask) {
+          createdTasks.push(stepTask.id);
+        }
       }
+    }
     }
 
     return NextResponse.json({
@@ -320,12 +394,20 @@ export async function POST(request: NextRequest) {
       report_status: "completed",
       quote_task_id: quoteTaskId,
       tasks_created: createdTasks.length + (quoteTaskId ? 1 : 0),
+      tasks_skipped_no_project: !visit.project_id,
+      task_errors: taskErrors.length > 0 ? taskErrors : undefined,
       suggest_create_project: visit.is_prospect && (report.closing_probability || 0) > 0.5 && !visit.project_id,
     });
   } catch (error: unknown) {
     console.error("[Visit Report] Error:", error);
+
+    // Never leave the visit stuck in "generating"
+    if (failedVisitId) {
+      await markReportFailed(createAdminClient(), failedVisitId);
+    }
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", report_status: "failed" },
       { status: 500 }
     );
   }

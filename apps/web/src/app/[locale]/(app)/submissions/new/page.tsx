@@ -161,10 +161,11 @@ export default function NewSubmissionPage() {
       setUploadStep("done");
       const submissionId = json.submission.id;
 
-      // Trigger analysis in background (fire-and-forget — polling handles status)
-      fetch(`/api/submissions/${submissionId}/analyze`, { method: "POST" }).catch(() => {});
-
-      // Redirect to detail page
+      // H3: do NOT fire the analysis here. A scanned PDF needs the client to drive
+      // the CHUNK loop, and this page navigates away immediately — nobody would
+      // pilot it, leaving the submission stuck in "analyzing". The submission is
+      // created with analysis_status = "pending" and the detail page auto-starts
+      // (and drives) the full pipeline on mount.
       router.push(`/submissions/${submissionId}`);
     } catch (err: any) {
       setError(err.message || "Erreur inattendue");

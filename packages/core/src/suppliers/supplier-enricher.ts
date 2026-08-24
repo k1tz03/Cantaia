@@ -3,6 +3,7 @@
 // ============================================================
 
 import { buildSupplierEnrichPrompt } from "../ai/prompts";
+import { MODEL_FOR_TASK } from "../ai/ai-utils";
 
 export interface EnrichmentResult {
   website_found: boolean;
@@ -32,7 +33,7 @@ export async function enrichSupplier(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.supplier_enrichment,
       max_tokens: 1024,
       messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
     });

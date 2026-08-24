@@ -47,7 +47,7 @@ export async function* streamChatResponse(
   try {
     stream = await client.messages.create({
       model,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       messages: messages.map((m) => ({ role: m.role, content: m.content as any })),
       stream: true,
@@ -59,6 +59,7 @@ export async function* streamChatResponse(
 
   let inputTokens = 0;
   let outputTokens = 0;
+  let stopReason: string | null = null;
 
   for await (const event of stream) {
     if (
@@ -70,11 +71,31 @@ export async function* streamChatResponse(
       if (event.usage) {
         outputTokens = event.usage.output_tokens;
       }
+      if (event.delta?.stop_reason) {
+        stopReason = event.delta.stop_reason;
+      }
     } else if (event.type === "message_start") {
       if (event.message.usage) {
-        inputTokens = event.message.usage.input_tokens;
+        // Include cache counters — cache reads/writes are billed input too
+        const u = event.message.usage as {
+          input_tokens: number;
+          cache_read_input_tokens?: number | null;
+          cache_creation_input_tokens?: number | null;
+        };
+        inputTokens =
+          (u.input_tokens ?? 0) +
+          (u.cache_read_input_tokens ?? 0) +
+          (u.cache_creation_input_tokens ?? 0);
       }
     }
+  }
+
+  // Signal truncation to the client when the response hit max_tokens
+  if (stopReason === "max_tokens") {
+    yield {
+      type: "text",
+      data: "\n\n_[Réponse tronquée — limite de longueur atteinte. Reformulez ou demandez la suite.]_",
+    };
   }
 
   yield {

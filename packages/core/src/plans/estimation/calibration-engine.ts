@@ -205,42 +205,128 @@ export async function getModelErrorProfile(params: {
 }
 
 // ─── 4. Profil bureau d'études ───
+//
+// B13 — Il y avait DEUX écrivains incompatibles sur `bureau_profiles` :
+//   * ce module         → bureau_nom = nom minusculé, hash = nom minusculé
+//   * /api/plans/corrections → bureau_nom = nom brut,  hash = SHA-256
+// La contrainte UNIQUE porte sur (org_id, bureau_nom_hash) : deux clés
+// différentes = deux lignes pour le même bureau, et `getBureauProfile()`
+// (qui cherchait par `bureau_nom` brut) ne retrouvait jamais la ligne écrite
+// par le pipeline. Les profils étaient donc fragmentés ET illisibles.
+//
+// Clé unique et unique écrivain désormais : `bureauNomHash()` ci-dessous.
+// Le nom lisible est conservé tel quel (trim) dans `bureau_nom`.
 
+/**
+ * Clé de déduplication d'un bureau : SHA-256 du nom normalisé
+ * (trim + lowercase + espaces compactés). Doit être la SEULE façon de
+ * calculer `bureau_profiles.bureau_nom_hash`, côté core comme côté routes.
+ */
+export async function bureauNomHash(bureauName: string): Promise<string> {
+  const normalized = bureauName.trim().toLowerCase().replace(/\s+/g, ' ');
+  const bytes = new TextEncoder().encode(normalized);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export interface BureauCorrectionSignal {
+  /** `quantity_corrections.raison` */
+  raison: string;
+  commentaire?: string | null;
+}
+
+/**
+ * Unique point d'écriture de `bureau_profiles`.
+ *
+ * @param qualityScore  score métré 0-100 du run (null si l'appel vient d'une
+ *                      correction utilisateur : pas de score à moyenner, on
+ *                      n'incrémente alors PAS `nb_plans_analyses`).
+ * @param options.correction  correction utilisateur à consigner dans
+ *                      `erreurs_frequentes`.
+ */
 export async function updateBureauProfile(
   supabase: any,
   orgId: string,
   bureauName: string,
-  qualityScore: number
+  qualityScore: number | null,
+  options?: { correction?: BureauCorrectionSignal }
 ): Promise<void> {
-  const normalized = bureauName.trim().toLowerCase();
+  if (!bureauName || !bureauName.trim()) return;
+
+  const display = bureauName.trim();
+  const correction = options?.correction;
 
   try {
-    const { data: existing } = await supabase
+    const hash = await bureauNomHash(display);
+
+    const { data: existing, error: readError } = await supabase
       .from('bureau_profiles')
-      .select('*')
+      .select('id, nb_plans_analyses, avg_quality_score, erreurs_frequentes')
       .eq('org_id', orgId)
-      .eq('bureau_nom', normalized)
+      .eq('bureau_nom_hash', hash)
       .maybeSingle();
 
+    if (readError) {
+      console.warn('[bureau_profiles] lecture échouée (non-fatal):', readError.message);
+      return;
+    }
+
+    // Journal des erreurs fréquentes : moyenne mobile sur la fréquence.
+    const mergeErrors = (current: any[]): any[] => {
+      if (!correction) return current;
+      const list = Array.isArray(current) ? [...current] : [];
+      const hit = list.find((e: any) => e?.type === correction.raison);
+      if (hit) {
+        hit.frequence_pct = Math.round((hit.frequence_pct || 0) * 0.8 + 100 * 0.2);
+        if (correction.commentaire) hit.description = correction.commentaire;
+      } else {
+        list.push({
+          type: correction.raison,
+          description: correction.commentaire || correction.raison,
+          frequence_pct: 10,
+        });
+      }
+      return list.slice(0, 20);
+    };
+
     if (existing) {
-      const newCount = (existing.nb_plans_analyses || 0) + 1;
-      const newAvgQuality = ((existing.avg_quality_score || 0) * (existing.nb_plans_analyses || 0) + qualityScore) / newCount;
-      await supabase
+      const prevCount = existing.nb_plans_analyses || 0;
+      const update: Record<string, any> = {
+        erreurs_frequentes: mergeErrors(existing.erreurs_frequentes),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (qualityScore !== null && qualityScore !== undefined) {
+        const newCount = prevCount + 1;
+        const newAvg =
+          ((existing.avg_quality_score || 0) * prevCount + qualityScore) / newCount;
+        update.nb_plans_analyses = newCount;
+        update.avg_quality_score = Math.round(newAvg * 100) / 100;
+      }
+
+      const { error: updateError } = await supabase
         .from('bureau_profiles')
-        .update({
-          nb_plans_analyses: newCount,
-          avg_quality_score: Math.round(newAvgQuality * 100) / 100,
-          updated_at: new Date().toISOString(),
-        })
+        .update(update)
         .eq('id', existing.id);
+
+      if (updateError) {
+        console.warn('[bureau_profiles] update échoué (non-fatal):', updateError.message);
+      }
     } else {
-      await supabase.from('bureau_profiles').insert({
+      const { error: insertError } = await supabase.from('bureau_profiles').insert({
         org_id: orgId,
-        bureau_nom: normalized,
-        bureau_nom_hash: normalized,
-        nb_plans_analyses: 1,
-        avg_quality_score: qualityScore,
+        bureau_nom: display,
+        bureau_nom_hash: hash,
+        nb_plans_analyses: qualityScore !== null && qualityScore !== undefined ? 1 : 0,
+        avg_quality_score: qualityScore ?? null,
+        erreurs_frequentes: mergeErrors([]),
       });
+
+      if (insertError) {
+        console.warn('[bureau_profiles] insert échoué (non-fatal):', insertError.message);
+      }
     }
   } catch (err) {
     // Non-fatal — ne pas bloquer le pipeline si la mise à jour échoue
@@ -259,19 +345,23 @@ export async function getBureauProfile(params: {
 }> {
   const { org_id, bureau_nom, supabase } = params;
 
-  if (!bureau_nom) {
+  if (!bureau_nom || !bureau_nom.trim()) {
     return { profile: null, prompt_enrichment: '', confidence_bonus: 0 };
   }
 
   try {
+    // Lookup par la clé canonique (cf. updateBureauProfile). Chercher par
+    // `bureau_nom` brut ne matchait jamais les lignes écrites par le pipeline.
+    const hash = await bureauNomHash(bureau_nom);
+
     const { data } = await supabase
       .from('bureau_profiles')
       .select('*')
       .eq('org_id', org_id)
-      .eq('bureau_nom', bureau_nom)
+      .eq('bureau_nom_hash', hash)
       .maybeSingle();
 
-    if (!data || data.nb_plans_analyses < 2) {
+    if (!data || (data.nb_plans_analyses ?? 0) < 2) {
       return { profile: null, prompt_enrichment: '', confidence_bonus: 0 };
     }
 

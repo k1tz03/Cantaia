@@ -83,12 +83,18 @@ export default function NouveauPVPage() {
     const project = projects.find((p) => p.id === selectedProject);
     if (project) {
       setLocation(project.address || project.city || "");
-      // Fetch next meeting number
+      // Next meeting number = max(meeting_number) + 1.
+      // Using the row count would reuse numbers after a deletion and clash
+      // with the server-side numbering in POST /api/pv.
       fetch(`/api/pv?project_id=${selectedProject}`)
         .then((r) => r.json())
         .then((data) => {
-          const count = data.meetings?.length || 0;
-          setTitle(`Séance de chantier #${count + 1}`);
+          const maxNumber = (data.meetings || []).reduce(
+            (max: number, m: { meeting_number?: number | null }) =>
+              Math.max(max, m.meeting_number || 0),
+            0
+          );
+          setTitle(`Séance de chantier #${maxNumber + 1}`);
         })
         .catch(() => {
           setTitle("Séance de chantier #1");

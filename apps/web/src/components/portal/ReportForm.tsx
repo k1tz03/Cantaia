@@ -50,6 +50,7 @@ export function ReportForm({ projectId }: ReportFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
 
   // Form state
   const [selectedCrew, setSelectedCrew] = useState<Set<string>>(new Set());
@@ -176,19 +177,63 @@ export function ReportForm({ projectId }: ReportFormProps) {
     setDeliveryNotes(prev => prev.filter((_, i) => i !== index));
   }
 
-  async function handlePhotoCapture(index: number, file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
+  /**
+   * Returns the id of the report for the current date, creating the draft if
+   * it does not exist yet. Photos can only be attached to a real report, so the
+   * upload path needs this too (it used to POST to a "temp" id and 404).
+   */
+  async function ensureReportId(): Promise<string | null> {
+    if (report?.id) return report.id;
     try {
-      const res = await fetch(`/api/portal/${projectId}/reports/${report?.id || "temp"}/upload`, {
+      const res = await fetch(`/api/portal/${projectId}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_date: reportDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 && data.report_id) {
+        setReport({ id: data.report_id, status: "draft", remarks, weather });
+        return data.report_id;
+      }
+      if (res.ok && data.id) {
+        setReport(data);
+        return data.id;
+      }
+      setError(data.error || "Impossible de créer le rapport");
+      return null;
+    } catch {
+      setError("Erreur réseau");
+      return null;
+    }
+  }
+
+  async function handlePhotoCapture(index: number, file: File) {
+    setError("");
+    setUploadingPhoto(index);
+    try {
+      const reportId = await ensureReportId();
+      if (!reportId) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`/api/portal/${projectId}/reports/${reportId}/upload`, {
         method: "POST",
         body: formData,
       });
-      if (res.ok) {
-        const data = await res.json();
-        updateNote(index, "photo_url", data.file_url);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.file_url) {
+        setError(data.error || "Échec de l'envoi de la photo");
+        return;
       }
-    } catch { /* ignore */ }
+      updateNote(index, "photo_url", data.file_url);
+    } catch {
+      setError("Erreur réseau lors de l'envoi de la photo");
+    } finally {
+      setUploadingPhoto(null);
+    }
   }
 
   async function addCrewMember() {
@@ -232,25 +277,8 @@ export function ReportForm({ projectId }: ReportFormProps) {
     setError("");
     setSuccess("");
     try {
-      let reportId = report?.id;
-
-      if (!reportId) {
-        const res = await fetch(`/api/portal/${projectId}/reports`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ report_date: reportDate }),
-        });
-        const data = await res.json();
-        if (res.status === 409) {
-          reportId = data.report_id;
-        } else if (res.ok) {
-          reportId = data.id;
-          setReport(data);
-        } else {
-          setError(data.error || "Erreur");
-          return;
-        }
-      }
+      const reportId = await ensureReportId();
+      if (!reportId) return;
 
       const entries = await buildEntries();
       const res = await fetch(`/api/portal/${projectId}/reports/${reportId}`, {
@@ -696,25 +724,27 @@ export function ReportForm({ projectId }: ReportFormProps) {
                     <label style={{
                       width: 48, height: 48, borderRadius: 6, background: "#3F3F46",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 18, cursor: isLocked ? "default" : "pointer",
+                      fontSize: 18, cursor: isLocked || uploadingPhoto !== null ? "default" : "pointer",
+                      opacity: uploadingPhoto === i ? 0.6 : 1,
                     }}>
-                      📷
-                      {!isLocked && (
+                      {uploadingPhoto === i ? <Loader2 className="h-4 w-4 animate-spin" /> : "📷"}
+                      {!isLocked && uploadingPhoto === null && (
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/webp"
                           capture="environment"
                           style={{ display: "none" }}
                           onChange={e => {
                             const f = e.target.files?.[0];
                             if (f) handlePhotoCapture(i, f);
+                            e.target.value = "";
                           }}
                         />
                       )}
                     </label>
                   )}
                   <div style={{ fontSize: 10, color: "#71717A" }}>
-                    {note.photo_url ? "Photo enregistrée" : (
+                    {uploadingPhoto === i ? "Envoi de la photo…" : note.photo_url ? "Photo enregistrée" : (
                       <>Photo du bon de livraison<br /><span style={{ color: "#52525B" }}>Appuyer pour prendre en photo</span></>
                     )}
                   </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
 import {
   BarChart3,
   Loader2,
@@ -226,12 +227,18 @@ interface AdoptionItem {
 
 type Period = "7d" | "30d" | "90d";
 
-const PLAN_PRICES: Record<string, number> = {
-  trial: 0,
-  starter: 149,
-  pro: 349,
-  enterprise: 790,
-};
+/**
+ * Estimated org MRR on the per-user pricing model:
+ * pricePerUser × max(memberCount, minUsers).
+ *
+ * NOTE: interim estimate — the upcoming credits-based billing model will
+ * replace this calculation entirely.
+ */
+function planMrr(plan: string, memberCount: number): number {
+  const pricing = PLAN_PRICING[plan as PlanName];
+  if (!pricing || pricing.pricePerUser === 0) return 0;
+  return pricing.pricePerUser * Math.max(memberCount, pricing.minUsers);
+}
 
 const PLAN_COLORS: Record<string, string> = {
   trial: "#71717A",
@@ -442,7 +449,7 @@ export default function AnalyticsPage() {
     let total = 0;
     for (const o of orgs) {
       const plan = o.plan || o.subscription_plan || "trial";
-      total += PLAN_PRICES[plan] || 0;
+      total += planMrr(plan, o.member_count || 0);
     }
     return total;
   }, [orgs]);
@@ -1087,7 +1094,7 @@ function TabRevenue({ orgs, mrr }: { orgs: Org[]; mrr: number }) {
             <tbody>
               {orgs.map((o) => {
                 const plan = o.plan || o.subscription_plan || "trial";
-                const orgMrr = PLAN_PRICES[plan] || 0;
+                const orgMrr = planMrr(plan, o.member_count || 0);
                 const status = o.status || "active";
                 return (
                   <tr

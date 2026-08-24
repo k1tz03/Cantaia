@@ -33,6 +33,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tracking_code required" }, { status: 400 });
     }
 
+    // ─── H4: caller must belong to the organization that owns the tracking code ───
+    const { data: callerProfile } = await (admin as any)
+      .from("users")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!callerProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const orgId: string = callerProfile.organization_id;
+
     // Find the price request by tracking code (cast: migration 049 tables)
     const { data: priceRequest } = await (admin as any)
       .from("submission_price_requests")
@@ -43,6 +55,28 @@ export async function POST(request: NextRequest) {
     if (!priceRequest) {
       return NextResponse.json({ error: "Tracking code not found" }, { status: 404 });
     }
+
+    // Resolve the owning organization: price request → submission → project
+    const { data: ownerSubmission } = await (admin as any)
+      .from("submissions")
+      .select("id, project_id, projects!submissions_project_id_fkey(organization_id)")
+      .eq("id", priceRequest.submission_id)
+      .maybeSingle();
+
+    const ownerOrgId = (ownerSubmission as any)?.projects?.organization_id;
+    if (!ownerOrgId || ownerOrgId !== orgId) {
+      // Do not leak whether the tracking code exists for another organization
+      return NextResponse.json({ error: "Tracking code not found" }, { status: 404 });
+    }
+
+    // Org-scoped email lookup: every email_records query below is restricted to
+    // mailboxes belonging to this organization (H4 — previously unscoped, which
+    // let one org read another org's supplier emails).
+    const { data: orgUsers } = await (admin as any)
+      .from("users")
+      .select("id")
+      .eq("organization_id", orgId);
+    const orgUserIds: string[] = (orgUsers || []).map((u: any) => u.id);
 
     // Get the requested items
     const requestedItems = (priceRequest.items_requested as any[]) || [];
@@ -59,6 +93,7 @@ export async function POST(request: NextRequest) {
       const { data: linkedEmails } = await (admin as any)
         .from("email_records")
         .select("id, body_text, body_html, body_preview, subject, has_attachments, user_id")
+        .in("user_id", orgUserIds.length > 0 ? orgUserIds : [user.id])
         .or(`body_preview.ilike.%${sanitizedCode}%,subject.ilike.%${sanitizedCode}%`)
         .order("received_at", { ascending: false })
         .limit(3);
@@ -74,11 +109,14 @@ export async function POST(request: NextRequest) {
     let pdfData: Array<{ filename: string; content_base64: string; content_type: string }> = pdf_attachments || [];
 
     if (pdfData.length === 0 && linkedEmailId) {
-      // Check if email has attachments, then try to fetch PDFs from Graph
+      // Check if email has attachments, then try to fetch PDFs from Graph.
+      // Scoped to the caller's organization so an arbitrary email_id from the
+      // request body cannot be used to pull another org's attachments.
       const { data: emailRecord } = await (admin as any)
         .from("email_records")
         .select("has_attachments, outlook_message_id, user_id")
         .eq("id", linkedEmailId)
+        .in("user_id", orgUserIds.length > 0 ? orgUserIds : [user.id])
         .maybeSingle();
 
       if (emailRecord?.has_attachments && emailRecord?.outlook_message_id && emailRecord?.user_id) {
@@ -166,24 +204,38 @@ export async function POST(request: NextRequest) {
       // Update items status to "quoted"
       const quotedItemIds = quotesToInsert.map((q) => q.item_id).filter(Boolean);
       if (quotedItemIds.length > 0) {
-        await (admin as any)
+        const { error: itemsStatusError } = await (admin as any)
           .from("submission_items")
           .update({ status: "quoted" })
           .in("id", quotedItemIds);
+        if (itemsStatusError) {
+          console.error("[receive-quote] Failed to flag items as quoted:", itemsStatusError.message);
+        }
       }
 
       // Mark linked email(s) as price_response with price_extracted
+      // (org-scoped — H4)
       const sanitizedCode = tracking_code.replace(/[%_,().]/g, "");
-      await (admin as any)
+      const { error: emailUpdateError } = await (admin as any)
         .from("email_records")
         .update({
           email_category: "price_response",
           price_extracted: true,
         })
+        .in("user_id", orgUserIds.length > 0 ? orgUserIds : [user.id])
         .or(`body_preview.ilike.%${sanitizedCode}%,subject.ilike.%${sanitizedCode}%`);
+
+      if (emailUpdateError) {
+        console.warn("[receive-quote] email_records update failed (non-fatal):", emailUpdateError.message);
+      }
     }
 
     // ─── Phase 5: Update request status + store conditions ──────────
+    //
+    // C3: `response_received_at` / `response_time_days` live in migration 082.
+    // They are written in a SEPARATE statement from status/conditions_text so a
+    // database that has not yet applied 082 still records the response instead of
+    // losing the whole payload to a rejected UPDATE.
     const responseReceivedAt = new Date().toISOString();
     let responseTimeDays: number | null = null;
 
@@ -193,37 +245,61 @@ export async function POST(request: NextRequest) {
       responseTimeDays = Math.round(((receivedMs - sentMs) / (1000 * 60 * 60 * 24)) * 10) / 10;
     }
 
-    const updateData: Record<string, unknown> = {
-      status: "responded",
-      response_received_at: responseReceivedAt,
-      response_time_days: responseTimeDays,
-    };
-    if (offerConditions) {
-      updateData.conditions_text = offerConditions;
-    }
+    // 5a — core state: this MUST succeed
+    const coreUpdate: Record<string, unknown> = { status: "responded" };
+    if (offerConditions) coreUpdate.conditions_text = offerConditions;
 
-    await (admin as any)
+    const { error: statusError } = await (admin as any)
       .from("submission_price_requests")
-      .update(updateData)
+      .update(coreUpdate)
       .eq("id", priceRequest.id);
 
-    // Recalculate supplier score after receiving a quote
-    try {
-      const { recalculateAndPersistScore } = await import("@cantaia/core/suppliers");
-      const { data: supplierData } = await (admin as any)
-        .from("suppliers")
-        .select("organization_id")
-        .eq("id", priceRequest.supplier_id)
-        .maybeSingle();
-      if (supplierData?.organization_id) {
-        await recalculateAndPersistScore(
-          priceRequest.supplier_id,
-          supplierData.organization_id,
-          admin
-        );
+    if (statusError) {
+      console.error("[receive-quote] Failed to mark request as responded:", statusError.message, statusError.details);
+      return NextResponse.json(
+        { error: `Prix extraits mais statut non enregistré: ${statusError.message}` },
+        { status: 500 }
+      );
+    }
+
+    // 5b — scoring metrics: degrade gracefully if migration 082 is missing
+    const { error: metricsError } = await (admin as any)
+      .from("submission_price_requests")
+      .update({
+        response_received_at: responseReceivedAt,
+        response_time_days: responseTimeDays,
+      })
+      .eq("id", priceRequest.id);
+
+    if (metricsError) {
+      console.warn(
+        "[receive-quote] response_received_at/response_time_days not persisted " +
+        "(apply migration 082_submission_price_requests_response_columns.sql):",
+        metricsError.message
+      );
+    }
+
+    // Recalculate supplier score after receiving a quote.
+    // Manual (non-persisted) suppliers have supplier_id = null — nothing to score.
+    if (priceRequest.supplier_id) {
+      try {
+        const { recalculateAndPersistScore } = await import("@cantaia/core/suppliers");
+        const { data: supplierData } = await (admin as any)
+          .from("suppliers")
+          .select("organization_id")
+          .eq("id", priceRequest.supplier_id)
+          .eq("organization_id", orgId)
+          .maybeSingle();
+        if (supplierData?.organization_id) {
+          await recalculateAndPersistScore(
+            priceRequest.supplier_id,
+            supplierData.organization_id,
+            admin
+          );
+        }
+      } catch (scoreErr) {
+        console.warn("[receive-quote] Score recalculation failed (non-fatal):", scoreErr);
       }
-    } catch (scoreErr) {
-      console.warn("[receive-quote] Score recalculation failed (non-fatal):", scoreErr);
     }
 
     return NextResponse.json({
@@ -241,6 +317,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+// ─── Prompting ──────────────────────────────────────────────────────
+
+/**
+ * Replaces the former assistant prefill (`{ role: "assistant", content: "{" }`).
+ * Prefilling the assistant turn is rejected by some model/endpoint combinations
+ * (400) and makes the raw response un-parseable on its own; a system instruction
+ * plus the tolerant parser below achieves the same JSON-only output.
+ */
+const JSON_ONLY_SYSTEM =
+  "Réponds UNIQUEMENT avec le JSON demandé, sans texte avant ou après, " +
+  "sans bloc de code markdown et sans commentaire.";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -340,21 +428,20 @@ REGLES :
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey, timeout: 60_000 });
 
+  // No assistant prefill: JSON-only output is requested via the system prompt and
+  // the response is fed to the tolerant parser below.
   const response = await client.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
-    messages: [
-      { role: "user", content: prompt },
-      { role: "assistant", content: "{" },
-    ],
+    system: JSON_ONLY_SYSTEM,
+    messages: [{ role: "user", content: prompt }],
   });
 
   const text = response.content.find((c: any) => c.type === "text");
   if (!text || text.type !== "text") return { prices: [], conditions: null };
 
   try {
-    const fullJson = "{" + text.text;
-    return parseExtractionResult(fullJson);
+    return parseExtractionResult(text.text);
   } catch {
     console.warn(`[receive-quote] Failed to parse AI response from ${source}`);
     return { prices: [], conditions: null };
@@ -409,9 +496,11 @@ REGLES :
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey, timeout: 90_000 });
 
+  // No assistant prefill — see JSON_ONLY_SYSTEM.
   const response = await client.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 8192,
+    system: JSON_ONLY_SYSTEM,
     messages: [{
       role: "user",
       content: [
@@ -425,9 +514,6 @@ REGLES :
         },
         { type: "text", text: prompt },
       ],
-    }, {
-      role: "assistant",
-      content: "{",
     }],
   });
 
@@ -435,8 +521,7 @@ REGLES :
   if (!text || text.type !== "text") return { prices: [], conditions: null };
 
   try {
-    const fullJson = "{" + text.text;
-    return parseExtractionResult(fullJson);
+    return parseExtractionResult(text.text);
   } catch {
     console.warn(`[receive-quote] Failed to parse PDF AI response for "${pdf.filename}"`);
     return { prices: [], conditions: null };
@@ -446,8 +531,20 @@ REGLES :
 // ─── JSON parsing helpers ───────────────────────────────────────────
 
 function parseExtractionResult(rawJson: string): ExtractionResult {
-  // Clean and parse
-  let cleaned = rawJson.replace(/,\s*([\]}])/g, "$1").trim();
+  // Strip markdown fences and any preamble/epilogue the model may add now that
+  // the assistant prefill no longer forces a bare "{" start.
+  let cleaned = rawJson
+    .replace(/```(?:json)?/gi, "")
+    .replace(/,\s*([\]}])/g, "$1")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace > 0) {
+    cleaned = lastBrace > firstBrace
+      ? cleaned.slice(firstBrace, lastBrace + 1)
+      : cleaned.slice(firstBrace);
+  }
 
   // Try direct parse
   try {

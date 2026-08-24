@@ -46,6 +46,12 @@ import { LowConfidenceGate } from "./LowConfidenceGate";
 
 interface SceneViewerProps {
   projectId: string;
+  /**
+   * Id de la ligne `plan_scenes` affichée. Requis pour tracer l'acceptation
+   * du disclaimer SIA et pour poster les corrections d'éléments.
+   * `null` en mode démo (`?demo=1`).
+   */
+  sceneId?: string | null;
   /** Raw scene from the extraction pipeline. Null while loading/extracting. */
   scene: BuildingScene | null;
   /** Non-null while the 5-pass extraction is running. */
@@ -62,6 +68,7 @@ const LOW_CONFIDENCE_GATE_THRESHOLD = 0.3;
 
 export function SceneViewer({
   projectId,
+  sceneId,
   scene,
   extraction,
   error,
@@ -228,6 +235,7 @@ export function SceneViewer({
         lowConfidenceRatio={scene.low_confidence_ratio}
         overallConfidence={scene.overall_confidence}
         elementCount={scene.elements.length}
+        sceneId={sceneId ?? null}
         onAccept={() => setGateAccepted(true)}
         onCancel={() => setGateAccepted(false)}
       />

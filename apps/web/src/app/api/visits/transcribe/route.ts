@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
+  // Captured outside the try: the request body is consumed by parseBody(),
+  // so request.clone() is no longer usable from the catch block.
+  let failedVisitId: string | null = null;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -23,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { visit_id } = reqBody;
+    failedVisitId = visit_id;
 
     // Get the visit
     const { data: visit, error: visitErr } = await (supabase.from("client_visits") as any)
@@ -45,16 +51,37 @@ export async function POST(request: NextRequest) {
     let audioBlob: Blob | null = null;
     if (visit.audio_url) {
       try {
-        const { data: audioData } = await supabase.storage
+        const { data: audioData, error: downloadErr } = await supabase.storage
           .from("audio")
           .download(visit.audio_url);
-        audioBlob = audioData;
-      } catch {
-        if (process.env.NODE_ENV === "development") console.log("[Visit Transcribe] Could not download audio, using mock");
+        if (downloadErr) {
+          console.error("[Visit Transcribe] Audio download failed:", downloadErr);
+        }
+        audioBlob = audioData ?? null;
+      } catch (downloadErr) {
+        console.error("[Visit Transcribe] Audio download threw:", downloadErr);
       }
     }
 
-    const result = await transcribeVisitAudio(audioBlob, visit.transcription_language || "fr");
+    let result;
+    try {
+      result = await transcribeVisitAudio(audioBlob, visit.transcription_language || "fr");
+    } catch (transcribeErr: unknown) {
+      const message =
+        transcribeErr instanceof Error
+          ? transcribeErr.message
+          : "La transcription a échoué.";
+      console.error("[Visit Transcribe] Failed:", message);
+
+      await (supabase.from("client_visits") as any)
+        .update({ transcription_status: "failed", status: "recording" })
+        .eq("id", visit_id);
+
+      return NextResponse.json(
+        { error: message, visit_id, transcription_status: "failed" },
+        { status: 502 }
+      );
+    }
 
     // Save transcription
     await (supabase.from("client_visits") as any)
@@ -95,6 +122,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[Visit Transcribe] Error:", error);
+
+    // Never leave the visit stuck in "transcribing"
+    if (failedVisitId) {
+      try {
+        const admin = createAdminClient();
+        await ((admin as any).from("client_visits"))
+          .update({ transcription_status: "failed", status: "recording" })
+          .eq("id", failedVisitId);
+      } catch (updateErr) {
+        console.error("[Visit Transcribe] Failed to mark visit as failed:", updateErr);
+      }
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  isAssignableRole,
+  ASSIGNABLE_ROLES,
+} from "@/lib/admin/require-org-admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
 import crypto from "crypto";
 
@@ -63,6 +67,14 @@ export async function POST(request: NextRequest) {
   }
 
   const { email, first_name, last_name, role, job_title, message } = body;
+
+  // Validate the invited role against the shared whitelist
+  if (role !== undefined && role !== null && !isAssignableRole(role)) {
+    return NextResponse.json(
+      { error: `Invalid role. Allowed: ${ASSIGNABLE_ROLES.join(", ")}` },
+      { status: 400 }
+    );
+  }
 
   // Get org info
   const { data: org } = await (admin.from("organizations") as any)

@@ -39,6 +39,17 @@ export interface PipelineParams {
   acces_chantier: 'normal' | 'difficile' | 'tres_difficile';
   periode_travaux: string;
   supabase: any;
+  /**
+   * Utilisateur à l'origine du run — écrit dans `plan_estimates.estimated_by`.
+   * Optionnel : un run cron/agent peut ne pas avoir d'utilisateur.
+   */
+  user_id?: string | null;
+  /**
+   * Analyse Vision (`plan_analyses.id`) dont dérive cette estimation, si elle
+   * existe. NULL pour un run V2 autonome — c'est le cas nominal, la colonne
+   * `plan_estimates.plan_analysis_id` est nullable depuis la migration 084.
+   */
+  plan_analysis_id?: string | null;
   // Calibration optionnelle (phase 17)
   bureauEnrichment?: string;
   modelWeights?: Record<ModelProvider, number>;
@@ -212,6 +223,10 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
       region: params.region,
       quarter,
       org_id: params.org_id,
+      // B12 — sans project_id, le tier 1 balaye tout l'historique de l'org et
+      // contamine l'estimation avec les prix d'autres chantiers (même bug que
+      // BUDGET.1 côté soumissions, qui ne couvrait que l'estimation de budget).
+      project_id: params.project_id,
       supabase: params.supabase,
     });
 
@@ -229,6 +244,7 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
 
     // Déterminer la confiance prix
     const confiancePrix = prix.source === 'historique_interne' ? 'high' as const
+      : prix.source === 'donnees_communautaires' ? 'medium' as const
       : prix.source === 'benchmark_cantaia' ? 'medium' as const
       : prix.source === 'referentiel_crb' ? 'medium' as const
       : prix.source === 'prix_non_disponible' ? 'estimation' as const
@@ -468,18 +484,81 @@ export async function runEstimationPipeline(params: PipelineParams): Promise<Est
     },
   };
 
-  // Sauvegarder le résultat
+  // ═══ Sauvegarde — plan_estimates (migration 022 + 084) ═══
+  //
+  // B1. Historiquement ce bloc faisait un upsert dans `plan_analyses` avec
+  // trois colonnes inexistantes (analysis_type / result / confidence_score) et
+  // sans les NOT NULL de la table (plan_version_id, project_id, model_used,
+  // analysis_result). PostgREST retournait une erreur que le `try/catch`
+  // avalait — et comme supabase-js ne *throw* pas sur erreur SQL (il retourne
+  // `{ data, error }`), même le catch ne se déclenchait jamais : double échec
+  // silencieux. Résultat : aucune estimation V2 n'a jamais été persistée, et
+  // les six lecteurs en aval (Scene3D, corrections, calibration, cross-plan,
+  // enrichissement bureau, auto-calibration) lisaient une table vide.
+  //
+  // `plan_analyses` reste réservée aux analyses Vision (analysis_result).
+  // La table de persistance du pipeline V2 est `plan_estimates`.
   try {
-    await params.supabase.from('plan_analyses').upsert({
-      plan_id: params.plan_id,
-      organization_id: params.org_id,
-      analysis_type: 'estimation_v2',
-      result: result,
-      confidence_score: scoreGlobal / 100,
-      created_at: new Date().toISOString(),
-    });
+    const { data: saved, error: saveError } = await params.supabase
+      .from('plan_estimates')
+      .insert({
+        plan_id: params.plan_id,
+        project_id: params.project_id,
+        organization_id: params.org_id,
+        plan_analysis_id: params.plan_analysis_id ?? null,
+        config: {
+          pipeline_version: 'v2-4passes',
+          region: params.region,
+          type_batiment: params.type_batiment,
+          acces_chantier: params.acces_chantier,
+          periode_travaux: params.periode_travaux,
+          models_used: consensus.modeles_utilises,
+          model_weights: params.modelWeights ?? null,
+          bureau_enrichment_applied: Boolean(params.bureauEnrichment),
+          qty_calibrations_applied: params.qtyCalibrations?.size ?? 0,
+          price_calibrations_applied: params.priceCalibrations?.size ?? 0,
+        },
+        estimate_result: result,
+        subtotal: sousTotal.median,
+        margin_total: fraisGeneraux.montant_median + beneficeRisques.montant_median,
+        grand_total: totalEstimation.median,
+        currency: 'CHF',
+        db_coverage_percent: repartition.historique_interne_pct ?? null,
+        confidence_summary: {
+          score_global: scoreGlobal,
+          score_metrage: passe3.score_fiabilite_metrage.score,
+          score_consensus: consensus.stats.score_consensus_global,
+          repartition_sources: repartition,
+          recommandation: getScoreLabel(scoreGlobal),
+        },
+        items_count: postesChiffres.length,
+        status: 'completed',
+        estimated_by: params.user_id ?? null,
+      })
+      .select('id')
+      .single();
+
+    // supabase-js retourne l'erreur, il ne la lance pas : la vérification
+    // explicite de `error` est OBLIGATOIRE, sinon l'échec repasse inaperçu.
+    if (saveError) {
+      console.error(
+        '[estimation] Échec sauvegarde plan_estimates —',
+        JSON.stringify({
+          code: (saveError as any).code,
+          message: (saveError as any).message,
+          details: (saveError as any).details,
+          hint: (saveError as any).hint,
+        })
+      );
+      console.error(
+        '[estimation] Si le code est 23502 (not-null violation) sur plan_analysis_id, la migration 084_estimation_persistence.sql n\'est pas appliquée.'
+      );
+    } else if (saved?.id) {
+      result.estimate_id = saved.id;
+      console.log(`[estimation] Estimation sauvegardée : plan_estimates.id=${saved.id}`);
+    }
   } catch (err) {
-    console.error('[estimation] Erreur sauvegarde:', err);
+    console.error('[estimation] Erreur inattendue à la sauvegarde:', err);
   }
 
   console.log(`[estimation] Pipeline terminé en ${result.pipeline_stats.total_duration_ms}ms — score: ${scoreGlobal}/100`);

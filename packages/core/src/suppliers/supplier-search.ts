@@ -3,6 +3,7 @@
 // ============================================================
 
 import { buildSupplierSearchPrompt, type SupplierSearchContext } from "../ai/prompts";
+import { MODEL_FOR_TASK } from "../ai/ai-utils";
 
 export interface AISupplierSuggestion {
   company_name: string;
@@ -54,9 +55,9 @@ export async function searchSuppliersAI(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL_FOR_TASK.supplier_search,
       max_tokens: 4096,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }] }],
+      messages: [{ role: "user", content: prompt }],
     });
 
     if (onUsage) {

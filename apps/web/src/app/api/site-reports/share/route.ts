@@ -4,6 +4,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUrl } from "@/lib/env";
 import { randomUUID } from "crypto";
 
+/** Locales served by the app router — share links must use the creator's own. */
+const SUPPORTED_LOCALES = ["fr", "en", "de"];
+
+function shareLocale(preferredLanguage: unknown): string {
+  return typeof preferredLanguage === "string" && SUPPORTED_LOCALES.includes(preferredLanguage)
+    ? preferredLanguage
+    : "fr";
+}
+
 /**
  * GET /api/site-reports/share
  * Fetch the active share link for the user's organization.
@@ -18,7 +27,7 @@ export async function GET() {
 
     const { data: profile } = await (admin as any)
       .from("users")
-      .select("organization_id")
+      .select("organization_id, preferred_language")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -39,7 +48,7 @@ export async function GET() {
       return NextResponse.json({ token: null });
     }
 
-    const url = `${getAppUrl()}/fr/rapports/${share.token}`;
+    const url = `${getAppUrl()}/${shareLocale(profile.preferred_language)}/rapports/${share.token}`;
 
     return NextResponse.json({
       token: share.token,
@@ -67,7 +76,7 @@ export async function POST() {
 
     const { data: profile } = await (admin as any)
       .from("users")
-      .select("organization_id, role, is_superadmin")
+      .select("organization_id, role, is_superadmin, preferred_language")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -110,7 +119,7 @@ export async function POST() {
       return NextResponse.json({ error: "Failed to create share link" }, { status: 500 });
     }
 
-    const url = `${getAppUrl()}/fr/rapports/${share.token}`;
+    const url = `${getAppUrl()}/${shareLocale(profile.preferred_language)}/rapports/${share.token}`;
 
     return NextResponse.json({
       success: true,

@@ -23,6 +23,11 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
+    // M1: a user without an organization can never own a submission
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: submission, error } = await (admin as any)
       .from("submissions")
       .select("*, projects!submissions_project_id_fkey(id, name, code, color, client_name, city, address, organization_id)")
@@ -37,9 +42,11 @@ export async function GET(
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
 
-    // Verify submission's project belongs to user's org
+    // M1: org check is now UNCONDITIONAL — a submission with no project (or whose
+    // project belongs to another org) is never readable. Previously the check was
+    // skipped whenever `projects` was null, exposing orphan submissions cross-org.
     const proj = (submission as any).projects;
-    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+    if (!proj || proj.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -217,130 +224,66 @@ export async function PATCH(
         })
         .eq("id", id);
 
-      // Fire-and-forget auto-calibration (non-blocking)
+      // Fire-and-forget auto-calibration (non-blocking).
+      // `auto_calibration_started` tells the client whether it still needs to call
+      // POST /api/plans/auto-calibrate itself — without it the UI would double-fire
+      // and insert duplicate price_calibrations rows.
       const orgId = userProfile.organization_id;
       const projectId = currentSub?.project_id;
-      autoCalibrate({
-        supabase: admin,
-        org_id: orgId,
-        submission_id: id,
-        offer_id: price_request_id,
-        ...(projectId ? { project_id: projectId } : {}),
-      }).catch((err: unknown) => {
-        console.error("[submissions/award] auto-calibration error:", err);
-      });
+      let autoCalibrationStarted = false;
+      if (projectId) {
+        autoCalibrationStarted = true;
+        autoCalibrate({
+          supabase: admin,
+          org_id: orgId,
+          submission_id: id,
+          offer_id: price_request_id,
+          project_id: projectId,
+        }).catch((err: unknown) => {
+          console.error("[submissions/award] auto-calibration error:", err);
+        });
+      } else {
+        console.warn("[submissions/award] no project_id — skipping plan auto-calibration");
+      }
 
       // Fire-and-forget: compare budget_estimate vs awarded offer prices for per-item calibration
       calibrateBudgetVsActual(admin, orgId, id, price_request_id).catch((err: unknown) => {
         console.error("[submissions/award] budget-vs-actual calibration error:", err);
       });
 
-      return NextResponse.json({ success: true, awarded_request_id: price_request_id });
+      return NextResponse.json({
+        success: true,
+        awarded_request_id: price_request_id,
+        auto_calibration_started: autoCalibrationStarted,
+      });
     }
 
-    const { items } = body;
-
-    if (!Array.isArray(items)) {
-      return NextResponse.json({ error: "items must be an array" }, { status: 400 });
+    // ── M2: bulk item replacement is retired ──────────────────────────────
+    //
+    // The old implementation deleted every submission_item and re-inserted the
+    // payload, which minted fresh UUIDs. `submission_quotes.item_id` and
+    // `submission_price_requests.items_requested[].id` still pointed at the
+    // deleted rows, so every received offer became an orphan and the comparison
+    // table silently emptied itself.
+    //
+    // Decision: REFUSE (410) rather than upsert. The only caller was
+    // `components/submissions/SubmissionEditor.tsx`, which is no longer mounted
+    // anywhere (replaced by the analyze pipeline + PriceRequestV2). Failing loudly
+    // is preferable to silently orphaning quotes if that editor is ever revived —
+    // whoever revives it must implement an id-preserving upsert first.
+    if ("items" in body) {
+      return NextResponse.json(
+        {
+          error:
+            "Item bulk-replace is no longer supported: it orphaned submission_quotes " +
+            "by reassigning item ids. Re-run the analysis, or implement an " +
+            "id-preserving upsert before re-enabling this endpoint.",
+        },
+        { status: 410 }
+      );
     }
 
-    // ── Fetch old items BEFORE deletion (for correction tracking) ──
-    let oldItems: any[] = [];
-    try {
-      const { data: existingItems } = await (admin as any)
-        .from("submission_items")
-        .select("id, item_number, description, unit, quantity, cfc_code, material_group")
-        .eq("submission_id", id);
-      oldItems = existingItems || [];
-    } catch (fetchErr) {
-      console.error("[submissions/[id]] Failed to fetch old items for correction tracking:", fetchErr);
-    }
-
-    // Delete existing items
-    await (admin as any)
-      .from("submission_items")
-      .delete()
-      .eq("submission_id", id);
-
-    // Insert updated items
-    if (items.length > 0) {
-      const rows = items.map((item: any, index: number) => ({
-        submission_id: id,
-        item_number: item.item_number || item.position_number || String(index + 1),
-        description: item.description || "",
-        unit: item.unit || null,
-        quantity: item.quantity != null ? item.quantity : null,
-        cfc_code: item.cfc_code || item.can_code || null,
-        material_group: item.material_group || null,
-        product_name: item.product_name || null,
-      }));
-
-      const { error: insertError } = await (admin as any)
-        .from("submission_items")
-        .insert(rows);
-
-      if (insertError) {
-        console.error("[submissions/[id]] PATCH insert error:", insertError);
-        return NextResponse.json({ error: "Failed to save items" }, { status: 500 });
-      }
-    }
-
-    // Update submission timestamp
-    await (admin as any)
-      .from("submissions")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", id);
-
-    // ── Log corrections (fire-and-forget) ──
-    try {
-      const TRACKED_FIELDS = ["cfc_code", "description", "unit", "quantity", "material_group"] as const;
-      const corrections: any[] = [];
-
-      for (const newItem of items) {
-        const oldItem = oldItems.find(
-          (o: any) => o.item_number === (newItem.item_number || newItem.position_number)
-        );
-        if (!oldItem) continue; // New item, not a correction
-
-        for (const field of TRACKED_FIELDS) {
-          const oldVal = oldItem[field];
-          const newVal = newItem[field];
-          // Normalize for comparison: treat null/undefined/"" as equivalent
-          const oldNorm = oldVal != null && oldVal !== "" ? String(oldVal) : null;
-          const newNorm = newVal != null && newVal !== "" ? String(newVal) : null;
-          if (oldNorm !== newNorm) {
-            corrections.push({
-              organization_id: userProfile.organization_id,
-              submission_id: id,
-              item_id: oldItem.id,
-              field_name: field,
-              original_value: oldNorm,
-              corrected_value: newNorm,
-              corrected_by: user.id,
-            });
-          }
-        }
-      }
-
-      if (corrections.length > 0) {
-        const { error: corrInsertError } = await (admin as any)
-          .from("submission_corrections")
-          .insert(corrections);
-        if (corrInsertError) {
-          console.error("[submissions/[id]] Failed to log corrections:", corrInsertError.message);
-        } else {
-          console.log(`[submissions/[id]] Logged ${corrections.length} corrections`);
-        }
-      }
-    } catch (corrErr) {
-      console.error("[submissions/[id]] Correction tracking error:", corrErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      updated_at: new Date().toISOString(),
-      items_count: items.length,
-    });
+    return NextResponse.json({ error: "Unsupported PATCH action" }, { status: 400 });
   } catch (err: any) {
     console.error("[submissions/[id]] PATCH error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -367,6 +310,11 @@ export async function DELETE(
       .eq("id", user.id)
       .maybeSingle();
 
+    // M1: no organization → never allowed to delete anything
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Delete file from storage — handle both schema versions
     const { data: submission } = await (admin as any)
       .from("submissions")
@@ -378,9 +326,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
 
-    // Verify submission's project belongs to user's org
+    // M1: unconditional org check — an orphan submission (no project) is not deletable
     const proj = (submission as any).projects;
-    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+    if (!proj || proj.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -404,97 +352,149 @@ export async function DELETE(
 // Budget vs Actual calibration: compare budget_estimate items against awarded offer prices
 // ============================================================================
 
+/**
+ * Compare the stored budget estimate against the prices actually quoted by the
+ * awarded supplier, and record one `price_calibrations` row per matched item.
+ *
+ * Previously broken twice over:
+ *  - it read `budget_estimate.items[].unit_price_median` / source
+ *    `"prix_non_disponible"`, while estimate-budget writes
+ *    `budget_estimate.estimates[].prix_median` / source `"non_estime"`;
+ *  - it inserted `estimated_price` / `actual_price` / `correction_coefficient`,
+ *    none of which exist in migration 043 (and `coefficient` is GENERATED, so it
+ *    must never be written), inside a bare `try {} catch {}` that swallowed the
+ *    resulting PostgREST error.
+ */
 async function calibrateBudgetVsActual(
   admin: ReturnType<typeof createAdminClient>,
   orgId: string,
   submissionId: string,
   priceRequestId: string
 ): Promise<void> {
-  // 1. Get the submission with budget estimate
-  const { data: submission } = await (admin as any)
+  // 1. Budget estimate — shape produced by POST /api/submissions/[id]/estimate-budget
+  const { data: submission, error: subError } = await (admin as any)
     .from("submissions")
-    .select("budget_estimate")
+    .select("budget_estimate, projects!submissions_project_id_fkey(city)")
     .eq("id", submissionId)
     .maybeSingle();
 
-  const budgetEstimate = submission?.budget_estimate;
-  if (!budgetEstimate?.items || !Array.isArray(budgetEstimate.items)) return;
+  if (subError) {
+    console.warn("[calibrate] submission fetch failed:", subError.message);
+    return;
+  }
 
-  // 2. Get the awarded offer's line items (actual prices from supplier)
-  const { data: quotes } = await (admin as any)
+  const estimates = submission?.budget_estimate?.estimates;
+  if (!Array.isArray(estimates) || estimates.length === 0) {
+    console.log(`[calibrate] no budget estimate stored for submission ${submissionId} — nothing to calibrate`);
+    return;
+  }
+
+  const region = ((submission as any)?.projects?.city || "suisse").toLowerCase();
+
+  // 2. Actual prices — one row per quoted item for the awarded request.
+  //    NB: the FK column is `request_id` (migration 049), not `price_request_id`.
+  const { data: quoteRows, error: quotesError } = await (admin as any)
     .from("submission_quotes")
-    .select("id, items")
+    .select("item_id, unit_price_ht, extracted_at")
     .eq("submission_id", submissionId)
-    .eq("price_request_id", priceRequestId)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .eq("request_id", priceRequestId)
+    .not("unit_price_ht", "is", null)
+    .order("extracted_at", { ascending: false });
 
-  // Fallback: try offer_line_items via supplier_offers
-  let actualItems: Array<{ item_number?: string; cfc_code?: string; unit_price?: number; description?: string }> = [];
-
-  if (quotes?.[0]?.items && Array.isArray(quotes[0].items)) {
-    actualItems = quotes[0].items;
-  } else {
-    // Try supplier_offers path
-    const { data: offers } = await (admin as any)
-      .from("supplier_offers")
-      .select("id")
-      .eq("price_request_id", priceRequestId)
-      .limit(1);
-
-    if (offers?.[0]) {
-      const { data: lineItems } = await (admin as any)
-        .from("offer_line_items")
-        .select("cfc_subcode, unit_price, normalized_description, supplier_description")
-        .eq("supplier_offer_id", offers[0].id);
-
-      actualItems = (lineItems || []).map((li: any) => ({
-        cfc_code: li.cfc_subcode,
-        unit_price: li.unit_price,
-        description: li.normalized_description || li.supplier_description,
-      }));
-    }
+  if (quotesError) {
+    console.warn("[calibrate] quotes fetch failed:", quotesError.message);
+    return;
+  }
+  if (!quoteRows || quoteRows.length === 0) {
+    console.log(`[calibrate] awarded request ${priceRequestId} has no extracted prices`);
+    return;
   }
 
-  if (actualItems.length === 0) return;
+  // Keep the most recent price per item (rows are ordered desc)
+  const actualByItemId = new Map<string, number>();
+  for (const q of quoteRows) {
+    if (!q.item_id || actualByItemId.has(q.item_id)) continue;
+    const price = Number(q.unit_price_ht);
+    if (Number.isFinite(price) && price > 0) actualByItemId.set(q.item_id, price);
+  }
+  if (actualByItemId.size === 0) return;
 
-  // 3. Match budget items to actual items and insert calibrations
-  let inserted = 0;
-  for (const budgetItem of budgetEstimate.items) {
-    if (!budgetItem.unit_price_median || budgetItem.source === "prix_non_disponible") continue;
+  // 3. Item metadata — CFC code / unit are NOT NULL in price_calibrations
+  const { data: items, error: itemsError } = await (admin as any)
+    .from("submission_items")
+    .select("id, item_number, description, unit, cfc_code, cfc_subcode")
+    .eq("submission_id", submissionId);
 
-    // Find matching actual item by item_number or CFC code
-    const actual = actualItems.find((a: any) =>
-      (a.item_number && budgetItem.item_number && a.item_number === budgetItem.item_number) ||
-      (a.cfc_code && budgetItem.cfc_code && a.cfc_code === budgetItem.cfc_code)
+  if (itemsError) {
+    console.warn("[calibrate] items fetch failed:", itemsError.message);
+    return;
+  }
+  const itemById = new Map<string, any>();
+  const itemByNumber = new Map<string, any>();
+  for (const it of items || []) {
+    itemById.set(it.id, it);
+    if (it.item_number) itemByNumber.set(String(it.item_number), it);
+  }
+
+  // 4. Build the calibration rows (migration 043 columns; `coefficient` and
+  //    `ecart_pct` are GENERATED ALWAYS and must not be supplied)
+  const rows: Record<string, unknown>[] = [];
+  let skippedNoCfc = 0;
+  let skippedNoActual = 0;
+
+  for (const est of estimates) {
+    const estimatedPrice = Number(est?.prix_median);
+    if (!Number.isFinite(estimatedPrice) || estimatedPrice <= 0) continue;
+    if (est.source === "non_estime" || est.source === "prix_non_disponible") continue;
+
+    // Match by item_id first, then by item_number (stable across re-analysis)
+    let itemId: string | undefined = est.item_id && actualByItemId.has(est.item_id) ? est.item_id : undefined;
+    if (!itemId && est.item_number) {
+      const byNumber = itemByNumber.get(String(est.item_number));
+      if (byNumber && actualByItemId.has(byNumber.id)) itemId = byNumber.id;
+    }
+    if (!itemId) {
+      skippedNoActual++;
+      continue;
+    }
+
+    const actualPrice = actualByItemId.get(itemId)!;
+    const item = itemById.get(itemId) || {};
+    const cfcCode = item.cfc_code || item.cfc_subcode || est.cfc_code;
+    if (!cfcCode) {
+      skippedNoCfc++;
+      continue;
+    }
+
+    rows.push({
+      org_id: orgId,
+      cfc_code: String(cfcCode),
+      description_normalized: (item.description || est.description || String(cfcCode)).slice(0, 500),
+      unite: item.unit || est.unit || "u",
+      region,
+      estimation_id: submissionId,
+      prix_estime_median: estimatedPrice,
+      source_estimation: est.source || "estimation_ia",
+      prix_reel: actualPrice,
+      source_prix_reel: "offre_fournisseur",
+    });
+  }
+
+  if (rows.length === 0) {
+    console.log(
+      `[calibrate] submission ${submissionId}: nothing to insert (no actual price: ${skippedNoActual}, no CFC: ${skippedNoCfc})`
     );
-
-    if (!actual?.unit_price || actual.unit_price <= 0) continue;
-
-    const estimatedPrice = budgetItem.unit_price_median;
-    const actualPrice = actual.unit_price;
-    const correctionCoefficient = actualPrice / estimatedPrice;
-
-    try {
-      await (admin as any)
-        .from("price_calibrations")
-        .insert({
-          org_id: orgId,
-          cfc_code: budgetItem.cfc_code || null,
-          estimated_price: estimatedPrice,
-          actual_price: actualPrice,
-          correction_coefficient: Math.round(correctionCoefficient * 10000) / 10000,
-          source: "submission_award",
-          description: budgetItem.description || null,
-          unit: budgetItem.unit || null,
-        });
-      inserted++;
-    } catch {
-      // price_calibrations table may not exist — non-blocking
-    }
+    return;
   }
 
-  if (inserted > 0) {
-    console.log(`[submissions/award] Inserted ${inserted} price calibrations for submission ${submissionId}`);
+  const { error: insertError } = await (admin as any).from("price_calibrations").insert(rows);
+  if (insertError) {
+    console.error("[calibrate] price_calibrations insert failed:", insertError.message, insertError.details);
+    return;
   }
+
+  console.log(
+    `[calibrate] submission ${submissionId}: inserted ${rows.length} price calibrations ` +
+    `(skipped — no actual: ${skippedNoActual}, no CFC: ${skippedNoCfc})`
+  );
 }

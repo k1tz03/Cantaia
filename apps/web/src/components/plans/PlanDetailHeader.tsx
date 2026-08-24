@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { Upload, Send, Download, Box } from "lucide-react";
+import { Upload, Send, Download, Box, Lock } from "lucide-react";
 import { cn } from "@cantaia/ui";
+import { canAccess, requiredPlanFor } from "@cantaia/config/plan-features";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/providers/AuthProvider";
 import {
   STATUS_CONFIG,
   DISCIPLINE_KEYS,
@@ -11,6 +15,68 @@ import {
   formatFileSize,
 } from "./plan-detail-types";
 import type { PlanDetail, PlanVersion } from "./plan-detail-types";
+
+/**
+ * Plan d'abonnement de l'organisation courante.
+ *
+ * B17 — Le lien « Voir en 3D » était affiché pour tout le monde alors que
+ * `visualization3d` est réservé à Pro/Enterprise : les comptes trial/starter
+ * arrivaient sur le viewer puis se prenaient un 403 `feature_not_in_plan` de
+ * `/api/scenes/extract`. On gate côté client (la route reste évidemment la
+ * frontière de sécurité — cf. `canAccess` + `check3dExtractionLimit`).
+ *
+ * Même stratégie de lecture que `TrialGuard` : profil → organisation.
+ */
+function useOrgPlan(): { plan: string | null; loaded: boolean } {
+  const { user, loading: authLoading } = useAuth();
+  const [plan, setPlan] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = createClient();
+
+    (async () => {
+      try {
+        const { data: profile } = await (supabase as any)
+          .from("users")
+          .select("organization_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!profile?.organization_id) {
+          if (!cancelled) setLoaded(true);
+          return;
+        }
+
+        const { data: org } = await (supabase as any)
+          .from("organizations")
+          .select("subscription_plan")
+          .eq("id", profile.organization_id)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setPlan(org?.subscription_plan || "trial");
+          setLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
+  return { plan, loaded };
+}
 
 export function PlanDetailHeader({
   plan,
@@ -24,6 +90,12 @@ export function PlanDetailHeader({
   const statusCfg = STATUS_CONFIG[plan.status];
   const StatusIcon = statusCfg.icon;
   const project = plan.projects;
+
+  const { plan: orgPlan, loaded: orgPlanLoaded } = useOrgPlan();
+  const can3d = orgPlan ? canAccess(orgPlan, "visualization3d") : false;
+  const required3dPlan = requiredPlanFor("visualization3d");
+
+  const view3dLabel = t("viewIn3d");
 
   return (
     <div className="mb-6 rounded-lg border border-[#27272A] bg-[#0F0F11] p-5">
@@ -39,17 +111,28 @@ export function PlanDetailHeader({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Voir en 3D — links to the project-scoped scene viewer. Orange tint
-              makes it discoverable as a new Phase 1 feature; hidden if the plan
-              isn't attached to a project (edge case from legacy imports). */}
-          {project && (
-            <Link
-              href={`/projects/${project.id}/3d`}
-              className="flex items-center gap-1.5 rounded-md border border-[#F97316]/30 bg-[#F97316]/10 px-3 py-1.5 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/20"
-            >
-              <Box className="h-3.5 w-3.5" />
-              {t("viewIn3d")}
-            </Link>
+          {/* Voir en 3D — ouvre le viewer de scène du projet SUR CE PLAN
+              (`?plan=` : la scène est plan-scoped côté API, cf.
+              GET /api/plans/[id]/scene). Masqué si le plan n'est rattaché à
+              aucun projet (import legacy). Verrouillé hors Pro/Enterprise. */}
+          {project && orgPlanLoaded && (
+            can3d ? (
+              <Link
+                href={`/projects/${project.id}/3d?plan=${plan.id}`}
+                className="flex items-center gap-1.5 rounded-md border border-[#F97316]/30 bg-[#F97316]/10 px-3 py-1.5 text-xs font-medium text-[#F97316] hover:bg-[#F97316]/20"
+              >
+                <Box className="h-3.5 w-3.5" />
+                {view3dLabel}
+              </Link>
+            ) : (
+              <span
+                title={`Disponible à partir du plan ${required3dPlan}`}
+                className="flex cursor-not-allowed items-center gap-1.5 rounded-md border border-[#27272A] bg-[#18181B] px-3 py-1.5 text-xs font-medium text-[#52525B]"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                {view3dLabel}
+              </span>
+            )
           )}
           <button className="flex items-center gap-1.5 rounded-md border border-[#27272A] px-3 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#27272A]">
             <Upload className="h-3.5 w-3.5" />

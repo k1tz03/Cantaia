@@ -131,6 +131,8 @@ export function Sidebar() {
   }, [user?.id]);
 
   const isManager = ["project_manager", "director", "admin"].includes(userRole || "");
+  // /admin est désormais gardé serveur par requireOrgAdmin (admin/director) — le lien suit la même règle
+  const isOrgAdmin = ["director", "admin"].includes(userRole || "");
   const isSuperAdmin = !!user?.user_metadata?.is_superadmin || profileSuperAdmin;
 
   // Section: QUOTIDIEN
@@ -270,7 +272,7 @@ export function Sidebar() {
     { href: "/submissions", labelKey: "submissions", icon: ClipboardList, status: "active", dataTour: "nav-submissions" },
     { href: "/suppliers", labelKey: "suppliers", icon: Truck, status: "active" },
     { href: "/site-reports", labelKey: "siteReports", icon: ClipboardList, status: "active" },
-    ...((isManager || isSuperAdmin) ? [
+    ...((isOrgAdmin || isSuperAdmin) ? [
       { href: "/admin", labelKey: "admin", icon: Shield, status: "active" as NavItemStatus },
     ] : []),
     { href: "/settings", labelKey: "settings", icon: Settings, status: "active" },
@@ -339,8 +341,8 @@ export function Sidebar() {
             </ul>
           </div>
 
-          {/* Admin link — visible to project_manager, director, admin, superadmin */}
-          {(isManager || isSuperAdmin) && (
+          {/* Admin link — visible to director, admin, superadmin (aligné sur requireOrgAdmin) */}
+          {(isOrgAdmin || isSuperAdmin) && (
             <div className="mt-1">
               <Link
                 href="/admin"

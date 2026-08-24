@@ -38,6 +38,9 @@ export async function PATCH(
       triage_status: "snoozed",
       snooze_until: body.until,
       process_action: "snoozed",
+      // A snoozed email must leave the Decisions queue until snooze_until passes.
+      // /api/outlook/sync resets is_processed=false once the snooze expires.
+      is_processed: true,
     })
     .eq("id", id)
     .eq("user_id", user.id);

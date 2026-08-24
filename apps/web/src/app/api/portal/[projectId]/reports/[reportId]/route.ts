@@ -79,12 +79,22 @@ export async function PATCH(
       await (admin as any).from("site_reports").update(updates).eq("id", reportId);
     }
 
-    // Replace all entries if provided
+    // Replace all entries if provided.
+    // Insert-then-delete (never the reverse): a failed insert must not leave the
+    // chef d'équipe with an empty report after a day on site.
     if (body.entries && Array.isArray(body.entries)) {
-      // Delete existing entries
-      await (admin as any).from("site_report_entries").delete().eq("report_id", reportId);
+      const { data: previousEntries, error: previousError } = await (admin as any)
+        .from("site_report_entries")
+        .select("id")
+        .eq("report_id", reportId);
 
-      // Insert new entries
+      if (previousError) {
+        console.error("[Portal Report Detail] Fetch existing entries error:", previousError);
+        return NextResponse.json({ error: "Failed to update entries" }, { status: 500 });
+      }
+
+      const previousIds = (previousEntries || []).map((e: any) => e.id);
+
       if (body.entries.length > 0) {
         const rows = body.entries.map((e: any) => ({
           report_id: reportId,
@@ -99,7 +109,32 @@ export async function PATCH(
           supplier_name: e.supplier_name || null,
           photo_url: e.photo_url || null,
         }));
-        await (admin as any).from("site_report_entries").insert(rows);
+
+        const { error: insertError } = await (admin as any)
+          .from("site_report_entries")
+          .insert(rows);
+
+        if (insertError) {
+          // Old entries are still intact — nothing is lost.
+          console.error("[Portal Report Detail] Insert entries error:", insertError);
+          return NextResponse.json({ error: "Failed to save entries" }, { status: 500 });
+        }
+      }
+
+      // New rows are committed: remove the superseded ones.
+      if (previousIds.length > 0) {
+        const { error: deleteError } = await (admin as any)
+          .from("site_report_entries")
+          .delete()
+          .in("id", previousIds);
+
+        if (deleteError) {
+          console.error("[Portal Report Detail] Delete stale entries error:", deleteError);
+          return NextResponse.json(
+            { error: "Entries saved but the previous version could not be removed" },
+            { status: 500 },
+          );
+        }
       }
     }
 

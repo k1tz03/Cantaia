@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useProject } from "@/lib/hooks/use-supabase-data";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   CheckCircle,
@@ -36,18 +37,94 @@ const statusConfig = {
 export default function ReservesPage() {
   const params = useParams();
   const t = useTranslations("closure");
+  const tCommon = useTranslations("common");
+  const projectId = params.id as string;
 
-  const { project, loading: projectLoading } = useProject(params.id as string);
-  const reception = null as { id: string; reception_date?: string } | null;
-  const reserves: ReceptionReserve[] = [];
+  const { project, loading: projectLoading } = useProject(projectId);
+
+  const [reception, setReception] = useState<{ id: string; reception_date?: string } | null>(null);
+  const [reserves, setReserves] = useState<ReceptionReserve[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedReserve, setSelectedReserve] = useState<ReceptionReserve | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
 
-  if (projectLoading) {
+  // ── Load receptions + reserves (RLS-scoped to the user's org) ──
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+
+    (async () => {
+      setDataLoading(true);
+      setLoadError(null);
+      try {
+        const supabase = createClient();
+        const [recRes, resRes] = await Promise.all([
+          (supabase.from("project_receptions") as any)
+            .select("id, reception_date")
+            .eq("project_id", projectId)
+            .order("reception_date", { ascending: false })
+            .limit(1),
+          (supabase.from("reception_reserves") as any)
+            .select("*")
+            .eq("project_id", projectId)
+            .order("created_at", { ascending: true }),
+        ]);
+
+        if (cancelled) return;
+        if (recRes.error || resRes.error) {
+          // Tables may not exist yet (migration 010 not applied)
+          setLoadError(recRes.error?.message || resRes.error?.message || null);
+        }
+        setReception(recRes.data?.[0] || null);
+        setReserves(resRes.data || []);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || "Erreur de chargement");
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  /** Persists a status change on one reserve, then syncs local state. */
+  const updateReserve = useCallback(
+    async (reserveId: string, updates: Record<string, unknown>) => {
+      setSaving(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await (supabase.from("reception_reserves") as any)
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq("id", reserveId)
+          .select("*")
+          .single();
+
+        if (error) {
+          console.error("[Reserves] Update error:", error.message);
+          setLoadError(error.message);
+          return;
+        }
+
+        setReserves((prev) => prev.map((r) => (r.id === reserveId ? data : r)));
+        setSelectedReserve(null);
+        setCorrectionNotes("");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
+
+  if (projectLoading || dataLoading) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
         <Loader2 className="h-6 w-6 animate-spin text-brand" />
+        <span className="sr-only">{tCommon("loading")}</span>
       </div>
     );
   }
@@ -70,19 +147,22 @@ export default function ReservesPage() {
   };
 
   const handleMarkCorrected = (reserveId: string) => {
-    console.log("[Reserves] Mark corrected:", reserveId, correctionNotes);
-    setCorrectionNotes("");
-    setSelectedReserve(null);
+    updateReserve(reserveId, {
+      status: "corrected",
+      correction_notes: correctionNotes.trim() || null,
+      corrected_at: new Date().toISOString(),
+    });
   };
 
   const handleMarkVerified = (reserveId: string) => {
-    console.log("[Reserves] Mark verified:", reserveId);
-    setSelectedReserve(null);
+    updateReserve(reserveId, {
+      status: "verified",
+      verified_at: new Date().toISOString(),
+    });
   };
 
   const handleMarkDisputed = (reserveId: string) => {
-    console.log("[Reserves] Mark disputed:", reserveId);
-    setSelectedReserve(null);
+    updateReserve(reserveId, { status: "disputed" });
   };
 
   return (
@@ -105,6 +185,13 @@ export default function ReservesPage() {
           </p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mt-4 flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{loadError}</span>
+        </div>
+      )}
 
       {/* Progress */}
       <div className="mt-6">
@@ -152,9 +239,16 @@ export default function ReservesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
+            {reserves.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#71717A]">
+                  0 {t("reserves").toLowerCase()}
+                </td>
+              </tr>
+            )}
             {reserves.map((reserve, index) => {
-              const sev = severityConfig[reserve.severity];
-              const stat = statusConfig[reserve.status];
+              const sev = severityConfig[reserve.severity] ?? severityConfig.minor;
+              const stat = statusConfig[reserve.status] ?? statusConfig.open;
               const StatusIcon = stat.icon;
               const overdue = isOverdue(reserve);
 
@@ -280,7 +374,8 @@ export default function ReservesPage() {
                     <button
                       type="button"
                       onClick={() => handleMarkCorrected(selectedReserve.id)}
-                      className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                      disabled={saving}
+                      className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-60"
                     >
                       {t("markCorrected")}
                     </button>
@@ -291,7 +386,8 @@ export default function ReservesPage() {
                   <button
                     type="button"
                     onClick={() => handleMarkVerified(selectedReserve.id)}
-                    className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    disabled={saving}
+                    className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
                   >
                     {t("markVerified")}
                   </button>
@@ -301,7 +397,8 @@ export default function ReservesPage() {
                   <button
                     type="button"
                     onClick={() => handleMarkDisputed(selectedReserve.id)}
-                    className="w-full rounded-md border border-purple-200 px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+                    disabled={saving}
+                    className="w-full rounded-md border border-purple-200 px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 disabled:opacity-60"
                   >
                     {t("markDisputed")}
                   </button>

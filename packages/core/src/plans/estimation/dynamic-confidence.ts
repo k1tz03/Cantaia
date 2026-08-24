@@ -13,6 +13,7 @@ import { verifyCrossPlan, getCrossPlanBonus } from './cross-plan-verification';
 
 const SOURCE_SCORES: Record<PriceSource, number> = {
   historique_interne: 1.0,
+  donnees_communautaires: 0.75,
   benchmark_cantaia: 0.85,
   referentiel_crb: 0.70,
   consensus_multi_ia: 0.45,

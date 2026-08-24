@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const maxDuration = 120;
+
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+/** Signed URL lifetime for photo previews. */
+const SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest) {
         sort_order: (count || 0),
         caption: caption || null,
         location_description: locationDescription || null,
-        ai_analysis_status: photoType === "handwritten_notes" ? "pending" : "pending",
+        ai_analysis_status: "pending",
         created_by: user.id,
       })
       .select("id, file_url, photo_type, sort_order, ai_analysis_status")
@@ -109,9 +113,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save photo record" }, { status: 500 });
     }
 
+    // Handwritten notes are analysed automatically in the background so the
+    // report generation never runs on un-transcribed notes. Direct function
+    // call (no internal HTTP fetch) — the request cookies would not survive.
+    if (photoType === "handwritten_notes" && photo?.id) {
+      after(async () => {
+        try {
+          const { runHandwrittenNotesAnalysis } = await import("@cantaia/core/visits");
+          const result = await runHandwrittenNotesAnalysis({
+            admin: admin as any,
+            photoId: photo.id,
+            userId: user.id,
+          });
+          if (!result.ok) {
+            console.warn("[PhotoUpload] Background notes analysis failed:", result.error);
+          }
+        } catch (err) {
+          console.error("[PhotoUpload] Background notes analysis threw:", err);
+        }
+      });
+    }
+
+    // Private bucket → return a signed URL the client can render directly
+    let signedUrl: string | null = null;
+    const { data: signed, error: signedErr } = await admin.storage
+      .from("audio")
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+    if (signedErr) {
+      console.error("[PhotoUpload] Signed URL error:", signedErr);
+    } else {
+      signedUrl = signed?.signedUrl ?? null;
+    }
+
     return NextResponse.json({
       success: true,
-      photo,
+      photo: { ...photo, signed_url: signedUrl },
     });
   } catch (error) {
     console.error("[PhotoUpload] Error:", error);

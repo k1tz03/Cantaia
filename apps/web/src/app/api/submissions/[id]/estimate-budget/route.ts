@@ -253,21 +253,34 @@ export async function POST(
         `${i.item_number || "?"}: ${i.description} [${i.unit || "?"}] (CFC: ${i.cfc_code || "?"})`
       ).join("\n");
 
+      // No assistant prefill: JSON-only output is requested in the system prompt
+      // (the tolerant parser below absorbs any residual formatting).
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 8192,
-        system: [{ type: "text" as const, text: BUDGET_PROMPT, cache_control: { type: "ephemeral" as const } }],
+        system: [
+          { type: "text" as const, text: BUDGET_PROMPT, cache_control: { type: "ephemeral" as const } },
+          {
+            type: "text" as const,
+            text:
+              'Réponds UNIQUEMENT avec un objet JSON de la forme {"estimates":[...]}, ' +
+              "sans texte avant ou après, sans bloc de code markdown et sans commentaire.",
+          },
+        ],
         messages: [
           { role: "user", content: `Estime les prix unitaires pour ces ${unmatchedItems.length} postes:\n\n${itemsList}` },
-          { role: "assistant", content: '{"estimates": [' },
         ],
       });
 
       const textBlock = response.content.find((c: any) => c.type === "text");
       if (textBlock && textBlock.type === "text") {
-        const fullJson = '{"estimates": [' + textBlock.text;
         try {
-          let jsonStr = fullJson.trim();
+          let jsonStr = textBlock.text.replace(/```(?:json)?/gi, "").trim();
+          const firstBrace = jsonStr.indexOf("{");
+          const lastBrace = jsonStr.lastIndexOf("}");
+          if (firstBrace > 0) {
+            jsonStr = lastBrace > firstBrace ? jsonStr.slice(firstBrace, lastBrace + 1) : jsonStr.slice(firstBrace);
+          }
           jsonStr = jsonStr.replace(/,\s*([\]}])/g, "$1");
           if (!jsonStr.endsWith("}")) jsonStr = jsonStr.replace(/,?\s*$/, "") + "]}";
           const parsed = JSON.parse(jsonStr);
@@ -339,20 +352,28 @@ export async function POST(
 
           if (cfcCode) {
             try {
-              const { data: benchmark } = await (admin as any)
+              // M3: the real column names are price_median / price_p25 / price_p75 /
+              // contributor_count (migration 024, table market_benchmarks). The old
+              // names (median_price, p25_price, contributors_count) do not exist, so
+              // PostgREST rejected the query and the C2 annotation never appeared.
+              const { data: benchmark, error: benchError } = await (admin as any)
                 .from("market_benchmarks")
-                .select("median_price, p25_price, p75_price, contributors_count, region, quarter")
+                .select("price_median, price_p25, price_p75, contributor_count, region, quarter")
                 .eq("cfc_code", cfcCode)
+                .gte("contributor_count", 3) // C2 anonymity floor
+                .not("price_median", "is", null)
                 .order("quarter", { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
-              if (benchmark) {
+              if (benchError) {
+                console.warn(`[BUDGET] market benchmark query failed for CFC ${cfcCode}:`, benchError.message);
+              } else if (benchmark) {
                 item.market_benchmark = {
-                  p25: benchmark.p25_price,
-                  median: benchmark.median_price,
-                  p75: benchmark.p75_price,
-                  contributors: benchmark.contributors_count,
+                  p25: benchmark.price_p25,
+                  median: benchmark.price_median,
+                  p75: benchmark.price_p75,
+                  contributors: benchmark.contributor_count,
                   region: benchmark.region,
                   quarter: benchmark.quarter,
                 };

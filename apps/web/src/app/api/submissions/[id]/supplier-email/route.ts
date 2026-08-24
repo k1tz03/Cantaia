@@ -31,15 +31,31 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const orgId: string = userProfile.organization_id;
+
     const { data: submission } = await (admin as any)
       .from("submissions")
       .select("id, project_id, projects!submissions_project_id_fkey(organization_id)")
       .eq("id", submissionId)
       .maybeSingle();
 
-    if (!submission || (submission as any).projects?.organization_id !== userProfile?.organization_id) {
+    if (!submission || (submission as any).projects?.organization_id !== orgId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // H6: strategies 2 and 3 search email_records by content / sender address.
+    // Restrict them to the mailboxes of this organization, otherwise a tracking
+    // code collision (or a shared supplier address) would surface another org's
+    // email — including its full HTML body — in the comparison modal.
+    const { data: orgUsers } = await (admin as any)
+      .from("users")
+      .select("id")
+      .eq("organization_id", orgId);
+    const orgUserIds: string[] = (orgUsers || []).map((u: any) => u.id);
+    const mailboxScope: string[] = orgUserIds.length > 0 ? orgUserIds : [user.id];
 
     // Get the price request with tracking code
     const { data: priceRequest } = await (admin as any)
@@ -64,20 +80,24 @@ export async function GET(
     let emailRecord = null;
 
     if (quotesWithEmail?.[0]?.raw_email_id) {
+      // Strategy 1 resolves a FK stored by receive-quote for this very request:
+      // still scoped, to stay safe against legacy/mis-attributed rows.
       const { data: email } = await (admin as any)
         .from("email_records")
         .select("id, subject, sender_email, sender_name, received_at, body_text, body_html, body_preview")
         .eq("id", quotesWithEmail[0].raw_email_id)
+        .in("user_id", mailboxScope)
         .maybeSingle();
       emailRecord = email;
     }
 
-    // Strategy 2: Search by tracking code in email body/subject
+    // Strategy 2: Search by tracking code in email body/subject (org-scoped)
     if (!emailRecord && priceRequest.tracking_code) {
       const safeCode = priceRequest.tracking_code.replace(/[%_,().]/g, "");
       const { data: emails } = await (admin as any)
         .from("email_records")
         .select("id, subject, sender_email, sender_name, received_at, body_text, body_html, body_preview")
+        .in("user_id", mailboxScope)
         .or(`body_preview.ilike.%${safeCode}%,subject.ilike.%${safeCode}%,body_text.ilike.%${safeCode}%`)
         .order("received_at", { ascending: false })
         .limit(1);
@@ -85,11 +105,12 @@ export async function GET(
       emailRecord = emails?.[0] || null;
     }
 
-    // Strategy 3: Search by supplier email in recent emails
+    // Strategy 3: Search by supplier email in recent emails (org-scoped)
     if (!emailRecord && priceRequest.supplier_email_manual) {
       const { data: emails } = await (admin as any)
         .from("email_records")
         .select("id, subject, sender_email, sender_name, received_at, body_text, body_html, body_preview")
+        .in("user_id", mailboxScope)
         .eq("sender_email", priceRequest.supplier_email_manual)
         .order("received_at", { ascending: false })
         .limit(1);

@@ -17,6 +17,53 @@ import { trackApiUsage } from "@cantaia/core/tracking";
 export const maxDuration = 300;
 
 /**
+ * Download a plan file from Supabase Storage.
+ *
+ * B16 — The previous inline parsing only understood public URLs
+ * (`/storage/v1/object/public/<bucket>/<path>`). It silently produced a wrong
+ * bucket/path the day the `plans` bucket goes private (signed URLs are
+ * `/object/sign/<bucket>/<path>?token=…`, see SEC2.NC3). We accept public,
+ * signed and authenticated shapes, then fall back to a plain `fetch()`.
+ */
+async function downloadPlanFile(
+  admin: any,
+  fileUrl: string
+): Promise<{ buffer: Buffer } | { error: string }> {
+  const match = fileUrl.match(
+    /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?([^/?]+)\/(.+?)(?:\?|$)/
+  );
+
+  if (match) {
+    const bucketName = match[1];
+    let objectPath = match[2];
+    try {
+      objectPath = decodeURIComponent(objectPath);
+    } catch {
+      /* already decoded */
+    }
+
+    const { data, error } = await admin.storage.from(bucketName).download(objectPath);
+    if (!error && data) {
+      return { buffer: Buffer.from(await data.arrayBuffer()) };
+    }
+    console.warn(
+      `[scenes/extract] Storage download failed (bucket=${bucketName}) — falling back to direct fetch:`,
+      error?.message
+    );
+  }
+
+  try {
+    const res = await fetch(fileUrl);
+    if (!res.ok) {
+      return { error: `HTTP ${res.status} on plan file` };
+    }
+    return { buffer: Buffer.from(await res.arrayBuffer()) };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "download failed" };
+  }
+}
+
+/**
  * POST /api/scenes/extract
  *
  * Kick off a Passe 5 (BuildingScene IR) extraction for a plan.
@@ -32,8 +79,9 @@ export const maxDuration = 300;
  *   3. Feature gate: `canAccess(plan, "visualization3d")` AND
  *      `check3dExtractionLimit` (separate axis from generic aiCalls — see
  *      plan-features.ts for the reasoning).
- *   4. Requires a prior `plan_analyses` row with analysis_type='estimation_v2'
- *      (Passe 1-3 cached). 409 if none — client must run estimation first.
+ *   4. Requires a prior `plan_estimates` row for this plan (Passe 1-3 cached
+ *      inside `estimate_result`). 409 if none — client must run estimation
+ *      first.
  *   5. Insert a `plan_scenes` row with extraction_status='processing' and
  *      return 202 with `{ scene_id }`.
  *   6. Schedule background work via `after()`:
@@ -164,29 +212,45 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 7. Cached passes — we require a prior estimation_v2 run to avoid burning
+  // 7. Cached passes — we require a prior estimation run to avoid burning
   // multi-model tokens inside Passe 5. If missing, tell the client to run
   // estimation first.
-  const { data: lastAnalysis } = await (admin as any)
-    .from("plan_analyses")
-    .select("id, result")
+  //
+  // B2 — This used to query `plan_analyses` filtered on
+  // `analysis_type = 'estimation_v2'`: a column that does not exist on that
+  // table. PostgREST 400'd on every call, `lastAnalysis` was always null, and
+  // this endpoint returned 409 unconditionally — the whole Scene3D backend was
+  // dead on arrival. The 4-pass result lives in `plan_estimates.estimate_result`
+  // (migrations 022 + 084).
+  const { data: lastEstimate, error: estimateError } = await (admin as any)
+    .from("plan_estimates")
+    .select("id, estimate_result")
     .eq("plan_id", plan_id)
-    .eq("analysis_type", "estimation_v2")
+    .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const pipelineResult = lastAnalysis?.result;
+  if (estimateError) {
+    console.error("[scenes/extract] plan_estimates lookup failed:", estimateError);
+    return NextResponse.json(
+      { error: "Failed to read the plan estimation" },
+      { status: 500 }
+    );
+  }
+
+  const pipelineResult = lastEstimate?.estimate_result;
   const passe1 = pipelineResult?.passe1;
   const passe2Consensus = pipelineResult?.consensus_metrage?.metrage_fusionne;
   const passe3 = pipelineResult?.passe3;
 
-  if (!lastAnalysis?.id || !passe1 || !passe2Consensus || !passe3) {
+  if (!lastEstimate?.id || !passe1 || !passe2Consensus || !passe3) {
     return NextResponse.json(
       {
         error: "estimation_required",
-        message:
-          "No estimation_v2 result found for this plan. Run the 4-pass pipeline first.",
+        message: lastEstimate?.id
+          ? "L'estimation enregistrée pour ce plan est incomplète (passes 1-3 manquantes). Relancez l'estimation."
+          : "Aucune estimation trouvée pour ce plan. Lancez d'abord le pipeline d'estimation 4 passes.",
       },
       { status: 409 }
     );
@@ -239,26 +303,13 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const started = Date.now();
     try {
-      // 10a. Download plan image from Storage
-      const filePath = version.file_url.replace(
-        /^.*\/storage\/v1\/object\/public\//,
-        ""
-      );
-      const bucketName = filePath.split("/")[0];
-      const objectPath = filePath.split("/").slice(1).join("/");
-
-      const { data: fileData, error: dlError } = await admin.storage
-        .from(bucketName || "plans")
-        .download(objectPath || filePath);
-
-      if (dlError || !fileData) {
-        throw new Error(
-          `Failed to download plan file: ${dlError?.message || "no data"}`
-        );
+      // 10a. Download plan image from Storage (public, signed or authenticated URL)
+      const download = await downloadPlanFile(admin, version.file_url);
+      if ("error" in download) {
+        throw new Error(`Failed to download plan file: ${download.error}`);
       }
 
-      const buffer = Buffer.from(await fileData.arrayBuffer());
-      const imageBase64 = buffer.toString("base64");
+      const imageBase64 = download.buffer.toString("base64");
 
       // Media-type sniff by extension (mirrors estimate-v2)
       const ext = (version.file_name || "").toLowerCase();
@@ -281,13 +332,12 @@ export async function POST(request: NextRequest) {
         image_base64: imageBase64,
         media_type: mediaType,
         plan_id,
-        // Spike convention: we don't persist passes as separate rows yet, so
-        // the upstream ids degenerate to plan_id (same default the pipeline
-        // uses internally when the caller omits them). When we persist passes
-        // individually in Phase 2, swap these for the real row ids.
-        passe1_id: lastAnalysis.id,
-        passe2_id: lastAnalysis.id,
-        passe3_id: lastAnalysis.id,
+        // We don't persist passes as separate rows yet: passes 1-3 live inside
+        // the `plan_estimates.estimate_result` JSON, so all three upstream ids
+        // degenerate to that row's id. Swap for real per-pass ids in Phase 2.
+        passe1_id: lastEstimate.id,
+        passe2_id: lastEstimate.id,
+        passe3_id: lastEstimate.id,
       });
 
       if (!result.scene) {

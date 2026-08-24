@@ -49,6 +49,57 @@ function proxyMicrosoftImages(html: string): string {
 }
 
 /**
+ * B15: rewrite `cid:` inline-image references to our authenticated proxy route
+ * instead of inlining the attachment bytes as base64 data URIs.
+ *
+ * The old approach fetched /attachments for every message in the thread (up to
+ * 50 unbounded parallel Graph calls) and embedded each image as base64 — which
+ * inflated a single thread response to several MB and blocked the whole request
+ * on the slowest attachment fetch. /api/mail/cid-image already resolves a CID
+ * (exact contentId, name, loose name, then positional `idx` fallback) and serves
+ * the bytes with a 7-day private cache, so the browser can fetch them lazily.
+ */
+function rewriteCidImages(html: string, msgId: string | null | undefined): string {
+  if (!html || !html.includes("cid:")) return html;
+
+  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  if (!msgId) {
+    return html.replace(/(\bsrc\s*=\s*["'])cid:[^"']*?(["'])/gi, `$1${TRANSPARENT_PIXEL}$2`);
+  }
+
+  let cidIndex = 0;
+  return html.replace(
+    /(\bsrc\s*=\s*["'])cid:([^"']*?)(["'])/gi,
+    (_m, before, cidRef, after) =>
+      `${before}/api/mail/cid-image?msgId=${encodeURIComponent(msgId)}&cid=${encodeURIComponent(cidRef)}&idx=${cidIndex++}${after}`
+  );
+}
+
+/**
+ * Run an async mapper over items with a bounded number of in-flight tasks (B15).
+ * A thread can hold up to 50 messages — never fan out unbounded.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index], index);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+/**
  * GET /api/mail/emails/[id]/thread
  * Fetches the full conversation thread from Microsoft Graph.
  * On-demand backfill: if body_html/body_text are missing, fetches and saves them.
@@ -78,74 +129,11 @@ export async function GET(
     }
 
     // Helper: build fallback from current emailRecord state
-    // Optionally resolves cid: inline images if token available
-    async function buildFallback(record: typeof emailRecord, token?: string | null) {
+    // cid: references are rewritten to the authenticated image proxy (B15)
+    function buildFallback(record: typeof emailRecord) {
       let body = record.body_html || record.body_text || record.body_preview || "";
 
-      // Resolve cid: references in fallback HTML body
-      if (token && record.outlook_message_id && body.includes("cid:")) {
-        try {
-          const attRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${record.outlook_message_id}/attachments`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (attRes.ok) {
-            const attData = await attRes.json();
-            // Accept attachments with contentBytes AND either isInline or contentId
-            const cidAtts = (attData.value || []).filter(
-              (a: any) => a.contentBytes && (a.isInline || a.contentId)
-            );
-
-            // Strategy 1: Match by contentId / name
-            for (const att of cidAtts) {
-              const cid = att.contentId || att.name;
-              if (cid && att.contentBytes) {
-                const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
-                body = body
-                  .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                const cidClean = cid.replace(/^<|>$/g, "");
-                if (cidClean !== cid) {
-                  body = body
-                    .replace(new RegExp(`cid:${cidClean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                }
-                if (att.name && att.name !== cid && att.name !== cidClean) {
-                  body = body
-                    .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                }
-              }
-            }
-
-            // Strategy 2: Positional fallback for unmatched CID references
-            if (body.includes("cid:")) {
-              const remainingCids = body.match(/cid:[^"'\s]*/gi) || [];
-              const inlineImages = cidAtts.filter(
-                (a: any) => a.contentType?.startsWith("image/")
-              );
-              if (remainingCids.length > 0 && inlineImages.length > 0) {
-                const usedAttIds = new Set<string>();
-                for (const att of cidAtts) {
-                  if (body.includes(`data:${att.contentType};base64,`)) {
-                    usedAttIds.add(att.id);
-                  }
-                }
-                const unusedImages = inlineImages.filter((a: any) => !usedAttIds.has(a.id));
-                let posIdx = 0;
-                for (const cidRef of remainingCids) {
-                  if (posIdx >= unusedImages.length) break;
-                  const att = unusedImages[posIdx++];
-                  const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
-                  const escapedCid = cidRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                  body = body.replace(new RegExp(escapedCid, "gi"), dataUri);
-                }
-              }
-            }
-          } else {
-            console.warn(`[thread] Fallback attachments fetch failed: ${attRes.status}`);
-          }
-        } catch (err: any) {
-          console.warn(`[thread] Fallback CID resolve failed:`, err?.message);
-        }
-      }
+      body = rewriteCidImages(body, record.outlook_message_id);
 
       // Proxy authenticated Microsoft image URLs
       body = proxyMicrosoftImages(body);
@@ -215,7 +203,7 @@ export async function GET(
         error: !emailRecord.outlook_message_id
           ? "Pas d'identifiant Outlook — conversation indisponible"
           : "Connexion Microsoft requise",
-        fallback: await buildFallback(emailRecord, accessToken),
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -230,7 +218,7 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Conversation complète indisponible",
-        fallback: await buildFallback(emailRecord, accessToken),
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -241,7 +229,7 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Pas de conversationId trouvé",
-        fallback: await buildFallback(emailRecord, accessToken),
+        fallback: buildFallback(emailRecord),
       });
     }
 
@@ -256,94 +244,25 @@ export async function GET(
       return NextResponse.json({
         thread: null,
         error: "Conversation complète indisponible",
-        fallback: await buildFallback(emailRecord, accessToken),
+        fallback: buildFallback(emailRecord),
       });
     }
 
     const threadData = await threadRes.json();
     const messages = threadData.value || [];
 
-    // Resolve cid: inline images for each message that has them
-    const thread: ThreadMessage[] = await Promise.all(
-      messages.map(async (msg: any) => {
+    // Rewrite inline images (cid: → proxy route), bounded concurrency (B15)
+    const thread: ThreadMessage[] = await mapWithConcurrency(
+      messages,
+      5,
+      async (msg: any) => {
         let bodyContent = msg.body?.content || "";
         const contentType = msg.body?.contentType || "text";
 
-        // Resolve cid: references to base64 data URIs
-        if (contentType === "html" && bodyContent.includes("cid:")) {
-          try {
-            const attRes = await fetch(
-              `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments`,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            if (attRes.ok) {
-              const attData = await attRes.json();
-              // Accept attachments that have contentBytes AND either:
-              // - are marked isInline, OR
-              // - have a contentId (signature images sometimes have isInline=false but still use cid:)
-              const cidAtts = (attData.value || []).filter(
-                (a: any) => a.contentBytes && (a.isInline || a.contentId)
-              );
-
-              // Strategy 1: Try matching by contentId and name
-              for (const att of cidAtts) {
-                const cid = att.contentId || att.name;
-                if (cid && att.contentBytes) {
-                  const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
-                  // Try exact match first
-                  bodyContent = bodyContent
-                    .replace(new RegExp(`cid:${cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                  // Try without angle brackets
-                  const cidClean = cid.replace(/^<|>$/g, "");
-                  if (cidClean !== cid) {
-                    bodyContent = bodyContent
-                      .replace(new RegExp(`cid:${cidClean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                  }
-                  // Also try matching by filename if contentId didn't match
-                  if (att.name && att.name !== cid && att.name !== cidClean) {
-                    bodyContent = bodyContent
-                      .replace(new RegExp(`cid:${att.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "gi"), dataUri);
-                  }
-                }
-              }
-
-              // Strategy 2: Positional fallback for unmatched CID references.
-              // Outlook/Graph often uses different CID formats in body_html vs. attachment
-              // contentId (e.g., UUID in HTML but "image001.png@01DB..." in contentId).
-              // Match remaining cid: refs to inline image attachments by position order.
-              if (bodyContent.includes("cid:")) {
-                const remainingCids = bodyContent.match(/cid:[^"'\s]*/gi) || [];
-                const inlineImages = cidAtts.filter(
-                  (a: any) => a.contentType?.startsWith("image/")
-                );
-
-                if (remainingCids.length > 0 && inlineImages.length > 0) {
-                  // Build a set of already-used attachment IDs (those that matched above)
-                  const usedAttIds = new Set<string>();
-                  for (const att of cidAtts) {
-                    const dataUriCheck = `data:${att.contentType};base64,`;
-                    if (bodyContent.includes(dataUriCheck)) {
-                      usedAttIds.add(att.id);
-                    }
-                  }
-                  const unusedImages = inlineImages.filter((a: any) => !usedAttIds.has(a.id));
-
-                  let posIdx = 0;
-                  for (const cidRef of remainingCids) {
-                    if (posIdx >= unusedImages.length) break;
-                    const att = unusedImages[posIdx++];
-                    const dataUri = `data:${att.contentType};base64,${att.contentBytes}`;
-                    const escapedCid = cidRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                    bodyContent = bodyContent.replace(new RegExp(escapedCid, "gi"), dataUri);
-                  }
-                }
-              }
-            } else {
-              console.warn(`[thread] Attachments fetch failed for ${msg.id}: ${attRes.status}`);
-            }
-          } catch (err: any) {
-            console.warn(`[thread] CID resolve failed for ${msg.id}:`, err?.message);
-          }
+        // Point cid: references at /api/mail/cid-image instead of inlining
+        // multi-MB base64 payloads into this JSON response.
+        if (contentType === "html" || contentType === "HTML") {
+          bodyContent = rewriteCidImages(bodyContent, msg.id);
         }
 
         // Proxy authenticated Microsoft image URLs
@@ -372,7 +291,7 @@ export async function GET(
           bodyPreview: msg.bodyPreview || "",
           isCurrentMessage: msg.id === emailRecord.outlook_message_id,
         };
-      })
+      }
     );
 
     return NextResponse.json({

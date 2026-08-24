@@ -85,82 +85,65 @@ async function upsertRule(
   ruleValue: string,
   folderId: string,
 ) {
-  // Check if rule exists for this org + type + value
-  const { data: existing } = await (admin as any)
+  // B10: the unique index is on (organization_id, rule_type, rule_value, folder_id),
+  // so SEVERAL rows legitimately coexist for the same (org, type, value) once a
+  // user has moved similar emails to two different folders. `maybeSingle()`
+  // then failed with PGRST116 ("multiple rows returned") and the whole
+  // folder-learn request 500'd. Fetch them all instead.
+  const { data: existingRules } = await (admin as any)
     .from("email_folder_rules")
     .select("id, folder_id, times_confirmed, times_overridden")
     .eq("organization_id", orgId)
     .eq("rule_type", ruleType)
     .eq("rule_value", ruleValue)
-    .maybeSingle();
+    .order("times_confirmed", { ascending: false });
 
-  if (existing) {
-    if (existing.folder_id === folderId) {
-      // Same folder → confirm the rule
-      await (admin as any)
-        .from("email_folder_rules")
-        .update({
-          times_confirmed: (existing.times_confirmed || 0) + 1,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-    } else {
-      // Different folder → override: increment override on old rule, create/confirm new
-      await (admin as any)
-        .from("email_folder_rules")
-        .update({
-          times_overridden: (existing.times_overridden || 0) + 1,
-          is_active: (existing.times_confirmed || 0) > (existing.times_overridden || 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
+  const rules: Array<{
+    id: string;
+    folder_id: string;
+    times_confirmed: number | null;
+    times_overridden: number | null;
+  }> = existingRules || [];
 
-      // Create or confirm the new folder rule
-      const { data: newRule } = await (admin as any)
-        .from("email_folder_rules")
-        .select("id, times_confirmed")
-        .eq("organization_id", orgId)
-        .eq("rule_type", ruleType)
-        .eq("rule_value", ruleValue)
-        .eq("folder_id", folderId)
-        .maybeSingle();
+  const matching = rules.find((r) => r.folder_id === folderId);
 
-      if (newRule) {
-        await (admin as any)
-          .from("email_folder_rules")
-          .update({
-            times_confirmed: (newRule.times_confirmed || 0) + 1,
-            is_active: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", newRule.id);
-      } else {
-        await (admin as any)
-          .from("email_folder_rules")
-          .insert({
-            organization_id: orgId,
-            rule_type: ruleType,
-            rule_value: ruleValue,
-            folder_id: folderId,
-            times_confirmed: 1,
-            times_overridden: 0,
-            is_active: true,
-          });
-      }
-    }
-  } else {
-    // New rule
+  // Every rule pointing elsewhere has just been overridden by this user action
+  for (const rule of rules) {
+    if (rule.folder_id === folderId) continue;
+    const timesOverridden = (rule.times_overridden || 0) + 1;
     await (admin as any)
       .from("email_folder_rules")
-      .insert({
-        organization_id: orgId,
-        rule_type: ruleType,
-        rule_value: ruleValue,
-        folder_id: folderId,
-        times_confirmed: 1,
-        times_overridden: 0,
-        is_active: true,
-      });
+      .update({
+        times_overridden: timesOverridden,
+        is_active: (rule.times_confirmed || 0) > timesOverridden,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", rule.id);
   }
+
+  if (matching) {
+    // Same folder → confirm the rule
+    await (admin as any)
+      .from("email_folder_rules")
+      .update({
+        times_confirmed: (matching.times_confirmed || 0) + 1,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", matching.id);
+    return;
+  }
+
+  // New rule for this folder
+  await (admin as any)
+    .from("email_folder_rules")
+    .insert({
+      organization_id: orgId,
+      rule_type: ruleType,
+      rule_value: ruleValue,
+      folder_id: folderId,
+      times_confirmed: 1,
+      times_overridden: 0,
+      is_active: true,
+    });
 }

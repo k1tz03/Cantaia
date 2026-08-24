@@ -96,7 +96,8 @@ ${org?.name || ""}`;
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    // maxRetries: 0 — le retry est géré par callAnthropicWithRetry (évite le double retry 3×2)
+    const client = new Anthropic({ apiKey: anthropicApiKey, maxRetries: 0 });
 
     const maxTokens = composeLength === "detaille" ? 1200 : 600;
 

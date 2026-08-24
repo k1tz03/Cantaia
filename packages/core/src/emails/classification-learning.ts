@@ -285,15 +285,21 @@ async function upsertRule(
   classification: string,
   action: "confirm" | "override"
 ): Promise<void> {
-  // Check if rule exists
-  const { data: existing } = await supabase
+  // Check if rule exists.
+  // B11: PostgREST turns `.eq("project_id", null)` into `project_id=eq.null`,
+  // which never matches a real SQL NULL — every project-less rule was therefore
+  // re-inserted instead of being updated. Use `.is()` for the NULL case.
+  const existingQuery = supabase
     .from("email_classification_rules")
     .select("id, times_confirmed, times_overridden")
     .eq("organization_id", organizationId)
     .eq("rule_type", ruleType)
-    .eq("rule_value", ruleValue)
-    .eq("project_id", projectId)
-    .limit(1);
+    .eq("rule_value", ruleValue);
+
+  const { data: existing } = await (projectId === null || projectId === undefined
+    ? existingQuery.is("project_id", null)
+    : existingQuery.eq("project_id", projectId)
+  ).limit(1);
 
   if (existing?.[0]) {
     // Update existing rule

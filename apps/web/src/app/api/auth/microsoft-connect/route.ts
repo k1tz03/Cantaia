@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { encryptToken } from "@/lib/crypto/token-encryption";
+
+/**
+ * Encrypt a token if MICROSOFT_TOKEN_ENCRYPTION_KEY is configured.
+ * Mirrors the private safeEncrypt() in @/lib/microsoft/tokens (used on refresh):
+ * tokens written here MUST be encrypted at rest, and the reader
+ * (getValidMicrosoftToken → safeDecrypt) transparently handles both shapes
+ * during the plaintext→ciphertext migration window.
+ */
+function safeEncrypt(token: string): string {
+  if (!token) return token;
+  if (!process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY) return token;
+  try {
+    return encryptToken(token);
+  } catch {
+    return token;
+  }
+}
 
 /**
  * GET /api/auth/microsoft-connect
@@ -148,12 +166,16 @@ export async function GET(request: Request) {
       const expiresAt = new Date();
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresIn);
 
+      // Encrypt at rest (AES-256-GCM) before touching the DB — SEC2.NC4.
+      const encryptedAccessToken = safeEncrypt(accessToken);
+      const encryptedRefreshToken = refreshToken ? safeEncrypt(refreshToken) : null;
+
       // Store tokens in users table
       const { error: updateError } = await adminClient
         .from("users")
         .update({
-          microsoft_access_token: accessToken,
-          microsoft_refresh_token: refreshToken || null,
+          microsoft_access_token: encryptedAccessToken,
+          microsoft_refresh_token: encryptedRefreshToken,
           microsoft_token_expires_at: expiresAt.toISOString(),
           outlook_sync_enabled: true,
         })
@@ -194,8 +216,8 @@ export async function GET(request: Request) {
             user_id: user.id,
             organization_id: orgId,
             provider: "microsoft",
-            oauth_access_token: accessToken,
-            oauth_refresh_token: refreshToken || null,
+            oauth_access_token: encryptedAccessToken,
+            oauth_refresh_token: encryptedRefreshToken,
             oauth_token_expires_at: expiresAt.toISOString(),
             oauth_scopes: scopes,
             email_address: microsoftEmail,

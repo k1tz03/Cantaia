@@ -8,6 +8,14 @@ import { MODEL_FOR_TASK } from "@cantaia/core/ai";
 export const maxDuration = 300;
 
 /**
+ * GET /api/cron/briefing
+ * Vercel Cron invokes scheduled paths with GET — delegate to POST.
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
+/**
  * POST /api/cron/briefing
  * Generates daily briefings for all users with briefing_enabled = true.
  * Optionally sends briefing email via Resend if briefing_email = true.
@@ -42,7 +50,21 @@ export async function POST(request: NextRequest) {
 
   const results: { userId: string; generated: boolean; emailed: boolean; error?: string }[] = [];
 
+  // Global time budget: stop cleanly before Vercel kills the function
+  // (maxDuration = 300s) so already-generated briefings are reported.
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = 240_000;
+  let timedOut = false;
+
   for (const userProfile of users) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      timedOut = true;
+      console.warn(
+        `[cron/briefing] Time budget reached — stopping after ${results.length}/${users.length} users`
+      );
+      break;
+    }
+
     try {
       // Check if briefing already exists for today
       const { data: existing } = await (admin as any)
@@ -136,7 +158,7 @@ export async function POST(request: NextRequest) {
                 supabase: admin,
                 userId: userProfile.id,
                 organizationId: orgId,
-                actionType: "email_summary",
+                actionType: "briefing_generate",
                 apiProvider: "anthropic",
                 model: usage.model,
                 inputTokens: usage.inputTokens,
@@ -200,13 +222,17 @@ export async function POST(request: NextRequest) {
 
   const generated = results.filter((r) => r.generated).length;
   const emailed = results.filter((r) => r.emailed).length;
-  console.log(`[cron/briefing] Done: ${generated}/${users.length} generated, ${emailed} emailed`);
+  console.log(
+    `[cron/briefing] Done: ${generated}/${users.length} generated, ${emailed} emailed${timedOut ? " (time budget reached)" : ""}`
+  );
 
   return NextResponse.json({
     total_users: users.length,
+    processed: results.length,
     generated,
     emailed,
     skipped: users.length - generated,
+    timed_out: timedOut,
     results,
   });
 }
@@ -247,11 +273,16 @@ async function sendBriefingEmail(
 
 function buildBriefingEmailHtml(briefing: any, _userName: string, locale: string): string {
   const labels: Record<string, Record<string, string>> = {
-    fr: { alerts: "Alertes prioritaires", projects: "Projets", meetings: "Reunions", summary: "Resume", deadlines: "Deadlines soumissions", open: "Ouvrir dans Cantaia" },
-    en: { alerts: "Priority alerts", projects: "Projects", meetings: "Meetings", summary: "Summary", deadlines: "Submission deadlines", open: "Open in Cantaia" },
-    de: { alerts: "Prioritaetsalarme", projects: "Projekte", meetings: "Besprechungen", summary: "Zusammenfassung", deadlines: "Einreichungsfristen", open: "In Cantaia oeffnen" },
+    fr: { alerts: "Alertes prioritaires", projects: "Projets", meetings: "Reunions", summary: "Resume", deadlines: "Deadlines soumissions", open: "Ouvrir dans Cantaia", statProjects: "projets", statOverdue: "en retard", statUnread: "non lus", statMeetings: "reunions" },
+    en: { alerts: "Priority alerts", projects: "Projects", meetings: "Meetings", summary: "Summary", deadlines: "Submission deadlines", open: "Open in Cantaia", statProjects: "projects", statOverdue: "overdue", statUnread: "unread", statMeetings: "meetings" },
+    de: { alerts: "Prioritaetsalarme", projects: "Projekte", meetings: "Besprechungen", summary: "Zusammenfassung", deadlines: "Einreichungsfristen", open: "In Cantaia oeffnen", statProjects: "Projekte", statOverdue: "ueberfaellig", statUnread: "ungelesen", statMeetings: "Besprechungen" },
   };
   const l = labels[locale] || labels.fr;
+
+  // Localised deep link — the app is locale-prefixed, "/fr/" was hardcoded.
+  const safeLocale = ["fr", "en", "de"].includes(locale) ? locale : "fr";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://cantaia.io").replace(/\/+$/, "");
+  const briefingUrl = `${appUrl}/${safeLocale}/briefing`;
 
   const alertsHtml = briefing.priority_alerts.length > 0
     ? `<h2 style="color:#B45309;font-size:14px;margin:16px 0 8px">${l.alerts}</h2>` +
@@ -290,10 +321,10 @@ function buildBriefingEmailHtml(briefing: any, _userName: string, locale: string
   <h1 style="font-size:18px;margin:0;color:#111827">${briefing.greeting}</h1>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-  <span style="background:#F3F4F6;border-radius:6px;padding:6px 12px;font-size:12px">${briefing.stats.total_projects} projets</span>
-  <span style="background:#FEF2F2;border-radius:6px;padding:6px 12px;font-size:12px;color:#991B1B">${briefing.stats.tasks_overdue} en retard</span>
-  <span style="background:#EFF6FF;border-radius:6px;padding:6px 12px;font-size:12px;color:#1E40AF">${briefing.stats.emails_unread} non lus</span>
-  <span style="background:#ECFDF5;border-radius:6px;padding:6px 12px;font-size:12px;color:#065F46">${briefing.stats.meetings_today} reunions</span>
+  <span style="background:#F3F4F6;border-radius:6px;padding:6px 12px;font-size:12px">${briefing.stats.total_projects} ${l.statProjects}</span>
+  <span style="background:#FEF2F2;border-radius:6px;padding:6px 12px;font-size:12px;color:#991B1B">${briefing.stats.tasks_overdue} ${l.statOverdue}</span>
+  <span style="background:#EFF6FF;border-radius:6px;padding:6px 12px;font-size:12px;color:#1E40AF">${briefing.stats.emails_unread} ${l.statUnread}</span>
+  <span style="background:#ECFDF5;border-radius:6px;padding:6px 12px;font-size:12px;color:#065F46">${briefing.stats.meetings_today} ${l.statMeetings}</span>
 </div>
 ${alertsHtml}${deadlinesHtml}${projectsHtml}${meetingsHtml}
 <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px;margin-top:16px">
@@ -301,7 +332,7 @@ ${alertsHtml}${deadlinesHtml}${projectsHtml}${meetingsHtml}
   <p style="margin:0;font-size:13px;color:#4B5563">${briefing.global_summary}</p>
 </div>
 <div style="text-align:center;margin-top:24px">
-  <a href="https://cantaia.io/fr/briefing" style="display:inline-block;background:#2563EB;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600">${l.open}</a>
+  <a href="${briefingUrl}" style="display:inline-block;background:#2563EB;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600">${l.open}</a>
 </div>
 <p style="text-align:center;font-size:10px;color:#9CA3AF;margin-top:24px">Cantaia — L'IA au service du chantier</p>
 </body></html>`;

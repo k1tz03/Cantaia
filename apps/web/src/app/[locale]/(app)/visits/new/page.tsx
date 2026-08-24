@@ -64,6 +64,7 @@ export default function NewVisitPage() {
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [sitePhotosExpanded, setSitePhotosExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingStep, setProcessingStep] = useState("");
 
   useEffect(() => {
     loadProjects();
@@ -159,53 +160,107 @@ export default function NewVisitPage() {
     setStep("post");
   }
 
+  /**
+   * Whisper caps uploads at 25 MB — compress anything above 24 MB
+   * client-side (same approach as the PV chantier flow).
+   */
+  async function prepareAudio(blob: Blob): Promise<{ blob: Blob; ext: string; contentType: string }> {
+    if (blob.size <= 24 * 1024 * 1024) {
+      return { blob, ext: "webm", contentType: "audio/webm" };
+    }
+
+    setProcessingStep("Compression de l'audio...");
+    const { compressAudioToMp3 } = await import("@/lib/audio/compress-audio");
+    const compressed = await compressAudioToMp3(blob, (pct) => {
+      setProcessingStep(`Compression de l'audio... ${pct}%`);
+    });
+    console.log(
+      `Audio compressed: ${(blob.size / 1048576).toFixed(1)} MB → ${(compressed.size / 1048576).toFixed(1)} MB`
+    );
+    setProcessingStep("");
+    return { blob: compressed, ext: "mp3", contentType: "audio/mpeg" };
+  }
+
+  async function uploadVisitAudio(
+    supabase: ReturnType<typeof createClient>,
+    blob: Blob
+  ): Promise<{ filePath: string; fileName: string; size: number }> {
+    const prepared = await prepareAudio(blob);
+    const fileName = `recording.${prepared.ext}`;
+    const filePath = `audio/${orgId}/${visitId}/${fileName}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("audio")
+      .upload(filePath, prepared.blob, {
+        contentType: prepared.contentType,
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      throw new Error(`Échec de l'envoi de l'enregistrement : ${uploadErr.message}`);
+    }
+
+    return { filePath, fileName, size: prepared.blob.size };
+  }
+
   async function handleUploadAndTranscribe() {
     if (!visitId || !audioBlob) return;
     setTranscribing(true);
+    setError(null);
 
     try {
       const supabase = createClient();
 
-      // Upload audio to Supabase Storage
-      const filePath = `audio/${orgId}/${visitId}/recording.webm`;
-      const { error: uploadErr } = await supabase.storage
-        .from("audio")
-        .upload(filePath, audioBlob, { contentType: "audio/webm" });
-
-      if (uploadErr) {
-        console.error("Upload error:", uploadErr);
-      }
+      const { filePath, fileName, size } = await uploadVisitAudio(supabase, audioBlob);
 
       // Update visit with audio info
       await ((supabase as any).from("client_visits"))
         .update({
           audio_url: filePath,
           audio_duration_seconds: audioDuration,
-          audio_file_name: "recording.webm",
-          audio_file_size: audioBlob.size,
+          audio_file_name: fileName,
+          audio_file_size: size,
           duration_minutes: Math.ceil(audioDuration / 60),
         })
         .eq("id", visitId);
 
-      // Trigger transcription
-      await fetch("/api/visits/transcribe", {
+      // Trigger transcription — a failure here must be surfaced, not swallowed
+      setProcessingStep("Transcription en cours...");
+      const transcribeRes = await fetch("/api/visits/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visit_id: visitId }),
       });
 
+      if (!transcribeRes.ok) {
+        const data = await transcribeRes.json().catch(() => ({}));
+        throw new Error(
+          data.error || "La transcription a échoué. Vous pouvez réessayer depuis la fiche de visite."
+        );
+      }
+
       // Trigger report generation
-      await fetch("/api/visits/generate-report", {
+      setProcessingStep("Génération du rapport...");
+      const reportRes = await fetch("/api/visits/generate-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visit_id: visitId }),
       });
+
+      if (!reportRes.ok) {
+        const data = await reportRes.json().catch(() => ({}));
+        console.error("Report generation failed:", data.error);
+        // The transcription succeeded — send the user to the visit where a
+        // "Réessayer" action is available for the report.
+      }
 
       // Navigate to visit detail
       router.push(`/visits/${visitId}`);
     } catch (err) {
       console.error("Error:", err);
+      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
+      setProcessingStep("");
       setTranscribing(false);
     }
   }
@@ -213,21 +268,19 @@ export default function NewVisitPage() {
   async function handleSaveWithoutTranscribing() {
     if (!visitId || !audioBlob) return;
     setSaving(true);
+    setError(null);
 
     try {
       const supabase = createClient();
 
-      const filePath = `audio/${orgId}/${visitId}/recording.webm`;
-      await supabase.storage
-        .from("audio")
-        .upload(filePath, audioBlob, { contentType: "audio/webm" });
+      const { filePath, fileName, size } = await uploadVisitAudio(supabase, audioBlob);
 
       await ((supabase as any).from("client_visits"))
         .update({
           audio_url: filePath,
           audio_duration_seconds: audioDuration,
-          audio_file_name: "recording.webm",
-          audio_file_size: audioBlob.size,
+          audio_file_name: fileName,
+          audio_file_size: size,
           duration_minutes: Math.ceil(audioDuration / 60),
           status: "recording",
         })
@@ -236,7 +289,9 @@ export default function NewVisitPage() {
       router.push("/visits");
     } catch (err) {
       console.error("Error:", err);
+      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
+      setProcessingStep("");
       setSaving(false);
     }
   }
@@ -489,6 +544,12 @@ export default function NewVisitPage() {
             {t("transcriptionWarning")}
           </p>
 
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
             <button
               onClick={handleUploadAndTranscribe}
@@ -498,7 +559,12 @@ export default function NewVisitPage() {
               {transcribing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("transcribing")}
+                  {processingStep || t("transcribing")}
+                </>
+              ) : error ? (
+                <>
+                  <Rocket className="h-4 w-4" />
+                  Réessayer
                 </>
               ) : (
                 <>

@@ -39,6 +39,7 @@ export default function ProjectPlanningPage() {
   const [, setTasks] = useState<PlanningTask[]>([]);
   const [, setDependencies] = useState<PlanningDependency[]>([]);
   const [planningId, setPlanningId] = useState<string | null>(null);
+  const [criticalPath, setCriticalPath] = useState<string[]>([]);
 
   const [showConfig, setShowConfig] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -90,8 +91,29 @@ export default function ProjectPlanningPage() {
         setTasks(json.tasks || []);
         setDependencies(json.dependencies || []);
         setPlanningId(p.id);
+
+        // Critical path: the generator stores CPM results as sort_order strings
+        // (ai_generation_log.critical_path_task_ids) because task UUIDs do not
+        // exist yet at generation time. Remap them onto the persisted task IDs.
+        const rawCriticalIds: unknown = p.ai_generation_log?.critical_path_task_ids;
+        if (Array.isArray(rawCriticalIds) && rawCriticalIds.length > 0) {
+          const idBySortOrder = new Map<string, string>();
+          for (const tk of (json.tasks || [])) {
+            if (tk.sort_order !== null && tk.sort_order !== undefined) {
+              idBySortOrder.set(String(tk.sort_order), tk.id);
+            }
+          }
+          setCriticalPath(
+            rawCriticalIds
+              .map((sortOrder) => idBySortOrder.get(String(sortOrder)))
+              .filter((taskId): taskId is string => Boolean(taskId)),
+          );
+        } else {
+          setCriticalPath([]);
+        }
       } else {
         setPlanning(null);
+        setCriticalPath([]);
       }
     } catch (err) {
       console.error("[planning] fetch error:", err);
@@ -277,11 +299,15 @@ export default function ProjectPlanningPage() {
       refreshPlanningOptimistic(taskId, updates);
 
       try {
-        await fetch(`/api/planning/${planningId}`, {
+        const res = await fetch(`/api/planning/${planningId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ task_id: taskId, ...updates }),
         });
+        if (!res.ok) {
+          console.error("[planning] update rejected:", res.status);
+          fetchPlanning(); // revert — the server did not persist the change
+        }
       } catch (err) {
         console.error("[planning] update error:", err);
         fetchPlanning(); // revert on error
@@ -307,11 +333,15 @@ export default function ProjectPlanningPage() {
       });
 
       try {
-        await fetch(`/api/planning/${planningId}`, {
+        const res = await fetch(`/api/planning/${planningId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phase_id: phaseId, ...updates }),
         });
+        if (!res.ok) {
+          console.error("[planning] phase update rejected:", res.status);
+          fetchPlanning();
+        }
       } catch (err) {
         console.error("[planning] phase update error:", err);
         fetchPlanning();
@@ -341,11 +371,15 @@ export default function ProjectPlanningPage() {
       });
 
       try {
-        await fetch(`/api/planning/${planningId}`, {
+        const res = await fetch(`/api/planning/${planningId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ delete_task_id: taskId }),
         });
+        if (!res.ok) {
+          console.error("[planning] delete task rejected:", res.status);
+          fetchPlanning();
+        }
       } catch (err) {
         console.error("[planning] delete task error:", err);
         fetchPlanning();
@@ -396,11 +430,15 @@ export default function ProjectPlanningPage() {
       });
 
       try {
-        await fetch(`/api/planning/${planningId}`, {
+        const res = await fetch(`/api/planning/${planningId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ delete_dependency_id: depId }),
         });
+        if (!res.ok) {
+          console.error("[planning] delete dependency rejected:", res.status);
+          fetchPlanning();
+        }
       } catch (err) {
         console.error("[planning] delete dependency error:", err);
         fetchPlanning();
@@ -689,8 +727,7 @@ export default function ProjectPlanningPage() {
     );
   }
 
-  // Compute critical path for the chart
-  const criticalPath: string[] = []; // Will be populated from ai_generation_log if available
+  // `criticalPath` is populated in fetchPlanning() from ai_generation_log.
 
   return (
     <div className="flex flex-col h-full">

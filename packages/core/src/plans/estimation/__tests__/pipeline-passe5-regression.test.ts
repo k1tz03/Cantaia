@@ -67,10 +67,18 @@ type RequiredPipelineKeys =
 
 /**
  * Every required 4-pass key must be present on `EstimationPipelineResult`.
- * `passe5` is OPTIONAL — it may or may not be on the type.
+ *
+ * Excluded from the comparison because they are strictly OPTIONAL additions
+ * (their optionality is itself asserted below):
+ *   - `passe5`      — Passe 5 output, only present when opted in.
+ *   - `estimate_id` — id de la ligne `plan_estimates` créée en fin de
+ *                     pipeline (B1). Absent si la sauvegarde a échoué, donc
+ *                     jamais requis : aucun appelant existant ne casse.
  */
+type OptionalAdditions = 'passe5' | 'estimate_id';
+
 type _KeysStillPresent = StaticAssert<
-  Equals<RequiredPipelineKeys, Exclude<keyof EstimationPipelineResult, 'passe5'>>
+  Equals<RequiredPipelineKeys, Exclude<keyof EstimationPipelineResult, OptionalAdditions>>
 >;
 
 // ─── 2. `passe5` must be strictly OPTIONAL ──────────────────────────────
@@ -87,6 +95,11 @@ type OptionalKeys<T> = {
 
 type _Passe5IsOptional = StaticAssert<
   Equals<'passe5' extends OptionalKeys<EstimationPipelineResult> ? true : false, true>
+>;
+
+/** Même garantie pour `estimate_id` : additif, jamais requis. */
+type _EstimateIdIsOptional = StaticAssert<
+  Equals<'estimate_id' extends OptionalKeys<EstimationPipelineResult> ? true : false, true>
 >;
 
 // ─── 3. `pipeline_stats.passe5_duration_ms` must be strictly OPTIONAL ──
@@ -175,6 +188,7 @@ export function assertPasse5PresentOnResult(
 export type {
   _KeysStillPresent,
   _Passe5IsOptional,
+  _EstimateIdIsOptional,
   _Passe5DurationIsOptional,
   _Passe5Keys,
 };

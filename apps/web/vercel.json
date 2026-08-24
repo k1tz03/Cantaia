@@ -41,12 +41,8 @@
       "schedule": "0 22 * * 0"
     },
     {
-      "path": "/api/cron/project-memory",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/meeting-prep",
-      "schedule": "30 6 * * *"
+      "path": "/api/cron/calibrate",
+      "schedule": "0 5 * * 1"
     }
   ]
 }

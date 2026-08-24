@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 
 /**
  * GET /api/admin/usage-stats
@@ -8,31 +8,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Query params: period=7d|30d|90d (default: 30d)
  */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Verify admin role — harmonized on the shared org-admin guard
+  // (role admin/director or superadmin)
+  const check = await requireOrgAdmin();
+  if (!check.authorized) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
-  // Verify admin role
   const adminClient = createAdminClient();
-  const { data: userData } = await adminClient
-    .from("users")
-    .select("role, organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userData || !["admin", "superadmin"].includes(userData.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const orgId = userData.organization_id;
-  if (!orgId) {
-    return NextResponse.json({ error: "No organization" }, { status: 400 });
-  }
+  const orgId = check.profile.organization_id;
 
   // Parse period
   const period = request.nextUrl.searchParams.get("period") || "30d";

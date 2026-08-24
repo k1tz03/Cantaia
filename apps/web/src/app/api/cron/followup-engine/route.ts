@@ -4,8 +4,20 @@ import { getAgentConfig, runAgentLoop } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { executeCustomTool } from "../../agents/[type]/stream/tool-handlers";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { isAuthorizedCron } from "@/lib/cron-auth";
+import {
+  nextAgentBudgetMs,
+  isSuccessfulToolResult,
+  extractSavedCount,
+  countToolInputArray,
+} from "../agent-cron-utils";
 
 export const maxDuration = 300;
+
+/** Vercel Cron invokes scheduled paths with GET — delegate to POST. */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
 
 /**
  * POST /api/cron/followup-engine
@@ -18,13 +30,11 @@ export const maxDuration = 300;
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const cronStart = Date.now();
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
@@ -67,8 +77,16 @@ export async function POST(request: NextRequest) {
   console.log(`[cron/followup-engine] Processing ${orgUserMap.size} organizations`);
 
   const results: { orgId: string; followupsCreated: number; status: string; error?: string }[] = [];
+  const skippedOrgs: string[] = [];
 
   for (const [orgId, userId] of orgUserMap) {
+    // AGT.H4 — stop cleanly before Vercel kills the function mid-org.
+    const orgBudgetMs = nextAgentBudgetMs(cronStart, agentConfig.maxDurationMs);
+    if (orgBudgetMs === null) {
+      skippedOrgs.push(orgId);
+      continue;
+    }
+
     try {
       const sessionId = crypto.randomUUID();
       const dbSessionId = crypto.randomUUID();
@@ -89,17 +107,25 @@ export async function POST(request: NextRequest) {
       const startTime = Date.now();
       let followupsCreated = 0;
 
+      // AGT.M2 — count what the handler actually persisted, not what the model
+      // asked for. `agent.tool_use` records the request; `custom_tool_result`
+      // records the outcome.
+      const requestedByToolUseId = new Map<string, number>();
+
       const onEvent = (eventType: string, data: Record<string, unknown>) => {
-        if (eventType === "agent.tool_use" && data.tool_name === "save_followup_items") {
-          // Count items from the input
-          try {
-            const items = typeof data.tool_input === "object" && data.tool_input
-              ? (data.tool_input as Record<string, unknown>).items
-              : null;
-            if (typeof items === "string") {
-              followupsCreated += JSON.parse(items).length;
-            }
-          } catch { /* count stays 0 */ }
+        if (data.tool_name !== "save_followup_items") return;
+        const toolUseId = typeof data.tool_use_id === "string" ? data.tool_use_id : "";
+
+        if (eventType === "agent.tool_use") {
+          requestedByToolUseId.set(toolUseId, countToolInputArray(data, "items"));
+          return;
+        }
+
+        if (eventType === "custom_tool_result") {
+          const requested = requestedByToolUseId.get(toolUseId) ?? 0;
+          requestedByToolUseId.delete(toolUseId);
+          if (!isSuccessfulToolResult(data)) return;
+          followupsCreated += extractSavedCount(data) ?? requested;
         }
       };
 
@@ -126,7 +152,7 @@ export async function POST(request: NextRequest) {
             admin,
           }),
         onEvent,
-        maxDurationMs: agentConfig.maxDurationMs,
+        maxDurationMs: orgBudgetMs,
       });
 
       const durationMs = Date.now() - startTime;
@@ -192,11 +218,22 @@ export async function POST(request: NextRequest) {
   }
 
   const totalFollowups = results.reduce((sum, r) => sum + r.followupsCreated, 0);
-  console.log(`[cron/followup-engine] Done. ${totalFollowups} followups across ${results.length} orgs`);
+  console.log(
+    `[cron/followup-engine] Done in ${Math.round((Date.now() - cronStart) / 1000)}s. ` +
+    `${totalFollowups} followups across ${results.length} orgs`
+  );
+
+  if (skippedOrgs.length > 0) {
+    console.warn(
+      `[cron/followup-engine] Time budget exhausted — ${skippedOrgs.length} org(s) not processed: ${skippedOrgs.join(", ")}`
+    );
+  }
 
   return NextResponse.json({
     total_orgs: results.length,
     total_followups: totalFollowups,
+    skipped_orgs: skippedOrgs,
+    duration_ms: Date.now() - cronStart,
     results,
   });
 }

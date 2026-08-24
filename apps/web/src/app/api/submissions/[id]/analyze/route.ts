@@ -36,6 +36,17 @@ const VISION_PAGES_PER_BATCH = 5;
 // pdfjs is now tried on ALL PDFs regardless of size (no threshold).
 // Fall through to Vision chunking only if pdfjs finds < 100 meaningful chars (truly scanned).
 
+// H7 watchdog: a row left in `analyzing` for longer than this had its serverless
+// function killed before it could write a final status. Any new PREPARE request
+// resets it to `error` first, so the UI is never permanently locked.
+const STALE_ANALYZING_MS = 10 * 60 * 1000;
+
+// Replaces the former assistant prefill (`{ role: "assistant", content: '{"items": [' }`).
+// parseJsonResponse() already tolerates markdown fences and preamble.
+const JSON_ONLY_INSTRUCTION =
+  'Réponds UNIQUEMENT avec l\'objet JSON {"items":[...]} demandé, ' +
+  "sans texte avant ou après, sans bloc de code markdown et sans commentaire.";
+
 const ANALYSIS_PROMPT = `Tu es un expert en soumissions de construction suisse (normes CFC/NPK). Extrais TOUS les postes du document fourni.
 
 # FORMAT DE SORTIE
@@ -238,6 +249,37 @@ export async function POST(
     if (isChunkMode) {
       return handleChunk(id, submission, admin, body.chunkIndex, body.totalChunks, body.pageCount);
     }
+
+    // ── H7 watchdog (PREPARE only) ─────────────────────────────────────────
+    // A submission stuck in "analyzing" means the previous run's serverless
+    // function died before writing a final status. Reset it to "error" so the
+    // state is visible and the analysis can be re-permitted. A *fresh*
+    // "analyzing" row means another client is actively driving the chunk loop —
+    // refuse to start a second, competing analysis.
+    if (submission.analysis_status === "analyzing") {
+      const updatedAt = submission.updated_at ? new Date(submission.updated_at).getTime() : NaN;
+      const isStale = Number.isNaN(updatedAt) || Date.now() - updatedAt > STALE_ANALYZING_MS;
+
+      if (!isStale) {
+        return NextResponse.json(
+          {
+            error:
+              "Une analyse est déjà en cours pour cette soumission. " +
+              "Attendez qu'elle se termine ou réessayez dans quelques minutes.",
+            analysis_status: "analyzing",
+          },
+          { status: 409 }
+        );
+      }
+
+      console.warn(`[analyze] Stale "analyzing" state on ${id} (updated_at=${submission.updated_at}) — resetting to error`);
+      await setAnalysisError(
+        admin,
+        id,
+        "L'analyse précédente a été interrompue (délai dépassé). Relance en cours."
+      ).catch(() => {});
+    }
+
     return handlePrepare(id, submission, admin);
 
   } catch (err: any) {
@@ -668,6 +710,7 @@ async function claudeVisionExtractItems(
     max_tokens: 16384,
     system: [
       { type: "text", text: ANALYSIS_PROMPT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: JSON_ONLY_INSTRUCTION },
     ],
     messages: [
       {
@@ -683,16 +726,13 @@ async function claudeVisionExtractItems(
           },
         ],
       },
-      // Assistant prefill forces JSON output without any preamble
-      {
-        role: "assistant",
-        content: '{"items": [',
-      },
+      // No assistant prefill — JSON_ONLY_INSTRUCTION + parseJsonResponse() handle
+      // preamble/markdown without prefilling the assistant turn.
     ],
   });
 
   const textBlock = response.content.find((c: any) => c.type === "text");
-  const raw = '{"items": [' + ((textBlock as any)?.text || "");
+  const raw = (textBlock as any)?.text || "";
   console.log(`[VISION] ${batchLabel}: stop=${response.stop_reason} raw=${raw.length} chars`);
   return parseJsonResponse(raw);
 }
@@ -854,18 +894,20 @@ async function analyzeChunk(
     ? `\n\n[Partie ${chunkIndex}/${totalChunks} du document]`
     : "";
 
+  // No assistant prefill — JSON_ONLY_INSTRUCTION + parseJsonResponse() (which
+  // already strips markdown fences and preamble) achieve the same result without
+  // relying on a prefilled assistant turn.
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 16384,
-    system: [{ type: "text" as const, text: ANALYSIS_PROMPT, cache_control: { type: "ephemeral" as const } }],
+    system: [
+      { type: "text" as const, text: ANALYSIS_PROMPT, cache_control: { type: "ephemeral" as const } },
+      { type: "text" as const, text: JSON_ONLY_INSTRUCTION },
+    ],
     messages: [
       {
         role: "user",
         content: `Analyse ce document de soumission et extrais tous les postes :\n\n${text}${chunkNote}`,
-      },
-      {
-        role: "assistant",
-        content: '{"items": [',
       },
     ],
   });
@@ -873,7 +915,7 @@ async function analyzeChunk(
   const textBlock = response.content.find((c: any) => c.type === "text");
   if (!textBlock || textBlock.type !== "text") throw new Error("No text response from Claude");
 
-  const fullJson = '{"items": [' + textBlock.text;
+  const fullJson = textBlock.text;
   console.log(`[ANALYZE] Response${chunkLabel}: ${fullJson.length} chars, stop=${response.stop_reason}`);
   console.log(`[ANALYZE] Preview${chunkLabel}: ${fullJson.substring(0, 200)}...`);
 

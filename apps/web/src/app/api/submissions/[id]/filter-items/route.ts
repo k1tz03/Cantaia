@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
 
 /**
  * POST /api/submissions/[id]/filter-items
@@ -10,8 +12,29 @@ import { MODEL_FOR_TASK, classifyAIError } from "@cantaia/core/ai";
  * a formal price request to suppliers.
  *
  * Body: { items: Array<{ id, description, unit, cfc_code, material_group }> }
- * Returns: { excluded: Array<{ id, reason }> }
+ * Returns: { excluded: Array<{ id, reason }>, cached?: boolean }
+ *
+ * M6: the client calls this on every mount of the "Demandes de prix" tab. The
+ * result is now cached in `submissions.item_filter_cache`, keyed by a hash of the
+ * item id set, so Claude is only called when the item list actually changes.
+ * The call is also metered through checkUsageLimit like every other AI route.
  */
+
+/** Stable fingerprint of the item set the exclusions were computed for. */
+function hashItemIds(items: Array<{ id?: string }>): string {
+  const ids = items
+    .map((i) => String(i?.id ?? ""))
+    .filter(Boolean)
+    .sort();
+  return createHash("sha256").update(ids.join("|")).digest("hex").slice(0, 32);
+}
+
+/** JSON-only instruction replacing the former assistant prefill. */
+const JSON_ONLY_SYSTEM =
+  "Réponds UNIQUEMENT avec un objet JSON de la forme " +
+  '{"excluded":[{"id":"<uuid>","reason":"<raison courte>"}]}. ' +
+  "Aucun texte avant ou après, pas de bloc de code markdown, pas de commentaire.";
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,7 +63,7 @@ export async function POST(
 
   const { data: submission } = await (admin as any)
     .from("submissions")
-    .select("id, project_id, projects!inner(organization_id)")
+    .select("id, project_id, item_filter_cache, projects!inner(organization_id)")
     .eq("id", submissionId)
     .maybeSingle();
 
@@ -53,6 +76,40 @@ export async function POST(
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ excluded: [] });
+  }
+
+  // ── M6: serve from cache when the item set is unchanged ──────────────────
+  const itemsHash = hashItemIds(items);
+  const cache = (submission as any).item_filter_cache;
+  if (cache?.hash === itemsHash && Array.isArray(cache.excluded)) {
+    return NextResponse.json({ excluded: cache.excluded, cached: true });
+  }
+
+  // ── M6: this route calls Claude — meter it like every other AI route ─────
+  const { data: orgData } = await (admin as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userProfile.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    admin,
+    userProfile.organization_id,
+    orgData?.subscription_plan || "trial"
+  );
+  if (!usageCheck.allowed) {
+    // Non-blocking feature: return an empty exclusion list rather than breaking
+    // the price-request tab, but surface the quota state to the client.
+    return NextResponse.json(
+      {
+        excluded: [],
+        usage_limit_reached: true,
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 200 }
+    );
   }
 
   // Build compact item list for AI
@@ -84,21 +141,31 @@ Réponds UNIQUEMENT en JSON. Pour chaque poste à exclure, donne l'id et la rais
       timeout: 30_000,
     });
 
+    // No assistant prefill — JSON-only output is requested via the system prompt
+    // and the response goes through the tolerant parser below.
     const response = await anthropic.messages.create({
       model: MODEL_FOR_TASK.task_extraction, // Haiku — fast and cheap
       max_tokens: 2048,
-      messages: [
-        { role: "user", content: prompt },
-        { role: "assistant", content: '{"excluded": [' },
-      ],
+      system: JSON_ONLY_SYSTEM,
+      messages: [{ role: "user", content: prompt }],
     });
 
     const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-    const fullJson = '{"excluded": [' + rawText;
 
-    // Robust JSON parsing
+    // Robust JSON parsing — tolerates markdown fences and stray preamble now that
+    // the response is not forced to start with '{"excluded": ['.
     let result: { excluded: Array<{ id: string; reason: string }> };
-    const cleaned = fullJson.replace(/,\s*([\]}])/g, "$1").trim();
+    let cleaned = rawText
+      .replace(/```(?:json)?/gi, "")
+      .replace(/,\s*([\]}])/g, "$1")
+      .trim();
+
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace > 0) {
+      cleaned = lastBrace > firstBrace ? cleaned.slice(firstBrace, lastBrace + 1) : cleaned.slice(firstBrace);
+    }
+
     try {
       result = JSON.parse(cleaned);
     } catch {
@@ -112,7 +179,7 @@ Réponds UNIQUEMENT en JSON. Pour chaque poste à exclure, donne l'id et la rais
         const objects: Array<{ id: string; reason: string }> = [];
         const regex = /\{[^{}]*"id"\s*:\s*"[^"]*"[^{}]*\}/g;
         let match;
-        while ((match = regex.exec(fullJson)) !== null) {
+        while ((match = regex.exec(rawText)) !== null) {
           try {
             objects.push(JSON.parse(match[0]));
           } catch { /* skip */ }
@@ -127,7 +194,27 @@ Réponds UNIQUEMENT en JSON. Pour chaque poste à exclure, donne l'id et la rais
       (e) => e.id && e.reason && validIds.has(e.id)
     );
 
-    return NextResponse.json({ excluded });
+    // ── M6: persist the result so the next mount is served from cache ───────
+    const { error: cacheError } = await (admin as any)
+      .from("submissions")
+      .update({
+        item_filter_cache: {
+          hash: itemsHash,
+          excluded,
+          computed_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", submissionId);
+
+    if (cacheError) {
+      console.warn(
+        "[submissions/filter-items] cache not persisted " +
+        "(apply migration 083_submission_items_reconcile.sql):",
+        cacheError.message
+      );
+    }
+
+    return NextResponse.json({ excluded, cached: false });
   } catch (err: any) {
     console.error("[submissions/filter-items] AI error:", err?.message);
     const aiErr = classifyAIError(err);

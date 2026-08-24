@@ -6,17 +6,18 @@ import { UsageLimitBanner } from "./UsageLimitBanner";
 import { createClient } from "@/lib/supabase/client";
 import { Clock, ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { PLAN_FEATURES, type PlanName } from "@cantaia/config/plan-features";
 
 /**
- * AI call limits per subscription plan (monthly).
+ * Monthly AI call limit for a plan, derived from the canonical PLAN_FEATURES
+ * config (same source the server uses in checkUsageLimit) so the client
+ * warning banner can never drift from the server-side enforcement.
  * -1 means unlimited.
  */
-const AI_CALL_LIMITS: Record<string, number> = {
-  trial: 50,
-  starter: 500,
-  pro: 2000,
-  enterprise: -1,
-};
+function getAiCallLimit(plan: string): number {
+  const limits = PLAN_FEATURES[plan as PlanName] ?? PLAN_FEATURES.trial;
+  return limits.aiCalls === Infinity ? -1 : limits.aiCalls;
+}
 
 interface OrgData {
   id: string;
@@ -82,10 +83,13 @@ export function TrialGuard() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
         try {
+          // Mirror server-side getUsageCount: 3D extractions are metered on
+          // their own axis (max3dExtractionsPerMonth), not the aiCalls budget.
           const { count } = await (supabase as any)
             .from("api_usage_logs")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", orgId)
+            .neq("action_type", "plan_3d_extract")
             .gte("created_at", monthStart);
 
           setAiCallsThisMonth(count || 0);
@@ -110,7 +114,7 @@ export function TrialGuard() {
     orgData.trial_ends_at &&
     new Date(orgData.trial_ends_at) < new Date();
 
-  const aiLimit = AI_CALL_LIMITS[plan] ?? AI_CALL_LIMITS.trial;
+  const aiLimit = getAiCallLimit(plan);
 
   // Trial expired overlay — blocking, full-screen
   if (isTrialExpired) {

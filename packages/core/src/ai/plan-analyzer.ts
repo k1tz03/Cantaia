@@ -83,7 +83,7 @@ export async function analyzePlan(
     return DEFAULT_RESULT;
   }
 
-  contentBlocks.push({ type: "text", text: prompt, cache_control: { type: "ephemeral" } });
+  contentBlocks.push({ type: "text", text: prompt });
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");

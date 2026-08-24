@@ -5,6 +5,9 @@ import type { PosteChiffre, PriceSource, ConfidenceLevel } from './types';
 
 const SOURCE_SCORES: Record<PriceSource, number> = {
   historique_interne: 1.0,
+  // Agrégat cross-org sans seuil de contributeurs : moins fiable qu'un
+  // benchmark C2 (>= 3 contributeurs) mais mieux qu'un référentiel statique.
+  donnees_communautaires: 0.75,
   benchmark_cantaia: 0.85,
   referentiel_crb: 0.70,
   consensus_multi_ia: 0.45,
@@ -63,6 +66,7 @@ export function calculateSourceDistribution(postes: PosteChiffre[]): Record<stri
   if (totalMedian === 0) {
     return {
       historique_interne_pct: 0,
+      donnees_communautaires_pct: 0,
       benchmark_cantaia_pct: 0,
       referentiel_crb_pct: 0,
       ratio_estimation_pct: 0,
@@ -74,6 +78,7 @@ export function calculateSourceDistribution(postes: PosteChiffre[]): Record<stri
 
   const buckets: Record<PriceSource, number> = {
     historique_interne: 0,
+    donnees_communautaires: 0,
     benchmark_cantaia: 0,
     referentiel_crb: 0,
     ratio_estimation: 0,
@@ -88,6 +93,7 @@ export function calculateSourceDistribution(postes: PosteChiffre[]): Record<stri
 
   return {
     historique_interne_pct: Math.round((buckets.historique_interne / totalMedian) * 100),
+    donnees_communautaires_pct: Math.round((buckets.donnees_communautaires / totalMedian) * 100),
     benchmark_cantaia_pct: Math.round((buckets.benchmark_cantaia / totalMedian) * 100),
     referentiel_crb_pct: Math.round((buckets.referentiel_crb / totalMedian) * 100),
     ratio_estimation_pct: Math.round((buckets.ratio_estimation / totalMedian) * 100),

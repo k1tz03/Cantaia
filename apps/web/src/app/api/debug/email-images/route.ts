@@ -23,6 +23,18 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient();
 
+  // Diagnostic endpoint: dumps raw email bodies, Graph attachment metadata and
+  // token-backed Graph responses — superadmin only (same guard as the other
+  // /api/debug/* routes).
+  const { data: userProfile } = await (admin as any)
+    .from("users")
+    .select("is_superadmin")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!userProfile?.is_superadmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // If no ID, get the latest email for this user
   let query = (admin as any).from("email_records")
     .select("id, subject, outlook_message_id, body_html, body_text, body_preview, sender_email, classification")

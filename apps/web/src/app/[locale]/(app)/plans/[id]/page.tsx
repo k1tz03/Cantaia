@@ -45,6 +45,8 @@ export default function PlanDetailPage() {
 
   const [correctionPoste, setCorrectionPoste] = useState<any>(null);
   const [calibrationPoste, setCalibrationPoste] = useState<any>(null);
+  /** Erreur des boucles d'apprentissage (correction quantité / calibration prix). */
+  const [learningError, setLearningError] = useState("");
 
   // ── Managed Agent integration (feature-flagged) ──────────
   const estimatorAgent = useAgent("plan-estimator");
@@ -253,36 +255,76 @@ export default function PlanDetailPage() {
     }
   };
 
+  /**
+   * B3 — Contrat corrections.
+   *
+   * Avant : le client envoyait `estimation_id: estimationV2.plan_id` (un
+   * plan_id déguisé), sans `plan_id` ni `unite` que la route exige. La route
+   * répondait 400, le `fetch` sans `res.ok` l'ignorait, `setCorrectionPoste(null)`
+   * fermait la modale → faux succès à chaque fois, et `quantity_corrections`
+   * est restée vide en permanence.
+   *
+   * Maintenant : payload complet (plan_id + unite + estimation_id réel), erreur
+   * affichée, et on relance l'exception pour que la modale reste ouverte (elle
+   * gère déjà `catch { setSaving(false) }`).
+   */
   const handleSaveCorrection = async (data: { quantite_corrigee: number; raison: string; commentaire?: string }) => {
-    if (!correctionPoste || !estimationV2) return;
-    await fetch("/api/plans/corrections", {
+    if (!correctionPoste || !estimationV2 || !plan) return;
+    setLearningError("");
+
+    const res = await fetch("/api/plans/corrections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        estimation_id: estimationV2.plan_id,
+        plan_id: plan.id,
+        // `estimate_id` référence la ligne plan_estimates ; absent tant que
+        // l'estimation n'a pas été persistée — la route retombe alors sur la
+        // dernière estimation du plan.
+        estimation_id: estimationV2.estimate_id ?? undefined,
         cfc_code: correctionPoste.cfc_code,
+        description: correctionPoste.description,
+        unite: correctionPoste.unite,
         quantite_estimee: correctionPoste.quantite,
         quantite_corrigee: data.quantite_corrigee,
         raison: data.raison,
         commentaire: data.commentaire,
       }),
     });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      const message = payload?.message || payload?.error || `Erreur ${res.status}`;
+      setLearningError(`Correction non enregistrée — ${message}`);
+      throw new Error(message);
+    }
+
     setCorrectionPoste(null);
   };
 
   const handleSaveCalibration = async (data: { prix_reel: number; source: string; fournisseur_nom?: string }) => {
-    if (!calibrationPoste || !estimationV2) return;
-    await fetch("/api/plans/calibration", {
+    if (!calibrationPoste || !estimationV2 || !plan) return;
+    setLearningError("");
+
+    const res = await fetch("/api/plans/calibration", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        estimation_id: estimationV2.plan_id,
+        plan_id: plan.id,
+        estimation_id: estimationV2.estimate_id ?? undefined,
         cfc_code: calibrationPoste.cfc_code,
         prix_reel: data.prix_reel,
         source: data.source,
         fournisseur_nom: data.fournisseur_nom,
       }),
     });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      const message = payload?.message || payload?.error || `Erreur ${res.status}`;
+      setLearningError(`Prix réel non enregistré — ${message}`);
+      throw new Error(message);
+    }
+
     setCalibrationPoste(null);
   };
 
@@ -324,6 +366,16 @@ export default function PlanDetailPage() {
   const versions = plan.plan_versions || [];
   const currentVersion = versions.find((v) => v.is_current) || versions[0];
 
+  // B14 — `score_global` est DÉJÀ sur une échelle 0-100 (`calculateGlobalScore`
+  // renvoie `Math.round(ratio * 100)`). L'ancien `Math.min(score, 1) * 100`
+  // ramenait tout score >= 1 à 100 % : le badge affichait « 100% » quelle que
+  // soit la qualité réelle de l'estimation.
+  const rawScore = estimationV2?.passe4?.analyse_fiabilite?.score_global;
+  const estimationScoreLabel =
+    typeof rawScore === "number" && Number.isFinite(rawScore)
+      ? `${Math.round(rawScore)}%`
+      : null;
+
   return (
     <div className="flex-1 overflow-y-auto min-h-full bg-[#0F0F11]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -340,9 +392,7 @@ export default function PlanDetailPage() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           versionsCount={versions.length}
-          estimationScore={estimationV2?.passe4?.analyse_fiabilite?.score_global != null
-            ? `${Math.round(Math.min(estimationV2.passe4.analyse_fiabilite.score_global, 1) * 100)}%`
-            : null}
+          estimationScore={estimationScoreLabel}
           showEstimationTab={USE_MANAGED_AGENTS}
           t={t}
         />
@@ -408,13 +458,28 @@ export default function PlanDetailPage() {
           />
         )}
 
+        {learningError && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            <span aria-hidden="true">!</span>
+            <span className="flex-1">{learningError}</span>
+            <button
+              type="button"
+              onClick={() => setLearningError("")}
+              className="text-xs text-red-300 hover:text-red-100"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
+
         {correctionPoste && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="bg-[#0F0F11] rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
               <QuantityCorrectionModal
                 poste={correctionPoste}
                 onSave={handleSaveCorrection}
-                onClose={() => setCorrectionPoste(null)}
+                onClose={() => { setLearningError(""); setCorrectionPoste(null); }}
+                error={learningError}
               />
             </div>
           </div>
@@ -426,7 +491,8 @@ export default function PlanDetailPage() {
               <PriceCalibrationModal
                 poste={calibrationPoste}
                 onSave={handleSaveCalibration}
-                onClose={() => setCalibrationPoste(null)}
+                onClose={() => { setLearningError(""); setCalibrationPoste(null); }}
+                error={learningError}
               />
             </div>
           </div>

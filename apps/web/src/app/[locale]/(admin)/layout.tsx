@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { useState, useEffect } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
   Building2,
@@ -16,7 +16,26 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const t = useTranslations("admin");
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
+
+  // Client-side guard: the sidebar only hides the link — verify access
+  // server-side (role admin/director or superadmin) and bounce everyone else.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/check-access")
+      .then((res) => {
+        if (!cancelled && (res.status === 401 || res.status === 403)) {
+          router.replace("/dashboard");
+        }
+      })
+      .catch(() => {
+        // Network error: don't lock the user out — API routes stay guarded
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   return (
     <div className="flex min-h-screen bg-[#0F0F11]">

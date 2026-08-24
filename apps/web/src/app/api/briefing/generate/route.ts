@@ -172,7 +172,7 @@ export async function POST() {
             supabase: admin,
             userId: user.id,
             organizationId: orgId,
-            actionType: "email_summary",
+            actionType: "briefing_generate",
             apiProvider: "anthropic",
             model: usage.model,
             inputTokens: usage.inputTokens,

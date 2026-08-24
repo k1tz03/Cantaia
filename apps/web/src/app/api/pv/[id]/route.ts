@@ -28,6 +28,11 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
+    // A user without an organization can never own a meeting
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: meeting, error } = await admin
       .from("meetings")
       .select("*, projects(id, name, code, color, address, city, organization_id)")
@@ -41,9 +46,9 @@ export async function GET(
       );
     }
 
-    // Verify meeting's project belongs to user's org
+    // Verify meeting's project belongs to user's org (unconditional)
     const proj = (meeting as any).projects;
-    if (proj && userProfile?.organization_id && proj.organization_id !== userProfile.organization_id) {
+    if (!proj || proj.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -90,25 +95,39 @@ export async function PUT(
       .eq("id", user.id)
       .maybeSingle();
 
+    // A user without an organization can never own a meeting
+    if (!userOrg?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: meetingCheck } = await (admin as any)
       .from("meetings")
       .select("project_id, pv_content")
       .eq("id", id)
       .maybeSingle();
 
-    if (meetingCheck?.project_id && userOrg?.organization_id) {
-      const { data: projCheck } = await (admin as any)
-        .from("projects")
-        .select("organization_id")
-        .eq("id", meetingCheck.project_id)
-        .maybeSingle();
-      if (projCheck && projCheck.organization_id !== userOrg.organization_id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+    if (!meetingCheck) {
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+    }
+
+    // Unconditional org check — a meeting without a project, or whose project
+    // belongs to another org, is not writable by this user.
+    if (!meetingCheck.project_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { data: projCheck } = await (admin as any)
+      .from("projects")
+      .select("organization_id")
+      .eq("id", meetingCheck.project_id)
+      .maybeSingle();
+
+    if (!projCheck || projCheck.organization_id !== userOrg.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Log PV content correction if pv_content changed (fire-and-forget)
-    if (body.pv_content && meetingCheck?.pv_content && userOrg?.organization_id) {
+    if (body.pv_content && meetingCheck?.pv_content) {
       const existingJson = JSON.stringify(meetingCheck.pv_content);
       const newJson = JSON.stringify(body.pv_content);
       if (existingJson !== newJson) {

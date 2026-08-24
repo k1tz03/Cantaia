@@ -4,8 +4,9 @@
 // ============================================================
 
 import {
-  buildEmailClassifyPrompt,
-  type EmailClassifyContext,
+  buildEmailClassifySystemPrompt,
+  buildEmailClassifyUserPrompt,
+  type EmailClassifyUserContext,
 } from "./prompts";
 import {
   classifyEmailResultSchema,
@@ -80,8 +81,7 @@ export async function classifyEmail(
   // Use full body if available, otherwise fall back to preview
   const bodyContent = email.body_full || email.body_preview;
 
-  const ctx: EmailClassifyContext = {
-    projects_list: projectsList || "(Aucun projet actif)",
+  const userCtx: EmailClassifyUserContext = {
     sender_email: email.sender_email,
     sender_name: email.sender_name,
     subject: email.subject,
@@ -90,26 +90,33 @@ export async function classifyEmail(
     recipients: email.recipients?.length ? email.recipients.join(", ") : undefined,
   };
 
-  const prompt = buildEmailClassifyPrompt(ctx);
+  // System block = stable instructions + projects list (cached across the sync batch).
+  // User block = the email itself (unique — never cached).
+  const systemPrompt = buildEmailClassifySystemPrompt({
+    projects_list: projectsList || "(Aucun projet actif)",
+  });
+  const userPrompt = buildEmailClassifyUserPrompt(userCtx);
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000 });
+    // maxRetries: 0 — retry is handled by callAnthropicWithRetry (avoid double retry)
+    const client = new Anthropic({ apiKey: anthropicApiKey, timeout: 60_000, maxRetries: 0 });
 
     const response = await callAnthropicWithRetry(() =>
       client.messages.create({
         model,
         max_tokens: 900, // increased to accommodate enriched signals (prices, deadlines, supplier)
+        system: [
+          {
+            type: "text",
+            text: systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
         messages: [
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: prompt,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
+            content: userPrompt,
           },
         ],
       })

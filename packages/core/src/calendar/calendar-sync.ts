@@ -104,6 +104,141 @@ export class GraphCalendarRateLimitError extends Error {
   }
 }
 
+// ── Timezone Helpers (CAL.C1) ──────────────────────────────
+// Product timezone is Europe/Zurich. The DB stores timestamptz (UTC
+// instants); Microsoft Graph expects/returns WALL-CLOCK dateTimes paired
+// with a `timeZone` field (no offset in the string). These helpers convert
+// between the two representations without shifting the actual instant.
+
+const DEFAULT_TIMEZONE = "Europe/Zurich";
+
+/** Common Windows timezone names → IANA (Graph may return either form). */
+const WINDOWS_TO_IANA: Record<string, string> = {
+  "W. Europe Standard Time": "Europe/Zurich",
+  "Central Europe Standard Time": "Europe/Zurich",
+  "Central European Standard Time": "Europe/Warsaw",
+  "Romance Standard Time": "Europe/Paris",
+  "GMT Standard Time": "Europe/London",
+  "Greenwich Standard Time": "UTC",
+  "E. Europe Standard Time": "Europe/Bucharest",
+  "Eastern Standard Time": "America/New_York",
+  "Central Standard Time": "America/Chicago",
+  "Mountain Standard Time": "America/Denver",
+  "Pacific Standard Time": "America/Los_Angeles",
+};
+
+/** Resolve to a usable IANA zone, or null when the zone is UTC/unknown. */
+function resolveIanaTimeZone(timeZone: string | undefined): string | null {
+  if (!timeZone || timeZone.toUpperCase() === "UTC") return null;
+  const mapped = WINDOWS_TO_IANA[timeZone] || timeZone;
+  try {
+    // Throws RangeError on invalid IANA names
+    new Intl.DateTimeFormat("en-US", { timeZone: mapped });
+    return mapped;
+  } catch {
+    return null;
+  }
+}
+
+/** Wall-clock parts of a UTC instant in a given IANA zone. */
+function getWallParts(utcMs: number, ianaZone: string) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ianaZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts: Record<string, string> = {};
+  for (const p of fmt.formatToParts(new Date(utcMs))) parts[p.type] = p.value;
+  return {
+    y: Number(parts.year),
+    mo: Number(parts.month),
+    d: Number(parts.day),
+    h: parts.hour === "24" ? 0 : Number(parts.hour),
+    mi: Number(parts.minute),
+    s: Number(parts.second),
+  };
+}
+
+const HAS_OFFSET_RE = /Z$|[+-]\d{2}:?\d{2}$/;
+
+/**
+ * Convert a Graph dateTime (wall time expressed in `timeZone`, no offset,
+ * e.g. "2026-08-24T14:00:00.0000000" + "UTC") to a UTC ISO string suitable
+ * for a Postgres timestamptz column.
+ */
+export function graphDateTimeToUtcIso(
+  dateTime: string,
+  timeZone: string | undefined
+): string {
+  // Already carries an explicit offset or Z → trust it
+  if (HAS_OFFSET_RE.test(dateTime)) {
+    const d = new Date(dateTime);
+    return isNaN(d.getTime()) ? dateTime : d.toISOString();
+  }
+  // Strip Graph's 7-digit fractional seconds for parsing
+  const clean = dateTime.replace(/(\.\d{3})\d+$/, "$1");
+  const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) {
+    const d = new Date(`${clean}Z`);
+    return isNaN(d.getTime()) ? dateTime : d.toISOString();
+  }
+  const wallUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+
+  const iana = resolveIanaTimeZone(timeZone);
+  if (!iana) {
+    // Zone is UTC (Graph default) or unknown → the wall time IS UTC
+    return new Date(wallUtc).toISOString();
+  }
+
+  // Fixed-point iteration: find the UTC instant whose wall time in `iana`
+  // matches the input (handles DST offsets correctly)
+  let utc = wallUtc;
+  for (let i = 0; i < 2; i++) {
+    const wp = getWallParts(utc, iana);
+    const produced = Date.UTC(wp.y, wp.mo - 1, wp.d, wp.h, wp.mi, wp.s);
+    utc += wallUtc - produced;
+  }
+  return new Date(utc).toISOString();
+}
+
+/**
+ * Convert an ISO timestamp (with offset or Z, e.g. "2026-08-24T12:00:00+00:00"
+ * from the DB) to the wall-clock "YYYY-MM-DDTHH:mm:ss" string in `timeZone`
+ * that the Graph API expects next to its `timeZone` field.
+ * A naive input (no offset) is treated as already-local and passed through.
+ */
+export function toGraphDateTime(
+  iso: string,
+  timeZone: string = DEFAULT_TIMEZONE
+): string {
+  if (!HAS_OFFSET_RE.test(iso)) {
+    // Naive local datetime — normalize to seconds precision
+    const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+    return m ? `${m[1]}T${m[2]}:${m[3]}:${m[4] || "00"}` : iso;
+  }
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return iso;
+  const iana = resolveIanaTimeZone(timeZone) || "UTC";
+  const wp = getWallParts(date.getTime(), iana);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${wp.y}-${pad(wp.mo)}-${pad(wp.d)}T${pad(wp.h)}:${pad(wp.mi)}:${pad(wp.s)}`;
+}
+
+/**
+ * CAL.H1 — Private/confidential Outlook events must never be imported into
+ * the org-visible calendar_events table.
+ */
+export function isPrivateGraphCalendarEvent(event: {
+  sensitivity?: string;
+}): boolean {
+  return event.sensitivity === "private" || event.sensitivity === "confidential";
+}
+
 // ── Sync: Import from Graph ────────────────────────────────
 
 /**
@@ -133,7 +268,7 @@ export async function fetchGraphCalendarEvents(
   } else {
     const start = options.startDate || new Date(Date.now() - 180 * 86400000).toISOString();
     const end = options.endDate || new Date(Date.now() + 365 * 86400000).toISOString();
-    url = `/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=id,subject,body,start,end,location,isAllDay,isCancelled,showAs,importance,attendees,organizer,recurrence,changeKey,createdDateTime,lastModifiedDateTime&$top=100`;
+    url = `/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=id,subject,body,start,end,location,isAllDay,isCancelled,showAs,importance,sensitivity,attendees,organizer,recurrence,changeKey,createdDateTime,lastModifiedDateTime&$top=100`;
   }
 
   do {
@@ -158,12 +293,16 @@ export function graphEventToCalendarEvent(
   userId: string,
   orgId: string
 ): Omit<CalendarEvent, "id" | "created_at" | "updated_at" | "invitations" | "project" | "meeting_prep"> {
-  const startDate = graphEvent.start.dateTime.endsWith("Z")
-    ? graphEvent.start.dateTime
-    : `${graphEvent.start.dateTime}Z`;
-  const endDate = graphEvent.end.dateTime.endsWith("Z")
-    ? graphEvent.end.dateTime
-    : `${graphEvent.end.dateTime}Z`;
+  // CAL.C1: Graph returns wall-clock dateTimes paired with a timeZone
+  // (UTC by default for calendarView). Convert to true UTC instants.
+  const startDate = graphDateTimeToUtcIso(
+    graphEvent.start.dateTime,
+    graphEvent.start.timeZone
+  );
+  const endDate = graphDateTimeToUtcIso(
+    graphEvent.end.dateTime,
+    graphEvent.end.timeZone
+  );
 
   return {
     organization_id: orgId,
@@ -176,7 +315,10 @@ export function graphEventToCalendarEvent(
     start_at: startDate,
     end_at: endDate,
     all_day: graphEvent.isAllDay,
-    timezone: graphEvent.start.timeZone || "Europe/Zurich",
+    // start_at/end_at are true UTC instants; the display timezone of the
+    // product is Europe/Zurich (Graph returns "UTC" as the wire zone).
+    timezone:
+      resolveIanaTimeZone(graphEvent.start.timeZone) || DEFAULT_TIMEZONE,
     recurrence_rule: graphEvent.recurrence
       ? buildRRuleFromGraph(graphEvent.recurrence)
       : null,
@@ -273,11 +415,30 @@ export async function updateGraphCalendarEvent(
   if (changes.location !== undefined) {
     graphChanges.location = { displayName: changes.location };
   }
-  if (changes.start_at !== undefined) {
-    graphChanges.start = { dateTime: changes.start_at, timeZone: changes.timezone || "Europe/Zurich" };
+  const timeZone = changes.timezone || DEFAULT_TIMEZONE;
+  // CAL.C1: DB timestamps carry an offset — Graph expects local wall time
+  // (no offset) alongside the timeZone field.
+  let startDateTime =
+    changes.start_at !== undefined
+      ? toGraphDateTime(changes.start_at, timeZone)
+      : undefined;
+  let endDateTime =
+    changes.end_at !== undefined
+      ? toGraphDateTime(changes.end_at, timeZone)
+      : undefined;
+
+  // Graph requires all-day events to span whole days (midnight to midnight)
+  if (changes.all_day && startDateTime && endDateTime) {
+    const whole = normalizeAllDayRange(startDateTime, endDateTime);
+    startDateTime = whole.start;
+    endDateTime = whole.end;
   }
-  if (changes.end_at !== undefined) {
-    graphChanges.end = { dateTime: changes.end_at, timeZone: changes.timezone || "Europe/Zurich" };
+
+  if (startDateTime !== undefined) {
+    graphChanges.start = { dateTime: startDateTime, timeZone };
+  }
+  if (endDateTime !== undefined) {
+    graphChanges.end = { dateTime: endDateTime, timeZone };
   }
   if (changes.all_day !== undefined) graphChanges.isAllDay = changes.all_day;
 
@@ -447,16 +608,50 @@ function buildRRuleFromGraph(
   return parts.join(";");
 }
 
+/**
+ * Graph requires all-day events to run midnight-to-midnight (exclusive end).
+ * Input wall times like 00:00:00 → 23:59:59 become 00:00:00 → next day 00:00:00.
+ */
+function normalizeAllDayRange(
+  startDateTime: string,
+  endDateTime: string
+): { start: string; end: string } {
+  const startDay = startDateTime.split("T")[0];
+  const [endDay, endTime] = endDateTime.split("T");
+  let exclusiveEnd: string;
+  if (endTime === "00:00:00" && endDay > startDay) {
+    // Already an exclusive midnight end
+    exclusiveEnd = endDay;
+  } else {
+    const d = new Date(`${endDay}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    exclusiveEnd = d.toISOString().split("T")[0];
+  }
+  return { start: `${startDay}T00:00:00`, end: `${exclusiveEnd}T00:00:00` };
+}
+
 function calendarEventToGraphFormat(event: CreateCalendarEventDTO): Record<string, unknown> {
+  const timeZone = event.timezone || DEFAULT_TIMEZONE;
+  // CAL.C1: DB timestamps carry an offset — Graph expects local wall time
+  // (no offset) alongside the timeZone field.
+  let startDateTime = toGraphDateTime(event.start_at, timeZone);
+  let endDateTime = toGraphDateTime(event.end_at, timeZone);
+
+  if (event.all_day) {
+    const whole = normalizeAllDayRange(startDateTime, endDateTime);
+    startDateTime = whole.start;
+    endDateTime = whole.end;
+  }
+
   const graphEvent: Record<string, unknown> = {
     subject: event.title,
     start: {
-      dateTime: event.start_at,
-      timeZone: event.timezone || "Europe/Zurich",
+      dateTime: startDateTime,
+      timeZone,
     },
     end: {
-      dateTime: event.end_at,
-      timeZone: event.timezone || "Europe/Zurich",
+      dateTime: endDateTime,
+      timeZone,
     },
     isAllDay: event.all_day || false,
   };

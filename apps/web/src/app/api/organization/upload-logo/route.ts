@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/x-icon"];
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -13,32 +13,14 @@ const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 export async function POST(request: NextRequest) {
   console.log("[upload-logo] Starting logo upload...");
 
-  // 1. Auth check
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // 1+2. Auth check — only org admins (admin/director) or superadmins
+  const check = await requireOrgAdmin();
+  if (!check.authorized) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
-  // 2. Get user's organization
   const admin = createAdminClient();
-  const { data: userRow, error: userErr } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (userErr || !userRow?.organization_id) {
-    return NextResponse.json(
-      { error: "No organization found" },
-      { status: 404 }
-    );
-  }
-
-  const orgId = userRow.organization_id;
+  const orgId = check.profile.organization_id;
 
   // 3. Check plan (only Pro and Enterprise can upload logos)
   const { data: org } = await admin

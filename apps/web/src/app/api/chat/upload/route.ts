@@ -11,9 +11,10 @@ const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/csv",
-  "message/rfc822", // .eml
 ];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+/** Signed URL lifetime — long enough for the chat history, short enough to expire. */
+const SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,12 +53,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check MIME type (allow .msg which has application/octet-stream or application/vnd.ms-outlook)
-    const isAllowed =
-      ALLOWED_TYPES.includes(file.type) ||
-      file.name.endsWith(".msg") ||
-      file.name.endsWith(".eml");
-    if (!isAllowed) {
+    // .msg / .eml were accepted but never parsed, so Claude received an empty
+    // attachment. Reject them explicitly until extraction is implemented.
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith(".msg") || lowerName.endsWith(".eml")) {
+      return NextResponse.json(
+        {
+          error:
+            "Les fichiers e-mail (.msg / .eml) ne sont pas encore pris en charge dans le chat. Copiez le contenu du message ou joignez le PDF correspondant.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: "File type not allowed" },
         { status: 400 },
@@ -77,9 +86,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }
 
-    const { data: urlData } = admin.storage
+    // The chat-attachments bucket is private: a public URL would either 404
+    // (private bucket) or leak the file (public bucket). Use a signed URL.
+    const { data: urlData, error: signedUrlError } = await admin.storage
       .from("chat-attachments")
-      .getPublicUrl(path);
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+
+    if (signedUrlError || !urlData?.signedUrl) {
+      console.error("[Chat Upload] Signed URL error:", signedUrlError);
+      return NextResponse.json(
+        { error: "Failed to create file URL" },
+        { status: 500 },
+      );
+    }
 
     // Extract text for PDF/Excel/CSV
     let extractedText = "";
@@ -120,7 +139,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      file_url: urlData.publicUrl,
+      file_url: urlData.signedUrl,
+      storage_path: path,
       file_name: file.name,
       file_size: file.size,
       file_type: file.type,

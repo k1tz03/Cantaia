@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import { Building2 } from "lucide-react";
 // Types inline pour éviter les problèmes de résolution de module
-type PriceSource = 'historique_interne' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
+type PriceSource = 'historique_interne' | 'donnees_communautaires' | 'benchmark_cantaia' | 'referentiel_crb' | 'ratio_estimation' | 'estimation_ia' | 'consensus_multi_ia' | 'prix_non_disponible';
 type ConfidenceLevel = 'high' | 'medium' | 'low' | 'assumption';
 type ConsensusMethod = 'concordance_forte' | 'concordance_partielle' | 'divergence' | 'detection_unique' | 'detection_double';
 
@@ -62,7 +62,7 @@ function formatCHF(n: number | null | undefined): string {
 }
 
 // Badge source coloré avec tooltip détaillé
-function SourceBadge({ source, detailSource }: { source: PriceSource; detailSource?: string }) {
+function SourceBadge({ source, detailSource }: { source?: PriceSource; detailSource?: string }) {
   const isRealData = source === "historique_interne" && detailSource?.includes("offres réelles");
   const config: Record<PriceSource, { label: string; bg: string; text: string }> = {
     historique_interne: {
@@ -70,6 +70,9 @@ function SourceBadge({ source, detailSource }: { source: PriceSource; detailSour
       bg: isRealData ? "bg-emerald-100" : "bg-green-100",
       text: isRealData ? "text-emerald-800" : "text-green-800 dark:text-green-300",
     },
+    // Agrégat cross-organisations : surtout NE PAS le présenter comme
+    // l'historique de l'utilisateur (cf. B11).
+    donnees_communautaires: { label: "Communautaire", bg: "bg-teal-100", text: "text-teal-800 dark:text-teal-300" },
     benchmark_cantaia: { label: "Benchmark", bg: "bg-blue-100", text: "text-blue-800 dark:text-blue-300" },
     referentiel_crb: { label: "CRB", bg: "bg-yellow-100", text: "text-yellow-800 dark:text-yellow-300" },
     ratio_estimation: { label: "Ratio", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
@@ -77,7 +80,7 @@ function SourceBadge({ source, detailSource }: { source: PriceSource; detailSour
     consensus_multi_ia: { label: "Consensus IA", bg: "bg-orange-100", text: "text-orange-800 dark:text-orange-300" },
     prix_non_disponible: { label: "Non dispo.", bg: "bg-[#27272A]", text: "text-[#71717A]" },
   };
-  const c = config[source] ?? config.prix_non_disponible;
+  const c = (source && config[source]) || config.prix_non_disponible;
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.bg} ${c.text}`}
@@ -170,6 +173,7 @@ function ModelTooltip({ consensusPoste, children }: { consensusPoste: ConsensusP
 function SourceDistributionBar({ repartition }: { repartition: Record<string, number> }) {
   const segments = [
     { key: "historique_interne_pct", label: "Données réelles", color: "bg-emerald-500" },
+    { key: "donnees_communautaires_pct", label: "Communautaire", color: "bg-teal-500" },
     { key: "benchmark_cantaia_pct", label: "Benchmark", color: "bg-[#F97316]/100" },
     { key: "referentiel_crb_pct", label: "CRB", color: "bg-yellow-500" },
     { key: "ratio_estimation_pct", label: "Ratio", color: "bg-orange-400" },
@@ -210,20 +214,74 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
   const [expandedCfc, setExpandedCfc] = useState<Set<string>>(new Set());
   const [showTransparency, setShowTransparency] = useState(false);
 
-  const { passe4, consensus_metrage, passe3, pipeline_stats } = estimation;
-  const { recapitulatif, analyse_fiabilite, comparaison_marche, estimation_par_cfc } = passe4;
+  // B15 — Rendu défensif.
+  //
+  // Ce composant affiche du JSON produit soit par le pipeline 4 passes, soit
+  // par l'agent `plan-estimator` (qui n'a AUCUNE garantie de forme : c'est un
+  // LLM qui écrit le JSON). L'ancienne version déstructurait `passe4` puis
+  // `recapitulatif.total_estimation.min` sans garde : un champ manquant faisait
+  // planter toute la page plan (écran blanc), sans aucun message.
+  const passe4 = (estimation as Partial<EstimationPipelineResult>)?.passe4;
+  const consensus_metrage = estimation?.consensus_metrage;
+  const passe3 = estimation?.passe3;
+  const pipeline_stats = estimation?.pipeline_stats;
 
   // Construire un index consensus par cfc_code pour lookup rapide dans les postes
   const consensusByCode = React.useMemo(() => {
     const map = new Map<string, ConsensusPoste>();
     for (const p of (consensus_metrage?.postes ?? [])) {
-      if (p.cfc_code) map.set(p.cfc_code, p);
+      if (p?.cfc_code) map.set(p.cfc_code, p);
     }
     return map;
   }, [consensus_metrage]);
 
+  const recapitulatif = passe4?.recapitulatif;
+  const analyse_fiabilite = passe4?.analyse_fiabilite;
+  const comparaison_marche = passe4?.comparaison_marche;
+  const estimation_par_cfc = passe4?.estimation_par_cfc;
+
+  // Garde minimale : sans récapitulatif ni détail CFC, il n'y a rien à
+  // montrer — on affiche un message actionnable plutôt que de crasher.
+  if (!passe4 || !recapitulatif?.total_estimation || !Array.isArray(estimation_par_cfc)) {
+    return (
+      <div className="rounded-xl border border-[#27272A] bg-[#18181B] p-6">
+        <h3 className="font-display text-base font-semibold text-[#FAFAFA]">
+          Résultat d&apos;estimation illisible
+        </h3>
+        <p className="mt-2 text-sm text-[#A1A1AA]">
+          Le résultat enregistré ne contient pas de récapitulatif de chiffrage exploitable
+          (passe 4 absente ou incomplète). Relancez l&apos;estimation.
+        </p>
+        {onRelaunch && (
+          <button
+            onClick={onRelaunch}
+            className="mt-4 rounded-md bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#EA580C]"
+          >
+            Relancer l&apos;estimation
+          </button>
+        )}
+      </div>
+    );
+  }
+
   // Nom du bureau détecté (Passe 1)
-  const bureauName: string | null = estimation.passe1?.cartouche?.auteur_bureau ?? null;
+  const bureauName: string | null = estimation?.passe1?.cartouche?.auteur_bureau ?? null;
+
+  // Listes normalisées : un JSON d'agent peut omettre n'importe quel tableau.
+  const alertesCoherence = Array.isArray(passe3?.alertes_coherence) ? passe3.alertes_coherence : [];
+  const elementsManquants = Array.isArray(passe3?.elements_probablement_manquants)
+    ? passe3.elements_probablement_manquants
+    : [];
+  const postesARisque = Array.isArray(analyse_fiabilite?.postes_a_risque)
+    ? analyse_fiabilite.postes_a_risque
+    : [];
+  const prochainesEtapes = Array.isArray(analyse_fiabilite?.prochaines_etapes)
+    ? analyse_fiabilite.prochaines_etapes
+    : [];
+  const consensusStats = consensus_metrage?.stats;
+  const modelesEnErreur = Array.isArray(consensus_metrage?.modeles_en_erreur)
+    ? consensus_metrage.modeles_en_erreur
+    : [];
 
   const toggleCfc = (code: string) => {
     setExpandedCfc((prev) => {
@@ -253,7 +311,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
 
       {/* ─── En-tête ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ScoreDisplay score={analyse_fiabilite.score_global} large />
+        <ScoreDisplay score={Math.round(analyse_fiabilite?.score_global ?? 0)} large />
 
         <div className="bg-[#F5F2EB] rounded-xl p-6">
           <div className="text-sm text-[#8A9CA8] mb-1">Total estimé (CHF HT)</div>
@@ -261,19 +319,19 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             {formatCHF(recapitulatif.total_estimation.min)} — <span className="text-[#C4A661]">{formatCHF(recapitulatif.total_estimation.median)}</span> — {formatCHF(recapitulatif.total_estimation.max)}
           </div>
           <div className="text-sm text-[#8A9CA8] mt-2">
-            Prix/m² SBP : {formatCHF(recapitulatif.prix_au_m2_sbp.min)} — {formatCHF(recapitulatif.prix_au_m2_sbp.median)} — {formatCHF(recapitulatif.prix_au_m2_sbp.max)} CHF
+            Prix/m² SBP : {formatCHF(recapitulatif.prix_au_m2_sbp?.min)} — {formatCHF(recapitulatif.prix_au_m2_sbp?.median)} — {formatCHF(recapitulatif.prix_au_m2_sbp?.max)} CHF
           </div>
           <div className="text-xs text-[#8A9CA8] mt-1">
-            Réf. marché : {formatCHF(recapitulatif.plage_reference_m2_sbp.min)} — {formatCHF(recapitulatif.plage_reference_m2_sbp.max)} CHF/m² ({recapitulatif.plage_reference_m2_sbp.source})
+            Réf. marché : {formatCHF(recapitulatif.plage_reference_m2_sbp?.min)} — {formatCHF(recapitulatif.plage_reference_m2_sbp?.max)} CHF/m² ({recapitulatif.plage_reference_m2_sbp?.source ?? "—"})
           </div>
         </div>
 
         <div className="bg-[#F5F2EB] rounded-xl p-6">
           <div className="text-sm text-[#8A9CA8] mb-2">Répartition des sources</div>
-          <SourceDistributionBar repartition={analyse_fiabilite.repartition_sources as any} />
+          <SourceDistributionBar repartition={(analyse_fiabilite?.repartition_sources ?? {}) as any} />
           <div className="text-xs text-[#8A9CA8] mt-3">
-            Position marché : <span className={comparaison_marche.position === "dans_marche" ? "text-green-600" : "text-orange-500"}>
-              {comparaison_marche.position === "dans_marche" ? "Dans le marché" : comparaison_marche.position === "sous_marche" ? "Sous le marché" : "Au-dessus du marché"}
+            Position marché : <span className={comparaison_marche?.position === "dans_marche" ? "text-green-600" : "text-orange-500"}>
+              {comparaison_marche?.position === "dans_marche" ? "Dans le marché" : comparaison_marche?.position === "sous_marche" ? "Sous le marché" : comparaison_marche?.position === "au_dessus_marche" ? "Au-dessus du marché" : "—"}
             </span>
           </div>
         </div>
@@ -297,12 +355,12 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono text-[#8A9CA8]">{cfc.cfc_code}</span>
                 <span className="font-medium text-[#0A1F30]">{cfc.cfc_libelle}</span>
-                <span className="text-xs text-[#71717A]">({cfc.postes.length} postes)</span>
+                <span className="text-xs text-[#71717A]">({(cfc.postes ?? []).length} postes)</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-[#71717A]">{formatCHF(cfc.sous_total_cfc.min)} — </span>
-                <span className="font-semibold text-[#0A1F30]">{formatCHF(cfc.sous_total_cfc.median)}</span>
-                <span className="text-sm text-[#71717A]"> — {formatCHF(cfc.sous_total_cfc.max)}</span>
+                <span className="text-sm text-[#71717A]">{formatCHF(cfc.sous_total_cfc?.min)} — </span>
+                <span className="font-semibold text-[#0A1F30]">{formatCHF(cfc.sous_total_cfc?.median)}</span>
+                <span className="text-sm text-[#71717A]"> — {formatCHF(cfc.sous_total_cfc?.max)}</span>
                 <svg className={`w-4 h-4 transition-transform ${expandedCfc.has(cfc.cfc_code) ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -328,13 +386,13 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                     </tr>
                   </thead>
                   <tbody>
-                    {cfc.postes.map((poste: PosteChiffre, idx: number) => {
+                    {(cfc.postes ?? []).map((poste: PosteChiffre, idx: number) => {
                       const isRisky = poste.confiance_prix === 'estimation' || poste.confiance_prix === 'low';
                       // Cherche le poste consensus correspondant par cfc_code (match best-effort)
                       const consensusPoste = consensusByCode.get(poste.cfc_code);
                       return (
                         <tr key={idx} className={`border-b border-[#27272A] ${isRisky ? "bg-orange-500/10" : ""}`}>
-                          <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire.source} detailSource={poste.prix_unitaire.detail_source} /></td>
+                          <td className="py-2 pr-2"><SourceBadge source={poste.prix_unitaire?.source} detailSource={poste.prix_unitaire?.detail_source} /></td>
                           <td className="py-2 pr-2 max-w-[200px] truncate" title={poste.description}>{poste.description}</td>
                           <td className="py-2 pr-2 text-right font-mono">
                             <ModelTooltip consensusPoste={consensusPoste}>
@@ -350,12 +408,14 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
                               : <span className="text-[10px] text-[#71717A]">—</span>
                             }
                           </td>
-                          <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire.median)}</td>
-                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total.min)}</td>
-                          <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total.median)}</td>
-                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total.max)}</td>
+                          <td className="py-2 pr-2 text-right font-mono">{formatCHF(poste.prix_unitaire?.median)}</td>
+                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total?.min)}</td>
+                          <td className="py-2 pr-2 text-right font-semibold font-mono">{formatCHF(poste.total?.median)}</td>
+                          <td className="py-2 pr-2 text-right text-[#71717A] font-mono">{formatCHF(poste.total?.max)}</td>
                           <td className="py-2 text-center">
-                            <span className="text-xs text-[#71717A]">{poste.confiance_quantite[0].toUpperCase()}/{poste.confiance_prix[0].toUpperCase()}</span>
+                            <span className="text-xs text-[#71717A]">
+                              {(poste.confiance_quantite?.[0] ?? "?").toUpperCase()}/{(poste.confiance_prix?.[0] ?? "?").toUpperCase()}
+                            </span>
                           </td>
                           <td className="py-2 text-center">
                             <div className="flex gap-1 justify-center">
@@ -385,19 +445,19 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
         <div className="px-4 py-3 bg-[#F5F2EB] rounded-b-xl">
           <div className="flex justify-between text-sm">
             <span className="text-[#8A9CA8]">Sous-total travaux</span>
-            <span className="font-mono">{formatCHF(recapitulatif.sous_total_travaux.median)} CHF</span>
+            <span className="font-mono">{formatCHF(recapitulatif.sous_total_travaux?.median)} CHF</span>
           </div>
           <div className="flex justify-between text-sm mt-1">
-            <span className="text-[#8A9CA8]">Frais généraux ({recapitulatif.frais_generaux.pourcentage}%)</span>
-            <span className="font-mono">{formatCHF(recapitulatif.frais_generaux.montant_median)} CHF</span>
+            <span className="text-[#8A9CA8]">Frais généraux ({recapitulatif.frais_generaux?.pourcentage ?? 0}%)</span>
+            <span className="font-mono">{formatCHF(recapitulatif.frais_generaux?.montant_median)} CHF</span>
           </div>
           <div className="flex justify-between text-sm mt-1">
-            <span className="text-[#8A9CA8]">Bénéfice & risques ({recapitulatif.benefice_risques.pourcentage}%)</span>
-            <span className="font-mono">{formatCHF(recapitulatif.benefice_risques.montant_median)} CHF</span>
+            <span className="text-[#8A9CA8]">Bénéfice & risques ({recapitulatif.benefice_risques?.pourcentage ?? 0}%)</span>
+            <span className="font-mono">{formatCHF(recapitulatif.benefice_risques?.montant_median)} CHF</span>
           </div>
           <div className="flex justify-between text-sm mt-1">
-            <span className="text-[#8A9CA8]">Imprévus ({recapitulatif.divers_imprevus.pourcentage}%)</span>
-            <span className="font-mono">{formatCHF(recapitulatif.divers_imprevus.montant_median)} CHF</span>
+            <span className="text-[#8A9CA8]">Imprévus ({recapitulatif.divers_imprevus?.pourcentage ?? 0}%)</span>
+            <span className="font-mono">{formatCHF(recapitulatif.divers_imprevus?.montant_median)} CHF</span>
           </div>
           <div className="border-t border-[#C4A661]/30 mt-2 pt-2 flex justify-between">
             <span className="font-semibold text-[#0A1F30]">TOTAL ESTIMATION</span>
@@ -407,11 +467,11 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
       </div>
 
       {/* ─── Alertes ─── */}
-      {(passe3.alertes_coherence.length > 0 || passe3.elements_probablement_manquants.length > 0 || analyse_fiabilite.postes_a_risque.length > 0) && (
+      {(alertesCoherence.length > 0 || elementsManquants.length > 0 || postesARisque.length > 0) && (
         <div className="bg-[#0F0F11] rounded-xl border border-[#27272A] p-4">
           <h3 className="font-semibold text-[#0A1F30] mb-3">Alertes et recommandations</h3>
 
-          {passe3.alertes_coherence.filter((a: { severite: string }) => a.severite === "critique").map((alerte: { poste_concerne: string; probleme: string; suggestion: string }, i: number) => (
+          {alertesCoherence.filter((a: { severite: string }) => a.severite === "critique").map((alerte: { poste_concerne: string; probleme: string; suggestion: string }, i: number) => (
             <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-red-500/10 rounded">
               <span className="text-red-500 text-lg leading-none">!</span>
               <div>
@@ -422,7 +482,7 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             </div>
           ))}
 
-          {passe3.elements_probablement_manquants.filter((e: { impact_estimation: string }) => e.impact_estimation !== "faible").map((elem: { cfc_code: string; description: string; raison: string }, i: number) => (
+          {elementsManquants.filter((e: { impact_estimation: string }) => e.impact_estimation !== "faible").map((elem: { cfc_code: string; description: string; raison: string }, i: number) => (
             <div key={i} className="flex items-start gap-2 mb-2 p-2 bg-yellow-500/10 rounded">
               <span className="text-yellow-500 text-lg leading-none">?</span>
               <div>
@@ -432,11 +492,11 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             </div>
           ))}
 
-          {analyse_fiabilite.prochaines_etapes.length > 0 && (
+          {prochainesEtapes.length > 0 && (
             <div className="mt-3">
               <div className="text-xs font-medium text-[#8A9CA8] mb-1">Prochaines étapes :</div>
               <ul className="text-sm text-[#0A1F30] space-y-1">
-                {analyse_fiabilite.prochaines_etapes.map((step: string, i: number) => (
+                {prochainesEtapes.map((step: string, i: number) => (
                   <li key={i} className="flex items-start gap-2">
                     <span className="text-[#C4A661]">&bull;</span>
                     {step}
@@ -465,43 +525,53 @@ export default function EstimationResultV2({ estimation, onCorrectQuantity, onCa
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div>
                 <div className="text-xs text-[#8A9CA8]">Durée totale</div>
-                <div className="font-mono">{(pipeline_stats.total_duration_ms / 1000).toFixed(1)}s</div>
+                <div className="font-mono">
+                  {pipeline_stats?.total_duration_ms != null
+                    ? `${(pipeline_stats.total_duration_ms / 1000).toFixed(1)}s`
+                    : "—"}
+                </div>
               </div>
               <div>
                 <div className="text-xs text-[#8A9CA8]">Tokens utilisés</div>
-                <div className="font-mono">{pipeline_stats.total_tokens.toLocaleString()}</div>
+                <div className="font-mono">{(pipeline_stats?.total_tokens ?? 0).toLocaleString()}</div>
               </div>
               <div>
                 <div className="text-xs text-[#8A9CA8]">Coût estimé</div>
-                <div className="font-mono">${pipeline_stats.total_cost_usd.toFixed(2)}</div>
+                <div className="font-mono">${(pipeline_stats?.total_cost_usd ?? 0).toFixed(2)}</div>
               </div>
               <div>
                 <div className="text-xs text-[#8A9CA8]">Modèles</div>
-                <div className="font-mono">{pipeline_stats.models_used.join(", ")}</div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-[#8A9CA8] mb-1">Consensus multi-modèle</div>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="bg-green-500/10 rounded p-2 text-center">
-                  <div className="font-bold text-green-700 dark:text-green-400">{consensus_metrage.stats.concordance_forte_pct}%</div>
-                  <div className="text-xs text-green-600">Concordance forte</div>
-                </div>
-                <div className="bg-yellow-500/10 rounded p-2 text-center">
-                  <div className="font-bold text-yellow-700 dark:text-yellow-400">{consensus_metrage.stats.concordance_partielle_pct}%</div>
-                  <div className="text-xs text-yellow-600">Partielle</div>
-                </div>
-                <div className="bg-red-500/10 rounded p-2 text-center">
-                  <div className="font-bold text-red-700 dark:text-red-400">{consensus_metrage.stats.divergence_pct}%</div>
-                  <div className="text-xs text-red-600">Divergence</div>
+                <div className="font-mono">
+                  {Array.isArray(pipeline_stats?.models_used) && pipeline_stats.models_used.length > 0
+                    ? pipeline_stats.models_used.join(", ")
+                    : "—"}
                 </div>
               </div>
             </div>
 
-            {consensus_metrage.modeles_en_erreur.length > 0 && (
+            {consensusStats && (
+              <div>
+                <div className="text-xs text-[#8A9CA8] mb-1">Consensus multi-modèle</div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="bg-green-500/10 rounded p-2 text-center">
+                    <div className="font-bold text-green-700 dark:text-green-400">{consensusStats.concordance_forte_pct ?? 0}%</div>
+                    <div className="text-xs text-green-600">Concordance forte</div>
+                  </div>
+                  <div className="bg-yellow-500/10 rounded p-2 text-center">
+                    <div className="font-bold text-yellow-700 dark:text-yellow-400">{consensusStats.concordance_partielle_pct ?? 0}%</div>
+                    <div className="text-xs text-yellow-600">Partielle</div>
+                  </div>
+                  <div className="bg-red-500/10 rounded p-2 text-center">
+                    <div className="font-bold text-red-700 dark:text-red-400">{consensusStats.divergence_pct ?? 0}%</div>
+                    <div className="text-xs text-red-600">Divergence</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {modelesEnErreur.length > 0 && (
               <div className="text-xs text-red-500">
-                Modèles en erreur : {consensus_metrage.modeles_en_erreur.map((e: { provider: string; error: string }) => `${e.provider} (${e.error})`).join(", ")}
+                Modèles en erreur : {modelesEnErreur.map((e: { provider: string; error: string }) => `${e.provider} (${e.error})`).join(", ")}
               </div>
             )}
           </div>

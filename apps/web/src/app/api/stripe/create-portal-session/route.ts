@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import { getAppUrl } from "@/lib/env";
 import Stripe from "stripe";
 
@@ -10,39 +10,35 @@ function getStripe() {
   return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_request: NextRequest) {
+const SUPPORTED_LOCALES = ["fr", "en", "de"];
+
+export async function POST() {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Only org admins (admin/director) or superadmins can manage billing
+    const check = await requireOrgAdmin();
+    if (!check.authorized) {
+      return NextResponse.json({ error: check.error }, { status: check.status });
     }
 
     const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("users")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return NextResponse.json({ error: "No organization" }, { status: 400 });
-    }
-
     const { data: org } = await admin
       .from("organizations")
       .select("stripe_customer_id")
-      .eq("id", profile.organization_id)
+      .eq("id", check.profile.organization_id)
       .single();
 
     if (!org?.stripe_customer_id) {
       return NextResponse.json({ error: "No Stripe customer" }, { status: 400 });
     }
 
+    // Return URL in the user's preferred language (default: fr)
+    const locale = SUPPORTED_LOCALES.includes(check.profile.preferred_language || "")
+      ? check.profile.preferred_language
+      : "fr";
+
     const session = await getStripe().billingPortal.sessions.create({
       customer: org.stripe_customer_id,
-      return_url: `${getAppUrl()}/fr/admin?tab=subscription`,
+      return_url: `${getAppUrl()}/${locale}/admin?tab=subscription`,
     });
 
     return NextResponse.json({ url: session.url });

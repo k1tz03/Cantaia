@@ -60,7 +60,7 @@ export async function GET(
   // Verify the session belongs to the user's org
   const { data: sessionRecord } = await (admin as any)
     .from("agent_sessions")
-    .select("id, organization_id, user_id, agent_type, session_id, input_payload, started_at")
+    .select("id, organization_id, user_id, agent_type, session_id, input_payload, started_at, status")
     .eq("session_id", sessionId)
     .maybeSingle();
 
@@ -82,6 +82,22 @@ export async function GET(
     });
   }
 
+  // ── Single-run guard (AGT.C2) ───────────────────────────
+  // Re-streaming a session that already ran would replay the whole agentic
+  // loop: duplicate tool side-effects (inserts, emails drafted) and duplicate
+  // Anthropic costs. Only a freshly created "pending" session may be streamed.
+  if (sessionRecord.status !== "pending") {
+    return new Response(
+      JSON.stringify({
+        error: "session_not_pending",
+        status: sessionRecord.status,
+        message:
+          "Cette session a déjà été exécutée. Démarrez une nouvelle session pour relancer l'agent.",
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // ── Read initial message & config ───────────────────────
   const agentType = type as AgentType;
   const agentConfig = getAgentConfig(agentType);
@@ -100,11 +116,25 @@ export async function GET(
     });
   }
 
-  // ── Mark session as running ─────────────────────────────
-  await (admin as any)
+  // ── Claim the session (atomic pending → running) ────────
+  // The conditional update is the real guard: if two clients open the stream
+  // concurrently, only one transitions the row and the other gets 409.
+  const { data: claimed } = await (admin as any)
     .from("agent_sessions")
-    .update({ status: "running" })
-    .eq("session_id", sessionId);
+    .update({ status: "running", last_event_at: new Date().toISOString() })
+    .eq("session_id", sessionId)
+    .eq("status", "pending")
+    .select("id");
+
+  if (!claimed || claimed.length === 0) {
+    return new Response(
+      JSON.stringify({
+        error: "session_not_pending",
+        message: "Cette session est déjà en cours d'exécution.",
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // ── Setup SSE stream ────────────────────────────────────
   const encoder = new TextEncoder();

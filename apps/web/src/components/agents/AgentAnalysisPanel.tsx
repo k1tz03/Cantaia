@@ -7,6 +7,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Loader2,
   CheckCircle2,
@@ -23,109 +24,58 @@ import {
 import type { AgentEvent, AgentResult } from "@/lib/hooks/use-agent";
 import type { AgentType, SessionStatus } from "@cantaia/core/agents";
 
-// ── Tool name → French label mapping ──────────────────────────
+// ── Tool name → icon + i18n key (labels live in messages/*.json, "agents.tools") ──
 
-const TOOL_LABELS: Record<string, { label: string; icon: React.ComponentType<any> }> = {
+type Translator = (key: string, values?: Record<string, string | number | Date>) => string;
+
+const TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   // Submission analyzer tools
-  fetch_submission_file: { label: "Lecture du document", icon: FileSearch },
-  get_submission_context: { label: "Chargement du contexte projet", icon: Database },
-  save_analysis_result: { label: "Sauvegarde des postes extraits", icon: Save },
+  fetch_submission_file: FileSearch,
+  get_submission_context: Database,
+  save_analysis_result: Save,
   // Briefing generator tools
-  fetch_cantaia_context: { label: "Récupération des données du jour", icon: Database },
-  save_briefing: { label: "Sauvegarde du briefing", icon: Save },
+  fetch_cantaia_context: Database,
+  save_briefing: Save,
   // Email classifier tools
-  fetch_emails_batch: { label: "Chargement des emails", icon: FileSearch },
-  get_projects_list: { label: "Chargement des projets", icon: Database },
-  save_classifications: { label: "Sauvegarde des classifications", icon: Save },
+  fetch_emails_batch: FileSearch,
+  get_projects_list: Database,
+  save_classifications: Save,
   // Plan estimator tools
-  fetch_plan_image: { label: "Téléchargement du plan", icon: FileSearch },
-  query_reference_prices: { label: "Recherche des prix de référence", icon: Database },
-  save_estimation: { label: "Sauvegarde de l'estimation", icon: Save },
+  fetch_plan_image: FileSearch,
+  query_reference_prices: Database,
+  save_estimation: Save,
   // Price extractor tools
-  fetch_file_content: { label: "Lecture du fichier", icon: FileSearch },
-  save_extracted_prices: { label: "Sauvegarde des prix extraits", icon: Save },
+  fetch_file_content: FileSearch,
+  save_extracted_prices: Save,
   // Built-in tools
-  bash: { label: "Exécution de commande", icon: Wrench },
-  read: { label: "Lecture de fichier", icon: FileSearch },
-  write: { label: "Écriture de fichier", icon: Save },
-  web_fetch: { label: "Requête web", icon: Globe },
+  bash: Wrench,
+  read: FileSearch,
+  write: Save,
+  web_fetch: Globe,
 };
 
-function getToolInfo(toolName: string) {
-  return TOOL_LABELS[toolName] || { label: toolName, icon: Wrench };
+function getToolInfo(t: Translator, toolName: string) {
+  const icon = TOOL_ICONS[toolName];
+  if (!icon) return { label: toolName, icon: Wrench };
+  return { label: t(`tools.${toolName}`), icon };
 }
 
-// ── Agent-type display config ────────────────────────────────
+// ── Agent-type display config (strings in messages/*.json, "agents.display") ──
 
-const AGENT_DISPLAY: Record<AgentType, {
-  completedTitle: (count: number) => string;
-  runningTitle: string;
-  startingTitle: string;
-  defaultActivity: string;
-}> = {
-  "submission-analyzer": {
-    completedTitle: (n) => `Analyse terminée — ${n} postes extraits`,
-    runningTitle: "Agent IA en cours d'analyse...",
-    startingTitle: "Démarrage de l'agent IA...",
-    defaultActivity: "Extraction des postes du descriptif",
-  },
-  "briefing-generator": {
-    completedTitle: () => "Briefing généré avec succès",
-    runningTitle: "Génération du briefing en cours...",
-    startingTitle: "Démarrage de l'agent IA...",
-    defaultActivity: "Préparation du briefing quotidien",
-  },
-  "email-classifier": {
-    completedTitle: (n) => `Classification terminée — ${n} emails traités`,
-    runningTitle: "Classification des emails en cours...",
-    startingTitle: "Démarrage de l'agent IA...",
-    defaultActivity: "Analyse des emails",
-  },
-  "plan-estimator": {
-    completedTitle: () => "Estimation du plan terminée",
-    runningTitle: "Estimation en cours...",
-    startingTitle: "Démarrage de l'agent IA...",
-    defaultActivity: "Analyse du plan de construction",
-  },
-  "price-extractor": {
-    completedTitle: (n) => `Extraction terminée — ${n} prix extraits`,
-    runningTitle: "Extraction des prix en cours...",
-    startingTitle: "Démarrage de l'agent IA...",
-    defaultActivity: "Lecture des documents prix",
-  },
-  "email-drafter": {
-    completedTitle: (n) => `${n} brouillon${n > 1 ? "s" : ""} préparé${n > 1 ? "s" : ""}`,
-    runningTitle: "Rédaction des brouillons en cours...",
-    startingTitle: "Démarrage de l'agent Email Drafter...",
-    defaultActivity: "Analyse des emails en attente de réponse",
-  },
-  "followup-engine": {
-    completedTitle: (n) => `${n} relance${n > 1 ? "s" : ""} identifiée${n > 1 ? "s" : ""}`,
-    runningTitle: "Détection des relances en cours...",
-    startingTitle: "Démarrage du Followup Engine...",
-    defaultActivity: "Analyse des demandes sans réponse",
-  },
-  "supplier-monitor": {
-    completedTitle: (n) => `${n} alerte${n > 1 ? "s" : ""} fournisseur détectée${n > 1 ? "s" : ""}`,
-    runningTitle: "Analyse des fournisseurs en cours...",
-    startingTitle: "Démarrage du Supplier Monitor...",
-    defaultActivity: "Évaluation des performances fournisseurs",
-  },
-  "project-memory": {
-    completedTitle: (n) => `${n} projets analysés`,
-    runningTitle: "Analyse des projets en cours...",
-    startingTitle: "Démarrage de l'analyse projet...",
-    defaultActivity: "Scan cross-module des projets",
-  },
-  "meeting-prep": {
-    completedTitle: (n) => `${n} préparations générées`,
-    runningTitle: "Préparation des réunions en cours...",
-    startingTitle: "Démarrage de la préparation...",
-    defaultActivity: "Génération des dossiers de réunion",
-  },
-};
+const AGENT_TYPES: ReadonlyArray<AgentType> = [
+  "submission-analyzer",
+  "briefing-generator",
+  "email-classifier",
+  "plan-estimator",
+  "price-extractor",
+  "email-drafter",
+  "followup-engine",
+  "supplier-monitor",
+  "project-memory",
+  "meeting-prep",
+];
 
-const DEFAULT_DISPLAY = AGENT_DISPLAY["submission-analyzer"];
+const DEFAULT_AGENT_TYPE: AgentType = "submission-analyzer";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -163,7 +113,9 @@ export function AgentAnalysisPanel({
   itemsSaved,
   agentType,
 }: AgentAnalysisPanelProps) {
-  const display = (agentType && AGENT_DISPLAY[agentType]) || DEFAULT_DISPLAY;
+  const t = useTranslations("agents");
+  const displayType: AgentType =
+    agentType && AGENT_TYPES.includes(agentType) ? agentType : DEFAULT_AGENT_TYPE;
   const [expanded, setExpanded] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const startTimeRef = useRef<number | null>(null);
@@ -229,18 +181,18 @@ export function AgentAnalysisPanel({
   );
 
   const headerTitle = isCompleted
-    ? display.completedTitle(savedCount)
+    ? t(`display.${displayType}.completed`, { count: savedCount })
     : isFailed
-    ? "Erreur lors de l'analyse"
+    ? t("analysisError")
     : status === "starting"
-    ? display.startingTitle
-    : display.runningTitle;
+    ? t(`display.${displayType}.starting`)
+    : t(`display.${displayType}.running`);
 
   const headerSubtitle = isCompleted
     ? formatDuration(result?.metrics?.duration_ms ?? elapsedMs)
     : isFailed
-    ? error || "Une erreur est survenue"
-    : getActivityDescription(events, display.defaultActivity);
+    ? error || t("genericError")
+    : getActivityDescription(t, events, t(`display.${displayType}.activity`));
 
   return (
     <div className={`mx-6 mt-6 border rounded-xl overflow-hidden ${headerBg}`}>
@@ -269,7 +221,7 @@ export function AgentAnalysisPanel({
                 }}
                 className="text-xs px-2 py-1 rounded border border-[#27272A] text-[#71717A] hover:text-red-400 hover:border-red-500/30"
               >
-                Annuler
+                {t("cancel")}
               </button>
             </>
           )}
@@ -300,7 +252,7 @@ export function AgentAnalysisPanel({
           </span>
           <span className="flex items-center gap-1">
             <Wrench className="h-3 w-3" />
-            {result.metrics.tool_calls_count} appels d&apos;outil
+            {t("toolCalls", { count: result.metrics.tool_calls_count })}
           </span>
         </div>
       )}
@@ -311,8 +263,9 @@ export function AgentAnalysisPanel({
 // ── Individual event row ──────────────────────────────────────
 
 function AgentEventRow({ event }: { event: AgentEvent }) {
+  const t = useTranslations("agents");
   if (event.type === "agent.tool_use") {
-    const toolInfo = getToolInfo(event.tool_name || "unknown");
+    const toolInfo = getToolInfo(t, event.tool_name || "unknown");
     const Icon = toolInfo.icon;
     return (
       <div className="flex items-center gap-2 py-1">
@@ -329,7 +282,7 @@ function AgentEventRow({ event }: { event: AgentEvent }) {
 
   if (event.type === "custom_tool_result") {
     const toolName = (event.data?.tool_name as string) || "";
-    const toolInfo = getToolInfo(toolName);
+    const toolInfo = getToolInfo(t, toolName);
     const preview = (event.data?.result_preview as string) || "";
     const isError = preview.includes('"error":true') || preview.includes('"error": true');
 
@@ -341,7 +294,7 @@ function AgentEventRow({ event }: { event: AgentEvent }) {
           <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />
         )}
         <span className="text-xs text-[#71717A]">
-          {toolInfo.label} {isError ? "— erreur" : "— OK"}
+          {toolInfo.label} — {isError ? t("statusError") : t("statusOk")}
         </span>
       </div>
     );
@@ -362,7 +315,7 @@ function AgentEventRow({ event }: { event: AgentEvent }) {
     return (
       <div className="flex items-center gap-2 py-1">
         <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-        <span className="text-xs text-red-400">{(event.data?.error as string) || "Erreur"}</span>
+        <span className="text-xs text-red-400">{(event.data?.error as string) || t("error")}</span>
       </div>
     );
   }
@@ -381,16 +334,20 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function getActivityDescription(events: AgentEvent[], defaultActivity: string): string {
+function getActivityDescription(
+  t: Translator,
+  events: AgentEvent[],
+  defaultActivity: string
+): string {
   // Find the last tool call or message to describe current activity
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
     if (e.type === "agent.tool_use" && e.tool_name) {
-      const info = getToolInfo(e.tool_name);
+      const info = getToolInfo(t, e.tool_name);
       return info.label + "...";
     }
     if (e.type === "custom_tool_result") {
-      return "Traitement en cours...";
+      return t("processing");
     }
   }
   return defaultActivity;

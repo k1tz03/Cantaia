@@ -146,6 +146,16 @@ export interface AutoScoreBreakdown {
   quality: { score: number; weight: number; source: "manual" | "neutral" };
   projects_delivered: { score: number; weight: number; count: number };
   overall: number;
+  /** Number of price requests actually sent to this supplier (real transactions). */
+  requests_sent: number;
+  /** Number of those requests the supplier answered. */
+  responses_received: number;
+  /**
+   * False when no price request has ever been sent to this supplier. The caller
+   * MUST NOT persist zeroed statistics in that case — see
+   * `recalculateAndPersistScore`.
+   */
+  has_data: boolean;
 }
 
 const WEIGHTS = {
@@ -191,166 +201,224 @@ function scoreProjectsDelivered(count: number): number {
   return 20;
 }
 
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
 /**
  * Calculate supplier score from real transaction data.
- * All DB queries use try/catch for graceful degradation.
+ *
+ * H1: the previous implementation read `price_requests` and `supplier_offers`
+ * (the legacy 012 tables), which the Submissions module has never written to.
+ * Every query came back empty, so each received quote rewrote the supplier's
+ * statistics with zeros and left `overall_score` pinned at the neutral value.
+ *
+ * The live tables are:
+ *   submission_price_requests  (sent_at, status, response_received_at, response_time_days)
+ *   submission_quotes          (request_id, item_id, unit_price_ht)
+ * scoped to the organization through submissions.organization_id.
+ *
+ * The five dimensions and their weights are unchanged.
+ * All DB queries degrade gracefully; missing data yields the neutral score (50)
+ * rather than 0, and `has_data` tells the caller not to persist empty stats.
  */
 export async function calculateAutoScore(
   supplierId: string,
   orgId: string,
   adminClient: any
 ): Promise<AutoScoreBreakdown> {
-  // ---------- 1. Response time ----------
-  let avgResponseDays: number | null = null;
+  // ---------- 0. Real price requests sent to this supplier ----------
+  type RequestRow = {
+    id: string;
+    submission_id: string;
+    sent_at: string | null;
+    status: string | null;
+    response_received_at: string | null;
+    response_time_days: number | null;
+  };
+  let requests: RequestRow[] = [];
   try {
-    // Join price_requests → supplier_offers via price_request_id
-    const { data: prData } = await (adminClient as any)
-      .from("price_requests")
-      .select("id, created_at, sent_at")
+    const { data, error } = await (adminClient as any)
+      .from("submission_price_requests")
+      .select(
+        "id, submission_id, sent_at, status, response_received_at, response_time_days, submissions!inner(organization_id)"
+      )
       .eq("supplier_id", supplierId)
-      .eq("organization_id", orgId);
+      .eq("submissions.organization_id", orgId);
 
-    if (prData && prData.length > 0) {
-      const prIds = prData.map((pr: any) => pr.id);
-      const { data: offers } = await (adminClient as any)
-        .from("supplier_offers")
-        .select("price_request_id, created_at, received_at")
+    if (error) {
+      // response_* columns land with migration 082 — retry without them
+      console.warn("[auto-score] price request query failed, retrying minimal:", error.message);
+      const retry = await (adminClient as any)
+        .from("submission_price_requests")
+        .select("id, submission_id, sent_at, status, submissions!inner(organization_id)")
         .eq("supplier_id", supplierId)
-        .eq("organization_id", orgId)
-        .in("price_request_id", prIds);
-
-      if (offers && offers.length > 0) {
-        const prMap: Record<string, any> = {};
-        for (const pr of prData) prMap[pr.id] = pr;
-
-        const days: number[] = [];
-        for (const offer of offers) {
-          const pr = prMap[offer.price_request_id];
-          if (!pr) continue;
-          const sentDate = pr.sent_at || pr.created_at;
-          const receivedDate = offer.received_at || offer.created_at;
-          if (!sentDate || !receivedDate) continue;
-          const diffDays = (new Date(receivedDate).getTime() - new Date(sentDate).getTime()) / (1000 * 60 * 60 * 24);
-          if (diffDays > 0 && diffDays < 365) days.push(diffDays);
-        }
-        if (days.length > 0) {
-          avgResponseDays = Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10;
-        }
-      }
+        .eq("submissions.organization_id", orgId);
+      requests = (retry.data || []).map((r: any) => ({
+        ...r,
+        response_received_at: null,
+        response_time_days: null,
+      }));
+    } else {
+      requests = (data || []) as RequestRow[];
     }
   } catch (err) {
-    console.warn("[auto-score] Response time query failed:", err);
+    console.warn("[auto-score] price request query threw:", err);
+  }
+
+  const requestIds = requests.map((r) => r.id);
+  const requestById = new Map<string, RequestRow>(requests.map((r) => [r.id, r]));
+
+  // ---------- 0b. Quotes actually received for those requests ----------
+  type QuoteRow = { request_id: string; item_id: string | null; unit_price_ht: number | null; extracted_at: string | null };
+  let quotes: QuoteRow[] = [];
+  if (requestIds.length > 0) {
+    try {
+      const { data, error } = await (adminClient as any)
+        .from("submission_quotes")
+        .select("request_id, item_id, unit_price_ht, extracted_at")
+        .in("request_id", requestIds);
+      if (error) console.warn("[auto-score] quotes query failed:", error.message);
+      quotes = (data || []) as QuoteRow[];
+    } catch (err) {
+      console.warn("[auto-score] quotes query threw:", err);
+    }
+  }
+
+  const requestIdsWithQuotes = new Set(quotes.map((q) => q.request_id));
+
+  // A request counts as answered when the pipeline flagged it, or when at least
+  // one price was extracted from the supplier's reply.
+  const isAnswered = (r: RequestRow) =>
+    r.status === "responded" || !!r.response_received_at || requestIdsWithQuotes.has(r.id);
+
+  // Only requests that actually left the mailbox are part of the denominator (H2).
+  const sentRequests = requests.filter((r) => !!r.sent_at || r.status === "sent" || r.status === "responded");
+  const answeredRequests = sentRequests.filter(isAnswered);
+
+  // ---------- 1. Response time ----------
+  let avgResponseDays: number | null = null;
+  {
+    const days: number[] = [];
+    for (const r of answeredRequests) {
+      // Prefer the pre-computed column (migration 082)
+      if (r.response_time_days != null && Number.isFinite(Number(r.response_time_days))) {
+        const d = Number(r.response_time_days);
+        if (d >= 0 && d < 365) days.push(d);
+        continue;
+      }
+      if (!r.sent_at) continue;
+      // Fall back to the response timestamp, then to the first extracted quote
+      const receivedIso =
+        r.response_received_at ||
+        quotes
+          .filter((q) => q.request_id === r.id && q.extracted_at)
+          .map((q) => q.extracted_at as string)
+          .sort()[0];
+      if (!receivedIso) continue;
+      const diffDays = (new Date(receivedIso).getTime() - new Date(r.sent_at).getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays >= 0 && diffDays < 365) days.push(diffDays);
+    }
+    if (days.length > 0) {
+      avgResponseDays = Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10;
+    }
   }
 
   // ---------- 2. Price competitiveness ----------
+  // Primary: this supplier's unit price vs the median of every quote received on
+  // the SAME submission item (i.e. its direct competitors on that call for bids).
   let avgVsMedianPct: number | null = null;
-  try {
-    // Get this supplier's line items with CFC codes
-    const { data: lineItems } = await (adminClient as any)
-      .from("offer_line_items")
-      .select("unit_price, cfc_subcode, submission_item_id")
-      .eq("supplier_id", supplierId)
-      .eq("organization_id", orgId)
-      .not("unit_price", "is", null);
+  {
+    const ratios: number[] = [];
+    const myPriceByItem = new Map<string, number>();
+    for (const q of quotes) {
+      if (!q.item_id || q.unit_price_ht == null) continue;
+      const price = Number(q.unit_price_ht);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      // Keep the lowest price the supplier offered on that item
+      const current = myPriceByItem.get(q.item_id);
+      if (current == null || price < current) myPriceByItem.set(q.item_id, price);
+    }
 
-    if (lineItems && lineItems.length > 0) {
-      const ratios: number[] = [];
+    const itemIds = Array.from(myPriceByItem.keys());
+    if (itemIds.length > 0) {
+      try {
+        const { data: peerQuotes, error } = await (adminClient as any)
+          .from("submission_quotes")
+          .select("item_id, unit_price_ht")
+          .in("item_id", itemIds)
+          .not("unit_price_ht", "is", null);
 
-      // Strategy A: Compare vs market_benchmarks for items with cfc_subcode
-      const cfcCodes = [...new Set(lineItems.filter((li: any) => li.cfc_subcode).map((li: any) => li.cfc_subcode))];
-      let benchmarkMap: Record<string, number> = {};
-      if (cfcCodes.length > 0) {
-        try {
+        if (error) {
+          console.warn("[auto-score] peer quotes query failed:", error.message);
+        } else {
+          const byItem: Record<string, number[]> = {};
+          for (const p of peerQuotes || []) {
+            const price = Number(p.unit_price_ht);
+            if (!Number.isFinite(price) || price <= 0) continue;
+            (byItem[p.item_id] ||= []).push(price);
+          }
+          for (const [itemId, myPrice] of myPriceByItem) {
+            const prices = byItem[itemId] || [];
+            // Need at least one competitor to make the comparison meaningful
+            if (prices.length < 2) continue;
+            const med = median(prices);
+            if (med && med > 0) ratios.push(myPrice / med);
+          }
+        }
+      } catch (err) {
+        console.warn("[auto-score] peer quotes query threw:", err);
+      }
+    }
+
+    // Fallback: C2 market benchmarks on the imported price history
+    // (offer_line_items — populated by the Cantaia Prix ingestion pipeline).
+    if (ratios.length === 0) {
+      try {
+        const { data: lineItems } = await (adminClient as any)
+          .from("offer_line_items")
+          .select("unit_price, cfc_subcode")
+          .eq("supplier_id", supplierId)
+          .eq("organization_id", orgId)
+          .not("unit_price", "is", null);
+
+        const cfcCodes = Array.from(
+          new Set<string>((lineItems || []).filter((li: any) => li.cfc_subcode).map((li: any) => li.cfc_subcode))
+        );
+        if (cfcCodes.length > 0) {
           const { data: benchmarks } = await (adminClient as any)
             .from("market_benchmarks")
             .select("cfc_code, price_median")
             .in("cfc_code", cfcCodes)
+            .gte("contributor_count", 3)
             .not("price_median", "is", null);
-          if (benchmarks) {
-            for (const b of benchmarks) {
-              benchmarkMap[b.cfc_code] = parseFloat(b.price_median);
-            }
+
+          const benchmarkMap: Record<string, number> = {};
+          for (const b of benchmarks || []) benchmarkMap[b.cfc_code] = parseFloat(b.price_median);
+
+          for (const li of lineItems || []) {
+            const price = parseFloat(li.unit_price);
+            if (!price || price <= 0) continue;
+            const ref = li.cfc_subcode ? benchmarkMap[li.cfc_subcode] : undefined;
+            if (ref && ref > 0) ratios.push(price / ref);
           }
-        } catch { /* table may not exist */ }
-      }
-
-      // Strategy B: Compare vs other suppliers' prices for the same submission items
-      const itemIds = [...new Set(lineItems.filter((li: any) => li.submission_item_id).map((li: any) => li.submission_item_id))];
-      let itemMedianMap: Record<string, number> = {};
-      if (itemIds.length > 0) {
-        try {
-          const { data: allItemPrices } = await (adminClient as any)
-            .from("offer_line_items")
-            .select("submission_item_id, unit_price")
-            .in("submission_item_id", itemIds)
-            .eq("organization_id", orgId)
-            .not("unit_price", "is", null);
-          if (allItemPrices && allItemPrices.length > 0) {
-            const grouped: Record<string, number[]> = {};
-            for (const p of allItemPrices) {
-              if (!grouped[p.submission_item_id]) grouped[p.submission_item_id] = [];
-              grouped[p.submission_item_id].push(parseFloat(p.unit_price));
-            }
-            for (const [itemId, prices] of Object.entries(grouped)) {
-              if (prices.length >= 2) {
-                const sorted = prices.sort((a, b) => a - b);
-                const mid = Math.floor(sorted.length / 2);
-                itemMedianMap[itemId] = sorted.length % 2 === 0
-                  ? (sorted[mid - 1] + sorted[mid]) / 2
-                  : sorted[mid];
-              }
-            }
-          }
-        } catch { /* ignore */ }
-      }
-
-      // Calculate ratios
-      for (const li of lineItems) {
-        const price = parseFloat(li.unit_price);
-        if (!price || price <= 0) continue;
-
-        // Try benchmark first
-        if (li.cfc_subcode && benchmarkMap[li.cfc_subcode]) {
-          ratios.push(price / benchmarkMap[li.cfc_subcode]);
-          continue;
         }
-
-        // Then try peer comparison
-        if (li.submission_item_id && itemMedianMap[li.submission_item_id]) {
-          ratios.push(price / itemMedianMap[li.submission_item_id]);
-          continue;
-        }
-      }
-
-      if (ratios.length > 0) {
-        avgVsMedianPct = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+      } catch (err) {
+        console.warn("[auto-score] benchmark fallback failed:", err);
       }
     }
-  } catch (err) {
-    console.warn("[auto-score] Price competitiveness query failed:", err);
+
+    if (ratios.length > 0) {
+      avgVsMedianPct = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+    }
   }
 
   // ---------- 3. Response rate ----------
-  let requestsCount = 0;
-  let offersCount = 0;
-  try {
-    const { count: rc } = await (adminClient as any)
-      .from("price_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("supplier_id", supplierId)
-      .eq("organization_id", orgId);
-    requestsCount = rc || 0;
-  } catch { /* ignore */ }
-
-  try {
-    const { count: oc } = await (adminClient as any)
-      .from("supplier_offers")
-      .select("id", { count: "exact", head: true })
-      .eq("supplier_id", supplierId)
-      .eq("organization_id", orgId);
-    offersCount = oc || 0;
-  } catch { /* ignore */ }
-
+  const requestsCount = sentRequests.length;
+  const offersCount = answeredRequests.length;
   const ratePct = requestsCount > 0 ? Math.round((offersCount / requestsCount) * 100) : 0;
 
   // ---------- 4. Quality (manual reliability_score) ----------
@@ -369,20 +437,35 @@ export async function calculateAutoScore(
   } catch { /* ignore */ }
 
   // ---------- 5. Projects delivered ----------
+  // An award is recorded as submissions.budget_estimate.awarded_request_id.
   let projectsDelivered = 0;
-  try {
-    const { data: awardedOffers } = await (adminClient as any)
-      .from("supplier_offers")
-      .select("project_id, status")
-      .eq("supplier_id", supplierId)
-      .eq("organization_id", orgId)
-      .in("status", ["awarded", "completed"]);
+  if (requestIds.length > 0) {
+    try {
+      const submissionIds = Array.from(new Set(requests.map((r) => r.submission_id).filter(Boolean)));
+      if (submissionIds.length > 0) {
+        const { data: subs, error } = await (adminClient as any)
+          .from("submissions")
+          .select("id, project_id, budget_estimate")
+          .in("id", submissionIds)
+          .eq("organization_id", orgId);
 
-    if (awardedOffers && awardedOffers.length > 0) {
-      const uniqueProjects = new Set(awardedOffers.map((o: any) => o.project_id).filter(Boolean));
-      projectsDelivered = uniqueProjects.size;
+        if (error) {
+          console.warn("[auto-score] awarded submissions query failed:", error.message);
+        } else {
+          const awardedProjects = new Set<string>();
+          for (const s of subs || []) {
+            const awardedId = s?.budget_estimate?.awarded_request_id;
+            if (awardedId && requestById.has(awardedId) && s.project_id) {
+              awardedProjects.add(s.project_id);
+            }
+          }
+          projectsDelivered = awardedProjects.size;
+        }
+      }
+    } catch (err) {
+      console.warn("[auto-score] awarded submissions query threw:", err);
     }
-  } catch { /* ignore */ }
+  }
 
   // ---------- Build breakdown ----------
   const breakdown: AutoScoreBreakdown = {
@@ -407,11 +490,15 @@ export async function calculateAutoScore(
       source: qualitySource,
     },
     projects_delivered: {
-      score: scoreProjectsDelivered(projectsDelivered),
+      // No transaction history at all → neutral, not the "0 project" floor (20).
+      score: requestsCount === 0 ? 50 : scoreProjectsDelivered(projectsDelivered),
       weight: WEIGHTS.projects_delivered,
       count: projectsDelivered,
     },
     overall: 0,
+    requests_sent: requestsCount,
+    responses_received: offersCount,
+    has_data: requestsCount > 0,
   };
 
   // Weighted average
@@ -428,7 +515,15 @@ export async function calculateAutoScore(
 
 /**
  * Calculate and persist auto-score for a supplier.
- * Updates overall_score, response_rate, avg_response_days, price_competitiveness in DB.
+ *
+ * H1: when the supplier has no transaction history, NOTHING is written. The old
+ * implementation unconditionally wrote `total_requests_sent: 0`,
+ * `total_offers_received: 0` and a response rate of 0 — so every quote received
+ * wiped the supplier's statistics (and any figure imported or entered manually)
+ * before the second update could restore them from tables that were always empty.
+ *
+ * Statistics are now written in a single statement, and only the dimensions that
+ * are actually backed by data are included.
  */
 export async function recalculateAndPersistScore(
   supplierId: string,
@@ -437,59 +532,46 @@ export async function recalculateAndPersistScore(
 ): Promise<AutoScoreBreakdown> {
   const breakdown = await calculateAutoScore(supplierId, orgId, adminClient);
 
-  try {
-    await (adminClient as any)
-      .from("suppliers")
-      .update({
-        overall_score: breakdown.overall,
-        response_rate: breakdown.response_rate.rate_pct,
-        avg_response_days: breakdown.response_time.avg_days ?? 0,
-        price_competitiveness: breakdown.price_competitiveness.score,
-        total_requests_sent: 0, // Will be updated separately
-        total_offers_received: 0,
-      })
-      .eq("id", supplierId)
-      .eq("organization_id", orgId);
+  if (!breakdown.has_data) {
+    // Neutral score, existing statistics preserved.
+    console.log(
+      `[auto-score] Supplier ${supplierId}: no price request history — keeping existing stats ` +
+      `(neutral score would be ${breakdown.overall})`
+    );
+    return breakdown;
+  }
 
-    // Also update the stats counts
-    try {
-      const { count: rc } = await (adminClient as any)
-        .from("price_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId)
-        .eq("organization_id", orgId);
+  const updates: Record<string, unknown> = {
+    overall_score: breakdown.overall,
+    response_rate: breakdown.response_rate.rate_pct,
+    price_competitiveness: breakdown.price_competitiveness.score,
+    total_requests_sent: breakdown.requests_sent,
+    total_offers_received: breakdown.responses_received,
+  };
 
-      const { count: oc } = await (adminClient as any)
-        .from("supplier_offers")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId)
-        .eq("organization_id", orgId);
+  // Only overwrite the delay when at least one response could be timed,
+  // and the project count when at least one award exists.
+  if (breakdown.response_time.avg_days != null) {
+    updates.avg_response_days = breakdown.response_time.avg_days;
+  }
+  if (breakdown.projects_delivered.count > 0) {
+    updates.total_projects_involved = breakdown.projects_delivered.count;
+  }
 
-      const { data: awardedOffers } = await (adminClient as any)
-        .from("supplier_offers")
-        .select("project_id")
-        .eq("supplier_id", supplierId)
-        .eq("organization_id", orgId)
-        .in("status", ["awarded", "completed"]);
+  const { error } = await (adminClient as any)
+    .from("suppliers")
+    .update(updates)
+    .eq("id", supplierId)
+    .eq("organization_id", orgId);
 
-      const projectCount = awardedOffers
-        ? new Set(awardedOffers.map((o: any) => o.project_id).filter(Boolean)).size
-        : 0;
-
-      await (adminClient as any)
-        .from("suppliers")
-        .update({
-          total_requests_sent: rc || 0,
-          total_offers_received: oc || 0,
-          total_projects_involved: projectCount,
-        })
-        .eq("id", supplierId)
-        .eq("organization_id", orgId);
-    } catch { /* non-critical */ }
-
-    console.log(`[auto-score] Updated supplier ${supplierId}: overall=${breakdown.overall}`);
-  } catch (err) {
-    console.error(`[auto-score] Failed to persist score for ${supplierId}:`, err);
+  if (error) {
+    console.error(`[auto-score] Failed to persist score for ${supplierId}:`, error.message);
+  } else {
+    console.log(
+      `[auto-score] Updated supplier ${supplierId}: overall=${breakdown.overall} ` +
+      `(${breakdown.responses_received}/${breakdown.requests_sent} responses, ` +
+      `avg ${breakdown.response_time.avg_days ?? "—"} d)`
+    );
   }
 
   return breakdown;

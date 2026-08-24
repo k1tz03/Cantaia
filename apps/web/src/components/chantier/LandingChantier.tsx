@@ -558,7 +558,7 @@ export default function LandingChantier() {
           <ChantierButton variant="primary" href="/register" className="px-8 py-5 text-[15px]">
             {t("closing.ctaPrimary")}
           </ChantierButton>
-          <ChantierButton variant="ghost" href="/tarifs" className="px-8 py-5 text-[15px]">
+          <ChantierButton variant="ghost" href="/pricing" className="px-8 py-5 text-[15px]">
             {t("closing.ctaSecondary")}
           </ChantierButton>
         </div>

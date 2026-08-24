@@ -5,7 +5,7 @@ import {
   Search, Send, Eye, Trash2, X, Plus, Check,
   ChevronDown, ChevronRight, Zap, Paperclip,
   CheckCircle2, Loader2, Package as PackageIcon,
-  Camera, XCircle, Sparkles, Undo2, AlertTriangle,
+  Camera, XCircle, Sparkles, Undo2, AlertTriangle, AlertCircle,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -198,7 +198,12 @@ export function PriceRequestV2({
 
   // ── Send state ──────────────────────────────────────────────
   const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ sent: number; saved: number; errors: number } | null>(null);
+  const [sendResult, setSendResult] = useState<{
+    sent: number;
+    failed: number;
+    errors: number;
+    errorDetails: Array<{ supplier: string; group: string; message: string }>;
+  } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
   // ── AI item filtering (on mount) ────────────────────────────
@@ -612,8 +617,9 @@ export function PriceRequestV2({
     setSendError(null);
 
     let totalSent = 0;
-    let totalSaved = 0;
+    let totalFailed = 0;
     let totalErrors = 0;
+    const errorDetails: Array<{ supplier: string; group: string; message: string }> = [];
 
     try {
       // Send one API call per package (each with its own attachments)
@@ -688,22 +694,51 @@ export function PriceRequestV2({
           const json = await res.json();
 
           if (res.ok && json.success) {
-            totalSent += json.sent || 0;
-            totalSaved += json.saved || 0;
-            totalErrors += (json.results || []).filter((r: any) => r.status === "error").length;
+            const results: any[] = json.results || [];
+            // H2: the server only reports "sent" once Microsoft Graph accepted the
+            // message. Anything else is a real failure — the old code counted a
+            // status value ("error") the API has never returned, so every delivery
+            // failure was silently reported as a success.
+            totalSent += results.filter((r) => r.status === "sent").length;
+            const failedResults = results.filter((r) => r.status !== "sent");
+            totalFailed += failedResults.length;
+            for (const r of failedResults) {
+              errorDetails.push({
+                supplier: r.supplier_name || r.supplier_id || "Fournisseur",
+                group: r.material_group || "—",
+                message: r.error || "Envoi échoué",
+              });
+            }
+            if (json.microsoft_error && failedResults.length === 0) {
+              errorDetails.push({ supplier: "—", group: "—", message: json.microsoft_error });
+            }
           } else {
             totalErrors++;
+            errorDetails.push({
+              supplier: "—",
+              group: "—",
+              message: json?.error || `Erreur serveur (HTTP ${res.status})`,
+            });
           }
-        } catch {
+        } catch (err: any) {
           totalErrors++;
+          errorDetails.push({ supplier: "—", group: "—", message: err?.message || "Erreur réseau" });
         }
       }
 
-      if (totalSent > 0 || totalSaved > 0) {
-        setSendResult({ sent: totalSent, saved: totalSaved, errors: totalErrors });
+      if (totalSent > 0 || totalFailed > 0) {
+        setSendResult({
+          sent: totalSent,
+          failed: totalFailed,
+          errors: totalFailed + totalErrors,
+          errorDetails,
+        });
         onComplete?.();
       } else {
-        setSendError("Aucun email envoyé — vérifiez les adresses email des fournisseurs");
+        setSendError(
+          errorDetails[0]?.message ||
+            "Aucun email envoyé — vérifiez les adresses email des fournisseurs"
+        );
       }
     } catch (err: any) {
       setSendError(err.message || "Erreur réseau");
@@ -752,18 +787,52 @@ export function PriceRequestV2({
 
   // ── Success state ───────────────────────────────────────────
   if (sendResult) {
+    const allFailed = sendResult.sent === 0;
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 mb-4">
-          <CheckCircle2 className="h-8 w-8 text-green-400" />
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-full mb-4 ${
+            allFailed ? "bg-red-500/10" : "bg-green-500/10"
+          }`}
+        >
+          {allFailed ? (
+            <AlertCircle className="h-8 w-8 text-red-400" />
+          ) : (
+            <CheckCircle2 className="h-8 w-8 text-green-400" />
+          )}
         </div>
-        <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">Demandes envoyées</h3>
+        <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">
+          {allFailed ? "Aucune demande envoyée" : "Demandes envoyées"}
+        </h3>
         <p className="text-sm text-[#A1A1AA] mb-1">
           {sendResult.sent > 0 && <>{sendResult.sent} email{sendResult.sent > 1 ? "s" : ""} envoyé{sendResult.sent > 1 ? "s" : ""}</>}
-          {sendResult.saved > 0 && <> · {sendResult.saved} enregistré{sendResult.saved > 1 ? "s" : ""}</>}
+          {sendResult.failed > 0 && (
+            <>
+              {sendResult.sent > 0 && " · "}
+              <span className="text-red-400">
+                {sendResult.failed} échec{sendResult.failed > 1 ? "s" : ""}
+              </span>
+            </>
+          )}
         </p>
-        {sendResult.errors > 0 && (
-          <p className="text-xs text-amber-400">{sendResult.errors} erreur{sendResult.errors > 1 ? "s" : ""}</p>
+        {sendResult.errorDetails.length > 0 && (
+          <div className="mt-4 w-full max-w-lg text-left space-y-1.5">
+            {sendResult.errorDetails.map((d, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
+              >
+                <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <span className="text-xs font-medium text-red-400">
+                    {d.supplier}
+                    {d.group !== "—" && <span className="text-[#71717A]"> · {d.group}</span>}
+                  </span>
+                  <p className="text-xs text-[#A1A1AA] mt-0.5 break-words">{d.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         <button
           onClick={() => { setSendResult(null); setPackages([]); }}

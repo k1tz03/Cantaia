@@ -2,8 +2,16 @@
  * LowConfidenceGate — blocking modal shown on first load when more than 30% of
  * scene elements have confidence < 0.7. Forces the user to acknowledge (via a
  * mandatory checkbox) that the visualisation is indicative, not contractual,
- * before they can interact with the scene. Acceptance is persisted per project
- * via onAccept (Dev B wires to localStorage / project settings).
+ * before they can interact with the scene.
+ *
+ * L'acceptation est PERSISTÉE dans `ai_disclaimer_acceptance` (migration 076)
+ * via `POST /api/scenes/[id]/disclaimer`. Avant ce correctif elle ne vivait
+ * que dans un `useState` du SceneViewer : le registre légal SIA — dont c'est
+ * précisément la raison d'être — restait vide.
+ *
+ * L'échec d'enregistrement ne bloque PAS l'utilisateur (il a coché la case,
+ * on ne va pas lui refuser l'accès pour une erreur réseau) — mais il est
+ * loggué, et sans `sceneId` (mode démo) on ne poste rien.
  */
 
 "use client";
@@ -17,6 +25,8 @@ interface LowConfidenceGateProps {
   lowConfidenceRatio: number; // 0..1
   overallConfidence: number; // 0..1
   elementCount: number;
+  /** Scène concernée. `null` en mode démo → aucune écriture au registre. */
+  sceneId?: string | null;
   onAccept: () => void;
   onCancel: () => void;
 }
@@ -26,11 +36,40 @@ export function LowConfidenceGate({
   lowConfidenceRatio,
   overallConfidence,
   elementCount,
+  sceneId,
   onAccept,
   onCancel,
 }: LowConfidenceGateProps) {
   const t = useTranslations("scene3d");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [recording, setRecording] = useState(false);
+
+  const handleAccept = async () => {
+    if (!acknowledged || recording) return;
+
+    if (sceneId) {
+      setRecording(true);
+      try {
+        const res = await fetch(`/api/scenes/${sceneId}/disclaimer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok) {
+          console.error(
+            "[scene3d] Acceptation du disclaimer non enregistrée:",
+            res.status
+          );
+        }
+      } catch (err) {
+        console.error("[scene3d] Acceptation du disclaimer non enregistrée:", err);
+      } finally {
+        setRecording(false);
+      }
+    }
+
+    onAccept();
+  };
 
   if (!open) return null;
 
@@ -133,8 +172,8 @@ export function LowConfidenceGate({
             </button>
             <button
               type="button"
-              onClick={onAccept}
-              disabled={!acknowledged}
+              onClick={handleAccept}
+              disabled={!acknowledged || recording}
               className="px-4 py-2 rounded-md bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#F97316] focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:outline-none"
             >
               {t("gate.accept")}

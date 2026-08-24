@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOrgAdmin } from "@/lib/admin/require-org-admin";
 import { parseBody } from "@/lib/api/parse-body";
 
 const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
@@ -52,27 +53,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   console.log("[branding] Updating branding settings...");
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Only org admins (admin/director) or superadmins can change branding
+  const check = await requireOrgAdmin();
+  if (!check.authorized) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
   const admin = createAdminClient();
-  const { data: userRow } = await admin
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!userRow?.organization_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 404 });
-  }
-
-  const orgId = userRow.organization_id;
+  const orgId = check.profile.organization_id;
 
   // Check plan
   const { data: org } = await admin

@@ -68,7 +68,8 @@ const jsonLd = {
       url: "https://cantaia.io",
       logo: {
         "@type": "ImageObject",
-        url: "https://cantaia.io/og-image.png",
+        // Dynamic opengraph-image route — /og-image.png does not exist (404)
+        url: "https://cantaia.io/opengraph-image",
         width: 1200,
         height: 630,
       },

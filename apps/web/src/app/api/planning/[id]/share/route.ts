@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUrl } from "@/lib/env";
 import { randomUUID } from "crypto";
 
+/** Locales served by the app router — share links must use the creator's own. */
+const SUPPORTED_LOCALES = ["fr", "en", "de"];
+
 /**
  * POST /api/planning/[id]/share
  * Generate a unique shareable link for a planning.
@@ -22,7 +25,7 @@ export async function POST(
 
     const { data: userProfile } = await (admin as any)
       .from("users")
-      .select("organization_id")
+      .select("organization_id, preferred_language")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -65,7 +68,10 @@ export async function POST(
       return NextResponse.json({ error: "Failed to create share link" }, { status: 500 });
     }
 
-    const shareUrl = `${getAppUrl()}/fr/planning/${token}`;
+    const locale = SUPPORTED_LOCALES.includes(userProfile.preferred_language)
+      ? userProfile.preferred_language
+      : "fr";
+    const shareUrl = `${getAppUrl()}/${locale}/planning/${token}`;
 
     return NextResponse.json({
       success: true,

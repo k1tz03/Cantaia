@@ -425,6 +425,12 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
 
   // ══════════════════════════════════════════════════════
   // 2. Données ingérées — mv_reference_prices (vue matérialisée)
+  //
+  // ATTENTION : cette vue (migration 045) agrège `ingested_offer_lines` de
+  // TOUTES les organisations — elle ne groupe que par (cfc_code, region,
+  // quarter, unite), jamais par org_id. L'étiqueter `historique_interne`
+  // faisait croire à l'utilisateur qu'il regardait ses propres offres.
+  // Source correcte : `donnees_communautaires`.
   // ══════════════════════════════════════════════════════
   if (hasCfcCode) {
     try {
@@ -442,8 +448,8 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
           min: mvExact.prix_p25,
           median: mvExact.prix_median,
           max: mvExact.prix_p75,
-          source: 'historique_interne',
-          detail_source: `${mvExact.nb_datapoints} offres réelles, ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+          source: 'donnees_communautaires',
+          detail_source: `${mvExact.nb_datapoints} offres agrégées (données communautaires, hors organisation), ${mvExact.nb_fournisseurs} fournisseurs, dernière: ${mvExact.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
           date_reference: mvExact.derniere_offre?.slice(0, 10) ?? quarter,
           ajustements: [],
         };
@@ -471,8 +477,8 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
             min: mvPrefix.prix_p25,
             median: mvPrefix.prix_median,
             max: mvPrefix.prix_p75,
-            source: 'historique_interne',
-            detail_source: `${mvPrefix.nb_datapoints} offres réelles (match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
+            source: 'donnees_communautaires',
+            detail_source: `${mvPrefix.nb_datapoints} offres agrégées (données communautaires, match partiel ${mvPrefix.cfc_code}), ${mvPrefix.nb_fournisseurs} fournisseurs, dernière: ${mvPrefix.derniere_offre?.slice(0, 10) ?? 'N/A'}`,
             date_reference: mvPrefix.derniere_offre?.slice(0, 10) ?? quarter,
             ajustements: [`Match partiel CFC: ${cfc_code} → ${mvPrefix.cfc_code}`],
           };
@@ -488,18 +494,28 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
   // Colonnes: org_id, cfc_code, description, prix_unitaire_ht, unite
   // NOTE: pas de colonne is_forfait dans cette table
   // V3: scoring sur les candidats textuels + inflation
+  //
+  // B11 — Le filtre `org_id` est OBLIGATOIRE : ce tier est interrogé avec le
+  // service role (bypass RLS), donc sans ce `.eq()` les prix ingérés par les
+  // autres organisations contaminent silencieusement l'estimation tout en
+  // étant présentés comme de l'historique interne.
   // ══════════════════════════════════════════════════════
   try {
     if (keywords.length > 0) {
       const searchTerm = sanitizeForFilter(keywords[0]);
       if (searchTerm.length >= 4) {
-        const { data: textMatches } = await supabase
+        const { data: textMatches, error: tier3Error } = await supabase
           .from('ingested_offer_lines')
           .select('cfc_code, prix_unitaire_ht, description, unite, date_offre')
+          .eq('org_id', org_id)
           .ilike('description', `%${searchTerm}%`)
           .gt('prix_unitaire_ht', 0)
           .lt('prix_unitaire_ht', maxPrice)
           .limit(100);
+
+        if (tier3Error) {
+          console.warn('[price-resolver] Tier 3 (ingested_offer_lines) query error:', tier3Error.message);
+        }
 
         if (textMatches && textMatches.length >= 2) {
           const scored: Array<{ score: number; adjusted_price: number; cfc_code: string | null }> = textMatches

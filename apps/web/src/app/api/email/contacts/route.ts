@@ -98,37 +98,89 @@ export async function GET(req: NextRequest) {
       } catch { /* People.Read not available */ }
 
       // Strategy B: Search through recent messages (always works with Mail.Read)
+      // B7: Graph rejects $search combined with $orderby ("Sorting not supported
+      // for search requests") — the 400 was swallowed and this strategy never
+      // returned anything. $search results are already relevance-ranked.
       if (!peopleDone) {
         try {
           const msgRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(q)}"&$select=from,toRecipients,ccRecipients&$top=50&$orderby=receivedDateTime desc`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(q)}"&$select=from,toRecipients,ccRecipients&$top=50`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                ConsistencyLevel: "eventual",
+              },
+            }
           );
           if (msgRes.ok) {
             const msgData = await msgRes.json();
             const msgContacts = extractContactsFromMessages(msgData.value || [], q, seen);
             contacts.push(...msgContacts);
+          } else if (process.env.NODE_ENV === "development") {
+            console.warn(`[contacts] Graph messages search failed: ${msgRes.status} ${await msgRes.text()}`);
           }
         } catch { /* Messages search failed */ }
       }
 
       // Strategy C: Try Contacts API (requires Contacts.Read — may fail)
+      // B7: the previous $filter was invalid OData — `startswith(emailAddresses/any(...))`
+      // is not a valid expression (the lambda must wrap the predicate, not the
+      // other way round). Use the corrected filter, and fall back to a plain
+      // page + local filtering when Graph still rejects it.
       if (contacts.length < 5) {
+        const addContactRows = (rows: any[], filterLocally: boolean) => {
+          for (const c of rows) {
+            const emailEntry = (c.emailAddresses || []).find((e: any) => e?.address);
+            const email = emailEntry?.address;
+            if (!email || seen.has(email.toLowerCase())) continue;
+            const name = c.displayName || emailEntry?.name || email;
+            if (
+              filterLocally &&
+              !name.toLowerCase().includes(q) &&
+              !email.toLowerCase().includes(q)
+            ) {
+              continue;
+            }
+            contacts.push({ email, name, source: "outlook" });
+            seen.add(email.toLowerCase());
+          }
+        };
+
+        // OData string literals escape a single quote by doubling it.
+        const odataQ = encodeURIComponent(q.replace(/'/g, "''"));
+        let contactsHandled = false;
         try {
           const contactsRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/contacts?$filter=startswith(displayName,'${encodeURIComponent(q)}') or startswith(emailAddresses/any(e:e/address),'${encodeURIComponent(q)}')&$top=10&$select=displayName,emailAddresses`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            `https://graph.microsoft.com/v1.0/me/contacts?$filter=emailAddresses/any(a:startswith(a/address,'${odataQ}')) or startswith(displayName,'${odataQ}')&$top=10&$select=displayName,emailAddresses`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                ConsistencyLevel: "eventual",
+              },
+            }
           );
           if (contactsRes.ok) {
             const contactsData = await contactsRes.json();
-            for (const c of contactsData.value || []) {
-              const email = c.emailAddresses?.[0]?.address;
-              if (!email || seen.has(email.toLowerCase())) continue;
-              contacts.push({ email, name: c.displayName || email, source: "outlook" });
-              seen.add(email.toLowerCase());
-            }
+            addContactRows(contactsData.value || [], false);
+            contactsHandled = true;
+          } else if (process.env.NODE_ENV === "development") {
+            console.warn(`[contacts] Graph contacts $filter failed: ${contactsRes.status}`);
           }
         } catch { /* Contacts.Read not available */ }
+
+        // Fallback: no $filter, filter locally
+        if (!contactsHandled) {
+          try {
+            const plainRes = await fetch(
+              `https://graph.microsoft.com/v1.0/me/contacts?$top=50&$select=displayName,emailAddresses`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (plainRes.ok) {
+              const plainData = await plainRes.json();
+              addContactRows(plainData.value || [], true);
+            }
+          } catch { /* Contacts.Read not available */ }
+        }
       }
     }
   } catch { /* Graph API not available */ }

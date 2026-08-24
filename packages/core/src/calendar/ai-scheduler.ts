@@ -6,8 +6,20 @@
 
 import type { AICommandResult } from "./types";
 import { AI_MODELS } from "../ai/ai-utils";
+import { graphDateTimeToUtcIso } from "./calendar-sync";
 
 // ── Parse Natural Language Command ─────────────────────────
+
+/**
+ * CAL.C1: the LLM returns naive ISO datetimes ("2026-08-25T14:00:00") that
+ * express Europe/Zurich wall time. Convert them to true UTC instants so
+ * Postgres (timestamptz) does not misread them as UTC. Datetimes that already
+ * carry an offset/Z are passed through unchanged.
+ */
+function normalizeAiDateTime(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value) return undefined;
+  return graphDateTimeToUtcIso(value, "Europe/Zurich");
+}
 
 /**
  * Parse a natural language command into a calendar action.
@@ -93,8 +105,8 @@ Regles:
     if (parsed.action === "create_event" && parsed.event) {
       result.event = {
         title: parsed.event.title,
-        start_at: parsed.event.start_at,
-        end_at: parsed.event.end_at,
+        start_at: normalizeAiDateTime(parsed.event.start_at),
+        end_at: normalizeAiDateTime(parsed.event.end_at),
         event_type: parsed.event.event_type || "meeting",
         location: parsed.event.location || undefined,
         description: parsed.event.description || undefined,

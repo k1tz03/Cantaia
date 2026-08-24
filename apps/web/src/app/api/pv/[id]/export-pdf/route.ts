@@ -27,6 +27,11 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
+    // A user without an organization can never own a meeting
+    if (!userProfile?.organization_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: meeting } = await admin
       .from("meetings")
       .select("*, projects(name, code, organization_id)")
@@ -40,13 +45,9 @@ export async function GET(
       );
     }
 
-    // Verify meeting's project belongs to user's org
+    // Verify meeting's project belongs to user's org (unconditional)
     const proj = (meeting as any).projects;
-    if (
-      proj &&
-      userProfile?.organization_id &&
-      proj.organization_id !== userProfile.organization_id
-    ) {
+    if (!proj || proj.organization_id !== userProfile.organization_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

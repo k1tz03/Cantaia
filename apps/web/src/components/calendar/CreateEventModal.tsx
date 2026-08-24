@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { X, Loader2, AlertCircle, Sparkles, Plus, MapPin, Calendar, Clock, Users } from "lucide-react";
 import { toast } from "sonner";
+import { toLocalISOString } from "./datetime-utils";
 
 interface CreateEventModalProps {
   open: boolean;
@@ -25,12 +27,12 @@ interface AgendaSuggestion {
 }
 
 const EVENT_TYPES = [
-  { value: "meeting", label: "Reunion" },
-  { value: "site_visit", label: "Visite chantier" },
-  { value: "call", label: "Appel" },
-  { value: "deadline", label: "Deadline" },
-  { value: "construction", label: "Construction" },
-  { value: "other", label: "Autre" },
+  { value: "meeting", labelKey: "typeMeeting" },
+  { value: "site_visit", labelKey: "typeSiteVisit" },
+  { value: "call", labelKey: "typeCall" },
+  { value: "deadline", labelKey: "typeDeadline" },
+  { value: "construction", labelKey: "typeConstruction" },
+  { value: "other", labelKey: "typeOther" },
 ] as const;
 
 function formatDateForInput(date: Date): string {
@@ -62,6 +64,8 @@ export function CreateEventModal({
   defaultDate,
   defaultStartTime,
 }: CreateEventModalProps) {
+  const t = useTranslations("calendar");
+
   // Form state
   const [title, setTitle] = useState("");
   const [eventType, setEventType] = useState<string>("meeting");
@@ -156,11 +160,11 @@ export function CreateEventModal({
 
       // Generate simple agenda suggestions based on project context
       const baseSuggestions: string[] = [];
-      if (project.budget_total) baseSuggestions.push("Revue du budget et suivi financier");
-      if (project.status === "active") baseSuggestions.push("Avancement des travaux et planning");
-      baseSuggestions.push("Points ouverts et decisions a prendre");
-      baseSuggestions.push("Coordination entre corps de metiers");
-      baseSuggestions.push("Prochaines etapes et responsabilites");
+      if (project.budget_total) baseSuggestions.push(t("suggestionBudget"));
+      if (project.status === "active") baseSuggestions.push(t("suggestionProgress"));
+      baseSuggestions.push(t("suggestionOpenPoints"));
+      baseSuggestions.push(t("suggestionCoordination"));
+      baseSuggestions.push(t("suggestionNextSteps"));
 
       setSuggestions(
         baseSuggestions.map((topic, i) => ({
@@ -174,7 +178,7 @@ export function CreateEventModal({
     } finally {
       setLoadingSuggestions(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (projectId) {
@@ -227,18 +231,31 @@ export function CreateEventModal({
         .filter((s) => s.checked)
         .map((s) => s.topic);
 
-      // Build ISO datetime strings from date + time fields
-      // The API expects start_at and end_at as ISO strings
+      // CAL.C1: build ISO datetimes WITH the browser's local UTC offset
+      // (e.g. "2026-08-24T14:00:00+02:00") so Postgres stores the correct
+      // instant and Graph receives a consistent Europe/Zurich wall time.
       let startAt: string;
       let endAt: string;
 
       if (allDay) {
-        // All-day: start at 00:00, end at 23:59 of the same day
-        startAt = `${date}T00:00:00`;
-        endAt = `${date}T23:59:59`;
+        // All-day: start at 00:00, end at 23:59 of the same day (local)
+        startAt = toLocalISOString(date, "00:00");
+        endAt = toLocalISOString(date, "23:59");
       } else {
-        startAt = `${date}T${startTime}:00`;
-        endAt = `${date}T${endTime}:00`;
+        startAt = toLocalISOString(date, startTime);
+        endAt = toLocalISOString(date, endTime);
+      }
+
+      // Selected agenda items are persisted in the description (there is no
+      // dedicated agenda_items column on calendar_events — migration 075).
+      let finalDescription = description.trim();
+      if (selectedSuggestions.length > 0) {
+        const agendaBlock =
+          `${t("agendaTitle")}:\n` +
+          selectedSuggestions.map((topic, i) => `${i + 1}. ${topic}`).join("\n");
+        finalDescription = finalDescription
+          ? `${finalDescription}\n\n${agendaBlock}`
+          : agendaBlock;
       }
 
       const payload = {
@@ -249,11 +266,10 @@ export function CreateEventModal({
         is_all_day: allDay,
         project_id: projectId || null,
         location: location.trim() || null,
-        description: description.trim() || null,
+        description: finalDescription || null,
         attendees: attendees.length > 0
           ? attendees.map((email) => ({ email, name: email.split("@")[0] }))
           : undefined,
-        agenda_items: selectedSuggestions.length > 0 ? selectedSuggestions : null,
         sync_to_outlook: true,
       };
 
@@ -265,16 +281,16 @@ export function CreateEventModal({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Erreur serveur");
+        setError(data.error || t("serverErrorGeneric"));
         setSaving(false);
         return;
       }
 
-      toast.success("Evenement cree avec succes");
+      toast.success(t("eventCreatedSuccess"));
       onCreated();
       onClose();
     } catch {
-      setError("Erreur reseau");
+      setError(t("networkError"));
     } finally {
       setSaving(false);
     }
@@ -297,7 +313,7 @@ export function CreateEventModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#27272A] px-6 py-4">
-          <h2 className="text-base font-semibold text-[#FAFAFA]">Nouvel evenement</h2>
+          <h2 className="text-base font-semibold text-[#FAFAFA]">{t("newEvent")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -320,7 +336,7 @@ export function CreateEventModal({
             {/* Title */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
-                Titre *
+                {t("titleLabel")} *
               </label>
               <input
                 type="text"
@@ -330,17 +346,17 @@ export function CreateEventModal({
                 className={`w-full rounded-lg border bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors ${
                   submitted && missingTitle ? fieldErrorClass : "border-[#27272A]"
                 }`}
-                placeholder="Coordination CVC — Residence du Lac"
+                placeholder={t("titlePlaceholder")}
               />
               {submitted && missingTitle && (
-                <p className="mt-1 text-xs text-[#EF4444]">Le titre est requis</p>
+                <p className="mt-1 text-xs text-[#EF4444]">{t("titleRequired")}</p>
               )}
             </div>
 
             {/* Event type pills */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
-                Type
+                {t("typeLabel")}
               </label>
               <div className="flex flex-wrap gap-2">
                 {EVENT_TYPES.map((et) => (
@@ -354,7 +370,7 @@ export function CreateEventModal({
                         : "bg-[#1C1C1F] text-[#A1A1AA] border border-[#27272A] hover:border-[#3F3F46] hover:text-[#FAFAFA]"
                     }`}
                   >
-                    {et.label}
+                    {t(et.labelKey)}
                   </button>
                 ))}
               </div>
@@ -364,7 +380,7 @@ export function CreateEventModal({
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#A1A1AA]">
                 <Calendar className="h-3.5 w-3.5" />
-                Date
+                {t("dateLabel")}
               </label>
               <input
                 type="date"
@@ -379,10 +395,10 @@ export function CreateEventModal({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-[#A1A1AA]">
                   <Clock className="h-3.5 w-3.5" />
-                  Horaire
+                  {t("timeLabel")}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-xs text-[#71717A]">Journee entiere</span>
+                  <span className="text-xs text-[#71717A]">{t("allDay")}</span>
                   <button
                     type="button"
                     role="switch"
@@ -421,7 +437,7 @@ export function CreateEventModal({
             {/* Project selector */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
-                Projet
+                {t("projectLabel")}
               </label>
               <select
                 value={projectId}
@@ -429,7 +445,7 @@ export function CreateEventModal({
                 disabled={loadingProjects}
                 className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors disabled:opacity-50"
               >
-                <option value="">Aucun projet</option>
+                <option value="">{t("noProject")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.code ? `${p.code} — ${p.name}` : p.name}
@@ -442,7 +458,7 @@ export function CreateEventModal({
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#A1A1AA]">
                 <MapPin className="h-3.5 w-3.5" />
-                Lieu
+                {t("locationLabel")}
               </label>
               <input
                 type="text"
@@ -450,21 +466,21 @@ export function CreateEventModal({
                 onChange={(e) => setLocation(e.target.value)}
                 maxLength={300}
                 className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
-                placeholder="Bureau / Chantier Av. de la Gare 12"
+                placeholder={t("locationPlaceholder")}
               />
             </div>
 
             {/* Description */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[#A1A1AA]">
-                Description
+                {t("descriptionLabel")}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] px-3 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors resize-none"
-                placeholder="Notes ou details supplementaires..."
+                placeholder={t("descriptionPlaceholder")}
               />
             </div>
 
@@ -472,7 +488,7 @@ export function CreateEventModal({
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#A1A1AA]">
                 <Users className="h-3.5 w-3.5" />
-                Participants
+                {t("attendees")}
               </label>
               {/* Chips */}
               {attendees.length > 0 && (
@@ -506,7 +522,7 @@ export function CreateEventModal({
                   onChange={(e) => setAttendeeInput(e.target.value)}
                   onKeyDown={handleAddAttendee}
                   className="w-full rounded-lg border border-[#27272A] bg-[#0F0F11] pl-3 pr-9 py-2.5 text-sm text-[#FAFAFA] placeholder-[#52525B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316] transition-colors"
-                  placeholder="email@exemple.ch — Entree pour ajouter"
+                  placeholder={t("attendeePlaceholder")}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <Plus className="h-4 w-4 text-[#52525B]" />
@@ -522,14 +538,14 @@ export function CreateEventModal({
                     <Sparkles className="h-3.5 w-3.5 text-[#F97316]" />
                   </div>
                   <span className="text-xs font-medium text-[#FAFAFA]">
-                    Suggestions IA pour l&apos;ordre du jour
+                    {t("agendaSuggestions")}
                   </span>
                 </div>
 
                 {loadingSuggestions ? (
                   <div className="flex items-center gap-2 py-2">
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-[#71717A]" />
-                    <span className="text-xs text-[#71717A]">Chargement...</span>
+                    <span className="text-xs text-[#71717A]">{t("loadingShort")}</span>
                   </div>
                 ) : suggestions.length > 0 ? (
                   <div className="space-y-2">
@@ -558,7 +574,7 @@ export function CreateEventModal({
                     {suggestions.some((s) => s.checked) && (
                       <div className="mt-3 rounded-lg bg-[#0F0F11] border border-[#27272A] px-3 py-2.5">
                         <p className="text-xs text-[#71717A] mb-1.5">
-                          Ordre du jour selectionne :
+                          {t("agendaSelected")}
                         </p>
                         <ol className="list-decimal list-inside space-y-0.5">
                           {suggestions
@@ -574,7 +590,7 @@ export function CreateEventModal({
                   </div>
                 ) : (
                   <p className="text-xs text-[#52525B]">
-                    Aucune suggestion disponible pour ce projet.
+                    {t("noSuggestions")}
                   </p>
                 )}
               </div>
@@ -588,7 +604,7 @@ export function CreateEventModal({
               onClick={onClose}
               className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#71717A] hover:bg-[#27272A] hover:text-[#A1A1AA] transition-colors"
             >
-              Annuler
+              {t("cancel")}
             </button>
             <button
               type="submit"
@@ -596,7 +612,7 @@ export function CreateEventModal({
               className="inline-flex items-center gap-2 rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#EA580C] disabled:opacity-50 transition-colors shadow-sm shadow-[#F97316]/20"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Creer l&apos;evenement
+              {t("createEvent")}
             </button>
           </div>
         </form>

@@ -2,7 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBody, validateRequired } from "@/lib/api/parse-body";
+import { PLAN_PRICING, type PlanName } from "@cantaia/config/plan-features";
 import crypto from "crypto";
+
+/**
+ * Estimated monthly revenue for an org on the per-user pricing model:
+ * pricePerUser × max(memberCount, minUsers).
+ *
+ * NOTE: interim estimate — the upcoming credits-based billing model will
+ * replace this calculation entirely.
+ */
+function orgMonthlyRevenue(plan: string, memberCount: number): number {
+  const pricing = PLAN_PRICING[plan as PlanName];
+  if (!pricing || pricing.pricePerUser === 0) return 0;
+  return pricing.pricePerUser * Math.max(memberCount, pricing.minUsers);
+}
 
 /**
  * Helper: verify the current user is a super-admin.
@@ -188,7 +202,7 @@ export async function GET(request: NextRequest) {
       (admin as any).from("supplier_offers").select("id", { count: "exact", head: true }),
       (admin as any).from("plan_registry").select("id", { count: "exact", head: true }),
       (admin as any).from("ingested_plan_quantities").select("source_file"),
-      (admin as any).from("organizations").select("subscription_plan, plan"),
+      (admin as any).from("organizations").select("id, subscription_plan, plan"),
     ]);
 
     // Count distinct source_file from ingested_plan_quantities
@@ -211,12 +225,26 @@ export async function GET(request: NextRequest) {
       }
     } catch { /* table may not exist */ }
 
-    // MRR calculation from org plans
-    const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
+    // MRR: per-user pricing (PLAN_PRICING) × member count, floored at the
+    // plan's minUsers. Interim — replaced by the credits model later.
+    const memberCountByOrg = new Map<string, number>();
+    try {
+      const { data: memberRows } = await (admin as any)
+        .from("users")
+        .select("organization_id")
+        .not("organization_id", "is", null);
+      for (const m of (memberRows || [])) {
+        memberCountByOrg.set(
+          m.organization_id,
+          (memberCountByOrg.get(m.organization_id) || 0) + 1
+        );
+      }
+    } catch { /* fall back to minUsers-only MRR */ }
+
     let mrr = 0;
     for (const o of (orgsList.data || [])) {
       const plan = o.plan || o.subscription_plan || "trial";
-      mrr += PLAN_PRICES[plan] || 0;
+      mrr += orgMonthlyRevenue(plan, memberCountByOrg.get(o.id) || 0);
     }
 
     // Storage usage across all buckets
@@ -293,6 +321,7 @@ export async function GET(request: NextRequest) {
           email_classify: "Classification email IA",
           email_reply: "Réponse email IA",
           email_summary: "Résumé email IA",
+          briefing_generate: "Briefing quotidien IA",
           task_extract: "Extraction tâches IA",
           reclassify: "Reclassification batch",
           plan_analyze: "Analyse plan IA",
@@ -465,13 +494,13 @@ export async function GET(request: NextRequest) {
         }
       }
       const orgLookup = new Map(orgsData.map((o: any) => [o.id, o]));
-      const PLAN_PRICES: Record<string, number> = { trial: 0, starter: 149, pro: 349, enterprise: 790 };
 
       const perOrg = orgIds.map((oid) => {
         const stats = orgMap.get(oid)!;
         const orgInfo = orgLookup.get(oid);
         const plan = orgInfo?.plan || orgInfo?.subscription_plan || "trial";
-        const revenueMonthly = PLAN_PRICES[plan] || 0;
+        // Per-user pricing estimate — replaced by the credits model later.
+        const revenueMonthly = orgMonthlyRevenue(plan, memberCountMap.get(oid) || 0);
         const costMonthly = days > 0 ? (stats.cost / days) * 30 : 0;
         return {
           org_id: oid,

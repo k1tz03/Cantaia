@@ -4,16 +4,15 @@ import { NextResponse } from "next/server";
 import { TRIAL_DURATION_DAYS } from "@cantaia/config/constants";
 
 /**
- * Migrate all data references from one user ID to another.
- * Used when a user re-authenticates with a different OAuth provider,
- * resulting in a new Supabase auth UID.
+ * Legacy non-transactional migration path (pre-migration 080).
+ * 6 independent UPDATEs + 1 DELETE — an interruption mid-way leaves the account
+ * half-migrated. Kept only as a fallback when the RPC is not deployed yet.
  */
-async function migrateUserData(
+async function migrateUserDataLegacy(
   adminClient: ReturnType<typeof createAdminClient>,
   fromUserId: string,
   toUserId: string
 ) {
-  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Migrating data from", fromUserId, "to", toUserId);
   await adminClient.from("project_members").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   await adminClient.from("tasks").update({ assigned_to: toUserId } as any).eq("assigned_to", fromUserId);
   await adminClient.from("tasks").update({ created_by: toUserId } as any).eq("created_by", fromUserId);
@@ -22,6 +21,48 @@ async function migrateUserData(
   await adminClient.from("email_connections").update({ user_id: toUserId } as any).eq("user_id", fromUserId);
   // Delete old user row
   await adminClient.from("users").delete().eq("id", fromUserId).neq("id", toUserId);
+}
+
+/**
+ * Migrate all data references from one user ID to another.
+ * Used when a user re-authenticates with a different OAuth provider,
+ * resulting in a new Supabase auth UID.
+ *
+ * Runs the whole move (6 UPDATEs + 1 DELETE) inside a single transaction via the
+ * `migrate_user_data` RPC (migration 080) — SEC2.NC5. Falls back to the legacy
+ * per-statement implementation when the function is not deployed yet (42883).
+ */
+async function migrateUserData(
+  adminClient: ReturnType<typeof createAdminClient>,
+  fromUserId: string,
+  toUserId: string
+) {
+  if (process.env.NODE_ENV === "development") console.log("[auth/callback] Migrating data from", fromUserId, "to", toUserId);
+
+  const { error } = await (adminClient as any).rpc("migrate_user_data", {
+    p_old_user_id: fromUserId,
+    p_new_user_id: toUserId,
+  });
+
+  if (error) {
+    // Migration 080 not applied yet:
+    //   42883  = Postgres "function does not exist"
+    //   PGRST202 = PostgREST "could not find the function in the schema cache"
+    // Any OTHER error means the RPC ran and genuinely failed → do NOT silently
+    // retry with the non-transactional path, surface it instead.
+    const notDeployed =
+      error.code === "42883" ||
+      error.code === "PGRST202" ||
+      /(does not exist|could not find the function)/i.test(error.message ?? "");
+    if (notDeployed) {
+      console.warn("[auth/callback] migrate_user_data RPC unavailable — falling back to non-transactional migration");
+      await migrateUserDataLegacy(adminClient, fromUserId, toUserId);
+    } else {
+      console.error("[auth/callback] migrate_user_data RPC failed:", error.message);
+      throw new Error(`migrate_user_data failed: ${error.message}`);
+    }
+  }
+
   if (process.env.NODE_ENV === "development") console.log("[auth/callback] Data migration complete");
 }
 

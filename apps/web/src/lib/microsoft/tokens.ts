@@ -68,7 +68,26 @@ export async function getValidMicrosoftToken(
 
     // Token expired — try refresh via email_connections refresh_token
     if (conn.oauth_refresh_token) {
-      const refreshToken = safeDecrypt(conn.oauth_refresh_token);
+      // B9 / OUTLOOK.1: another concurrent request (sync, contacts, thread…)
+      // may already have refreshed this token while we were reading. Re-read
+      // right before refreshing — Microsoft rotates the refresh token, so a
+      // redundant refresh invalidates the one the other process just stored.
+      const { data: freshConn } = await adminClient
+        .from("email_connections")
+        .select("oauth_access_token, oauth_refresh_token, oauth_token_expires_at")
+        .eq("id", conn.id)
+        .maybeSingle();
+
+      const freshExpiryMs = freshConn?.oauth_token_expires_at
+        ? new Date(freshConn.oauth_token_expires_at).getTime()
+        : 0;
+      if (freshConn?.oauth_access_token && freshExpiryMs - bufferMs > Date.now()) {
+        return { accessToken: safeDecrypt(freshConn.oauth_access_token) };
+      }
+
+      const refreshToken = safeDecrypt(
+        freshConn?.oauth_refresh_token || conn.oauth_refresh_token
+      );
       const refreshed = await refreshMicrosoftToken(refreshToken);
 
       if (!refreshed.error) {
@@ -138,12 +157,46 @@ export async function getValidMicrosoftToken(
     return { error: "No refresh token available. Please reconnect Outlook." };
   }
 
-  const refreshToken = safeDecrypt(rawRefreshToken);
+  // B9 / OUTLOOK.1: re-read immediately before refreshing — the email_connections
+  // branch above can take seconds, during which a concurrent request may already
+  // have rotated the tokens.
+  const { data: freshUser } = await adminClient
+    .from("users")
+    .select(
+      "microsoft_access_token, microsoft_refresh_token, microsoft_token_expires_at"
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  const freshUserExpiryMs = freshUser?.microsoft_token_expires_at
+    ? new Date(freshUser.microsoft_token_expires_at).getTime()
+    : 0;
+  if (freshUser?.microsoft_access_token && freshUserExpiryMs - bufferMs > Date.now()) {
+    return { accessToken: safeDecrypt(freshUser.microsoft_access_token) };
+  }
+
+  const refreshToken = safeDecrypt(
+    freshUser?.microsoft_refresh_token || rawRefreshToken
+  );
   let refreshed = await refreshMicrosoftToken(refreshToken);
 
   // Retry once after a short delay before giving up
   if (refreshed.error) {
     await new Promise((r) => setTimeout(r, 1500));
+
+    // Another process may have won the race during the delay (B9)
+    const { data: retryUser } = await adminClient
+      .from("users")
+      .select("microsoft_access_token, microsoft_token_expires_at")
+      .eq("id", userId)
+      .maybeSingle();
+    const retryExpiryMs = retryUser?.microsoft_token_expires_at
+      ? new Date(retryUser.microsoft_token_expires_at).getTime()
+      : 0;
+    if (retryUser?.microsoft_access_token && retryExpiryMs - bufferMs > Date.now()) {
+      return { accessToken: safeDecrypt(retryUser.microsoft_access_token) };
+    }
+
     refreshed = await refreshMicrosoftToken(refreshToken);
   }
 
@@ -209,7 +262,12 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<{
     client_secret: clientSecret,
     grant_type: "refresh_token",
     refresh_token: refreshToken,
-    scope: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
+    // B4: must stay in sync with the initial consent scopes
+    // (apps/web/src/app/api/auth/microsoft-connect/route.ts and
+    // packages/core/src/emails/providers/microsoft-provider.ts). Dropping
+    // People.Read / Contacts.Read here silently broke contact autocomplete
+    // ~1h after login, once the first refresh happened.
+    scope: "openid email profile offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read People.Read Contacts.Read",
   });
 
   try {

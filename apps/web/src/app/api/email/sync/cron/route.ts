@@ -10,6 +10,15 @@ export const maxDuration = 300;
 const INSERT_BATCH_SIZE = 200;
 
 /**
+ * GET /api/email/sync/cron
+ * Vercel Cron invokes scheduled paths with GET — delegate to POST.
+ * (Without this, the scheduled sync 405s and never runs.)
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
+
+/**
  * POST /api/email/sync/cron
  * Triggered by Vercel Cron (every 5 minutes) or external cron.
  * Syncs all active email connections + resets expired snoozes.

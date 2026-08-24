@@ -143,6 +143,7 @@ export type LogLevel = "info" | "warning" | "error" | "critical";
 export type ApiActionType =
   | "email_classify"
   | "email_summary"
+  | "briefing_generate"
   | "email_reply"
   | "task_extract"
   | "pv_transcribe"
@@ -1663,7 +1664,7 @@ export type EmailClassificationRuleInsert = WithOptionalDefaults<
 
 export type VisitStatus = "recording" | "transcribing" | "report_ready" | "reviewed" | "quoted" | "won" | "lost" | "archived";
 export type TranscriptionStatus = "pending" | "processing" | "completed" | "failed";
-export type ReportStatus = "pending" | "generating" | "completed" | "reviewed";
+export type ReportStatus = "pending" | "generating" | "completed" | "reviewed" | "failed";
 export type VisitSentiment = "positive" | "neutral" | "hesitant" | "negative";
 
 export interface VisitClientRequest {

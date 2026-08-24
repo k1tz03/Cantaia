@@ -12,6 +12,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAgentConfig, AGENT_TYPES } from "@cantaia/core/agents";
 import type { AgentType } from "@cantaia/core/agents";
 import { trackApiUsage } from "@cantaia/core/tracking";
+import { checkUsageLimit } from "@cantaia/config/plan-features";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const maxDuration = 10;
 export const dynamic = "force-dynamic";
@@ -59,6 +61,37 @@ export async function POST(
 
   if (!userProfile?.organization_id) {
     return NextResponse.json({ error: "No organization" }, { status: 403 });
+  }
+
+  // ── Rate limit (AGT.C2) ─────────────────────────────────
+  // An agent run costs up to 25 Sonnet iterations, so cap starts per user.
+  const rl = await rateLimit(`agents:user:${user.id}`, { limit: 10, windowSec: 3600 });
+  if (!rl.allowed) {
+    return rateLimitResponse(rl);
+  }
+
+  // ── Plan usage limit (AGT.C2) ───────────────────────────
+  const { data: org } = await (admin as any)
+    .from("organizations")
+    .select("subscription_plan")
+    .eq("id", userProfile.organization_id)
+    .maybeSingle();
+
+  const usageCheck = await checkUsageLimit(
+    admin,
+    userProfile.organization_id,
+    org?.subscription_plan || "trial"
+  );
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "usage_limit_reached",
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        required_plan: usageCheck.requiredPlan,
+      },
+      { status: 429 }
+    );
   }
 
   // ── Parse body ──────────────────────────────────────────

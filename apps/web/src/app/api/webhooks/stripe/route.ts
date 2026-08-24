@@ -42,6 +42,26 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
+  // Idempotence: Stripe retries deliveries — record event.id and bail out
+  // early if this event was already processed (migration 088).
+  try {
+    const { error: dedupError } = await (admin as any)
+      .from("stripe_events")
+      .insert({ id: event.id, type: event.type });
+
+    if (dedupError) {
+      if (dedupError.code === "23505") {
+        // Unique violation → already processed
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+      // Table missing (migration not applied) or transient error:
+      // log and continue — better to risk a re-process than drop the event.
+      console.error("[stripe-webhook] Event dedup insert failed:", dedupError.message);
+    }
+  } catch (err) {
+    console.error("[stripe-webhook] Event dedup check failed:", err);
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -50,13 +70,20 @@ export async function POST(request: NextRequest) {
         const subscriptionId = session.subscription as string;
 
         if (session.metadata?.organization_id) {
+          const plan = session.metadata?.plan;
+          if (!plan) {
+            // No silent "pro" fallback: without plan metadata we keep the
+            // current plan untouched and only sync the Stripe identifiers.
+            console.error(
+              `[stripe-webhook] checkout.session.completed ${session.id} has no plan metadata — plan left unchanged`
+            );
+          }
           await (admin as any)
             .from("organizations")
             .update({
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
-              subscription_plan: session.metadata?.plan || "pro",
-              plan: session.metadata?.plan || "pro",
+              ...(plan ? { subscription_plan: plan, plan } : {}),
               plan_status: "active",
             })
             .eq("id", session.metadata.organization_id);
@@ -77,6 +104,13 @@ export async function POST(request: NextRequest) {
         if (org) {
           // In newer Stripe API versions, current_period_end is on subscription items
           const periodEnd = subscription.items.data[0]?.current_period_end;
+          if (!subscription.metadata?.plan) {
+            // Subscriptions created before subscription_data.metadata was added
+            // at checkout — plan left unchanged (no silent fallback).
+            console.warn(
+              `[stripe-webhook] subscription.updated ${subscription.id} has no plan metadata — plan left unchanged`
+            );
+          }
           await (admin as any)
             .from("organizations")
             .update({
