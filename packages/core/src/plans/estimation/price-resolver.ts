@@ -669,31 +669,3 @@ export async function resolvePrice(params: PriceResolverParamsV3): Promise<PrixU
     ajustements: [],
   };
 }
-
-// Résolution batch pour tous les postes d'un métré
-export async function resolvePricesBatch(
-  postes: Array<{ cfc_code: string; description: string; unite: string }>,
-  region: string,
-  quarter: string,
-  org_id: string,
-  supabase: any
-): Promise<Map<string, PrixUnitaire>> {
-  const results = new Map<string, PrixUnitaire>();
-
-  // Résoudre tous les prix en parallèle
-  const promises = postes.map(async (p) => {
-    const prix = await resolvePrice({
-      cfc_code: p.cfc_code,
-      description: p.description,
-      unite: p.unite,
-      region,
-      quarter,
-      org_id,
-      supabase,
-    });
-    results.set(`${p.cfc_code}::${p.unite}`, prix);
-  });
-
-  await Promise.all(promises);
-  return results;
-}

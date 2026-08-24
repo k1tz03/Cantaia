@@ -420,7 +420,9 @@ export async function fetchConstructionWeather(
 ): Promise<CalendarWeather> {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&hourly=precipitation_probability&timezone=Europe/Zurich&forecast_days=1`;
-    const res = await fetch(url, { next: { revalidate: 1800 } }); // cache 30min
+    // cache 30min — l'option `next` n'existe que dans le runtime Next.js ; le cast
+    // garde le fichier compilable quand packages/core est type-checké en autonome
+    const res = await fetch(url, { next: { revalidate: 1800 } } as RequestInit);
     const data = await res.json();
 
     const temp = Math.round(data.current?.temperature_2m || 0);

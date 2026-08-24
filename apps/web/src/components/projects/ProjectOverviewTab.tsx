@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { StatusBadge, PriorityIndicator } from "@cantaia/ui";
 import { Clock } from "lucide-react";
-import { formatDate, formatCurrency } from "@/lib/mock-data";
+import { formatDate, formatCurrency } from "@/lib/format";
 import type { Task } from "@cantaia/database";
 
 export function ProjectOverviewTab({

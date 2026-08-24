@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import {
   formatDate,
-} from "@/lib/mock-data";
+} from "@/lib/format";
 import type { ReceptionReserve } from "@cantaia/database";
 
 const severityConfig = {

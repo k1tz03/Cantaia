@@ -34,6 +34,23 @@ export function formatCHF(value: number, locale?: string): string {
   }).format(value);
 }
 
+/**
+ * Format an amount in an arbitrary currency, without decimals: CHF 1'234
+ * (kept decimal-less on purpose — used for budget figures)
+ */
+export function formatCurrency(
+  amount: number,
+  currency: string = "CHF",
+  locale?: string
+): string {
+  return new Intl.NumberFormat(resolveLocale(locale), {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 /** Format a date string to Swiss short format: 05.03.2026 */
 export function formatDate(
   dateStr: string | Date,

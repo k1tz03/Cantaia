@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { FileText, Clock, Plus } from "lucide-react";
-import { formatDate } from "@/lib/mock-data";
+import { formatDate } from "@/lib/format";
 
 export function ProjectMeetingsTab({
   meetings,

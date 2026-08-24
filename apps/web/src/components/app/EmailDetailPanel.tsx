@@ -32,7 +32,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { EmailRecord, Project } from "@cantaia/database";
-import { formatDate } from "@/lib/mock-data";
+import { formatDate } from "@/lib/format";
 
 const classificationConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string }> = {
   action_required: { label: "Action", icon: AlertCircle, color: "text-orange-600 dark:text-orange-400 bg-orange-500/10" },

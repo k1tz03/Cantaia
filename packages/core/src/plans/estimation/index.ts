@@ -5,9 +5,8 @@ export { runEstimationPipeline } from './pipeline';
 export type { PipelineParams } from './pipeline';
 
 export { buildConsensus } from './consensus-engine';
-export { resolvePrice, resolvePricesBatch } from './price-resolver';
+export { resolvePrice } from './price-resolver';
 export { calculateGlobalScore, calculateSourceDistribution, getScoreLabel, getScoreColor, combinedConfidenceLabel } from './confidence-calculator';
-export { calculateDynamicConfidence } from './dynamic-confidence';
 
 export { getQuantityCalibration, getPriceCalibration, getModelErrorProfile, getBureauProfile } from './calibration-engine';
 export { verifyCrossPlan, getCrossPlanBonus } from './cross-plan-verification';

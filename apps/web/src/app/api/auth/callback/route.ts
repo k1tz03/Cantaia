@@ -262,7 +262,7 @@ export async function GET(request: Request) {
                     ...tokenFields,
                   } as any, { onConflict: "id" });
 
-                  // 3. Sync user_metadata so ProfileForm works for the OAuth user
+                  // 3. Sync user_metadata so the profile settings form works for the OAuth user
                   try {
                     await adminClient.auth.admin.updateUserById(data.user.id, {
                       user_metadata: {

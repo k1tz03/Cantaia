@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { ShieldCheck, CheckSquare } from "lucide-react";
-import { formatDate } from "@/lib/mock-data";
+import { formatDate } from "@/lib/format";
 import { GuaranteeAlerts } from "@/components/closure/GuaranteeAlerts";
 import { ProjectFinancialsSection } from "./ProjectFinancialsSection";
 

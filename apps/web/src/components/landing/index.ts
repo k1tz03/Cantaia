@@ -1,9 +1,0 @@
-export { AnimatedSection } from "./AnimatedSection";
-export { HeroSection } from "./HeroSection";
-export { ProofSection } from "./ProofSection";
-export { ProblemSection } from "./ProblemSection";
-export { FeaturesSection } from "./FeaturesSection";
-export { HowItWorksSection } from "./HowItWorksSection";
-export { TrustSection } from "./FAQSection";
-export { FinalCTASection } from "./FinalCTASection";
-export { VideoSection } from "./VideoSection";

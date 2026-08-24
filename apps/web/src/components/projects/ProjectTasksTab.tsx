@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { StatusBadge, PriorityIndicator } from "@cantaia/ui";
 import { Clock, Plus } from "lucide-react";
-import { formatDate } from "@/lib/mock-data";
+import { formatDate } from "@/lib/format";
 import type { Task } from "@cantaia/database";
 
 export function ProjectTasksTab({

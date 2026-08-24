@@ -266,11 +266,11 @@ export async function PATCH(
     // deleted rows, so every received offer became an orphan and the comparison
     // table silently emptied itself.
     //
-    // Decision: REFUSE (410) rather than upsert. The only caller was
-    // `components/submissions/SubmissionEditor.tsx`, which is no longer mounted
-    // anywhere (replaced by the analyze pipeline + PriceRequestV2). Failing loudly
-    // is preferable to silently orphaning quotes if that editor is ever revived —
-    // whoever revives it must implement an id-preserving upsert first.
+    // Decision: REFUSE (410) rather than upsert. The only caller was the legacy
+    // submission editor, since deleted (replaced by the analyze pipeline +
+    // PriceRequestV2). Failing loudly is preferable to silently orphaning quotes
+    // if such an editor is ever rebuilt — whoever rebuilds it must implement an
+    // id-preserving upsert first.
     if ("items" in body) {
       return NextResponse.json(
         {

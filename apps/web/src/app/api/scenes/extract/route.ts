@@ -358,8 +358,8 @@ export async function POST(request: NextRequest) {
 
       // 10c. Success path — persist scene, confidence, and cost metrics.
       // We compute a simple confidence heuristic from the scene itself (mean
-      // of element-level confidences when present); the richer scoring lives
-      // in dynamic-confidence.ts and will be folded in during Phase 2.
+      // of element-level confidences when present). A richer scoring pass is
+      // deferred to Phase 2.
       const elements =
         (result.scene as any).elements as Array<{ confidence?: number }>;
       const elementConfidences = Array.isArray(elements)
